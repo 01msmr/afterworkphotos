@@ -20,15 +20,68 @@ for (let i = PHOTO_COUNT; i >= 1; i -= PER_SECTION) {
   sections.push(section);
 }
 
-// Mobile: highlight image as it snaps into view
+// Mobile: fit title text to image width
 if (PER_SECTION === 1) {
-  const observer = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      const box = entry.target.querySelector('.awbox');
-      box.classList.toggle('in-view', entry.isIntersecting);
+  const title = document.querySelector('h1.title');
+  function fitTitle() {
+    let lo = 1, hi = 200;
+    while (hi - lo > 0.5) {
+      const mid = (lo + hi) / 2;
+      title.style.fontSize = mid + 'px';
+      if (title.scrollWidth <= title.clientWidth) lo = mid;
+      else hi = mid;
+    }
+    title.style.fontSize = lo + 'px';
+  }
+  fitTitle();
+  window.addEventListener('resize', fitTitle);
+}
+
+// Mobile: tap anywhere to advance to next section, wraps at end
+if (PER_SECTION === 1) {
+  let touchStartX, touchStartY, touchStartTime;
+
+  main.addEventListener('touchstart', (e) => {
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+    touchStartTime = Date.now();
+  }, { passive: true });
+
+  main.addEventListener('touchend', (e) => {
+    const dx = Math.abs(e.changedTouches[0].clientX - touchStartX);
+    const dy = Math.abs(e.changedTouches[0].clientY - touchStartY);
+    if (dx > 10 || dy > 10 || Date.now() - touchStartTime > 300) return;
+
+    const st = main.scrollTop;
+    const mainH = main.clientHeight;
+    let current = 0, maxV = 0;
+    sections.forEach((s, i) => {
+      const v = Math.max(0, Math.min(st + mainH, s.offsetTop + s.offsetHeight) - Math.max(st, s.offsetTop));
+      if (v > maxV) { maxV = v; current = i; }
     });
-  }, { root: main, threshold: 0.5 });
-  sections.forEach(s => observer.observe(s));
+    sections[(current + 1) % sections.length].scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, { passive: true });
+}
+
+// Mobile: scroll-driven opacity — fade only in the second half of each section's entry/exit
+if (PER_SECTION === 1) {
+  boxes.forEach(box => { box.style.opacity = 0; });
+
+  function updateMobileOpacity() {
+    const st = main.scrollTop;
+    const mainH = main.clientHeight;
+    sections.forEach((section) => {
+      const box = section.querySelector('.awbox');
+      const top = section.offsetTop;
+      const h   = section.offsetHeight;
+      const visible = Math.max(0, Math.min(st + mainH, top + h) - Math.max(st, top));
+      const ratio = visible / h;
+      box.style.opacity = Math.max(0, Math.min(1, (ratio - 0.5) * 2));
+    });
+  }
+
+  main.addEventListener('scroll', updateMobileOpacity, { passive: true });
+  updateMobileOpacity();
 }
 
 // Desktop: keyboard + mouse
@@ -41,11 +94,14 @@ const cursor = document.createElement('div');
 cursor.id = 'cursor';
 document.body.appendChild(cursor);
 
+let idleTimer;
 document.addEventListener('mousemove', (e) => {
   cursor.style.left = e.clientX + 'px';
   cursor.style.top  = e.clientY + 'px';
-  cursor.style.opacity = '1';
+  cursor.style.opacity = '0.65';
   mouseHasMoved = true;
+  clearTimeout(idleTimer);
+  idleTimer = setTimeout(() => { cursor.style.opacity = '0'; }, 20000);
 });
 
 boxes.forEach((box, i) => {

@@ -12,14 +12,14 @@ body {
 
 #cursor {
 	position: fixed;
-	width: 14px;
-	height: 14px;
+	width: 21px;
+	height: 21px;
 	background: white;
 	pointer-events: none;
 	z-index: 99999;
 	transform: translate(-50%, -50%);
 	opacity: 0;
-	transition: opacity 0.75s ease;
+	transition: opacity 0.9s ease;
 }
 
 h1.title {
@@ -28,7 +28,7 @@ h1.title {
 	left: 3%;
 	width: 96%;
 	opacity: .12;
-	transition: opacity 4.0s ease-out;
+	transition: opacity 0.9s ease-out;
 	padding: var(--tp) 0;
 	margin: 0;
 	overflow: hidden;
@@ -36,7 +36,7 @@ h1.title {
 }
 
 h1.title:hover {
-	transition: opacity 0.2s ease-out;
+	transition: opacity 0.9s ease-out;
 	opacity: 1;
 }
 
@@ -79,7 +79,7 @@ section {
 div.awbox {
 	width: 44%;
 	opacity: 0.12;
-	transition: opacity 0.05s ease-in;
+	transition: opacity 0.9s ease-in;
 }
 
 .awphoto {
@@ -93,25 +93,33 @@ div.awbox {
 .awbox:hover,
 .awbox.kbd-focus {
 	opacity: 1;
-	transition: opacity 0.2s ease-in;
+	transition: opacity 0.9s ease-in;
 }
 
 body.kbd-active .awbox:hover:not(.kbd-focus) {
 	opacity: 0.12;
-	transition: opacity 0.05s ease-in;
+	transition: opacity 0.9s ease-in;
 }
 
 @media (max-width: 600px) {
 	h1.title {
-		font-size: 0.65em;
+		width: 92%;
+		left: 50%;
+		transform: translateX(-50%);
+		text-align: center;
+		white-space: nowrap;
+		padding-top: 12px;
+		padding-bottom: 6px;
+	}
+
+	section {
+		padding: 0;
+		padding-top: calc(2rem + var(--tp) * 2 + 12px);
+		gap: 0;
 	}
 
 	div.awbox {
 		width: 92%;
-	}
-
-	.awbox.in-view {
-		opacity: 1;
-		transition: opacity 0.2s ease-in;
+		transition: none;
 	}
 }
