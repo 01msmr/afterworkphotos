@@ -7,6 +7,19 @@ body {
 	background-color: #dedede;
 	margin: 0;
 	padding: 0;
+	cursor: none;
+}
+
+#cursor {
+	position: fixed;
+	width: 14px;
+	height: 14px;
+	background: white;
+	pointer-events: none;
+	z-index: 99999;
+	transform: translate(-50%, -50%);
+	opacity: 0;
+	transition: opacity 0.75s ease;
 }
 
 h1.title {
@@ -48,6 +61,7 @@ p.subtitle {
 	height: 100vh;
 	overflow-y: scroll;
 	scroll-snap-type: y mandatory;
+	touch-action: pan-y;
 }
 
 section {
@@ -69,7 +83,6 @@ div.awbox {
 }
 
 .awphoto {
-	cursor: none;
 	box-shadow: 2px 6px 32px 8px rgba(40,40,0,0.50);
 }
 
@@ -77,9 +90,15 @@ div.awbox {
 	display: block;
 }
 
-.awbox:hover {
+.awbox:hover,
+.awbox.kbd-focus {
 	opacity: 1;
 	transition: opacity 0.2s ease-in;
+}
+
+body.kbd-active .awbox:hover:not(.kbd-focus) {
+	opacity: 0.12;
+	transition: opacity 0.05s ease-in;
 }
 
 @media (max-width: 600px) {
@@ -89,5 +108,10 @@ div.awbox {
 
 	div.awbox {
 		width: 92%;
+	}
+
+	.awbox.in-view {
+		opacity: 1;
+		transition: opacity 0.2s ease-in;
 	}
 }
