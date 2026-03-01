@@ -37,8 +37,28 @@ if (PER_SECTION === 1) {
   window.addEventListener('resize', fitTitle);
 }
 
-// Mobile: tap anywhere to advance to next section, wraps at end
+// Mobile: split tap zones in whitespace below image — upper 2/3 goes up, lower 1/3 goes down
 if (PER_SECTION === 1) {
+  sections.forEach(section => {
+    const divider = document.createElement('div');
+    divider.className = 'tap-divider';
+    section.appendChild(divider);
+  });
+
+  function positionDividers() {
+    sections.forEach(section => {
+      const box = section.querySelector('.awbox');
+      const boxBottom = box.offsetTop + box.offsetHeight;
+      const whitespaceH = section.offsetHeight - boxBottom;
+      const divider = section.querySelector('.tap-divider');
+      divider.style.top    = boxBottom + 'px';
+      divider.style.height = (whitespaceH * 0.6) + 'px';
+    });
+  }
+  window.addEventListener('load', positionDividers);
+  window.addEventListener('resize', positionDividers);
+  sections.forEach(s => s.querySelector('img').addEventListener('load', positionDividers));
+
   let touchStartX, touchStartY, touchStartTime;
 
   main.addEventListener('touchstart', (e) => {
@@ -52,6 +72,7 @@ if (PER_SECTION === 1) {
     const dy = Math.abs(e.changedTouches[0].clientY - touchStartY);
     if (dx > 10 || dy > 10 || Date.now() - touchStartTime > 300) return;
 
+    const tapY = e.changedTouches[0].clientY;
     const st = main.scrollTop;
     const mainH = main.clientHeight;
     let current = 0, maxV = 0;
@@ -59,7 +80,17 @@ if (PER_SECTION === 1) {
       const v = Math.max(0, Math.min(st + mainH, s.offsetTop + s.offsetHeight) - Math.max(st, s.offsetTop));
       if (v > maxV) { maxV = v; current = i; }
     });
-    sections[(current + 1) % sections.length].scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    const section = sections[current];
+    const boxRect = section.querySelector('.awbox').getBoundingClientRect();
+    const sectionRect = section.getBoundingClientRect();
+    if (tapY <= boxRect.bottom || tapY >= sectionRect.bottom) return;
+
+    const dividerY = boxRect.bottom + (sectionRect.bottom - boxRect.bottom) * 0.6;
+    const next = tapY > dividerY
+      ? (current - 1 + sections.length) % sections.length
+      : (current + 1) % sections.length;
+    sections[next].scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, { passive: true });
 }
 
@@ -101,7 +132,7 @@ document.addEventListener('mousemove', (e) => {
   cursor.style.opacity = '0.65';
   mouseHasMoved = true;
   clearTimeout(idleTimer);
-  idleTimer = setTimeout(() => { cursor.style.opacity = '0'; }, 20000);
+  idleTimer = setTimeout(() => { cursor.style.opacity = '0'; }, 2000);
 });
 
 boxes.forEach((box, i) => {
