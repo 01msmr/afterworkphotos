@@ -1,5 +1,13 @@
 :root {
-	--tp: 12px; /* title padding-top = "title from top" distance */
+	--tp: 12px;
+	--app-height: 100vh;
+	/* overridden by JS with window.innerHeight */
+}
+
+html,
+body {
+	overscroll-behavior: none;
+	-webkit-overflow-scrolling: auto;
 }
 
 body {
@@ -57,8 +65,9 @@ p.subtitle {
 	font-weight: bold;
 }
 
+/* ── Desktop: scroll-snap ── */
 .main {
-	height: 100vh;
+	height: var(--app-height);
 	overflow-y: scroll;
 	scroll-snap-type: y mandatory;
 	touch-action: pan-y;
@@ -67,14 +76,14 @@ p.subtitle {
 
 section {
 	position: relative;
-	height: 100vh;
+	height: var(--app-height);
 	scroll-snap-align: start;
 	display: flex;
 	align-items: flex-start;
 	justify-content: center;
 	gap: 3%;
 	padding: 3%;
-	padding-top: calc(4rem + var(--tp) * 2); /* title height + 2× title-from-top gap */
+	padding-top: calc(4rem + var(--tp) * 2);
 	box-sizing: border-box;
 }
 
@@ -85,7 +94,7 @@ div.awbox {
 }
 
 .awphoto {
-	box-shadow: 2px 6px 32px 8px rgba(40,40,0,0.50);
+	box-shadow: 2px 6px 32px 8px rgba(40, 40, 0, 0.50);
 }
 
 .awphoto img {
@@ -103,49 +112,7 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 	transition: opacity 0.9s ease-in;
 }
 
-/* Seam clones — fully opaque so the pinned card doesn't show through */
-.seam-pre,
-.seam-post {
-	position: relative;
-	z-index: 10;
-	background-color: #dedede;
-}
-
-/* Clone awboxes must be fully opaque — they inherit 0.12 from .awbox otherwise */
-.seam-pre .awbox,
-.seam-post .awbox {
-	opacity: 1;
-}
-
-/* Forward seam: postClone (clone of first card) enters from below.
-   Full black at the top border, fading to transparent — like a card
-   being pushed up from under the stack. */
-.seam-post::before {
-	content: '';
-	position: absolute;
-	top: 0;
-	left: 0;
-	right: 0;
-	height: 33.33vh;
-	background: linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%);
-	pointer-events: none;
-	z-index: 20;
-}
-
-/* Backward seam: preClone (clone of last card) enters from above.
-   Full black at the bottom border, fading to transparent upward. */
-.seam-pre::after {
-	content: '';
-	position: absolute;
-	bottom: 0;
-	left: 0;
-	right: 0;
-	height: 33.33vh;
-	background: linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%);
-	pointer-events: none;
-	z-index: 20;
-}
-
+/* ── Mobile: carousel ── */
 @media (max-width: 600px) {
 	.tap-divider {
 		position: fixed;
@@ -153,7 +120,7 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 		width: 100%;
 		border-bottom: 1.4px dotted rgba(0, 0, 0, 0.10);
 		pointer-events: none;
-		z-index: 0;
+		z-index: 9999;
 	}
 
 	h1.title {
@@ -166,14 +133,37 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 		padding-bottom: 6px;
 	}
 
+	.main {
+		height: var(--app-height);
+		overflow: hidden;
+		scroll-snap-type: none;
+		touch-action: none;
+		position: relative;
+	}
+
+	.carousel-track {
+		display: flex;
+		flex-direction: column;
+		will-change: transform;
+	}
+
+	.carousel-track.animating {
+		transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+	}
+
 	section {
+		flex: 0 0 var(--app-height);
+		height: var(--app-height);
 		padding: 0;
 		padding-top: calc(2rem + var(--tp) * 2 + 12px);
 		gap: 0;
+		scroll-snap-align: none;
+		background-color: #dedede;
 	}
 
 	div.awbox {
 		width: 92%;
-		transition: none;
+		/* No CSS opacity transition on mobile — JS controls opacity directly */
+		transition: none !important;
 	}
 }
