@@ -1,0 +1,2 @@
+<?php
+define('UPLOAD_SECRET', 'eb027b1600b8605e57587fb892a3a8c1');

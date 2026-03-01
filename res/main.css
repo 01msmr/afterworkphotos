@@ -62,9 +62,11 @@ p.subtitle {
 	overflow-y: scroll;
 	scroll-snap-type: y mandatory;
 	touch-action: pan-y;
+	overscroll-behavior-y: none;
 }
 
 section {
+	position: relative;
 	height: 100vh;
 	scroll-snap-align: start;
 	display: flex;
@@ -101,17 +103,57 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 	transition: opacity 0.9s ease-in;
 }
 
-@media (max-width: 600px) {
-	section {
-		position: relative;
-	}
+/* Seam clones — fully opaque so the pinned card doesn't show through */
+.seam-pre,
+.seam-post {
+	position: relative;
+	z-index: 10;
+	background-color: #dedede;
+}
 
+/* Clone awboxes must be fully opaque — they inherit 0.12 from .awbox otherwise */
+.seam-pre .awbox,
+.seam-post .awbox {
+	opacity: 1;
+}
+
+/* Forward seam: postClone (clone of first card) enters from below.
+   Full black at the top border, fading to transparent — like a card
+   being pushed up from under the stack. */
+.seam-post::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	height: 33.33vh;
+	background: linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%);
+	pointer-events: none;
+	z-index: 20;
+}
+
+/* Backward seam: preClone (clone of last card) enters from above.
+   Full black at the bottom border, fading to transparent upward. */
+.seam-pre::after {
+	content: '';
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	height: 33.33vh;
+	background: linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%);
+	pointer-events: none;
+	z-index: 20;
+}
+
+@media (max-width: 600px) {
 	.tap-divider {
-		position: absolute;
-		left: 4%;
-		width: 92%;
-		border-bottom: 1px dotted rgba(0, 0, 0, 0.07);
+		position: fixed;
+		left: 0;
+		width: 100%;
+		border-bottom: 1.4px dotted rgba(0, 0, 0, 0.10);
 		pointer-events: none;
+		z-index: 0;
 	}
 
 	h1.title {

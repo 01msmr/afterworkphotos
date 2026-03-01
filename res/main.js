@@ -37,27 +37,58 @@ if (PER_SECTION === 1) {
   window.addEventListener('resize', fitTitle);
 }
 
-// Mobile: split tap zones in whitespace below image — upper 2/3 goes up, lower 1/3 goes down
+// Mobile: infinite loop — clone last/first section as ghost entries at both ends
+let seamFirstTop = 0, seamLastTop = 0, teleporting = false;
 if (PER_SECTION === 1) {
-  sections.forEach(section => {
-    const divider = document.createElement('div');
-    divider.className = 'tap-divider';
-    section.appendChild(divider);
-  });
+  history.scrollRestoration = 'manual';
+  const preClone  = sections[sections.length - 1].cloneNode(true);
+  const postClone = sections[0].cloneNode(true);
+  preClone.classList.add('seam-pre');
+  postClone.classList.add('seam-post');
+  // preClone: extra height at bottom = shadow buffer; image stays at top (flex-start)
+  preClone.style.height = 'calc(100vh + 33.33vh)';
+  // postClone: extra height at top = shadow buffer; push content down to match real section
+  const origPT = getComputedStyle(sections[0]).paddingTop;
+  postClone.style.height = 'calc(100vh + 33.33vh)';
+  postClone.style.paddingTop = `calc(33.33vh + ${origPT})`;
+  postClone.style.scrollSnapAlign = 'end';
+  main.insertBefore(preClone, main.firstChild);
+  main.appendChild(postClone);
+  // Reading offsetTop forces a synchronous layout — values are always correct here
+  seamFirstTop = sections[0].offsetTop;
+  seamLastTop  = sections[sections.length - 1].offsetTop;
+  // Disable snap to avoid an animated scroll from 0 → seamFirstTop on load.
+  // Hold teleporting=true so the loop timer can't fire during the settle.
+  teleporting = true;
+  main.style.scrollSnapType = 'none';
+  main.scrollTop = seamFirstTop;
+  void main.offsetHeight;
+  main.style.scrollSnapType = 'y mandatory';
+  requestAnimationFrame(() => requestAnimationFrame(() => { teleporting = false; }));
+}
 
-  function positionDividers() {
-    sections.forEach(section => {
-      const box = section.querySelector('.awbox');
-      const boxBottom = box.offsetTop + box.offsetHeight;
-      const whitespaceH = section.offsetHeight - boxBottom;
-      const divider = section.querySelector('.tap-divider');
-      divider.style.top    = boxBottom + 'px';
-      divider.style.height = (whitespaceH * 0.6) + 'px';
+// Mobile: split tap zones in whitespace below image — upper 60% goes down, lower 40% goes up
+if (PER_SECTION === 1) {
+  const divider = document.createElement('div');
+  divider.className = 'tap-divider';
+  document.body.appendChild(divider);
+
+  let dividerY = null;
+
+  function setDivider() {
+    requestAnimationFrame(() => {
+      const box = sections[0].querySelector('.awbox');
+      const boxRect = box.getBoundingClientRect();
+      const secRect = sections[0].getBoundingClientRect();
+      const whitespaceH = secRect.bottom - boxRect.bottom;
+      if (whitespaceH <= 0) return;
+      dividerY = boxRect.bottom + whitespaceH * 0.6;
+      divider.style.top = dividerY + 'px';
     });
   }
-  window.addEventListener('load', positionDividers);
-  window.addEventListener('resize', positionDividers);
-  sections.forEach(s => s.querySelector('img').addEventListener('load', positionDividers));
+
+  sections[0].querySelector('img').addEventListener('load', setDivider);
+  window.addEventListener('load', setDivider);
 
   let touchStartX, touchStartY, touchStartTime;
 
@@ -71,26 +102,20 @@ if (PER_SECTION === 1) {
     const dx = Math.abs(e.changedTouches[0].clientX - touchStartX);
     const dy = Math.abs(e.changedTouches[0].clientY - touchStartY);
     if (dx > 10 || dy > 10 || Date.now() - touchStartTime > 300) return;
+    if (dividerY === null) return;
 
-    const tapY = e.changedTouches[0].clientY;
-    const st = main.scrollTop;
-    const mainH = main.clientHeight;
+    const st = main.scrollTop, mainH = main.clientHeight;
     let current = 0, maxV = 0;
     sections.forEach((s, i) => {
       const v = Math.max(0, Math.min(st + mainH, s.offsetTop + s.offsetHeight) - Math.max(st, s.offsetTop));
       if (v > maxV) { maxV = v; current = i; }
     });
 
-    const section = sections[current];
-    const boxRect = section.querySelector('.awbox').getBoundingClientRect();
-    const sectionRect = section.getBoundingClientRect();
-    if (tapY <= boxRect.bottom || tapY >= sectionRect.bottom) return;
-
-    const dividerY = boxRect.bottom + (sectionRect.bottom - boxRect.bottom) * 0.6;
-    const next = tapY > dividerY
-      ? (current - 1 + sections.length) % sections.length
-      : (current + 1) % sections.length;
-    sections[next].scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const goForward = e.changedTouches[0].clientY > dividerY;
+    const nextIdx = goForward
+      ? (current + 1) % sections.length
+      : (current - 1 + sections.length) % sections.length;
+    sections[nextIdx].scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, { passive: true });
 }
 
@@ -103,8 +128,8 @@ if (PER_SECTION === 1) {
     const mainH = main.clientHeight;
     sections.forEach((section) => {
       const box = section.querySelector('.awbox');
-      const top = section.offsetTop;
       const h   = section.offsetHeight;
+      const top = section.offsetTop;
       const visible = Math.max(0, Math.min(st + mainH, top + h) - Math.max(st, top));
       const ratio = visible / h;
       box.style.opacity = Math.max(0, Math.min(1, (ratio - 0.5) * 2));
@@ -113,6 +138,36 @@ if (PER_SECTION === 1) {
 
   main.addEventListener('scroll', updateMobileOpacity, { passive: true });
   updateMobileOpacity();
+
+  // Infinite loop: after scroll settles on a clone, silently jump to the real section.
+  // Clone snap positions are visually identical to the corresponding real section, so no
+  // opacity masking is needed — just disable snap, jump, re-enable snap.
+  function doTeleport(target) {
+    teleporting = true;
+    main.style.scrollSnapType = 'none';
+    main.scrollTop = target;
+    void main.offsetHeight;
+    main.style.scrollSnapType = 'y mandatory';
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      updateMobileOpacity();
+      teleporting = false;
+    }));
+  }
+
+  let loopTimer;
+  main.addEventListener('scroll', () => {
+    if (teleporting) return;
+    clearTimeout(loopTimer);
+    loopTimer = setTimeout(() => {
+      const sH = main.clientHeight;
+      const st = main.scrollTop;
+      if (st < seamFirstTop * 0.5) {
+        doTeleport(seamLastTop);
+      } else if (st > seamLastTop + sH * 0.5) {
+        doTeleport(seamFirstTop);
+      }
+    }, 400);
+  }, { passive: true });
 }
 
 // Desktop: keyboard + mouse
