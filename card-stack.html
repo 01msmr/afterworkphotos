@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Stack</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,900&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #060606;
+  }
+
+  /* ─── Scroll Container ──────────────────────────────────────── */
+  #viewport {
+    position: fixed;
+    inset: 0;
+    overflow-y: scroll;
+    scroll-snap-type: y mandatory;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #viewport::-webkit-scrollbar { display: none; }
+
+  /* ─── Slot (scroll-snap target, full viewport height) ─────── */
+  .slot {
+    width: 100%;
+    height: 100vh;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 28px 40px;
+  }
+
+  /* ─── Card (the visual playing card inside each slot) ──────── */
+  .card {
+    width: 100%;
+    max-width: 960px;
+    height: 100%;
+    border-radius: 18px;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 52px 64px 56px;
+    /* real card shadow — casts down (reduced 60%) */
+    box-shadow:
+      0 16px 40px rgba(0,0,0,0.55),
+      0 0 0 1px rgba(255,255,255,0.04) inset;
+  }
+
+  /* Clone-first (at bottom of list, scroll DOWN into it):
+     last card above casts shadow DOWN onto clone-first → shadow at TOP of card */
+  .slot.clone-first .card {
+    box-shadow:
+      0 -6px 20px rgba(0,0,0,0.65),
+      0 -1px 0 rgba(255,255,255,0.10),
+      0 16px 40px rgba(0,0,0,0.4);
+  }
+
+  /* Clone-last (at top of list, scroll UP into it):
+     first card below casts shadow UP onto clone-last → shadow at BOTTOM of card (mirrored) */
+  .slot.clone-last .card {
+    box-shadow:
+      0 6px 20px rgba(0,0,0,0.65),
+      0 1px 0 rgba(255,255,255,0.10),
+      0 -16px 40px rgba(0,0,0,0.4);
+  }
+
+  /* ─── Card Typography ────────────────────────────────────────── */
+  .card-watermark {
+    position: absolute;
+    top: -30px;
+    right: 36px;
+    font-family: 'Fraunces', serif;
+    font-size: clamp(200px, 30vw, 380px);
+    font-weight: 900;
+    line-height: 1;
+    color: currentColor;
+    opacity: 0.06;
+    user-select: none;
+    pointer-events: none;
+    letter-spacing: -10px;
+  }
+
+  .card-rule {
+    position: absolute;
+    top: 44px;
+    left: 64px;
+    right: 64px;
+    height: 1px;
+    background: currentColor;
+    opacity: 0.09;
+  }
+
+  /* Corner index (top-left) */
+  .card-index {
+    position: absolute;
+    top: 52px;
+    left: 64px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 4px;
+    opacity: 0.35;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .card-index::before {
+    content: '';
+    display: block;
+    width: 22px;
+    height: 1px;
+    background: currentColor;
+    opacity: 0.7;
+  }
+
+  /* Bottom content */
+  .card-content { position: relative; z-index: 2; }
+
+  .card-title {
+    font-family: 'Fraunces', serif;
+    font-size: clamp(46px, 8vw, 92px);
+    font-weight: 900;
+    line-height: 0.93;
+    letter-spacing: -2.5px;
+    margin-bottom: 26px;
+  }
+
+  .card-body {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    line-height: 1.95;
+    opacity: 0.48;
+    max-width: 380px;
+  }
+
+  /* ─── Card Palettes ─────────────────────────────────────────── */
+  .card[data-c="1"] { background: #0c1a28; color: #c2d9e8; }
+  .card[data-c="2"] { background: #240d06; color: #eac5ad; }
+  .card[data-c="3"] { background: #081c0b; color: #b5d1b8; }
+  .card[data-c="4"] { background: #0c0820; color: #c0b8f2; }
+  .card[data-c="5"] { background: #1c1203; color: #e2d2a2; }
+  .card[data-c="6"] { background: #170914; color: #d6b4c8; }
+
+  /* ─── Side Progress Pips ────────────────────────────────────── */
+  #pips {
+    position: fixed;
+    right: 22px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 999;
+  }
+
+  .pip {
+    width: 3px;
+    height: 3px;
+    border-radius: 9px;
+    background: rgba(255,255,255,0.22);
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    transition: background 0.35s ease, height 0.35s cubic-bezier(0.34,1.56,0.64,1), border-radius 0.35s ease;
+  }
+
+  .pip.on {
+    background: rgba(255,255,255,0.85);
+    height: 20px;
+  }
+
+  .pip:hover:not(.on) { background: rgba(255,255,255,0.45); }
+
+  /* ─── Scroll Hint ───────────────────────────────────────────── */
+  #hint {
+    position: fixed;
+    bottom: 22px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    z-index: 999;
+    pointer-events: none;
+    transition: opacity 1s ease;
+  }
+
+  #hint span {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8px;
+    letter-spacing: 5px;
+    color: rgba(255,255,255,0.18);
+    text-transform: uppercase;
+  }
+
+  .hint-arrow {
+    width: 11px;
+    height: 11px;
+    border-right: 1px solid rgba(255,255,255,0.18);
+    border-bottom: 1px solid rgba(255,255,255,0.18);
+    transform: rotate(45deg);
+    animation: dip 1.7s ease-in-out infinite;
+  }
+
+  @keyframes dip {
+    0%, 100% { transform: rotate(45deg) translate(0, 0); }
+    50%       { transform: rotate(45deg) translate(3px, 3px); }
+  }
+
+  /* ─── Card number corner (bottom-right) ────────────────────── */
+  .card-corner {
+    position: absolute;
+    bottom: 52px;
+    right: 64px;
+    font-family: 'Fraunces', serif;
+    font-size: 13px;
+    font-weight: 900;
+    opacity: 0.18;
+    letter-spacing: 1px;
+  }
+</style>
+</head>
+<body>
+
+<div id="viewport"></div>
+<div id="pips"></div>
+<div id="hint">
+  <span>scroll</span>
+  <div class="hint-arrow"></div>
+</div>
+
+<script>
+/* ─── Data ────────────────────────────────────────────────────── */
+const DATA = [
+  {
+    n: 1, label: 'Chapter 01',
+    title: 'The Weight\nof Light',
+    body: 'Every photograph is a decision\nabout what to include —\nand what to leave in darkness.',
+  },
+  {
+    n: 2, label: 'Chapter 02',
+    title: 'Burning\nSlow',
+    body: 'Exposure is patience made visible.\nTime compressed into\na single silver moment.',
+  },
+  {
+    n: 3, label: 'Chapter 03',
+    title: 'Root\nSystems',
+    body: 'The most enduring structures grow\nbeneath the surface, invisible\nuntil the moment they are tested.',
+  },
+  {
+    n: 4, label: 'Chapter 04',
+    title: 'Deep\nWater',
+    body: 'Pressure creates clarity.\nWhat survives the depths\nwas always meant to endure.',
+  },
+  {
+    n: 5, label: 'Chapter 05',
+    title: 'Amber\nHours',
+    body: 'Between day and night\nthere is a color that has no name\nand lasts only seconds.',
+  },
+  {
+    n: 6, label: 'Chapter 06',
+    title: 'The Long\nReturn',
+    body: 'Every ending is a form of navigation.\nYou always arrive\nsomewhere you have been before.',
+  },
+];
+
+/* ─── DOM refs ────────────────────────────────────────────────── */
+const vp     = document.getElementById('viewport');
+const pipsEl = document.getElementById('pips');
+const hint   = document.getElementById('hint');
+const N      = DATA.length;
+
+/* ─── Build one slot + card ───────────────────────────────────── */
+function buildSlot(d, cloneType) {
+  const slot = document.createElement('div');
+  slot.className = 'slot' + (cloneType ? ' ' + cloneType : '');
+
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.setAttribute('data-c', d.n);
+
+  card.innerHTML = `
+    <div class="card-rule"></div>
+    <div class="card-index">${d.label}</div>
+    <div class="card-watermark">${String(d.n).padStart(2,'0')}</div>
+    <div class="card-corner">${String(d.n).padStart(2,'0')} / ${String(N).padStart(2,'0')}</div>
+    <div class="card-content">
+      <h2 class="card-title">${d.title.replace(/\n/g,'<br>')}</h2>
+      <p  class="card-body">${d.body.replace(/\n/g,'<br>')}</p>
+    </div>
+  `;
+
+  slot.appendChild(card);
+  return slot;
+}
+
+/* ─── Build DOM: [clone-last] [real×N] [clone-first] ─────────── */
+vp.appendChild(buildSlot(DATA[N - 1], 'clone-last'));    // pos 0 — clone of last
+DATA.forEach(d => vp.appendChild(buildSlot(d, null)));   // pos 1..N
+vp.appendChild(buildSlot(DATA[0], 'clone-first'));        // pos N+1 — clone of first
+
+/* ─── Pips ────────────────────────────────────────────────────── */
+let activePip = 0;
+
+DATA.forEach((_, i) => {
+  const pip = document.createElement('button');
+  pip.className = 'pip' + (i === 0 ? ' on' : '');
+  pip.setAttribute('aria-label', `Section ${i + 1}`);
+  pip.addEventListener('click', () => jumpTo(i));
+  pipsEl.appendChild(pip);
+});
+
+const pips = pipsEl.querySelectorAll('.pip');
+
+function setActive(i) {
+  activePip = ((i % N) + N) % N;
+  pips.forEach((p, k) => p.classList.toggle('on', k === activePip));
+}
+
+/* ─── Scroll mechanics ────────────────────────────────────────── */
+function vh() { return window.innerHeight; }
+
+let teleporting = false;
+
+function teleport(realIdx) {
+  if (teleporting) return;
+  teleporting = true;
+  // Disable snap + freeze overflow to kill iOS momentum, then hard-set position
+  vp.style.scrollSnapType = 'none';
+  vp.style.overflowY = 'hidden';
+  vp.scrollTop = (realIdx + 1) * vh();    // +1 because clone-last occupies slot 0
+  // Two rAFs: first paints the new position, second re-enables snap
+  requestAnimationFrame(() => {
+    vp.style.overflowY = '';
+    requestAnimationFrame(() => {
+      vp.style.scrollSnapType = 'y mandatory';
+      teleporting = false;
+    });
+  });
+  setActive(realIdx);
+}
+
+function jumpTo(realIdx, animate = false) {
+  const top = (realIdx + 1) * vh();
+  if (animate) {
+    vp.scrollTo({ top, behavior: 'smooth' });
+  } else {
+    teleport(realIdx);
+  }
+  setActive(realIdx);
+}
+
+/* Initialise at real card 0 (skip the clone-last sentinel) */
+vp.style.scrollSnapType = 'none';
+vp.scrollTop = vh();
+requestAnimationFrame(() => vp.style.scrollSnapType = 'y mandatory');
+setActive(0);
+
+/* ─── Scroll listener ─────────────────────────────────────────── */
+let snapTimer = null;
+let hintGone  = false;
+
+function afterSnap() {
+  if (teleporting) return;
+  const idx = Math.round(vp.scrollTop / vh());
+
+  if (idx === 0) {
+    // Landed on clone-last → silently jump to real last
+    teleport(N - 1);
+  } else if (idx === N + 1) {
+    // Landed on clone-first → silently jump to real first
+    teleport(0);
+  }
+}
+
+vp.addEventListener('scroll', () => {
+  if (teleporting) return;
+  const idx = Math.round(vp.scrollTop / vh());
+
+  // Live pip update
+  if      (idx >= 1 && idx <= N) setActive(idx - 1);
+  else if (idx === 0)             setActive(N - 1);
+  else if (idx === N + 1)         setActive(0);
+
+  // Fade the scroll hint after first move
+  if (!hintGone && Math.abs(vp.scrollTop - vh()) > 20) {
+    hintGone = true;
+    hint.style.opacity = '0';
+  }
+
+  // Debounce: fire afterSnap once scrolling settles
+  clearTimeout(snapTimer);
+  snapTimer = setTimeout(afterSnap, 200);
+}, { passive: true });
+
+// Modern browsers fire scrollend reliably — use it too
+vp.addEventListener('scrollend', () => { if (!teleporting) afterSnap(); });
+
+/* ─── Keyboard ────────────────────────────────────────────────── */
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowDown' || e.key === 'PageDown') {
+    e.preventDefault();
+    jumpTo((activePip + 1) % N, true);
+  } else if (e.key === 'ArrowUp' || e.key === 'PageUp') {
+    e.preventDefault();
+    jumpTo((activePip - 1 + N) % N, true);
+  }
+});
+
+/* ─── Resize ──────────────────────────────────────────────────── */
+window.addEventListener('resize', () => {
+  vp.style.scrollSnapType = 'none';
+  vp.scrollTop = (activePip + 1) * vh();
+  requestAnimationFrame(() => vp.style.scrollSnapType = 'y mandatory');
+});
+</script>
+</body>
+</html>
