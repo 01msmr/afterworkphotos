@@ -5,23 +5,118 @@ const main = document.querySelector('.main');
 const boxes = [];
 const sections = [];
 
-for (let i = PHOTO_COUNT; i >= 1; i -= PER_SECTION) {
-  const section = document.createElement('section');
-  for (let j = i; j > i - PER_SECTION && j >= 1; j--) {
-    const box = document.createElement('div');
-    box.className = 'awbox';
-    box.innerHTML = `
-      <div class="awphoto"><img src="img/${j}.jpg" alt="afterworkphoto ${j}" loading="lazy" width="100%"></div>
-      <p class="subtitle">afterworkphoto ${j}</p>`;
-    section.appendChild(box);
-    boxes.push(box);
-  }
-  main.appendChild(section);
-  sections.push(section);
+/* ──────────────────────────────────────────────────────────
+   Reliable viewport height
+   On iOS Safari / PWA the CSS 100vh ≠ window.innerHeight.
+   We set a CSS custom property from JS and update on resize.
+   ────────────────────────────────────────────────────────── */
+function setAppHeight() {
+  document.documentElement.style.setProperty('--app-height', window.innerHeight + 'px');
 }
+setAppHeight();
+window.addEventListener('resize', setAppHeight);
 
-// Mobile: fit title text to image width
+/* ============================================================
+   MOBILE: Carousel with CSS transform
+   ============================================================ */
 if (PER_SECTION === 1) {
+
+  // Build carousel track
+  const track = document.createElement('div');
+  track.className = 'carousel-track';
+  main.appendChild(track);
+
+  // Build real sections
+  for (let i = PHOTO_COUNT; i >= 1; i -= PER_SECTION) {
+    const section = document.createElement('section');
+    for (let j = i; j > i - PER_SECTION && j >= 1; j--) {
+      const box = document.createElement('div');
+      box.className = 'awbox';
+      box.innerHTML = `
+        <div class="awphoto"><img src="img/${j}.jpg" alt="afterworkphoto ${j}" loading="lazy" width="100%"></div>
+        <p class="subtitle">afterworkphoto ${j}</p>`;
+      section.appendChild(box);
+      boxes.push(box);
+    }
+    track.appendChild(section);
+    sections.push(section);
+  }
+
+  const N = sections.length;
+
+  // Clone last → prepend, clone first → append (seamless wrap)
+  const preClone = sections[N - 1].cloneNode(true);
+  const postClone = sections[0].cloneNode(true);
+  preClone.classList.add('clone');
+  postClone.classList.add('clone');
+  track.insertBefore(preClone, track.firstChild);
+  track.appendChild(postClone);
+
+  // Collect ALL awbox elements (clones included) for opacity control
+  const allBoxes = Array.from(track.querySelectorAll('.awbox'));
+
+  // Slot layout: [cloneLast₀] [section₁] [section₂] … [sectionₙ] [cloneFirst_{N+1}]
+  let currentSlot = 1;    // first real section
+  let animating = false;
+
+  // Always use live window.innerHeight for calculations
+  function H() { return window.innerHeight; }
+
+  function setTransform(slot, animate) {
+    if (animate) {
+      track.classList.add('animating');
+    } else {
+      track.classList.remove('animating');
+    }
+    track.style.transform = `translateY(${-slot * H()}px)`;
+  }
+
+  // ── Opacity ──
+  // Force all awbox to fully opaque first, then set only the current one to 1
+  function updateOpacity() {
+    const realIdx = ((currentSlot - 1) % N + N) % N;
+    allBoxes.forEach(box => { box.style.opacity = '0.12'; });
+    // Current real section
+    sections[realIdx].querySelector('.awbox').style.opacity = '1';
+    // Matching clone (if we're showing a clone during wrap)
+    if (currentSlot === 0) preClone.querySelector('.awbox').style.opacity = '1';
+    if (currentSlot === N + 1) postClone.querySelector('.awbox').style.opacity = '1';
+  }
+
+  // ── Initial state ──
+  setTransform(currentSlot, false);
+  // Ensure opacity is correct after a micro-delay (images may not have laid out yet)
+  updateOpacity();
+  requestAnimationFrame(updateOpacity);
+
+  // ── Transition end: handle clone → real jump ──
+  track.addEventListener('transitionend', (e) => {
+    // Only react to the track's own transform transition
+    if (e.target !== track) return;
+    if (currentSlot === 0) {
+      currentSlot = N;
+      setTransform(currentSlot, false);
+    } else if (currentSlot === N + 1) {
+      currentSlot = 1;
+      setTransform(currentSlot, false);
+    }
+    animating = false;
+    updateOpacity();
+  });
+
+  function goTo(slot) {
+    if (animating) return;
+    animating = true;
+    currentSlot = slot;
+    // Pre-set opacity for the target so the arriving card is already bright
+    updateOpacity();
+    setTransform(currentSlot, true);
+  }
+
+  function goForward() { goTo(currentSlot + 1); }
+  function goBackward() { goTo(currentSlot - 1); }
+
+  // ── Fit title ──
   const title = document.querySelector('h1.title');
   function fitTitle() {
     let lo = 1, hi = 200;
@@ -34,227 +129,222 @@ if (PER_SECTION === 1) {
     title.style.fontSize = lo + 'px';
   }
   fitTitle();
-  window.addEventListener('resize', fitTitle);
-}
+  window.addEventListener('resize', () => { fitTitle(); setTransform(currentSlot, false); });
 
-// Mobile: infinite loop — clone last/first section as ghost entries at both ends
-let seamFirstTop = 0, seamLastTop = 0, teleporting = false;
-if (PER_SECTION === 1) {
-  history.scrollRestoration = 'manual';
-  const preClone  = sections[sections.length - 1].cloneNode(true);
-  const postClone = sections[0].cloneNode(true);
-  preClone.classList.add('seam-pre');
-  postClone.classList.add('seam-post');
-  // preClone: extra height at bottom = shadow buffer; image stays at top (flex-start)
-  preClone.style.height = 'calc(100vh + 33.33vh)';
-  // postClone: extra height at top = shadow buffer; push content down to match real section
-  const origPT = getComputedStyle(sections[0]).paddingTop;
-  postClone.style.height = 'calc(100vh + 33.33vh)';
-  postClone.style.paddingTop = `calc(33.33vh + ${origPT})`;
-  postClone.style.scrollSnapAlign = 'end';
-  main.insertBefore(preClone, main.firstChild);
-  main.appendChild(postClone);
-  // Reading offsetTop forces a synchronous layout — values are always correct here
-  seamFirstTop = sections[0].offsetTop;
-  seamLastTop  = sections[sections.length - 1].offsetTop;
-  // Disable snap to avoid an animated scroll from 0 → seamFirstTop on load.
-  // Hold teleporting=true so the loop timer can't fire during the settle.
-  teleporting = true;
-  main.style.scrollSnapType = 'none';
-  main.scrollTop = seamFirstTop;
-  void main.offsetHeight;
-  main.style.scrollSnapType = 'y mandatory';
-  requestAnimationFrame(() => requestAnimationFrame(() => { teleporting = false; }));
-}
-
-// Mobile: split tap zones in whitespace below image — upper 60% goes down, lower 40% goes up
-if (PER_SECTION === 1) {
+  // ── Tap divider ──
   const divider = document.createElement('div');
   divider.className = 'tap-divider';
   document.body.appendChild(divider);
-
   let dividerY = null;
 
   function setDivider() {
     requestAnimationFrame(() => {
       const box = sections[0].querySelector('.awbox');
+      if (!box) return;
       const boxRect = box.getBoundingClientRect();
-      const secRect = sections[0].getBoundingClientRect();
-      const whitespaceH = secRect.bottom - boxRect.bottom;
-      if (whitespaceH <= 0) return;
-      dividerY = boxRect.bottom + whitespaceH * 0.6;
+      const wh = H() - boxRect.bottom;
+      dividerY = wh > 0 ? boxRect.bottom + wh * 0.6 : H() * 0.6;
       divider.style.top = dividerY + 'px';
     });
   }
-
   sections[0].querySelector('img').addEventListener('load', setDivider);
   window.addEventListener('load', setDivider);
+  window.addEventListener('resize', setDivider);
 
-  let touchStartX, touchStartY, touchStartTime;
+  // ── Touch: drag + tap ──
+  let touchStartX = 0, touchStartY = 0, touchStartTime = 0;
+  let dragging = false;
+  let dragStartSlot = 0;
 
   main.addEventListener('touchstart', (e) => {
+    if (animating) return;
     touchStartX = e.touches[0].clientX;
     touchStartY = e.touches[0].clientY;
     touchStartTime = Date.now();
+    dragging = false;
+    dragStartSlot = currentSlot;
+    track.classList.remove('animating');
   }, { passive: true });
+
+  main.addEventListener('touchmove', (e) => {
+    if (animating) return;
+    e.preventDefault();
+    const dy = e.touches[0].clientY - touchStartY;
+    const dx = e.touches[0].clientX - touchStartX;
+
+    if (!dragging) {
+      if (Math.abs(dy) < 6 && Math.abs(dx) < 6) return;
+      if (Math.abs(dx) > Math.abs(dy)) return;
+      dragging = true;
+    }
+
+    const h = H();
+    const offset = -dragStartSlot * h + dy;
+    track.style.transform = `translateY(${offset}px)`;
+
+    // Live opacity during drag
+    const floatSlot = dragStartSlot - dy / h;
+    updateDragOpacity(floatSlot);
+  }, { passive: false });
+
+  function updateDragOpacity(floatSlot) {
+    // Total slots: 0..N+1
+    allBoxes.forEach(box => { box.style.opacity = '0.12'; });
+    // Find the two nearest slots and interpolate
+    const lo = Math.floor(floatSlot);
+    const hi = lo + 1;
+    const frac = floatSlot - lo;
+    setSlotOpacity(lo, 1 - frac);
+    setSlotOpacity(hi, frac);
+  }
+
+  function setSlotOpacity(slot, weight) {
+    if (weight < 0.05) return;
+    const op = Math.max(0.12, weight);
+    if (slot === 0) {
+      preClone.querySelector('.awbox').style.opacity = op;
+    } else if (slot === N + 1) {
+      postClone.querySelector('.awbox').style.opacity = op;
+    } else if (slot >= 1 && slot <= N) {
+      sections[slot - 1].querySelector('.awbox').style.opacity = op;
+    }
+  }
 
   main.addEventListener('touchend', (e) => {
-    const dx = Math.abs(e.changedTouches[0].clientX - touchStartX);
-    const dy = Math.abs(e.changedTouches[0].clientY - touchStartY);
-    if (dx > 10 || dy > 10 || Date.now() - touchStartTime > 300) return;
-    if (dividerY === null) return;
+    const dy = e.changedTouches[0].clientY - touchStartY;
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    const elapsed = Date.now() - touchStartTime;
 
-    const st = main.scrollTop, mainH = main.clientHeight;
-    let current = 0, maxV = 0;
-    sections.forEach((s, i) => {
-      const v = Math.max(0, Math.min(st + mainH, s.offsetTop + s.offsetHeight) - Math.max(st, s.offsetTop));
-      if (v > maxV) { maxV = v; current = i; }
-    });
+    if (dragging) {
+      const absDy = Math.abs(dy);
+      const velocity = absDy / Math.max(1, elapsed);
+      const progress = absDy / H();
+      const commit = progress > 0.2 || velocity > 0.4;
 
-    const goForward = e.changedTouches[0].clientY > dividerY;
-    const nextIdx = goForward
-      ? (current + 1) % sections.length
-      : (current - 1 + sections.length) % sections.length;
-    sections[nextIdx].scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, { passive: true });
-}
-
-// Mobile: scroll-driven opacity — fade only in the second half of each section's entry/exit
-if (PER_SECTION === 1) {
-  boxes.forEach(box => { box.style.opacity = 0; });
-
-  function updateMobileOpacity() {
-    const st = main.scrollTop;
-    const mainH = main.clientHeight;
-    sections.forEach((section) => {
-      const box = section.querySelector('.awbox');
-      const h   = section.offsetHeight;
-      const top = section.offsetTop;
-      const visible = Math.max(0, Math.min(st + mainH, top + h) - Math.max(st, top));
-      const ratio = visible / h;
-      box.style.opacity = Math.max(0, Math.min(1, (ratio - 0.5) * 2));
-    });
-  }
-
-  main.addEventListener('scroll', updateMobileOpacity, { passive: true });
-  updateMobileOpacity();
-
-  // Infinite loop: after scroll settles on a clone, silently jump to the real section.
-  // Clone snap positions are visually identical to the corresponding real section, so no
-  // opacity masking is needed — just disable snap, jump, re-enable snap.
-  function doTeleport(target) {
-    teleporting = true;
-    main.style.scrollSnapType = 'none';
-    main.scrollTop = target;
-    void main.offsetHeight;
-    main.style.scrollSnapType = 'y mandatory';
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      updateMobileOpacity();
-      teleporting = false;
-    }));
-  }
-
-  let loopTimer;
-  main.addEventListener('scroll', () => {
-    if (teleporting) return;
-    clearTimeout(loopTimer);
-    loopTimer = setTimeout(() => {
-      const sH = main.clientHeight;
-      const st = main.scrollTop;
-      if (st < seamFirstTop * 0.5) {
-        doTeleport(seamLastTop);
-      } else if (st > seamLastTop + sH * 0.5) {
-        doTeleport(seamFirstTop);
+      if (commit) {
+        if (dy < 0) goForward();
+        else goBackward();
+      } else {
+        animating = true;
+        currentSlot = dragStartSlot;
+        updateOpacity();
+        setTransform(currentSlot, true);
       }
-    }, 400);
+      dragging = false;
+      return;
+    }
+
+    // ── Tap ──
+    if (Math.abs(dx) > 10 || Math.abs(dy) > 10 || elapsed > 300) return;
+    if (animating || dividerY === null) return;
+
+    if (e.changedTouches[0].clientY > dividerY) goBackward();
+    else goForward();
   }, { passive: true });
-}
 
-// Desktop: keyboard + mouse
-let selected = -1;
-let lastMouseIndex = 0;
-let mode = 'mouse';
-let mouseHasMoved = false;
+} else {
 
-const cursor = document.createElement('div');
-cursor.id = 'cursor';
-document.body.appendChild(cursor);
+  /* ============================================================
+     DESKTOP: scroll-snap + keyboard + mouse (unchanged)
+     ============================================================ */
+  for (let i = PHOTO_COUNT; i >= 1; i -= PER_SECTION) {
+    const section = document.createElement('section');
+    for (let j = i; j > i - PER_SECTION && j >= 1; j--) {
+      const box = document.createElement('div');
+      box.className = 'awbox';
+      box.innerHTML = `
+        <div class="awphoto"><img src="img/${j}.jpg" alt="afterworkphoto ${j}" loading="lazy" width="100%"></div>
+        <p class="subtitle">afterworkphoto ${j}</p>`;
+      section.appendChild(box);
+      boxes.push(box);
+    }
+    main.appendChild(section);
+    sections.push(section);
+  }
 
-let idleTimer;
-document.addEventListener('mousemove', (e) => {
-  cursor.style.left = e.clientX + 'px';
-  cursor.style.top  = e.clientY + 'px';
-  cursor.style.opacity = '0.65';
-  mouseHasMoved = true;
-  clearTimeout(idleTimer);
-  idleTimer = setTimeout(() => { cursor.style.opacity = '0'; }, 2000);
-});
+  let selected = -1;
+  let lastMouseIndex = 0;
+  let mode = 'mouse';
+  let mouseHasMoved = false;
 
-boxes.forEach((box, i) => {
-  box.addEventListener('mouseenter', () => {
-    if (!mouseHasMoved) return;
-    lastMouseIndex = i;
-    if (mode === 'kbd') {
+  const cursor = document.createElement('div');
+  cursor.id = 'cursor';
+  document.body.appendChild(cursor);
+
+  let idleTimer;
+  document.addEventListener('mousemove', (e) => {
+    cursor.style.left = e.clientX + 'px';
+    cursor.style.top = e.clientY + 'px';
+    cursor.style.opacity = '0.65';
+    mouseHasMoved = true;
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => { cursor.style.opacity = '0'; }, 2000);
+  });
+
+  boxes.forEach((box, i) => {
+    box.addEventListener('mouseenter', () => {
+      if (!mouseHasMoved) return;
+      lastMouseIndex = i;
+      if (mode === 'kbd') {
+        if (selected >= 0) boxes[selected].classList.remove('kbd-focus');
+        selected = -1;
+        document.body.classList.remove('kbd-active');
+        mode = 'mouse';
+      }
+    });
+  });
+
+  function select(i) {
+    if (selected >= 0) boxes[selected].classList.remove('kbd-focus');
+    selected = Math.max(0, Math.min(boxes.length - 1, i));
+    requestAnimationFrame(() => {
+      boxes[selected].classList.add('kbd-focus');
+      boxes[selected].closest('section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
+
+  document.addEventListener('keydown', (e) => {
+    cursor.style.opacity = '0';
+
+    if (e.key === 'Escape') {
       if (selected >= 0) boxes[selected].classList.remove('kbd-focus');
       selected = -1;
       document.body.classList.remove('kbd-active');
       mode = 'mouse';
+      mouseHasMoved = false;
+      return;
     }
-  });
-});
 
-function select(i) {
-  if (selected >= 0) boxes[selected].classList.remove('kbd-focus');
-  selected = Math.max(0, Math.min(boxes.length - 1, i));
-  requestAnimationFrame(() => {
-    boxes[selected].classList.add('kbd-focus');
-    boxes[selected].closest('section').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  });
-}
+    if (e.key === 'Enter' || e.key === 'Tab') {
+      e.preventDefault();
+      if (mode === 'mouse') {
+        mode = 'kbd';
+        mouseHasMoved = false;
+        document.body.classList.add('kbd-active');
+      }
+      const dir = e.shiftKey ? -1 : 1;
+      const next = selected < 0
+        ? (dir === 1 ? 0 : boxes.length - 1)
+        : (selected + dir + boxes.length) % boxes.length;
+      select(next);
+      return;
+    }
 
-document.addEventListener('keydown', (e) => {
-  cursor.style.opacity = '0';
-
-  // ESC: release all focus
-  if (e.key === 'Escape') {
-    if (selected >= 0) boxes[selected].classList.remove('kbd-focus');
-    selected = -1;
-    document.body.classList.remove('kbd-active');
-    mode = 'mouse';
-    mouseHasMoved = false;
-    return;
-  }
-
-  // Enter / Tab (+ Shift for reverse): cycle all items left-to-right, top-to-bottom
-  if (e.key === 'Enter' || e.key === 'Tab') {
+    if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return;
     e.preventDefault();
+
     if (mode === 'mouse') {
       mode = 'kbd';
       mouseHasMoved = false;
       document.body.classList.add('kbd-active');
+      selected = lastMouseIndex;
     }
-    const dir = e.shiftKey ? -1 : 1;
-    const next = selected < 0
-      ? (dir === 1 ? 0 : boxes.length - 1)
-      : (selected + dir + boxes.length) % boxes.length;
-    select(next);
-    return;
-  }
 
-  if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return;
-  e.preventDefault();
-
-  if (mode === 'mouse') {
-    mode = 'kbd';
-    mouseHasMoved = false;
-    document.body.classList.add('kbd-active');
-    selected = lastMouseIndex;
-  }
-
-  if (e.key === 'ArrowDown') {
-    if (selected + PER_SECTION < boxes.length) select(selected + PER_SECTION);
-  } else if (e.key === 'ArrowUp') {
-    if (selected - PER_SECTION >= 0)           select(selected - PER_SECTION);
-  } else if (e.key === 'ArrowRight') select(selected + 1);
-    else if (e.key === 'ArrowLeft')  select(selected - 1);
-});
+    if (e.key === 'ArrowDown') {
+      if (selected + PER_SECTION < boxes.length) select(selected + PER_SECTION);
+    } else if (e.key === 'ArrowUp') {
+      if (selected - PER_SECTION >= 0) select(selected - PER_SECTION);
+    } else if (e.key === 'ArrowRight') select(selected + 1);
+    else if (e.key === 'ArrowLeft') select(selected - 1);
+  });
+}
