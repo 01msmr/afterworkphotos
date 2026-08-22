@@ -17,19 +17,25 @@ setAppHeight();
 window.addEventListener('resize', setAppHeight);
 
 /* ============================================================
-   MOBILE: Carousel with CSS transform
+   MOBILE: Card stack
+   The photos lie on each other like a stack of prints, photo 1 on top of
+   photo 2 on top of … Swiping up lifts the current card off and uncovers the
+   next number underneath; swiping down pulls the previous card back down over
+   the current one. Either way it is the upper card that moves, travelling
+   between "in place" and "off the top of the screen", with its bottom edge
+   shadowing whatever lies below. The wraparound is the same move as any
+   other, so there are no clones and nothing scrolls.
    ============================================================ */
 if (PER_SECTION === 1) {
 
-  // Build carousel track
+  // Build the deck, lowest number on top
   const track = document.createElement('div');
   track.className = 'carousel-track';
   main.appendChild(track);
 
-  // Build real sections
-  for (let i = PHOTO_COUNT; i >= 1; i -= PER_SECTION) {
+  for (let i = 1; i <= PHOTO_COUNT; i += PER_SECTION) {
     const section = document.createElement('section');
-    for (let j = i; j > i - PER_SECTION && j >= 1; j--) {
+    for (let j = i; j < i + PER_SECTION && j <= PHOTO_COUNT; j++) {
       const box = document.createElement('div');
       box.className = 'awbox';
       box.innerHTML = `
@@ -43,78 +49,125 @@ if (PER_SECTION === 1) {
   }
 
   const N = sections.length;
+  const wrap = (i) => ((i % N) + N) % N;
 
-  // Clone last → prepend, clone first → append (seamless wrap)
-  const preClone = sections[N - 1].cloneNode(true);
-  const postClone = sections[0].cloneNode(true);
-  preClone.classList.add('clone');
-  postClone.classList.add('clone');
-  track.insertBefore(preClone, track.firstChild);
-  track.appendChild(postClone);
-
-  // Collect ALL awbox elements (clones included) for opacity control
-  const allBoxes = Array.from(track.querySelectorAll('.awbox'));
-
-  // Slot layout: [cloneLast₀] [section₁] [section₂] … [sectionₙ] [cloneFirst_{N+1}]
-  let currentSlot = 1;    // first real section
-  let animating = false;
-
-  // Always use live window.innerHeight for calculations
+  // Live window height — the part you can actually see and touch
   function H() { return window.innerHeight; }
 
-  function setTransform(slot, animate) {
-    if (animate) {
-      track.classList.add('animating');
+  // A card is the whole screen (100lvh), which is taller than H() whenever the
+  // browser shows its bar, so it has to travel its own height to clear
+  function cardH() { return sections[0].offsetHeight || H(); }
+
+  /* ── Screen corner radius ──
+     So a card uncovers with the same corners the phone itself has. No browser
+     reports that directly; env(device-corner-radius) is a proposal and Safari
+     does not have it, so where it is missing we identify the device by its
+     logical screen size and pixel ratio. Values are Apple's published display
+     radii in points. Anything not listed — every Android, any newer iPhone —
+     keeps the CSS fallback, which reads the home-indicator inset instead. */
+  const SCREEN_RADII = [
+    // [portrait width, portrait height, dpr, radius]
+    [375, 667, 2, 0],       // SE 2nd/3rd, 8
+    [414, 736, 3, 0],       // 8 Plus
+    [375, 812, 3, 44],      // 12/13 mini (44) — X, XS, 11 Pro share this size at 39
+    [414, 896, 2, 41.5],    // XR, 11
+    [414, 896, 3, 39],      // XS Max, 11 Pro Max
+    [390, 844, 3, 47.33],   // 12, 12 Pro, 13, 13 Pro, 14, 16e
+    [428, 926, 3, 53.33],   // 12 Pro Max, 13 Pro Max, 14 Plus
+    [393, 852, 3, 55],      // 14 Pro, 15, 15 Pro, 16
+    [430, 932, 3, 55],      // 14 Pro Max, 15 Plus, 15 Pro Max, 16 Plus
+    [402, 874, 3, 62],      // 16 Pro
+    [440, 956, 3, 62]       // 16 Pro Max
+  ];
+
+  function applyScreenRadius() {
+    // If the browser exposes the real radius, it beats any table
+    const probe = document.createElement('div');
+    probe.style.borderTopLeftRadius = 'env(device-corner-radius, 12345px)';
+    document.body.appendChild(probe);
+    const exposed = getComputedStyle(probe).borderTopLeftRadius !== '12345px';
+    probe.remove();
+    if (exposed) return;
+
+    const w = Math.min(screen.width, screen.height);
+    const h = Math.max(screen.width, screen.height);
+    const dpr = Math.round(window.devicePixelRatio);
+    const hit = SCREEN_RADII.find(r => r[0] === w && r[1] === h && r[2] === dpr);
+    if (hit) document.documentElement.style.setProperty('--screen-radius', hit[3] + 'px');
+  }
+  applyScreenRadius();
+
+  // ── Stack state ──
+  let current = 0;          // card on screen
+  let mover = null;         // the upper card, the one that travels
+  let under = null;         // the card it uncovers / covers
+  let dir = 0;              // +1 forward (lift off), -1 backward (pull over)
+  let animating = false;
+  let committed = false;    // does the pending move land on the neighbour?
+  let finishTimer = 0;
+
+  // Where the moving card rests at each end of its travel
+  function homeY() { return dir > 0 ? 0 : -cardH(); }   // where it starts
+  function awayY() { return dir > 0 ? -cardH() : 0; }   // where a committed move ends
+
+  sections[current].classList.add('current');
+
+  // Pick the moving card and the one below it
+  function startMove(direction) {
+    dir = direction;
+    if (dir > 0) {
+      mover = sections[current];              // lift the current card off
+      under = sections[wrap(current + 1)];
     } else {
-      track.classList.remove('animating');
+      mover = sections[wrap(current - 1)];    // pull the previous card back over
+      under = sections[current];
     }
-    track.style.transform = `translateY(${-slot * H()}px)`;
+    under.classList.add('under');
+    mover.classList.add('mover');
+    mover.style.transform = `translateY(${homeY()}px)`;
   }
 
-  // ── Opacity ──
-  // Force all awbox to fully opaque first, then set only the current one to 1
-  function updateOpacity() {
-    const realIdx = ((currentSlot - 1) % N + N) % N;
-    allBoxes.forEach(box => { box.style.opacity = '0.12'; });
-    // Current real section
-    sections[realIdx].querySelector('.awbox').style.opacity = '1';
-    // Matching clone (if we're showing a clone during wrap)
-    if (currentSlot === 0) preClone.querySelector('.awbox').style.opacity = '1';
-    if (currentSlot === N + 1) postClone.querySelector('.awbox').style.opacity = '1';
+  // Follow the finger, no animation
+  function dragTo(dy) {
+    const h = cardH();
+    const pos = Math.min(0, Math.max(-h, homeY() + dy));
+    mover.classList.remove('animating');
+    mover.style.transform = `translateY(${pos}px)`;
   }
 
-  // ── Initial state ──
-  setTransform(currentSlot, false);
-  // Ensure opacity is correct after a micro-delay (images may not have laid out yet)
-  updateOpacity();
-  requestAnimationFrame(updateOpacity);
+  // Animate the rest of the way — through (commit) or back home (cancel)
+  function settle(commit) {
+    committed = commit;
+    animating = true;
+    // Flush the current position first, otherwise there is nothing to animate from
+    void mover.offsetHeight;
+    mover.classList.add('animating');
+    mover.style.transform = `translateY(${commit ? awayY() : homeY()}px)`;
+    clearTimeout(finishTimer);
+    // transitionend can be skipped when the tab is backgrounded mid-slide
+    finishTimer = setTimeout(finish, 1200);
+  }
 
-  // ── Transition end: handle clone → real jump ──
-  track.addEventListener('transitionend', (e) => {
-    // Only react to the track's own transform transition
-    if (e.target !== track) return;
-    if (currentSlot === 0) {
-      currentSlot = N;
-      setTransform(currentSlot, false);
-    } else if (currentSlot === N + 1) {
-      currentSlot = 1;
-      setTransform(currentSlot, false);
-    }
+  function finish() {
+    if (!mover) return;
+    clearTimeout(finishTimer);
+    if (committed) current = wrap(current + dir);
+    mover.classList.remove('mover', 'animating');
+    mover.style.transform = '';
+    under.classList.remove('under');
+    sections.forEach((s, i) => s.classList.toggle('current', i === current));
+    mover = under = null;
+    dir = 0;
     animating = false;
-    updateOpacity();
+  }
+
+  track.addEventListener('transitionend', (e) => {
+    if (!animating || e.target !== mover || e.propertyName !== 'transform') return;
+    finish();
   });
 
-  function goTo(slot) {
-    if (animating) return;
-    animating = true;
-    currentSlot = slot;
-    // Pre-set opacity for the target so the arriving card is already bright
-    updateOpacity();
-    setTransform(currentSlot, true);
-  }
-
-  function goForward() { goTo(currentSlot + 1); }
-  function goBackward() { goTo(currentSlot - 1); }
+  function goForward() { if (!mover) { startMove(1); settle(true); } }
+  function goBackward() { if (!mover) { startMove(-1); settle(true); } }
 
   // ── Fit title ──
   const title = document.querySelector('h1.title');
@@ -129,24 +182,27 @@ if (PER_SECTION === 1) {
     title.style.fontSize = lo + 'px';
   }
   fitTitle();
-  window.addEventListener('resize', () => { fitTitle(); setTransform(currentSlot, false); });
+  window.addEventListener('resize', fitTitle);
 
-  // ── Tap divider ──
-  const divider = document.createElement('div');
-  divider.className = 'tap-divider';
-  document.body.appendChild(divider);
+  // ── Tap zones ──
+  // Where the screen splits into "tap here to go on" and "tap here to go back".
+  // Nothing is drawn for it — a line here would sit over the cards.
   let dividerY = null;
 
-  function setDivider() {
-    requestAnimationFrame(() => {
-      const box = sections[0].querySelector('.awbox');
-      if (!box) return;
-      const boxRect = box.getBoundingClientRect();
-      const wh = H() - boxRect.bottom;
-      dividerY = wh > 0 ? boxRect.bottom + wh * 0.6 : H() * 0.6;
-      divider.style.top = dividerY + 'px';
-    });
+  function computeDivider() {
+    const box = sections[0].querySelector('.awbox');
+    if (!box) return;
+    const boxRect = box.getBoundingClientRect();
+    const wh = H() - boxRect.bottom;
+    dividerY = wh > 0 ? boxRect.bottom + wh * 0.6 : H() * 0.6;
   }
+
+  function setDivider() { requestAnimationFrame(computeDivider); }
+
+  // Straight away as well as on the events: a cached image fires no load event
+  // and a backgrounded tab defers rAF — either would leave taps dead
+  computeDivider();
+  setDivider();
   sections[0].querySelector('img').addEventListener('load', setDivider);
   window.addEventListener('load', setDivider);
   window.addEventListener('resize', setDivider);
@@ -154,7 +210,6 @@ if (PER_SECTION === 1) {
   // ── Touch: drag + tap ──
   let touchStartX = 0, touchStartY = 0, touchStartTime = 0;
   let dragging = false;
-  let dragStartSlot = 0;
 
   main.addEventListener('touchstart', (e) => {
     if (animating) return;
@@ -162,8 +217,6 @@ if (PER_SECTION === 1) {
     touchStartY = e.touches[0].clientY;
     touchStartTime = Date.now();
     dragging = false;
-    dragStartSlot = currentSlot;
-    track.classList.remove('animating');
   }, { passive: true });
 
   main.addEventListener('touchmove', (e) => {
@@ -178,37 +231,16 @@ if (PER_SECTION === 1) {
       dragging = true;
     }
 
-    const h = H();
-    const offset = -dragStartSlot * h + dy;
-    track.style.transform = `translateY(${offset}px)`;
-
-    // Live opacity during drag
-    const floatSlot = dragStartSlot - dy / h;
-    updateDragOpacity(floatSlot);
-  }, { passive: false });
-
-  function updateDragOpacity(floatSlot) {
-    // Total slots: 0..N+1
-    allBoxes.forEach(box => { box.style.opacity = '0.12'; });
-    // Find the two nearest slots and interpolate
-    const lo = Math.floor(floatSlot);
-    const hi = lo + 1;
-    const frac = floatSlot - lo;
-    setSlotOpacity(lo, 1 - frac);
-    setSlotOpacity(hi, frac);
-  }
-
-  function setSlotOpacity(slot, weight) {
-    if (weight < 0.05) return;
-    const op = Math.max(0.12, weight);
-    if (slot === 0) {
-      preClone.querySelector('.awbox').style.opacity = op;
-    } else if (slot === N + 1) {
-      postClone.querySelector('.awbox').style.opacity = op;
-    } else if (slot >= 1 && slot <= N) {
-      sections[slot - 1].querySelector('.awbox').style.opacity = op;
+    // Swiping up lifts the current card off, down pulls the previous one over
+    const wanted = dy < 0 ? 1 : -1;
+    if (mover && wanted !== dir) {
+      // The finger changed its mind — put that card back and take the other one
+      committed = false;
+      finish();
     }
-  }
+    if (!mover) startMove(wanted);
+    dragTo(dy);
+  }, { passive: false });
 
   main.addEventListener('touchend', (e) => {
     const dy = e.changedTouches[0].clientY - touchStartY;
@@ -216,27 +248,20 @@ if (PER_SECTION === 1) {
     const elapsed = Date.now() - touchStartTime;
 
     if (dragging) {
+      dragging = false;
+      if (!mover) return;
       const absDy = Math.abs(dy);
       const velocity = absDy / Math.max(1, elapsed);
-      const progress = absDy / H();
-      const commit = progress > 0.2 || velocity > 0.4;
-
-      if (commit) {
-        if (dy < 0) goForward();
-        else goBackward();
-      } else {
-        animating = true;
-        currentSlot = dragStartSlot;
-        updateOpacity();
-        setTransform(currentSlot, true);
-      }
-      dragging = false;
+      const progress = absDy / cardH();
+      settle(progress > 0.2 || velocity > 0.4);
       return;
     }
 
     // ── Tap ──
     if (Math.abs(dx) > 10 || Math.abs(dy) > 10 || elapsed > 300) return;
-    if (animating || dividerY === null) return;
+    if (animating) return;
+    if (dividerY === null) computeDivider();
+    if (dividerY === null) return;
 
     if (e.changedTouches[0].clientY > dividerY) goBackward();
     else goForward();
@@ -245,11 +270,12 @@ if (PER_SECTION === 1) {
 } else {
 
   /* ============================================================
-     DESKTOP: scroll-snap + keyboard + mouse (unchanged)
+     DESKTOP: scroll-snap + keyboard + mouse
+     Same order as mobile: scrolling down goes to the next number.
      ============================================================ */
-  for (let i = PHOTO_COUNT; i >= 1; i -= PER_SECTION) {
+  for (let i = 1; i <= PHOTO_COUNT; i += PER_SECTION) {
     const section = document.createElement('section');
-    for (let j = i; j > i - PER_SECTION && j >= 1; j--) {
+    for (let j = i; j < i + PER_SECTION && j <= PHOTO_COUNT; j++) {
       const box = document.createElement('div');
       box.className = 'awbox';
       box.innerHTML = `

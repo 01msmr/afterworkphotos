@@ -1,0 +1,18 @@
+{
+	"id": "/index.html",
+	"name": "@maasmeiers afterworkphotos",
+	"short_name": "afterworkphotos",
+	"start_url": "/index.html",
+	"scope": "/",
+	"display": "standalone",
+	"background_color": "#dedede",
+	"theme_color": "#dedede",
+	"icons": [
+		{
+			"src": "/apple-touch-icon.png",
+			"sizes": "152x152",
+			"type": "image/png",
+			"purpose": "any"
+		}
+	]
+}

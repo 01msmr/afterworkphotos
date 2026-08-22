@@ -112,15 +112,18 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 	transition: opacity 0.9s ease-in;
 }
 
-/* ── Mobile: carousel ── */
+/* ── Mobile: reveal deck ── */
 @media (max-width: 600px) {
-	.tap-divider {
-		position: fixed;
-		left: 0;
-		width: 100%;
-		border-bottom: 1.4px dotted rgba(0, 0, 0, 0.10);
-		pointer-events: none;
-		z-index: 9999;
+
+	/* Radius of the card edge that covers/uncovers, matched to the phone.
+	   `device-corner-radius` is the screen's own radius where the browser
+	   exposes it (proposed env var, not in Safari yet). Otherwise derive it
+	   from the home-indicator inset, which is only non-zero on the
+	   round-cornered phones and needs viewport-fit=cover on the viewport
+	   meta tag — 34px there gives ~48px, close to an iPhone's real corner.
+	   Flat-edged and desktop-sized screens land on the 24px fallback. */
+	:root {
+		--screen-radius: env(device-corner-radius, max(24px, calc(env(safe-area-inset-bottom, 0px) * 1.4)));
 	}
 
 	h1.title {
@@ -141,29 +144,82 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 		position: relative;
 	}
 
+	/* Nothing scrolls: the track is only a container, the cards stack themselves.
+	   No transform/will-change here — that would break the cards' fixed position. */
 	.carousel-track {
-		display: flex;
-		flex-direction: column;
-		will-change: transform;
+		display: block;
 	}
 
-	.carousel-track.animating {
-		transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1);
-	}
-
+	/* Every card is the whole phone front — not a rectangle above the URL bar.
+	   100lvh is the screen with the browser furniture retracted, so the card
+	   runs edge to edge and its rounded corners land on the device's own.
+	   Safari's bar simply floats over the bottom of it. */
 	section {
-		flex: 0 0 var(--app-height);
+		position: fixed;
+		top: 0;
+		left: 0;
+		right: 0;
 		height: var(--app-height);
+		/* fallback */
+		height: 100lvh;
 		padding: 0;
-		padding-top: calc(2rem + var(--tp) * 2 + 12px);
+		padding-top: calc(2rem + var(--tp) * 2 + 12px + env(safe-area-inset-top, 0px));
+		/* keep content clear of the browser bar and the home indicator */
+		padding-bottom: calc(100lvh - 100dvh + env(safe-area-inset-bottom, 0px));
 		gap: 0;
 		scroll-snap-align: none;
 		background-color: #dedede;
+		visibility: hidden;
+		z-index: 0;
+	}
+
+	section.current,
+	section.under {
+		visibility: visible;
+		z-index: 1;
+	}
+
+	/* The travelling card is always the upper one — rule order matters, it
+	   also carries .current on the way out */
+	section.mover {
+		visibility: visible;
+		z-index: 2;
+		will-change: transform;
+		/* Round the bottom edge, the one that does the covering */
+		border-radius: 0 0 var(--screen-radius) var(--screen-radius);
+		/* The shadow has to follow that curve, not sit under it as a straight
+		   band — otherwise the corners vanish wherever the card travels over
+		   the identically grey part of the card below. Hairline first so the
+		   edge stays readable down to the last pixel, then the soft falloff. */
+		box-shadow:
+			0 1px 0 0 rgba(56, 46, 36, 0.16),
+			0 3px 6px rgba(56, 46, 36, 0.22),
+			0 12px 26px rgba(56, 46, 36, 0.28),
+			0 30px 70px rgba(56, 46, 36, 0.30);
+	}
+
+	/* Phone screens are squircles, not circular arcs — follow where supported */
+	@supports (corner-shape: squircle) {
+		section.mover {
+			corner-shape: squircle;
+		}
+	}
+
+	section.mover.animating {
+		transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1);
 	}
 
 	div.awbox {
 		width: 92%;
-		/* No CSS opacity transition on mobile — JS controls opacity directly */
+		/* No CSS opacity transition on mobile — the deck controls visibility */
 		transition: none !important;
 	}
+
+	/* Both cards in play are fully lit */
+	section.current .awbox,
+	section.under .awbox,
+	section.mover .awbox {
+		opacity: 1;
+	}
+
 }
