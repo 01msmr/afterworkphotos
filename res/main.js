@@ -812,9 +812,9 @@ if (DECK) {
   goto.querySelector('.goto-img').addEventListener('click', () => { if (goTouched) goNow(); });
   knobPrint.addEventListener('click', () => { if (goTouched) goNow(); });
 
-  // The windows follow the wall when it is scrolled by hand — and once the
-  // scrolling has come to rest, the row on screen is lit as if selected
-  // from the keyboard
+  // The windows follow the wall when it is scrolled by hand — and a moment
+  // after the scrolling has come to rest, the row on screen lights up as
+  // if selected from the keyboard (with the print's own slow fade-in)
   let scrollTick = 0, scrollEndTimer = 0;
   main.addEventListener('scroll', () => {
     clearTimeout(scrollEndTimer);
@@ -824,7 +824,7 @@ if (DECK) {
       const i = boxes.indexOf(top.querySelector('.awbox'));
       if (mode === 'mouse') { mode = 'kbd'; mouseHasMoved = false; document.body.classList.add('kbd-active'); }
       if (selected !== i && !(selected >= 0 && boxes[selected].closest('section') === top)) light(i);
-    }, 220);
+    }, 600);
     if (scrollTick) return;
     scrollTick = requestAnimationFrame(() => {
       scrollTick = 0;
