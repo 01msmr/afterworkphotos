@@ -140,7 +140,7 @@ div.awbox {
 
 /* An opaque sheet of 12.5% gray behind every image, exactly its size: the
    wall's texture never shows through a dimmed print — unlit, the image
-   sits at 10% over the gray. The dimming is on the image and caption, not
+   sits at 4% over the gray. The dimming is on the image and caption, not
    on the sheet, so the sheet and its shadow stay. */
 html:not(.deck) .awphoto {
 	background: #dfdfdf;   /* 12.5% black */
@@ -148,7 +148,7 @@ html:not(.deck) .awphoto {
 
 html:not(.deck) .awphoto img,
 html:not(.deck) .awphoto video {
-	opacity: 0.1;
+	opacity: 0.04;
 	transition: opacity 0.9s ease-in;
 }
 
@@ -169,7 +169,7 @@ html:not(.deck) .awbox.kbd-focus .subtitle {
 
 html:not(.deck) body.kbd-active .awbox:hover:not(.kbd-focus) img,
 html:not(.deck) body.kbd-active .awbox:hover:not(.kbd-focus) video {
-	opacity: 0.1;
+	opacity: 0.04;
 }
 
 /* The mouse must not light passing prints while the wall is in motion
@@ -178,7 +178,7 @@ html:not(.deck) body.kbd-active .awbox:hover:not(.kbd-focus) video {
    the one arriving, and its light starts on approach. */
 html:not(.deck) body.moving .awbox:hover:not(.kbd-focus) img,
 html:not(.deck) body.moving .awbox:hover:not(.kbd-focus) video {
-	opacity: 0.1;
+	opacity: 0.04;
 }
 
 html:not(.deck) body.moving .awbox:hover:not(.kbd-focus) .subtitle {
