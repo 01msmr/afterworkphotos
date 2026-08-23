@@ -136,8 +136,37 @@ div.awbox {
 	flex: 1 1 0;
 	/* room below for the go-to knobs (≈ 145px at 1.8×) */
 	max-width: calc(var(--app-height) - 16rem);
+}
+
+/* An opaque white sheet behind every image, exactly its size: the wall's
+   texture never shows through a dimmed print — unlit, it reads as a pale
+   print on white paper. The dimming is on the image and caption, not on
+   the sheet, so the sheet and its shadow stay. */
+html:not(.deck) .awphoto {
+	background: #fff;
+}
+
+html:not(.deck) .awphoto img,
+html:not(.deck) .awphoto video,
+html:not(.deck) div.awbox .subtitle {
 	opacity: 0.12;
 	transition: opacity 0.9s ease-in;
+}
+
+html:not(.deck) .awbox:hover img,
+html:not(.deck) .awbox:hover video,
+html:not(.deck) .awbox:hover .subtitle,
+html:not(.deck) .awbox.kbd-focus img,
+html:not(.deck) .awbox.kbd-focus video,
+html:not(.deck) .awbox.kbd-focus .subtitle {
+	opacity: 1;
+	transition: opacity 0.9s ease-in;
+}
+
+html:not(.deck) body.kbd-active .awbox:hover:not(.kbd-focus) img,
+html:not(.deck) body.kbd-active .awbox:hover:not(.kbd-focus) video,
+html:not(.deck) body.kbd-active .awbox:hover:not(.kbd-focus) .subtitle {
+	opacity: 0.12;
 }
 
 /* The print's shadow on the wall, as a plate a little off the wall throws
@@ -168,16 +197,6 @@ div.awbox {
 	object-fit: cover;
 }
 
-.awbox:hover,
-.awbox.kbd-focus {
-	opacity: 1;
-	transition: opacity 0.9s ease-in;
-}
-
-body.kbd-active .awbox:hover:not(.kbd-focus) {
-	opacity: 0.12;
-	transition: opacity 0.9s ease-in;
-}
 
 /* ── Go-to: two knobs under the wall (desktop) ──
    Year knob under its window, print knob under the number/date window,
