@@ -270,8 +270,9 @@ html:not(.deck) body.kbd-active .awbox:hover:not(.kbd-focus) .awphoto {
 }
 
 /* At rest the unit is only a line below where its elements sit; the knobs
-   and windows appear under the mouse. The line switches hard: gone the
-   instant the elements begin to rise, back the instant they begin to dim */
+   and windows appear under the mouse. The line switches hard — gone the
+   instant the elements begin to rise — but returns only once they have
+   fully dimmed (the 0s transition with the elements' fade as delay) */
 .goto::after {
 	content: '';
 	position: absolute;
@@ -281,7 +282,8 @@ html:not(.deck) body.kbd-active .awbox:hover:not(.kbd-focus) .awphoto {
 	height: calc(6px / 1.8);
 	background: #444;
 	border-radius: 2px;
-	transition: none;
+	opacity: 1;
+	transition: opacity 0s linear 0.6s;
 }
 
 .goto > * {
@@ -296,6 +298,7 @@ html:not(.deck) body.kbd-active .awbox:hover:not(.kbd-focus) .awphoto {
 
 .goto:hover::after {
 	opacity: 0;
+	transition: none;
 }
 
 /* while the keyboard is in use only the line shows, mouse on it or not */
@@ -307,6 +310,7 @@ html:not(.deck) body.kbd-active .awbox:hover:not(.kbd-focus) .awphoto {
 .goto.quiet::after,
 .goto.quiet:hover::after {
 	opacity: 1;
+	transition: opacity 0s linear 0.6s;
 }
 
 .goto-col {

@@ -901,12 +901,14 @@ if (DECK) {
   // while the wall glides to a print they chose. A moment after any
   // scrolling has come to rest, the row on screen lights up as if selected
   // from the keyboard (with the print's own slow fade-in)
-  // The motion has (as good as) arrived: sync, and light the row
-  function settle() {
+  // The motion has (as good as) arrived: sync, and light the row — the
+  // known target row when there is one (early in the approach, the first
+  // visible row is still the outgoing one)
+  function settle(target) {
     gliding = false;
     settledNear = true;
     document.body.classList.remove('moving');
-    const top = sections.find(s => s.getBoundingClientRect().bottom > 0);
+    const top = target || sections.find(s => s.getBoundingClientRect().bottom > 0);
     if (!top) return;
     syncGoto(top);
     const i = boxes.indexOf(top.querySelector('.awbox'));
@@ -919,11 +921,13 @@ if (DECK) {
     if (!settledNear) document.body.classList.add('moving');   // nothing undims while the wall moves
     if (gliding && Math.abs(main.scrollTop - glideTarget) < 2) { gliding = false; clearTimeout(glideTimer); }
     clearTimeout(scrollEndTimer);
-    // the undim begins when the incoming row has (almost) fully entered and
-    // the motion is in its slow tail; the timer is only the fallback
-    if (approachTop >= 0 && Math.abs(main.scrollTop - approachTop) < sections[0].offsetHeight * 0.04) {
+    // the undim begins once the incoming image is a third on screen; the
+    // timer is only the fallback
+    const rowH = sections[0].offsetHeight;
+    if (approachTop >= 0 && Math.abs(main.scrollTop - approachTop) < rowH * 0.67) {
+      const target = sections[Math.round(approachTop / rowH)];
       approachTop = -1;
-      settle();
+      settle(target);
       return;
     }
     scrollEndTimer = setTimeout(() => {
