@@ -877,9 +877,12 @@ if (DECK) {
     // four digit drums roll to the year's figures ('–' for an undated one)
     const y = yearOf(p).padStart(4, '–').slice(-4);
     yearDrums.forEach((d, i) => { const ch = y[i]; d.style.setProperty('--d', /[0-9]/.test(ch) ? +ch : 10); });
-    // one revolution spans all the years, beginning at the left (9 o'clock)
-    const yi = years.indexOf(yearOf(p));
-    knobYear.style.setProperty('--a', (-90 + 360 * yi / years.length) + 'deg');
+    // one revolution spans the full range of calendar years, beginning at
+    // the left: an empty year keeps its share of the circle, so a gap costs
+    // as much rotation as the years it skips
+    const yr = +yearOf(p) || +years[0];
+    const yr0 = +years[years.length - 1], spanY = +years[0] - yr0 + 1;
+    knobYear.style.setProperty('--a', (-90 + 360 * (+years[0] - yr) / spanY) + 'deg');
     knobPrint.style.setProperty('--a', printAngle + 'deg');
     if (goTouched) {
       gotoImg.src = p.thumb;
