@@ -21,8 +21,9 @@ How everything works, in detail. The overview is in the [README](../README.md).
 | `upload.php`, `secret.php`, `.user.ini` | the old server-side upload endpoint — superseded by the inbox, to be removed |
 | `apple-touch-icon.png`, `favicon.ico` | icons |
 | `card-stack.html`, `res/onepage.*`, `res/noRubberband.js`, `favicon_.ico` | legacy / prototypes, not referenced by the page |
+| `docs/superpowers/specs/`, `docs/superpowers/plans/` | design specs and implementation plans of larger changes (the iPad deck / aspect layouts / precision scrubber of 2026-08-23 are there, with the browser checks each step was verified by) |
 
-The file names are internal. The site shows photos as `afterworkphoto N`, N being the position in date order from `photos.json` — which is the single source of truth for what exists; the page builds nothing until it has loaded it.
+The file names are internal. The site shows photos as `afterworkphoto N` (a video as `afterworkvideo N`, same numbering), N being the position in date order from `photos.json` — which is the single source of truth for what exists; the page builds nothing until it has loaded it.
 
 ## How the page works
 
@@ -117,6 +118,8 @@ python3 -m http.server 8765 --bind 0.0.0.0     # then open http://<your LAN IP>:
 Send `Cache-Control: no-store` if you iterate on the phone — iOS caches hard. Mind that another project's server on `127.0.0.1:8765` wins over `0.0.0.0:8765` for localhost requests.
 
 The deck is chosen by touch support, not width — on a desktop browser use `?touch=1` (and `?tablet=1` for the iPad layouts) in a narrow or iPad-sized window, or an iframe of that size. The page needs `photos.json`, so it must be served, not opened as a file.
+
+**Checking behaviour without a device.** There is no test suite; the page is checked in Chrome against the local server, inside an iframe of the wanted size (400×820 phone, 844×390 phone sideways, 820×1180 / 1180×820 iPad, desktop sizes) with synthetic `TouchEvent`s on the scrubber and the deck, sampling the DOM (classes, computed visibility, `data-n` of what is on top, the label's contents). The harness and the expected values per step are in `docs/superpowers/plans/2026-08-23-ipad-deck-and-scrubber.md`.
 
 ## iOS home screen app — what was learned the hard way
 

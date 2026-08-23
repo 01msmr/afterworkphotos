@@ -13,6 +13,7 @@
 | `inbox/` | drop photos here; emptied by the ingest workflow |
 | `scripts/ingest.sh`, `.github/workflows/ingest.yml` | the ingest |
 | `manifest.json` | web app manifest (needed for the home screen app) |
+| `docs/` | [details.md](docs/details.md); design specs and plans of larger changes under `docs/superpowers/` |
 | `upload.php`, `secret.php`, `.user.ini`, `card-stack.html`, `res/onepage.*`, `res/noRubberband.js` | legacy, to be removed |
 
 The site never shows file names; it numbers photos 1…N in date order.
@@ -21,7 +22,7 @@ The site never shows file names; it numbers photos 1…N in date order.
 
 **Desktop** — one, two or three photos per screen depending on the window's shape, newest first, scroll-snap; dimmed, lit on hover; keyboard navigation.
 
-**Phone and iPad** — the photos are a pile of paper sheets, newest on top (held sideways, two per sheet). Swipe up to lift the top sheet off and see the one before it, swipe down to put it back; tapping the upper/lower half does the same. The right edge of the screen is the pile seen edge-on: touch it and drag to run through the years, slide the finger in from the edge for finer control, let go and the pile cuts to that sheet. Only seven sheets exist in the DOM at a time, so the size of the pile doesn't matter. Dark mode follows the system. Videos play only while on screen.
+**Phone and iPad** — the photos are a pile of paper sheets, newest on top (held sideways, two per sheet). Swipe up to lift the top sheet off and see the one before it, swipe down to put it back; tapping the upper/lower half does the same. The right edge of the screen is the pile seen edge-on: touch it and drag to run through the years, slide the finger in from the edge for finer control (the label shows the neighbouring prints while the strip is too short for single-sheet hits), let go and the pile cuts to that sheet. Only seven sheets exist in the DOM at a time, so the size of the pile doesn't matter. Dark mode follows the system. Videos play only while on screen.
 
 ## Adding photos
 
@@ -33,7 +34,7 @@ From the phone this is a Shortcut that PUTs favourited photos into `inbox/` thro
 
 Push to `main`; the server pulls within seconds. The server sends no cache headers, so **bump the `?v=` on the CSS/JS links in `index.html` with every change to them**, or the installed app keeps the old code.
 
-Local: `python3 -m http.server 8765 --bind 0.0.0.0` and open the LAN address on the phone. The page needs to be served (it fetches `photos.json`).
+Local: `python3 -m http.server 8765 --bind 0.0.0.0` and open the LAN address on the phone; on a desktop browser `?touch=1` (and `?tablet=1`) force the deck. The page needs to be served (it fetches `photos.json`).
 
 ## iOS, learned the hard way
 
@@ -44,4 +45,5 @@ Local: `python3 -m http.server 8765 --bind 0.0.0.0` and open the LAN address on 
 ## Open
 
 - `secret.php` is tracked and its token is in the history: rotate it, remove the legacy PHP files.
+- iPad on the device: rotation with a move in flight, the 5-print label near the strip's ends, the corner-radius fallback, trackpad Safari still counting as touch.
 - Next: the contact sheet (pinch to spread the pile into a grid).
