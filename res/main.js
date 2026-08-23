@@ -278,7 +278,9 @@ if (PER_SECTION === 1) {
   // and a backgrounded tab defers rAF — either would leave taps dead
   computeDivider();
   setDivider();
-  sheet(current).querySelector('img').addEventListener('load', setDivider);
+  // the top sheet may be a video, which has no img and no load event
+  const topMedia = sheet(current).querySelector('img, video');
+  topMedia.addEventListener(topMedia.tagName === 'VIDEO' ? 'loadeddata' : 'load', setDivider);
   window.addEventListener('load', setDivider);
   window.addEventListener('resize', setDivider);
 
