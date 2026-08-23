@@ -169,6 +169,18 @@ html:not(.deck) .awbox.kbd-focus .subtitle {
 	transition: opacity 0.8s ease-in;
 }
 
+/* when the light moves by selection (keys, arrival) the undim starts a
+   breath after the dim; hover stays immediate */
+html:not(.deck) .awbox.kbd-focus img,
+html:not(.deck) .awbox.kbd-focus video,
+html:not(.deck) .awbox.kbd-focus .subtitle {
+	transition-delay: 0.1s;
+}
+
+html:not(.deck) .awbox.kbd-focus .awphoto {
+	transition-delay: 0.1s;
+}
+
 html:not(.deck) body.kbd-active .awbox:hover:not(.kbd-focus) img,
 html:not(.deck) body.kbd-active .awbox:hover:not(.kbd-focus) video {
 	opacity: 0.04;
