@@ -97,8 +97,8 @@ section {
    them (main.js sets data-per-row) — but never taller than the window */
 div.awbox {
 	flex: 1 1 0;
-	/* room below for the go-to knobs */
-	max-width: calc(var(--app-height) - 12rem);
+	/* room below for the go-to knobs (≈ 145px at 1.8×) */
+	max-width: calc(var(--app-height) - 16rem);
 	opacity: 0.12;
 	transition: opacity 0.9s ease-in;
 }
@@ -160,6 +160,8 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 	user-select: none;
 	opacity: 0.1;
 	transition: opacity 0.6s ease;
+	/* drawn at 1×, shown at 1.8× */
+	zoom: 1.8;
 }
 
 .goto:hover {
