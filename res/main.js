@@ -866,7 +866,7 @@ if (DECK) {
   let goIdx = 0;              // the box the knobs point at
   let goTouched = false;      // the image window stays paper until a knob is turned
   let goPending = false;      // a turn happened; the wall follows when the mouse leaves
-  let printAngle = 0;
+  let printAngle = -90;       // begins at the left; 3.6° per print, 100 per revolution
 
   const fullDate = (p) => p.taken
     ? new Date(p.taken).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
@@ -877,8 +877,9 @@ if (DECK) {
     // four digit drums roll to the year's figures ('–' for an undated one)
     const y = yearOf(p).padStart(4, '–').slice(-4);
     yearDrums.forEach((d, i) => { const ch = y[i]; d.style.setProperty('--d', /[0-9]/.test(ch) ? +ch : 10); });
+    // one revolution spans all the years, beginning at the left (9 o'clock)
     const yi = years.indexOf(yearOf(p));
-    knobYear.style.setProperty('--a', (years.length > 1 ? -150 + 300 * yi / (years.length - 1) : 0) + 'deg');
+    knobYear.style.setProperty('--a', (-90 + 360 * yi / years.length) + 'deg');
     knobPrint.style.setProperty('--a', printAngle + 'deg');
     if (goTouched) {
       gotoImg.src = p.thumb;
@@ -910,9 +911,9 @@ if (DECK) {
   }
 
   function turnPrint(d) {
-    // past either end the pile wraps around
+    // past either end the pile wraps around; 100 prints make one revolution
     goIdx = (goIdx + d + boxes.length) % boxes.length;
-    printAngle += d * 18;
+    printAngle += d * 3.6;
     goTouched = true;
     showGoto();
     armGoto();
