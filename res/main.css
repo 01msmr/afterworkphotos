@@ -149,12 +149,13 @@ html:not(.deck) .awphoto {
 html:not(.deck) .awphoto img,
 html:not(.deck) .awphoto video {
 	opacity: 0.04;
-	transition: opacity 0.9s ease-in;
+	/* the transition INTO this unlit state: dimming is quick */
+	transition: opacity 0.4s ease-in;
 }
 
 html:not(.deck) div.awbox .subtitle {
 	opacity: 0.5;
-	transition: opacity 0.9s ease-in;
+	transition: opacity 0.4s ease-in;
 }
 
 html:not(.deck) .awbox:hover img,
@@ -164,7 +165,8 @@ html:not(.deck) .awbox.kbd-focus img,
 html:not(.deck) .awbox.kbd-focus video,
 html:not(.deck) .awbox.kbd-focus .subtitle {
 	opacity: 1;
-	transition: opacity 0.9s ease-in;
+	/* the transition INTO the lit state: undimming takes its time */
+	transition: opacity 0.8s ease-in;
 }
 
 html:not(.deck) body.kbd-active .awbox:hover:not(.kbd-focus) img,
@@ -215,12 +217,13 @@ div.awbox {
 		0 0.3cqw 0.6cqw -0.2cqw rgba(48, 42, 18, 0.18),
 		0.4cqw 1.4cqw 1.2cqw -0.3cqw rgba(48, 42, 18, 0.10),
 		0 2cqw 4cqw 0.3cqw rgba(48, 42, 18, 0.06);
-	/* the shadow moves exactly as the image does, both directions */
-	transition: box-shadow 0.9s ease-in;
+	/* the shadow moves exactly as the image does: dim 0.4s, undim 0.8s */
+	transition: box-shadow 0.4s ease-in;
 }
 
 html:not(.deck) .awbox:hover .awphoto,
 html:not(.deck) .awbox.kbd-focus .awphoto {
+	transition: box-shadow 0.8s ease-in;
 	box-shadow:
 		0 0.6cqw 1.25cqw -0.3cqw rgba(48, 42, 18, 0.45),
 		1.25cqw 4.7cqw 2.8cqw -0.45cqw rgba(48, 42, 18, 0.31),
