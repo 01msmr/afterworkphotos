@@ -180,10 +180,15 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 		}
 	}
 
-	/* The desk. Black so the Dynamic Island disappears into it. */
+	/* The desk. Black so the Dynamic Island disappears into it. Nothing on
+	   it is text to select or an image to save: a long touch — scrubbing,
+	   holding a sheet — must not bring up iOS's selection or callout. */
 	html,
 	body {
 		background: var(--desk);
+		-webkit-user-select: none;
+		user-select: none;
+		-webkit-touch-callout: none;
 	}
 
 	h1.title {
