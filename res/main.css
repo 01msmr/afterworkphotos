@@ -219,14 +219,20 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 	   one sliding up goes under the strip — corners and all — as if the
 	   phone ended there; no pixel of a sheet is ever drawn under the status
 	   bar. The transform makes it the containing block for the fixed
-	   sheets. */
+	   sheets.
+
+	   Sized from 100lvh, never with bottom: 0 — in a home screen app iOS
+	   resolves a fixed element's bottom against a viewport that is one
+	   status bar short, anchored at the top, so bottom: 0 ends one status
+	   bar above the glass. 100lvh is the whole screen. */
 	.main {
 		position: fixed;
 		top: env(safe-area-inset-top, 0px);
 		right: 0;
-		bottom: 0;
 		left: 0;
-		height: auto;
+		height: calc(var(--app-height) - env(safe-area-inset-top, 0px));
+		/* fallback */
+		height: calc(100lvh - env(safe-area-inset-top, 0px));
 		overflow: hidden;
 		border-radius: var(--screen-radius) var(--screen-radius) 0 0;
 		transform: translateZ(0);
@@ -253,9 +259,11 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 		position: fixed;
 		top: var(--inset);
 		right: var(--inset);
-		bottom: var(--inset);
 		left: var(--inset);
-		height: auto;
+		/* height from 100lvh for the same reason as .main, never from bottom */
+		height: calc(var(--app-height) - env(safe-area-inset-top, 0px) - var(--inset) * 2);
+		/* fallback */
+		height: calc(100lvh - env(safe-area-inset-top, 0px) - var(--inset) * 2);
 		padding: 0;
 		padding-top: calc(2rem + var(--tp) * 2 + 12px);
 		/* keep the caption clear of the home indicator */
@@ -274,7 +282,7 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 		visibility: hidden;
 		z-index: 0;
 		transition:
-			top 0.3s ease, right 0.3s ease, bottom 0.3s ease, left 0.3s ease,
+			top 0.3s ease, right 0.3s ease, height 0.3s ease, left 0.3s ease,
 			border-radius 0.3s ease, box-shadow 0.3s ease;
 	}
 
@@ -325,7 +333,7 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 	section.mover.animating {
 		transition:
 			transform 0.45s cubic-bezier(0.4, 0, 0.2, 1),
-			top 0.3s ease, right 0.3s ease, bottom 0.3s ease, left 0.3s ease,
+			top 0.3s ease, right 0.3s ease, height 0.3s ease, left 0.3s ease,
 			border-radius 0.3s ease, box-shadow 0.3s ease;
 	}
 
