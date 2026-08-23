@@ -195,12 +195,15 @@ div.awbox {
 		0 0.3cqw 0.6cqw -0.2cqw rgba(48, 42, 18, 0.18),
 		0.4cqw 1.4cqw 1.2cqw -0.3cqw rgba(48, 42, 18, 0.10),
 		0 2cqw 4cqw 0.3cqw rgba(48, 42, 18, 0.06);
-	/* the spot lands well before the print has woken up */
-	transition: box-shadow 0.25s ease-out;
+	/* dimming: shadow and image fade together (this is the transition INTO
+	   this unlit state); lighting up is fast — see the lit rule */
+	transition: box-shadow 0.9s ease-in;
 }
 
 html:not(.deck) .awbox:hover .awphoto,
 html:not(.deck) .awbox.kbd-focus .awphoto {
+	/* the spot lands well before the print has woken up */
+	transition: box-shadow 0.25s ease-out;
 	box-shadow:
 		0 0.6cqw 1.25cqw -0.3cqw rgba(48, 42, 18, 0.45),
 		1.25cqw 4.7cqw 2.8cqw -0.45cqw rgba(48, 42, 18, 0.31),
