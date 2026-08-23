@@ -7,8 +7,8 @@ How everything works, in detail. The overview is in the [README](../README.md).
 | file | what it is |
 |---|---|
 | `index.html` | the page: title, empty `.main`, loads `res/main.css` + `res/main.js` |
-| `res/main.js` | builds the photo sections; desktop scroll/keyboard UI and the mobile sheet deck |
-| `res/main.css` | desktop layout at the top, the whole mobile deck inside `@media (max-width: 600px)` |
+| `res/main.js` | builds the photo sections; desktop scroll/keyboard UI and the touch-device sheet deck |
+| `res/main.css` | desktop layout at the top, the whole deck nested inside `html.deck { … }` (native CSS nesting, Safari 17.2+) |
 | `manifest.json` | web app manifest — required, see *iOS home screen app* |
 | `img/awp-YYYY-MM-DD-NN.jpg` | the photos, square, 1000 px — named by date taken, NN counting that day's photos |
 | `img/awp-….mp4` | a photo that is a video: 1000 px square H.264; the `.jpg` of the same name is its first frame |
@@ -26,19 +26,29 @@ The file names are internal. The site shows photos as `afterworkphoto N`, N bein
 
 ## How the page works
 
-### Desktop (wider than 600 px)
+### Which layout
 
-Two photos per full-height section, newest first, vertical scroll-snap. Photos are dimmed to 12 % and light up on hover. Keyboard: `Enter`/`Tab` enter keyboard mode, arrows move, `Escape` leaves. The mouse cursor is replaced by a small white dot.
+`main.js` decides at load: a touch device (`navigator.maxTouchPoints > 0` — iPhone, iPad, touch laptops) gets the **deck** and the class `deck` on `<html>`, which switches the deck CSS on; a mouse-only machine gets the **list**. `TABLET` (`min(screen.width, screen.height) >= 700`; the iPad mini is 744 logical px, the largest iPhone 440) adds the class `tablet`. For testing, `?touch=1|0` and `?tablet=1|0` override both.
 
-### Mobile — the sheet deck
+The title is fitted to its box (`fitTitle()`). On a phone the box is the print's exact width (the sheet's 3 px inset plus the prints' `--side` margin, 4 %, on both sides), centred; on a tablet and on the desktop it is a small box (≤ 340 px) whose `right` is that same `--side` margin, so its right edge is the rightmost print's — by construction, nothing is measured.
 
-The newest photo is on top, like a pile of daily prints. Swiping up lifts it off and uncovers the one before; swiping down pulls the newer sheet back on. Only seven sheets exist in the DOM at a time — the top one and three either side, built as they enter that window and dropped as they leave it, images loaded ahead — so a pile of hundreds costs what a pile of seven does (`WINDOW`, `sheet(i)`, `layout()` in `main.js`). Tapping does the same: the upper part of the screen goes forward, the lower part back — the boundary is the thin dotted line printed on every sheet (`--divider-y`, set from the photo's position). The last sheet wraps to the first; it is the same move as any other, there are no clones.
+### Desktop — the list
 
-**Edge scrubber.** The right 28 px of the screen (below the status backdrop) is the pile seen edge-on. A touch there opens it: a strip of sheet edges with the years marked (marks that would land within 18 px of the previous one are left out), and under the finger the sheet as a small print with its number and month. Dragging runs through the pile (top = newest); letting go cuts the deck to that sheet — the top sheet lifts off straight onto an older target, a newer target comes down straight onto the top sheet. `startMove(dir, target)` is the same move as a swipe, just not to the neighbour; the sheet being uncovered (`.under`) sits above the resting pile (z 4) so the pile's own next sheets never show through during the cut.
+Rows of photos in full-height sections, newest first, vertical scroll-snap. Photos per row follow the window's shape (`perRow()`): taller than wide 1, wider 2, wider than 2:1 3; the prints share the row between the `--side` margins (`flex: 1`, never taller than the window). On resize the existing boxes are regrouped into new rows (`regroup()` — no image reloads) and the row that was on screen stays on screen. Photos are dimmed to 12 % and light up on hover. Keyboard: `Enter`/`Tab` enter keyboard mode, arrows move (up/down by a row), `Escape` leaves. The mouse cursor is replaced by a small white dot.
+
+### Touch devices — the sheet deck
+
+The newest photo is on top, like a pile of daily prints. A sheet carries `K` photos — one, or two side by side on a tablet held sideways (`sheetsPer()`; 43 % prints, a gap of 1.5 side margins between them). Turning the iPad rebuilds the pile with the same photo on top (`rebuild()`, on `resize`; a move in flight is landed first). The deck works on sheet indices (`S = ceil(N / K)`, `photosOf(i)`), the scrubber on photo indices (`sheetOf()` maps between them). Swiping up lifts the top sheet off and uncovers the one before; swiping down pulls the newer sheet back on. Only seven sheets exist in the DOM at a time — the top one and three either side, built as they enter that window and dropped as they leave it, images loaded ahead — so a pile of hundreds costs what a pile of seven does (`WINDOW`, `sheet(i)`, `layout()` in `main.js`). Tapping does the same: the upper part of the screen goes forward, the lower part back — the boundary is the thin dotted line printed on every sheet (`--divider-y`, set from the photo's position). The last sheet wraps to the first; it is the same move as any other, there are no clones.
+
+**Edge scrubber.** The right 28 px of the screen (below the status backdrop) is the pile seen edge-on. A touch there opens it: a strip of sheet edges with the years marked (marks that would land within 18 px of the previous one are left out), and beside the finger a paper card with the photo under it — number above month, then its print. Dragging runs through the photos (top = newest); letting go cuts the deck to the sheet holding that photo — the top sheet lifts off straight onto an older target, a newer target comes down straight onto the top sheet.
+
+*Neighbours.* When the strip gives fewer pixels per photo than a finger resolves, the adjacent photos float free above (newer) and below (older) the card, smaller and dimmed: `neighbourCount(px)` — `≥ 6 px → 1 print, ≥ 2 → 3, else 5`, where `px = stripHeight / N / rate`. With 208 photos an iPhone (≈ 3.5 px) and an iPad (≈ 5.3 px portrait) show 3. The label's `right` is set from the widest year mark (`16 + widest + 8 px`), so a year is never covered; at the strip's ends the label is pushed inward to stay on screen.
+
+*Precision gear.* Engaged only when the strip is too short for single-sheet hits (`pxPerPhoto < GEAR_NEEDED_PX = 6`): sliding the finger left off the strip and on scrubbing there slows the pile — 1× on the strip and up to 60 px in, ¼ from 60 px, 1/16 from 160 px (`gearRate()`; a `← finer` hint shows under the label while it would help). The touch-down sets the position from the strip; once a finer gear has been used the position follows the finger's travel (`scrubPos`), and the fan collapses to one print because `px` is divided by the rate. Capacity: single sheets are reachable while `16 · stripHeight / N ≥ 3 px` — comfortably to ≈ 1 900 photos on an iPhone, ≈ 2 900 on an iPad in portrait; a further gear (1/64) in `gearRate()` would multiply that by four. `startMove(dir, target)` is the same move as a swipe, just not to the neighbour; the sheet being uncovered (`.under`) sits above the resting pile (z 4) so the pile's own next sheets never show through during the cut.
 
 Loading, so nothing looks empty: all thumbnails are fetched in the background once the page is up (batches of eight, `preloadThumbs`); every print has its thumbnail as a background, so a sheet still loading already shows its picture softly; the small print under the finger only ever shows a thumbnail that is already decoded (an `<img>` would otherwise keep showing its previous picture until the new one arrives) and stays blank paper until then; and when the finger rests on a sheet for 200 ms its full photo is fetched ahead (`warmUp`), so it is in the cache by the time the pile is cut to it.
 
-**Videos** play only while on screen: on the phone while their sheet is the top one (paused in `layout()` otherwise), on the desktop while the mouse is over them. No autoplay.
+**Videos** are captioned `afterworkvideo N` (`captionOf()`; the numbering is the photos'), and play only while on screen: in the deck while their sheet is the top one (paused in `layout()` otherwise), on the desktop while the mouse is over them. No autoplay.
 
 What is on screen, always: the **top sheet**, 3 px in from the phone's edge with its paper edge showing, and the **two sheets beneath it**, full size and flat, so the top sheet's edge always shows paper around it. Stack positions are the classes `current`, `next`, `next2`, assigned by `layout()`.
 
@@ -48,7 +58,7 @@ A move, in `main.js` terms:
 - While the mover is in the air it is always sheet-size (3 px inset, lifted shadow). The sheet beneath stays flat until the mover's bottom edge has cleared the lower 30 % of the screen (`revealAt`), then takes sheet size too — all four edges move in very slightly — and goes flat again on the way back. `updateReveal()` reads the mover's actual transform, so drags and the animated settle behave the same.
 - `settle(commit)` animates the rest of the way; `finish()` re-assigns the stack. A 2.5 s watchdog covers a `transitionend` that never arrives (backgrounded tab).
 
-The look is CSS only, all tokens in `:root` inside the mobile block:
+The look is CSS only, all tokens on `html.deck` (`& { … }` at the top of the deck block):
 
 - **Paper**: `#dedede` with a fractal-noise grain (inline SVG, ≤ 10 % alpha, seamless at 120 px). Dark mode via `prefers-color-scheme`: `#2b2927` paper, light ink, white title — same rendering, different tokens.
 - **Paper edge** (`--sheet-edge`): 1 px lit bevel top/left, 1 px dark thickness line, 1–3 px contact shadow. Sized for a very small rounded object.
@@ -83,6 +93,7 @@ By hand: `git add inbox/whatever.jpg && git commit && git push` does the same. T
 ## Known issues / to check
 
 - **Fixed: a wrong picture for a moment after a scrubber cut down the pile** (to an older, smaller number; cutting up was fine). The sheet being uncovered carried only `.under`, which never set `visibility` — so it stayed hidden like any resting sheet, and the pile's own next sheet showed through for the whole lift until the landing snapped it into place. Cuts of one or two sheets looked right only because the target happened to be `.next`/`.next2`. `section.under` is now `visibility: visible` (commit `eaef3ee`). Reproduced and verified on the desktop at phone width with synthetic touch events on the scrubber, sampling each sheet's computed visibility and z-index during the move.
+- **iPad: check on the device** — rotation with a move in flight, the label near the strip's ends with 5 prints, the corner radius fallback (no iPad entry in `SCREEN_RADII`), and whether iPadOS Safari with a trackpad still reports touch points (it should; otherwise it gets the list).
 - **Status bar text / blur** cannot be controlled from the page (see below).
 
 ## Deployment
@@ -105,7 +116,7 @@ python3 -m http.server 8765 --bind 0.0.0.0     # then open http://<your LAN IP>:
 
 Send `Cache-Control: no-store` if you iterate on the phone — iOS caches hard. Mind that another project's server on `127.0.0.1:8765` wins over `0.0.0.0:8765` for localhost requests.
 
-Mobile breakpoint is `PER_SECTION = innerWidth < 600 ? 1 : 2`, so a desktop window narrower than 600 px shows the deck. The page needs `photos.json`, so it must be served, not opened as a file.
+The deck is chosen by touch support, not width — on a desktop browser use `?touch=1` (and `?tablet=1` for the iPad layouts) in a narrow or iPad-sized window, or an iframe of that size. The page needs `photos.json`, so it must be served, not opened as a file.
 
 ## iOS home screen app — what was learned the hard way
 

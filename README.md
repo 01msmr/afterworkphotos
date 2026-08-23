@@ -19,9 +19,9 @@ The site never shows file names; it numbers photos 1…N in date order.
 
 ## The page
 
-**Desktop** — two photos per screen, newest first, scroll-snap; dimmed, lit on hover; keyboard navigation.
+**Desktop** — one, two or three photos per screen depending on the window's shape, newest first, scroll-snap; dimmed, lit on hover; keyboard navigation.
 
-**Mobile** — the photos are a pile of paper sheets, newest on top. Swipe up to lift the top sheet off and see the one before it, swipe down to put it back; tapping the upper/lower half does the same. The right edge of the screen is the pile seen edge-on: touch it and drag to run through the years, let go and the pile cuts to that sheet. Only seven sheets exist in the DOM at a time, so the size of the pile doesn't matter. Dark mode follows the system. Videos play only while on screen.
+**Phone and iPad** — the photos are a pile of paper sheets, newest on top (on an iPad held sideways, two per sheet). Swipe up to lift the top sheet off and see the one before it, swipe down to put it back; tapping the upper/lower half does the same. The right edge of the screen is the pile seen edge-on: touch it and drag to run through the years, slide the finger in from the edge for finer control, let go and the pile cuts to that sheet. Only seven sheets exist in the DOM at a time, so the size of the pile doesn't matter. Dark mode follows the system. Videos play only while on screen.
 
 ## Adding photos
 
@@ -44,5 +44,4 @@ Local: `python3 -m http.server 8765 --bind 0.0.0.0` and open the LAN address on 
 ## Open
 
 - `secret.php` is tracked and its token is in the history: rotate it, remove the legacy PHP files.
-- On the phone a wrong picture sometimes shows for a moment after a scrubber cut; not reproduced on the desktop.
 - Next: the contact sheet (pinch to spread the pile into a grid).
