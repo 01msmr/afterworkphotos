@@ -54,6 +54,34 @@ if (PER_SECTION === 1) {
   // Live window height — the part you can actually see and touch
   function H() { return window.innerHeight; }
 
+  /* ── Screen corner radius ──
+     The phone's real corner, so the backdrop's corner fills and the sheets'
+     corners match the glass. No browser reports it, so known models are
+     looked up by logical screen size and pixel ratio (Apple's published
+     display radii, in points). Unlisted devices keep the CSS fallback. */
+  const SCREEN_RADII = [
+    // [portrait width, portrait height, dpr, radius]
+    [375, 667, 2, 0],       // SE 2nd/3rd, 8
+    [414, 736, 3, 0],       // 8 Plus
+    [375, 812, 3, 44],      // 12/13 mini (X, XS, 11 Pro share this size at 39)
+    [414, 896, 2, 42],      // XR, 11
+    [414, 896, 3, 39],      // XS Max, 11 Pro Max
+    [390, 844, 3, 47],      // 12, 12 Pro, 13, 13 Pro, 14, 16e
+    [428, 926, 3, 53],      // 12 Pro Max, 13 Pro Max, 14 Plus
+    [393, 852, 3, 55],      // 14 Pro, 15, 15 Pro, 16
+    [430, 932, 3, 55],      // 14 Pro Max, 15 Plus, 15 Pro Max, 16 Plus
+    [402, 874, 3, 62],      // 16 Pro
+    [440, 956, 3, 62]       // 16 Pro Max
+  ];
+
+  (function applyScreenRadius() {
+    const w = Math.min(screen.width, screen.height);
+    const h = Math.max(screen.width, screen.height);
+    const dpr = Math.round(window.devicePixelRatio);
+    const hit = SCREEN_RADII.find(r => r[0] === w && r[1] === h && r[2] === dpr);
+    if (hit) document.documentElement.style.setProperty('--screen-radius', hit[3] + 'px');
+  })();
+
   // ── Stack state ──
   let current = 0;          // sheet on top
   let mover = null;         // the sheet being lifted off or put back

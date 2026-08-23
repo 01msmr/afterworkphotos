@@ -118,10 +118,12 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 	/* One set of tokens, two looks. The edge rendering below only ever refers
 	   to these, so dark mode is a palette swap, not a second implementation. */
 	:root {
-		/* The screen's own corner radius where the browser exposes it, else
-		   derived from the home-indicator inset (34px → ~48px on a Face ID
-		   iPhone). Flat-edged screens land on 24px. */
-		--screen-radius: env(device-corner-radius, max(24px, calc(env(safe-area-inset-bottom, 0px) * 1.4)));
+		/* The screen's own corner radius. main.js sets it per device model
+		   where it knows one; this is the fallback: derived from the
+		   home-indicator inset (34px → 55px, the iPhone 14 Pro–16 corner),
+		   flat-edged screens land on 24px. Whole pixels only — a fractional
+		   radius puts the corner fills on half pixels and clips them. */
+		--screen-radius: env(device-corner-radius, max(24px, calc(env(safe-area-inset-bottom, 0px) * 1.62)));
 		--desk: #000;
 		--paper: #dedede;
 		--ink: #000;
@@ -147,6 +149,12 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 		   seamlessly at 120px, which on a ~12cm wide card is sub-millimetre
 		   fibre — read as a surface, not as a pattern. */
 		--paper-grain: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='3' seed='3' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/><feComponentTransfer><feFuncA type='linear' slope='0.1'/></feComponentTransfer></filter><rect width='120' height='120' filter='url(%23g)'/></svg>");
+	}
+
+	@supports (width: round(nearest, 1px, 1px)) {
+		:root {
+			--screen-radius: round(nearest, env(device-corner-radius, max(24px, calc(env(safe-area-inset-bottom, 0px) * 1.62))), 1px);
+		}
 	}
 
 	@media (prefers-color-scheme: dark) {
@@ -240,7 +248,7 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 		background:
 			linear-gradient(var(--desk), var(--desk)) top / 100% env(safe-area-inset-top, 0px) no-repeat,
 			radial-gradient(circle at 100% 100%, transparent calc(var(--screen-radius) - 0.5px), var(--desk) calc(var(--screen-radius) + 0.5px)) left bottom / var(--screen-radius) var(--screen-radius) no-repeat,
-			radial-gradient(circle at 0 100%, transparent calc(var(--screen-radius) - 0.5px), var(--desk) calc(var(--screen-radius) + 0.5px)) right bottom / var(--screen-radius) var(--screen-radius) no-repeat;
+			radial-gradient(circle at 0 100%, transparent calc(var(--screen-radius) - 0.5px), var(--desk) calc(var(--screen-radius) + 0.5px)) calc(100% - 1px) bottom / var(--screen-radius) var(--screen-radius) no-repeat;
 	}
 
 	/* Nothing scrolls: the track is only a container, the cards stack themselves.
@@ -249,15 +257,16 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 		display: block;
 	}
 
-	/* At rest a sheet is the phone's front: it fills the virtual phone, which
-	   gives it the phone's corners. Flat — a sheet lying down has no edge to
-	   show. Only the top sheet is visible at rest.
+	/* A sheet is always a sheet: 3px in from the phone's edge on all sides,
+	   with its small paper edge showing — at rest, and while it is in the
+	   air. Only a sheet lying flat beneath another (the one being uncovered,
+	   until it is, and the one behind that) fills the phone completely.
 
 	   Its corners are concentric with the phone's at whatever inset it is —
 	   except that a sheet lying flat has square bottom corners, because
 	   there the glass does the rounding. */
 	section {
-		--inset: 0px;
+		--inset: 3px;
 		position: fixed;
 		/* fixed to the viewport, top below the status inset, bottom on the
 		   glass — the geometry that was right on the phone */
@@ -294,9 +303,14 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 		z-index: 1;
 	}
 
+	section.current {
+		box-shadow: var(--sheet-edge);
+	}
+
 	/* The sheet behind the one beneath: full and flat, so that when the one
 	   beneath shrinks there is paper around it, never desk */
 	section.behind {
+		--inset: 0px;
 		visibility: visible;
 		z-index: 0;
 	}
@@ -309,6 +323,11 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 	   once it is the resting sheet it grows back to full. Comes after
 	   .current on purpose: on the way back the sheet beneath is the current
 	   one. */
+	section.under {
+		--inset: 0px;
+		box-shadow: none;
+	}
+
 	section.under.revealed {
 		--inset: 3px;
 		box-shadow: var(--sheet-edge);
