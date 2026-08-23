@@ -112,28 +112,84 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 	transition: opacity 0.9s ease-in;
 }
 
-/* ── Mobile: reveal deck ── */
+/* ── Mobile: paper stack ── */
 @media (max-width: 600px) {
 
-	/* Radius of the card edge that covers/uncovers, matched to the phone.
-	   `device-corner-radius` is the screen's own radius where the browser
-	   exposes it (proposed env var, not in Safari yet). Otherwise derive it
-	   from the home-indicator inset, which is only non-zero on the
-	   round-cornered phones and needs viewport-fit=cover on the viewport
-	   meta tag — 34px there gives ~48px, close to an iPhone's real corner.
-	   Flat-edged and desktop-sized screens land on the 24px fallback. */
+	/* One set of tokens, two looks. The edge rendering below only ever refers
+	   to these, so dark mode is a palette swap, not a second implementation. */
 	:root {
+		/* The screen's own corner radius where the browser exposes it, else
+		   derived from the home-indicator inset (34px → ~48px on a Face ID
+		   iPhone). Flat-edged screens land on 24px. */
 		--screen-radius: env(device-corner-radius, max(24px, calc(env(safe-area-inset-bottom, 0px) * 1.4)));
+		--desk: #000;
+		--paper: #dedede;
+		--ink: #000;
+		--title: #000;
+		--title-link: blue;
+		--title-link-bg: #dedede;
+		/* lit bevel on the top/left edge, and the sheet's dark thickness */
+		--edge-light: rgba(255, 255, 255, 0.55);
+		--edge-dark: rgba(0, 0, 0, 0.22);
+		/* shadow colour, warm — paper on a desk, not a UI panel */
+		--shade: 40, 30, 20;
+		/* Paper edges: a 1px rounded bevel catching light from the top left,
+		   a 1px dark edge face for the sheet's thickness, then a tight
+		   contact shadow where it meets what lies below. */
+		--sheet-edge:
+			inset 1px 1px 0 var(--edge-light),
+			inset -1px -1px 0 rgba(var(--shade), 0.08),
+			0 0 0 1px var(--edge-dark),
+			0 1px 2px rgba(var(--shade), 0.28),
+			0 3px 8px rgba(var(--shade), 0.22);
+		/* Paper grain: fractal noise, desaturated, at most 10% alpha. Tiles
+		   seamlessly at 120px, which on a ~12cm wide card is sub-millimetre
+		   fibre — read as a surface, not as a pattern. */
+		--paper-grain: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='3' seed='3' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/><feComponentTransfer><feFuncA type='linear' slope='0.1'/></feComponentTransfer></filter><rect width='120' height='120' filter='url(%23g)'/></svg>");
+	}
+
+	@media (prefers-color-scheme: dark) {
+		:root {
+			--paper: #2b2927;
+			--ink: #ece8e1;
+			--title: #fff;
+			--title-link: #9db8ff;
+			--title-link-bg: #2b2927;
+			--edge-light: rgba(255, 255, 255, 0.14);
+			--edge-dark: rgba(0, 0, 0, 0.7);
+			--shade: 0, 0, 0;
+		}
+	}
+
+	/* The desk. Black so the Dynamic Island disappears into it. */
+	html,
+	body {
+		background: var(--desk);
 	}
 
 	h1.title {
 		width: 92%;
+		top: env(safe-area-inset-top, 0px);
 		left: 50%;
 		transform: translateX(-50%);
 		text-align: center;
 		white-space: nowrap;
 		padding-top: 12px;
 		padding-bottom: 6px;
+		color: var(--title);
+	}
+
+	h1.title a {
+		color: var(--title-link);
+	}
+
+	h1.title a:hover {
+		color: var(--title-link-bg);
+		background-color: var(--title-link);
+	}
+
+	p.subtitle {
+		color: var(--ink);
 	}
 
 	.main {
@@ -150,25 +206,30 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 		display: block;
 	}
 
-	/* Every card is the whole phone front — not a rectangle above the URL bar.
-	   100lvh is the screen with the browser furniture retracted, so the card
-	   runs edge to edge and its rounded corners land on the device's own.
-	   Safari's bar simply floats over the bottom of it. */
+	/* Every card is a sheet of paper lying on the desk, inset a little from
+	   the screen so its edges stay in view. Only the top sheet shows; the one
+	   beneath appears only as the top one is lifted off it. Its corners are
+	   concentric with the phone's own, so it reads as the phone's front a
+	   size smaller. */
 	section {
+		--inset: 12px;
 		position: fixed;
-		top: 0;
-		left: 0;
-		right: 0;
-		height: var(--app-height);
-		/* fallback */
-		height: 100lvh;
+		top: calc(env(safe-area-inset-top, 0px) + var(--inset));
+		right: var(--inset);
+		bottom: var(--inset);
+		left: var(--inset);
+		height: auto;
 		padding: 0;
-		padding-top: calc(2rem + var(--tp) * 2 + 12px + env(safe-area-inset-top, 0px));
-		/* keep content clear of the browser bar and the home indicator */
-		padding-bottom: calc(100lvh - 100dvh + env(safe-area-inset-bottom, 0px));
+		padding-top: calc(2rem + var(--tp) * 2 + 12px);
+		/* keep the caption clear of the home indicator */
+		padding-bottom: env(safe-area-inset-bottom, 0px);
 		gap: 0;
 		scroll-snap-align: none;
-		background-color: #dedede;
+		background-color: var(--paper);
+		background-image: var(--paper-grain);
+		background-size: 120px 120px;
+		border-radius: max(12px, calc(var(--screen-radius) - var(--inset)));
+		box-shadow: var(--sheet-edge);
 		visibility: hidden;
 		z-index: 0;
 	}
@@ -179,30 +240,41 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 		z-index: 1;
 	}
 
-	/* The travelling card is always the upper one — rule order matters, it
-	   also carries .current on the way out */
-	section.mover {
-		visibility: visible;
-		z-index: 2;
-		will-change: transform;
-		/* Round the bottom edge, the one that does the covering */
-		border-radius: 0 0 var(--screen-radius) var(--screen-radius);
-		/* The shadow has to follow that curve, not sit under it as a straight
-		   band — otherwise the corners vanish wherever the card travels over
-		   the identically grey part of the card below. Hairline first so the
-		   edge stays readable down to the last pixel, then the soft falloff. */
-		box-shadow:
-			0 1px 0 0 rgba(56, 46, 36, 0.16),
-			0 3px 6px rgba(56, 46, 36, 0.22),
-			0 12px 26px rgba(56, 46, 36, 0.28),
-			0 30px 70px rgba(56, 46, 36, 0.30);
+	/* The sheet beneath is there from the first pixel, but flat: it runs to
+	   the screen edges with no corners and no edge lighting — a surface, not
+	   yet a sheet. Once the moving one has cleared the lower 30% of the
+	   screen (see revealAt) its edges come into view: it draws in to sheet
+	   size and its bevel, thickness and contact shadow appear. On the way
+	   back down the same happens in reverse. Comes after .current on
+	   purpose: on the way back the sheet beneath is the current one. */
+	section.under {
+		--inset: 0px;
+		border-radius: 0;
+		box-shadow: none;
+		transition:
+			top 0.3s ease, right 0.3s ease, bottom 0.3s ease, left 0.3s ease,
+			border-radius 0.3s ease, box-shadow 0.3s ease;
 	}
 
-	/* Phone screens are squircles, not circular arcs — follow where supported */
-	@supports (corner-shape: squircle) {
-		section.mover {
-			corner-shape: squircle;
-		}
+	section.under.revealed {
+		--inset: 12px;
+		border-radius: max(12px, calc(var(--screen-radius) - var(--inset)));
+		box-shadow: var(--sheet-edge);
+	}
+
+	/* The sheet being moved is lifted off the stack: above everything, and
+	   its shadow grows soft and long the way a lifted sheet's does */
+	section.mover {
+		visibility: visible;
+		z-index: 10;
+		will-change: transform;
+		box-shadow:
+			inset 1px 1px 0 var(--edge-light),
+			inset -1px -1px 0 rgba(var(--shade), 0.08),
+			0 0 0 1px var(--edge-dark),
+			0 2px 4px rgba(var(--shade), 0.3),
+			0 12px 28px rgba(var(--shade), 0.4),
+			0 30px 70px rgba(var(--shade), 0.45);
 	}
 
 	section.mover.animating {
@@ -211,15 +283,49 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 
 	div.awbox {
 		width: 92%;
-		/* No CSS opacity transition on mobile — the deck controls visibility */
+		/* Nothing is dimmed on mobile: a sheet is either on the stack or not */
+		opacity: 1;
 		transition: none !important;
 	}
 
-	/* Both cards in play are fully lit */
-	section.current .awbox,
-	section.under .awbox,
-	section.mover .awbox {
-		opacity: 1;
+	/* The photo is pressed into the sheet, letterpress style: no drop shadow
+	   (paper doesn't float), instead the recess is in shadow along its top and
+	   left wall and the paper just below its lower edge catches the light. */
+	.awphoto {
+		position: relative;
+		/* a print's corners: barely rounded */
+		border-radius: 6px;
+		box-shadow:
+			0 1px 0 var(--edge-light),
+			1px 0 0 rgba(255, 255, 255, 0.3);
 	}
 
+	.awphoto img {
+		border-radius: inherit;
+	}
+
+	.awphoto::before {
+		content: '';
+		position: absolute;
+		inset: 0;
+		border-radius: inherit;
+		pointer-events: none;
+		box-shadow:
+			inset 0 3px 4px rgba(var(--shade), 0.45),
+			inset 0 1px 0 rgba(var(--shade), 0.35),
+			inset 3px 0 4px rgba(var(--shade), 0.22),
+			inset 0 -1px 0 rgba(255, 255, 255, 0.12);
+	}
+
+	/* The grain carries on across the print, fainter — ink on paper */
+	.awphoto::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		border-radius: inherit;
+		pointer-events: none;
+		background-image: var(--paper-grain);
+		background-size: 120px 120px;
+		opacity: 0.5;
+	}
 }

@@ -54,85 +54,69 @@ if (PER_SECTION === 1) {
   // Live window height — the part you can actually see and touch
   function H() { return window.innerHeight; }
 
-  // A card is the whole screen (100lvh), which is taller than H() whenever the
-  // browser shows its bar, so it has to travel its own height to clear
-  function cardH() { return sections[0].offsetHeight || H(); }
-
-  /* ── Screen corner radius ──
-     So a card uncovers with the same corners the phone itself has. No browser
-     reports that directly; env(device-corner-radius) is a proposal and Safari
-     does not have it, so where it is missing we identify the device by its
-     logical screen size and pixel ratio. Values are Apple's published display
-     radii in points. Anything not listed — every Android, any newer iPhone —
-     keeps the CSS fallback, which reads the home-indicator inset instead. */
-  const SCREEN_RADII = [
-    // [portrait width, portrait height, dpr, radius]
-    [375, 667, 2, 0],       // SE 2nd/3rd, 8
-    [414, 736, 3, 0],       // 8 Plus
-    [375, 812, 3, 44],      // 12/13 mini (44) — X, XS, 11 Pro share this size at 39
-    [414, 896, 2, 41.5],    // XR, 11
-    [414, 896, 3, 39],      // XS Max, 11 Pro Max
-    [390, 844, 3, 47.33],   // 12, 12 Pro, 13, 13 Pro, 14, 16e
-    [428, 926, 3, 53.33],   // 12 Pro Max, 13 Pro Max, 14 Plus
-    [393, 852, 3, 55],      // 14 Pro, 15, 15 Pro, 16
-    [430, 932, 3, 55],      // 14 Pro Max, 15 Plus, 15 Pro Max, 16 Plus
-    [402, 874, 3, 62],      // 16 Pro
-    [440, 956, 3, 62]       // 16 Pro Max
-  ];
-
-  function applyScreenRadius() {
-    // If the browser exposes the real radius, it beats any table
-    const probe = document.createElement('div');
-    probe.style.borderTopLeftRadius = 'env(device-corner-radius, 12345px)';
-    document.body.appendChild(probe);
-    const exposed = getComputedStyle(probe).borderTopLeftRadius !== '12345px';
-    probe.remove();
-    if (exposed) return;
-
-    const w = Math.min(screen.width, screen.height);
-    const h = Math.max(screen.width, screen.height);
-    const dpr = Math.round(window.devicePixelRatio);
-    const hit = SCREEN_RADII.find(r => r[0] === w && r[1] === h && r[2] === dpr);
-    if (hit) document.documentElement.style.setProperty('--screen-radius', hit[3] + 'px');
-  }
-  applyScreenRadius();
-
   // ── Stack state ──
-  let current = 0;          // card on screen
-  let mover = null;         // the upper card, the one that travels
-  let under = null;         // the card it uncovers / covers
-  let dir = 0;              // +1 forward (lift off), -1 backward (pull over)
+  let current = 0;          // sheet on top
+  let mover = null;         // the sheet being lifted off or put back
+  let under = null;         // the sheet it reveals / covers
+  let dir = 0;              // +1 forward (lift off), -1 backward (put back)
+  let travel = 0;           // how far the mover goes to clear the screen
+  let revealAt = 0;         // how far up it must be before the sheet beneath is dealt in
   let animating = false;
   let committed = false;    // does the pending move land on the neighbour?
   let finishTimer = 0;
 
-  // Where the moving card rests at each end of its travel
-  function homeY() { return dir > 0 ? 0 : -cardH(); }   // where it starts
-  function awayY() { return dir > 0 ? -cardH() : 0; }   // where a committed move ends
-
   sections[current].classList.add('current');
 
-  // Pick the moving card and the one below it
+  // Where the moving sheet rests at each end of its travel
+  function homeY() { return dir > 0 ? 0 : -travel; }   // where it starts
+  function awayY() { return dir > 0 ? -travel : 0; }   // where a committed move ends
+
+  // Pick the moving sheet: the top one to lift off, the previous one to put back
   function startMove(direction) {
     dir = direction;
     if (dir > 0) {
-      mover = sections[current];              // lift the current card off
+      mover = sections[current];              // lift the top sheet off
       under = sections[wrap(current + 1)];
     } else {
-      mover = sections[wrap(current - 1)];    // pull the previous card back over
+      mover = sections[wrap(current - 1)];    // put the previous sheet back on
       under = sections[current];
     }
     under.classList.add('under');
     mover.classList.add('mover');
+    // Measured in place: the sheet's bottom edge plus the shadow it casts
+    // below itself, so nothing of it is left showing once it is "away"
+    mover.style.transform = '';
+    const bottom = mover.getBoundingClientRect().bottom;
+    travel = bottom + 70;
+    // The sheet beneath shows its edges only once the mover's bottom edge is
+    // 30% of the way up the screen — and loses them again on the way back down
+    revealAt = bottom * 0.3;
     mover.style.transform = `translateY(${homeY()}px)`;
+    updateReveal();
+  }
+
+  function moverY() {
+    return new DOMMatrixReadOnly(getComputedStyle(mover).transform).m42;
+  }
+
+  function updateReveal() {
+    if (!mover) return;
+    under.classList.toggle('revealed', -moverY() >= revealAt);
+  }
+
+  // During an animated settle the position lives in CSS, so poll it per frame
+  function trackReveal() {
+    if (!animating) return;
+    updateReveal();
+    requestAnimationFrame(trackReveal);
   }
 
   // Follow the finger, no animation
   function dragTo(dy) {
-    const h = cardH();
-    const pos = Math.min(0, Math.max(-h, homeY() + dy));
+    const pos = Math.min(0, Math.max(-travel, homeY() + dy));
     mover.classList.remove('animating');
     mover.style.transform = `translateY(${pos}px)`;
+    updateReveal();
   }
 
   // Animate the rest of the way — through (commit) or back home (cancel)
@@ -143,6 +127,7 @@ if (PER_SECTION === 1) {
     void mover.offsetHeight;
     mover.classList.add('animating');
     mover.style.transform = `translateY(${commit ? awayY() : homeY()}px)`;
+    requestAnimationFrame(trackReveal);
     clearTimeout(finishTimer);
     // transitionend can be skipped when the tab is backgrounded mid-slide
     finishTimer = setTimeout(finish, 1200);
@@ -154,7 +139,7 @@ if (PER_SECTION === 1) {
     if (committed) current = wrap(current + dir);
     mover.classList.remove('mover', 'animating');
     mover.style.transform = '';
-    under.classList.remove('under');
+    under.classList.remove('under', 'revealed');
     sections.forEach((s, i) => s.classList.toggle('current', i === current));
     mover = under = null;
     dir = 0;
@@ -252,7 +237,7 @@ if (PER_SECTION === 1) {
       if (!mover) return;
       const absDy = Math.abs(dy);
       const velocity = absDy / Math.max(1, elapsed);
-      const progress = absDy / cardH();
+      const progress = absDy / travel;
       settle(progress > 0.2 || velocity > 0.4);
       return;
     }
