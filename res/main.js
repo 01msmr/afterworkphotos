@@ -933,10 +933,10 @@ if (DECK) {
     if (!settledNear) document.body.classList.add('moving');   // nothing undims while the wall moves
     if (gliding && Math.abs(main.scrollTop - glideTarget) < 2) { gliding = false; clearTimeout(glideTimer); }
     clearTimeout(scrollEndTimer);
-    // the incoming row's light begins once its image is a third on screen —
-    // hover stays quiet (body.moving) until the wall truly rests
+    // the incoming row's light begins once two thirds of its image are on
+    // screen — hover stays quiet (body.moving) until the wall truly rests
     const rowH = sections[0].offsetHeight;
-    if (approachTop >= 0 && Math.abs(main.scrollTop - approachTop) < rowH * 0.67) {
+    if (approachTop >= 0 && Math.abs(main.scrollTop - approachTop) < rowH * 0.34) {
       const target = sections[Math.round(approachTop / rowH)];
       approachTop = -1;
       lightRow(target);
