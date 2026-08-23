@@ -897,10 +897,12 @@ if (DECK) {
   // from the keyboard (with the print's own slow fade-in)
   let scrollTick = 0, scrollEndTimer = 0;
   main.addEventListener('scroll', () => {
+    document.body.classList.add('moving');              // nothing undims while the wall moves
     if (gliding && Math.abs(main.scrollTop - glideTarget) < 2) { gliding = false; clearTimeout(glideTimer); }
     clearTimeout(scrollEndTimer);
     scrollEndTimer = setTimeout(() => {
       if (gliding) return;                              // a pause on the way, not the end
+      document.body.classList.remove('moving');
       const top = sections.find(s => s.getBoundingClientRect().bottom > 0);
       if (!top) return;
       syncGoto(top);
