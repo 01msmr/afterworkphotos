@@ -92,7 +92,7 @@ Settings persist in `localStorage`; the URL carries them too (`gallery.html?fram
 
 ## Open questions (please answer before phase 1)
 
-1. **Devices**: do you have a Quest 3 (the only one where the real-room scan works)? A Vision Pro? If it's iPhone/iPad + Mac only, tiers 2–3 are theoretical and the plan is "3D gallery page" — still worthwhile, but smaller.
+1. **Devices** — *answered*: a Quest 3S is available for testing, so all three tiers apply; the real-room tier is developed and tested on it. Apple devices get tier 1 (iPhone/iPad/Mac) — no Vision Pro.
 2. **Dependency**: OK with a vendored three.js (~650 KB) on a site that is otherwise a few KB and framework-free? The alternative is hand-written WebGL, which I'd advise against.
 3. **Rooms**: one run of ~18 prints per room, or one room per year (fewer, fuller or emptier rooms; a sign on each door)?
 4. **Grouping**: consecutive-day runs hang together (my assumption), or groups by month, or purely visual (alternate 1/2/3)?
