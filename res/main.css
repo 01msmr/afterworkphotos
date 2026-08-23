@@ -168,6 +168,24 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 		background: var(--desk);
 	}
 
+	/* Status bar trick, round three. iOS samples the page to pick white or
+	   black status text, and the declared colours did not sway it. WebKit's
+	   sample is taken along the page's top edge — so a 2px light hairline
+	   right at the screen edge, above everything, offers it a light page
+	   while the bar itself stays black: black text on black. Remove if it
+	   does nothing. */
+	body::before {
+		content: '';
+		position: fixed;
+		top: 0;
+		left: 0;
+		right: 0;
+		height: 2px;
+		background: #dedede;
+		z-index: 10000;
+		pointer-events: none;
+	}
+
 	h1.title {
 		width: 92%;
 		top: env(safe-area-inset-top, 0px);
@@ -194,12 +212,14 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 	}
 
 	/* The virtual phone. It starts below the status strip and is clipped to
-	   the phone's corner radius on all four corners: the bottom two coincide
-	   with the screen's own, the top two make a phone top at the status
-	   line. Every sheet moves inside it, so one sliding up goes under the
-	   strip — corners and all — as if the phone ended there; no pixel of a
-	   sheet is ever drawn under the status bar. The transform makes it the
-	   containing block for the fixed sheets. */
+	   the phone's corner radius at the top, which makes a phone top at the
+	   status line. The bottom is left square: the glass rounds it, and any
+	   radius of ours that is tighter than the glass shows as black wedges —
+	   a "backdrop" mirrored from the top. Every sheet moves inside it, so
+	   one sliding up goes under the strip — corners and all — as if the
+	   phone ended there; no pixel of a sheet is ever drawn under the status
+	   bar. The transform makes it the containing block for the fixed
+	   sheets. */
 	.main {
 		position: fixed;
 		top: env(safe-area-inset-top, 0px);
@@ -208,7 +228,7 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 		left: 0;
 		height: auto;
 		overflow: hidden;
-		border-radius: var(--screen-radius);
+		border-radius: var(--screen-radius) var(--screen-radius) 0 0;
 		transform: translateZ(0);
 		isolation: isolate;
 		scroll-snap-type: none;
@@ -225,7 +245,9 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 	   gives it the phone's corners. Flat — a sheet lying down has no edge to
 	   show. Only the top sheet is visible at rest.
 
-	   Its corners are concentric with the phone's at whatever inset it is. */
+	   Its corners are concentric with the phone's at whatever inset it is —
+	   except that a sheet lying flat has square bottom corners, because
+	   there the glass does the rounding. */
 	section {
 		--inset: 0px;
 		position: fixed;
@@ -243,9 +265,17 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 		background-color: var(--paper);
 		background-image: var(--paper-grain);
 		background-size: 120px 120px;
-		border-radius: max(8px, calc(var(--screen-radius) - var(--inset)));
+		border-radius:
+			max(8px, calc(var(--screen-radius) - var(--inset)))
+			max(8px, calc(var(--screen-radius) - var(--inset)))
+			/* bottom corners: 0 at inset 0, concentric once lifted off the glass */
+			min(calc(var(--inset) * 1000), max(8px, calc(var(--screen-radius) - var(--inset))))
+			min(calc(var(--inset) * 1000), max(8px, calc(var(--screen-radius) - var(--inset))));
 		visibility: hidden;
 		z-index: 0;
+		transition:
+			top 0.3s ease, right 0.3s ease, bottom 0.3s ease, left 0.3s ease,
+			border-radius 0.3s ease, box-shadow 0.3s ease;
 	}
 
 	section.current,
@@ -269,20 +299,17 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 	   once it is the resting sheet it grows back to full. Comes after
 	   .current on purpose: on the way back the sheet beneath is the current
 	   one. */
-	section.under {
-		transition:
-			top 0.3s ease, right 0.3s ease, bottom 0.3s ease, left 0.3s ease,
-			border-radius 0.3s ease, box-shadow 0.3s ease;
-	}
-
 	section.under.revealed {
-		--inset: 4px;
+		--inset: 3px;
 		box-shadow: var(--sheet-edge);
 	}
 
-	/* The sheet being moved is lifted off the stack: above everything, and
-	   its shadow grows soft and long the way a lifted sheet's does */
+	/* The sheet being moved is lifted off the stack: above everything, at
+	   the shrunken size the whole time it is in the air — the same size the
+	   sheet beneath takes once it is uncovered — and its shadow grows soft
+	   and long the way a lifted sheet's does */
 	section.mover {
+		--inset: 3px;
 		visibility: visible;
 		z-index: 10;
 		will-change: transform;
@@ -296,7 +323,10 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 	}
 
 	section.mover.animating {
-		transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+		transition:
+			transform 0.45s cubic-bezier(0.4, 0, 0.2, 1),
+			top 0.3s ease, right 0.3s ease, bottom 0.3s ease, left 0.3s ease,
+			border-radius 0.3s ease, box-shadow 0.3s ease;
 	}
 
 	div.awbox {
