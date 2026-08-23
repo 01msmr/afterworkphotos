@@ -116,12 +116,12 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 	transition: opacity 0.9s ease-in;
 }
 
-/* ── Mobile: paper stack ── */
-@media (max-width: 600px) {
+/* ── Deck: paper stack (html.deck, set by main.js on touch devices) ── */
+html.deck {
 
 	/* One set of tokens, two looks. The edge rendering below only ever refers
 	   to these, so dark mode is a palette swap, not a second implementation. */
-	:root {
+	& {
 		/* The screen's own corner radius. main.js sets it per device model
 		   where it knows one; this is the fallback: derived from the
 		   home-indicator inset (34px → 55px, the iPhone 14 Pro–16 corner),
@@ -161,13 +161,13 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 	}
 
 	@supports (width: round(nearest, 1px, 1px)) {
-		:root {
+		& {
 			--screen-radius: round(nearest, env(device-corner-radius, max(24px, calc(env(safe-area-inset-bottom, 0px) * 1.62))), 1px);
 		}
 	}
 
 	@media (prefers-color-scheme: dark) {
-		:root {
+		& {
 			--paper: #2b2927;
 			--ink: #ece8e1;
 			--title: #fff;
@@ -183,7 +183,7 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 	/* The desk. Black so the Dynamic Island disappears into it. Nothing on
 	   it is text to select or an image to save: a long touch — scrubbing,
 	   holding a sheet — must not bring up iOS's selection or callout. */
-	html,
+	&,
 	body {
 		background: var(--desk);
 		-webkit-user-select: none;

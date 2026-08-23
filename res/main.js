@@ -1,4 +1,12 @@
-const PER_SECTION = window.innerWidth < 600 ? 1 : 2;
+// Deck or list: a touch device gets the paper deck, a mouse-only machine the
+// scroll list. ?touch=1|0 and ?tablet=1|0 override both, for testing only.
+const TEST = new URLSearchParams(location.search);
+const DECK = TEST.has('touch') ? TEST.get('touch') === '1' : navigator.maxTouchPoints > 0;
+// iPad mini is 744 logical px on its short side, the largest iPhone 440
+const TABLET = TEST.has('tablet') ? TEST.get('tablet') === '1'
+  : Math.min(screen.width, screen.height) >= 700;
+if (DECK) document.documentElement.classList.add('deck');
+let PER_ROW = 2;   // desktop photos per row; derived from the window below
 
 const main = document.querySelector('.main');
 const boxes = [];
@@ -48,7 +56,7 @@ window.addEventListener('resize', setAppHeight);
    other, so there are no clones and nothing scrolls.
    ============================================================ */
 function init() {
-if (PER_SECTION === 1) {
+if (DECK) {
 
   const track = document.createElement('div');
   track.className = 'carousel-track';
@@ -486,9 +494,9 @@ if (PER_SECTION === 1) {
      DESKTOP: scroll-snap + keyboard + mouse
      Same order as mobile: newest first, scrolling down goes back in time.
      ============================================================ */
-  for (let i = PHOTOS.length - 1; i >= 0; i -= PER_SECTION) {
+  for (let i = PHOTOS.length - 1; i >= 0; i -= PER_ROW) {
     const section = document.createElement('section');
-    for (let j = i; j > i - PER_SECTION && j >= 0; j--) {
+    for (let j = i; j > i - PER_ROW && j >= 0; j--) {
       const p = PHOTOS[j];
       const box = document.createElement('div');
       box.className = 'awbox';
@@ -588,9 +596,9 @@ if (PER_SECTION === 1) {
     }
 
     if (e.key === 'ArrowDown') {
-      if (selected + PER_SECTION < boxes.length) select(selected + PER_SECTION);
+      if (selected + PER_ROW < boxes.length) select(selected + PER_ROW);
     } else if (e.key === 'ArrowUp') {
-      if (selected - PER_SECTION >= 0) select(selected - PER_SECTION);
+      if (selected - PER_ROW >= 0) select(selected - PER_ROW);
     } else if (e.key === 'ArrowRight') select(selected + 1);
     else if (e.key === 'ArrowLeft') select(selected - 1);
   });
