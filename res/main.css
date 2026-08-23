@@ -217,6 +217,16 @@ html.deck {
 		opacity: 0.06;
 	}
 
+	/* On a tablet the title keeps a phone's size rather than filling the
+	   sheet's width (fitTitle() fits it to this box), and sits at the right */
+	&.tablet h1.title {
+		width: min(92%, 420px);
+		left: auto;
+		right: 4%;
+		transform: none;
+		text-align: right;
+	}
+
 	/* iOS keeps :hover after a tap until the next tap elsewhere, which would
 	   leave the title lit. On touch screens hover does nothing; a tap lights
 	   the title for a moment through .lit instead (main.js). */

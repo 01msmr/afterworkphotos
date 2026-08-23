@@ -6,6 +6,7 @@ const DECK = TEST.has('touch') ? TEST.get('touch') === '1' : navigator.maxTouchP
 const TABLET = TEST.has('tablet') ? TEST.get('tablet') === '1'
   : Math.min(screen.width, screen.height) >= 700;
 if (DECK) document.documentElement.classList.add('deck');
+if (TABLET) document.documentElement.classList.add('tablet');
 let PER_ROW = 2;   // desktop photos per row; derived from the window below
 
 const main = document.querySelector('.main');
