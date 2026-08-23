@@ -1,6 +1,6 @@
 # VR gallery — design draft
 
-Date: 2026-08-23. Status: **draft for Uli's review** — written while the iPad deck was being tested on devices, so the open questions at the end are not yet answered; everything marked *assumed* is a choice that can be flipped.
+Date: 2026-08-23. Status: **questions answered, ready for review** — the decisions are recorded in the questions section at the end; everything still marked *assumed* is a default that can be flipped during review.
 
 ## The idea
 
@@ -49,7 +49,7 @@ Real room (tier 3): walls from planes; the elevator is placed in the real corner
 - **Hanging**: two lines from the ceiling to the frame's top corners, 0.5 mm "nylon" — a thin, slightly transparent cylinder that catches a highlight; the frames hang plumb, **no sway** (motion for its own sake is noise in a gallery).
 - **Along the wall**: singles and grids in date order with gallery spacing (≈ 1.2 m between pieces; a grid counts as one piece, ≈ 1.4 m wide for 3 × 3). A run of group-candidates longer than 9 splits into grids of 9 and 6 (e.g. 15 = 9 + 6; 7 = 6 + 1 single at 60).
 - **Order**: newest first from the door, clockwise — the same order as the site.
-- **Labels**: a small card to the lower right of each group: `afterworkphoto 208 · Oct 2018` (switchable).
+- **Labels**: a small card to the lower right of each piece: `afterworkphoto 208 · Oct 2018` (a grid's card lists its numbers) (switchable).
 
 **How many hang at once — a full room.** A 6 × 4 m room has ≈ 18 m of hangable wall ≈ 16–20 prints at gallery spacing. A year with more photos does not get a second room; the room **fills up**: first the spacing tightens and groups grow (prints side by side, ≈ 10 cm apart, up to the wall's length), then prints hang **free in the middle of the room** from the ceiling — rows of frames back to back down the room's centre line, double-sided (a print on each face), with ≈ 1.5 m walkways either side, like a hanging exhibition. `Hang` computes the wall capacity from the room's perimeter (minus the elevator's corner) and the print size, then the centre rows. A thin year (a few photos) hangs sparse on one wall. Rooms are generated on the fly from `photos.json` (the year from `taken`); only the current room exists, the elevator swap builds the next.
 
@@ -63,7 +63,7 @@ The rule wants a judgement per photo ("architectural / big view" → single, "fu
 
 ## Light and shadow
 
-- Light mode: a bright ambient + a row of ceiling spots, one per group, angled at the frames; soft shadow maps so each frame throws its shadow on the wall (the frame's 4 cm depth and the hanging lines show there). Dark mode: ambient almost off, the spots alone — the white-cube-at-night look, prints glowing.
+- Light mode: a bright ambient + a row of ceiling spots, one per piece (a single or a grid), angled at the frames; soft shadow maps so each frame throws its shadow on the wall (the frame's 4 cm depth and the hanging lines show there). Dark mode: ambient almost off, the spots alone — the white-cube-at-night look, prints glowing.
 - The mat's bevel and the frame's inner edge get the same treatment as the phone's paper edges: a lit top-left, a dark thickness.
 - Real room: lights are placed relative to the detected ceiling; no shadow on the passthrough walls (can't darken passthrough), but the frames shadow *each other* and the lines.
 
@@ -76,9 +76,9 @@ A wall panel left of the door, ≈ 40 × 30 cm, physical-looking toggles and a f
 | Light / dark | light cube / dark room with spots | yes |
 | Frame colour | oak / walnut / black / white | yes |
 | Mat | white / warm white / none (print to the frame edge) | yes |
-| Print size | 50 / 60 / 70 cm | yes |
+| Print scale | 100 % / 80 % (all sizes together, for a small real room) | yes |
 | Labels | on / off | yes |
-| Grouping | by consecutive days / all singles / pairs / triples | later |
+| Grids | on (6/9 grids for group-candidates) / off (everything single at 60) | later |
 | Order | newest first / oldest first / a year | later |
 | Room size (synthetic only) | W × D × H | yes (hidden in AR) |
 | Spot warmth | 3000 K / 4000 K | later |
@@ -89,18 +89,20 @@ Settings persist in `localStorage`; the URL carries them too (`gallery.html?fram
 
 ## Files and interfaces
 
-- `gallery.html` — page shell, loads the module; a link from the main page (small "gallery" under the title, or a door icon).
-- `res/gallery.js` — `Room` (synthetic or from planes), `Hang` (layout of groups along walls), `Frame` (mesh factory: print + mat + frame + lines), `Switchboard` (panel + DOM mirror + settings model), `Walk` (input per tier), `Session` (WebXR feature negotiation: tries `immersive-ar` + `plane-detection`, then `immersive-vr`, then plain 3D).
+- `gallery.html` — page shell, loads the module; reached by URL only for now.
+- `res/gallery.js` — `Room` (synthetic or from planes), `Hang` (pieces along the walls, then centre rows; capacity from the perimeter), `Frame` (mesh factory: print + mat + frame + lines, three sizes), `Elevator` (corner cabin, year panel with overview strips, the room switch), `Switchboard` (panel + DOM mirror + settings model), `Walk` (input per tier), `Session` (WebXR feature negotiation: tries `immersive-ar` + `plane-detection`, then `immersive-vr`, then plain 3D).
+- `scripts/classify.py` (or a step in `ingest.sh`) — the vision-model pass writing `hang` into `photos.json`; `docs/hang-reasons.txt` with one line per photo for review.
 - `res/vendor/three.module.js` and the WebXR plane helpers — vendored, version pinned in a comment.
-- `photos.json` as is — the gallery reads the same list.
+- `photos.json` gains `hang` per photo; the main page ignores it.
 
 ## Phases (each usable on its own)
 
-1. **3D white cube on desktop** — synthetic room, frames with mat and wood, spots and shadows, walk with mouse/keys, DOM switchboard. This is where the look gets decided.
+0. **Curation** — the classification pass; `hang` in `photos.json`; Uli reviews the reasons file.
+1. **3D white cube on desktop** — one year-room, singles and grids with mat and wood, spots and shadows, walk with mouse/keys, DOM switchboard, the elevator as a corner cabin whose panel switches the year. This is where the look gets decided.
 2. **Phone 3D** — touch look/walk; same page.
-3. **VR** — `immersive-vr` on Quest and Vision Pro; in-room switchboard; teleport; door-to-next-room.
-4. **Real room** — `immersive-ar` + `plane-detection` on Quest 3; frames on real walls; virtual door on the far wall.
-5. **Polish** — labels, videos on approach, wood/mat textures, 2000 px textures.
+3. **VR** — `immersive-vr` on the Quest 3S; in-room switchboard and elevator panel; teleport.
+4. **Real room** — `immersive-ar` + `plane-detection` on the Quest 3S; frames on real walls, centre rows down the real room; the elevator in the nearest real corner.
+5. **Polish** — labels, videos on approach, wood/mat textures, 2000 px textures, the ingest-time classification.
 
 ## Open questions (please answer before phase 1)
 
@@ -108,6 +110,6 @@ Settings persist in `localStorage`; the URL carries them too (`gallery.html?fram
 2. **Dependency** — *answered*: vendored three.js, pinned, loaded only by `gallery.html`.
 3. **Rooms** — *answered*: one room per year; an elevator in a corner (not a door) switches years, with an overview strip per year on its panel; a full room hangs prints denser and then free in the middle of the room.
 4. **Grouping**: consecutive-day runs hang together (my assumption), or groups by month, or purely visual (alternate 1/2/3)?
-5. **Print size and grouping** — *answered*: 90 cm singles; smaller prints in grids of 6 or 9 for fun/simple photos, not always grouped. Still open: **how the single/group decision is made** — vision-model pass (recommended), manual list, or statistics (see *Curation*).
+5. **Print size and grouping** — *answered*: 90 cm singles; smaller prints in grids of 6 or 9 for fun/simple photos, not always grouped. The single/group decision: **vision-model pass** (option 1 under *Curation*), for the existing photos once and for every new photo in the ingest workflow.
 6. **The elevator in the real room** — *answered*: the corner nearest where you stood when the session started, placed automatically.
 7. **Link** — *answered*: hidden, `gallery.html` by URL only until it is worth showing.
