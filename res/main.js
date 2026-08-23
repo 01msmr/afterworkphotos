@@ -675,6 +675,7 @@ if (DECK) {
 
   let idleTimer;
   document.addEventListener('mousemove', (e) => {
+    goto.classList.remove('quiet');
     cursor.style.left = e.clientX + 'px';
     cursor.style.top = e.clientY + 'px';
     cursor.style.opacity = '0.65';
@@ -697,12 +698,17 @@ if (DECK) {
     });
   });
 
-  function select(i) {
+  // Light a print as the keyboard does, without scrolling
+  function light(i) {
     if (selected >= 0) boxes[selected].classList.remove('kbd-focus');
     selected = Math.max(0, Math.min(boxes.length - 1, i));
+    boxes[selected].classList.add('kbd-focus');
     playVideo(boxes[selected]);
+  }
+
+  function select(i) {
+    light(i);
     requestAnimationFrame(() => {
-      boxes[selected].classList.add('kbd-focus');
       boxes[selected].closest('section').scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
   }
@@ -806,9 +812,19 @@ if (DECK) {
   goto.querySelector('.goto-img').addEventListener('click', () => { if (goTouched) goNow(); });
   knobPrint.addEventListener('click', () => { if (goTouched) goNow(); });
 
-  // the windows follow the wall when it is scrolled by hand
-  let scrollTick = 0;
+  // The windows follow the wall when it is scrolled by hand — and once the
+  // scrolling has come to rest, the row on screen is lit as if selected
+  // from the keyboard
+  let scrollTick = 0, scrollEndTimer = 0;
   main.addEventListener('scroll', () => {
+    clearTimeout(scrollEndTimer);
+    scrollEndTimer = setTimeout(() => {
+      const top = sections.find(s => s.getBoundingClientRect().bottom > 0);
+      if (!top) return;
+      const i = boxes.indexOf(top.querySelector('.awbox'));
+      if (mode === 'mouse') { mode = 'kbd'; mouseHasMoved = false; document.body.classList.add('kbd-active'); }
+      if (selected !== i && !(selected >= 0 && boxes[selected].closest('section') === top)) light(i);
+    }, 220);
     if (scrollTick) return;
     scrollTick = requestAnimationFrame(() => {
       scrollTick = 0;
@@ -839,6 +855,7 @@ if (DECK) {
 
   document.addEventListener('keydown', (e) => {
     cursor.style.opacity = '0';
+    goto.classList.add('quiet');      // keyboard in use: the knobs stay dim even under the mouse
 
     if (e.key === 'Escape') {
       if (selected >= 0) boxes[selected].classList.remove('kbd-focus');

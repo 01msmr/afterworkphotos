@@ -71,6 +71,11 @@ p.subtitle {
 	font-weight: bold;
 }
 
+/* the list's captions, under big prints, are bigger */
+html:not(.deck) p.subtitle {
+	font-size: 165%;
+}
+
 /* ── Desktop: scroll-snap ── */
 .main {
 	height: var(--app-height);
@@ -167,6 +172,12 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 .goto:hover {
 	opacity: 1;
 	transition: opacity 0.3s ease;
+}
+
+/* while the keyboard is in use the knobs stay dim, mouse on them or not */
+.goto.quiet,
+.goto.quiet:hover {
+	opacity: 0.1;
 }
 
 .goto-col {
