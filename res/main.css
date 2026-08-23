@@ -351,9 +351,11 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 	section.under {
 		--inset: 0px;
 		box-shadow: none;
-		/* above the resting pile: when the scrubber cuts to a far sheet, the
-		   pile's own next sheets would otherwise show through until the move
-		   has finished */
+		/* on view and above the resting pile: when the scrubber cuts to a far
+		   sheet, the target is not one of the pile's visible next sheets — it
+		   would stay hidden and the pile's own next sheet show through until
+		   the move has finished */
+		visibility: visible;
 		z-index: 4;
 	}
 
