@@ -52,11 +52,26 @@ is_video() { case "$(lower "${1##*.}")" in mov|mp4|m4v) return 0;; *) return 1;;
 taken_of() {
   if is_video "$1"; then
     command -v ffprobe >/dev/null || return 0
-    ffprobe -v error -show_entries format_tags=com.apple.quicktime.creationdate,creation_time \
-      -of default=nw=1:nk=1 "$1" 2>/dev/null | head -1 | tr -cd '0-9' | cut -c1-14
+    # the QuickTime date first (local time), else any creation_time, on the
+    # container or a stream; first non-empty answer wins
+    ffprobe -v error \
+      -show_entries 'format_tags=com.apple.quicktime.creationdate,creation_time:stream_tags=creation_time' \
+      -of default=nw=1:nk=1 "$1" 2>/dev/null | grep -m1 '[0-9]' | tr -cd '0-9' | cut -c1-14
   else
     identify -quiet -format '%[EXIF:DateTimeOriginal]' "$1" 2>/dev/null | tr -cd '0-9'
   fi
+}
+
+# the date a photo was taken, from its untouched --unc file when there is
+# one (the most faithful source), else from the original
+taken_of_photo() {
+  local u
+  for u in "img originals/$1--unc".*; do
+    [[ -f "$u" ]] && { taken_of "$u"; return; }
+  done
+  local o; o=$(original_of "$1")
+  [[ -n "$o" ]] && taken_of "$o"
+  return 0
 }
 
 # the original of photo id $1 (any extension, legacy "_original" too)
@@ -121,10 +136,11 @@ for f in ${files[@]+"${files[@]}"}; do
       continue
     fi
     ffmpeg -v error -y -i "$f" -vf "crop='min(iw,ih)':'min(iw,ih)',scale=1000:1000" \
-      -c:v libx264 -crf 23 -preset medium -pix_fmt yuv420p -movflags +faststart \
-      -c:a aac -b:a 96k "img/$id.mp4"
+      -map_metadata 0 -movflags +faststart+use_metadata_tags \
+      -c:v libx264 -crf 23 -preset medium -pix_fmt yuv420p -c:a aac -b:a 96k "img/$id.mp4"
     ffmpeg -v error -y -i "img/$id.mp4" -frames:v 1 -q:v 3 "img/$id.jpg"
     ffmpeg -v error -y -i "$f" -vf "crop='min(iw,ih)':'min(iw,ih)'" \
+      -map_metadata 0 -movflags +use_metadata_tags \
       -c:v libx264 -crf 18 -preset medium -pix_fmt yuv420p -c:a copy "img originals/$id.mp4"
     move "$f" "img originals/$id--unc.$ext"
     git add "img/$id.mp4" "img/$id.jpg" "img originals/$id.mp4"
@@ -161,8 +177,7 @@ shopt -u nullglob
 ordered=()
 while IFS= read -r line; do ordered+=( "${line#*$'\t'}" ); done < <(
   for id in "${ids[@]}"; do
-    o=$(original_of "$id"); d=""
-    [[ -n "$o" ]] && d=$(taken_of "$o")
+    d=$(taken_of_photo "$id")
     (( ${#d} >= 8 )) || d="99999999"
     printf '%s\t%s\n' "$d" "$id"
   done | sort -s -t $'\t' -k1,1
@@ -171,8 +186,7 @@ while IFS= read -r line; do ordered+=( "${line#*$'\t'}" ); done < <(
 : > "$map"     # lines: old id <TAB> new id
 prev_day=""; nn=0
 for id in "${ordered[@]}"; do
-  o=$(original_of "$id"); d=""
-  [[ -n "$o" ]] && d=$(taken_of "$o")
+  d=$(taken_of_photo "$id")
   if (( ${#d} >= 8 )); then day="${d:0:4}-${d:4:2}-${d:6:2}"; else day="undated"; fi
   if [[ "$day" != "$prev_day" ]]; then nn=0; prev_day=$day; fi
   nn=$(( nn + 1 ))
@@ -222,8 +236,7 @@ done
   n=0
   for name in "${names[@]}"; do
     n=$(( n + 1 ))
-    o=$(original_of "$name"); d=""
-    [[ -n "$o" ]] && d=$(taken_of "$o")
+    d=$(taken_of_photo "$name")
     taken_json=null
     (( ${#d} >= 14 )) && taken_json="\"${d:0:4}-${d:4:2}-${d:6:2}T${d:8:2}:${d:10:2}:${d:12:2}\""
     video_json=null; [[ -f "img/$name.mp4" ]] && video_json="\"img/$name.mp4\""
