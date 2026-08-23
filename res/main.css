@@ -411,6 +411,15 @@ html.deck {
 		transition: none !important;
 	}
 
+	/* two prints side by side on a tablet held sideways */
+	section.k2 {
+		gap: 3%;
+	}
+
+	section.k2 div.awbox {
+		width: 44%;
+	}
+
 	/* The photo is pressed into the sheet, letterpress style: no drop shadow
 	   (paper doesn't float), instead the recess is in shadow along its top and
 	   left wall and the paper just below its lower edge catches the light.

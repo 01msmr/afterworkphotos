@@ -21,13 +21,16 @@ const sections = [];
    ────────────────────────────────────────────────────────── */
 let PHOTOS = [];
 
+// A video is an afterworkvideo; the number is the same series as the photos
+const captionOf = (p) => `afterwork${p.video ? 'video' : 'photo'} ${p.n}`;
+
 // A video does not play by itself: on the desktop it plays while the mouse
 // is over it, on the phone while its sheet is the top one (see layout()).
 function mediaHTML(p) {
   if (p.video) {
     return `<video src="${p.video}" poster="${p.file}" muted loop playsinline preload="metadata" width="100%"></video>`;
   }
-  return `<img src="${p.file}" alt="afterworkphoto ${p.n}" width="100%">`;
+  return `<img src="${p.file}" alt="${captionOf(p)}" width="100%">`;
 }
 
 fetch('photos.json', { cache: 'no-cache' }).then(r => r.json()).then(data => {
@@ -63,11 +66,23 @@ if (DECK) {
   main.appendChild(track);
 
   // ── The pile ──
-  // Index 0 is the newest photo (the last in PHOTOS), index N-1 the oldest;
-  // "forward" is towards the older ones. The last sheet wraps to the first.
-  const N = PHOTOS.length;
-  const wrap = (i) => ((i % N) + N) % N;
-  const photoAt = (i) => PHOTOS[N - 1 - i];
+  // Photo index 0 is the newest (the last in PHOTOS), N-1 the oldest; sheet
+  // index 0 is the top sheet. A sheet carries K photos: one on a phone, two
+  // on a tablet held sideways. "Forward" is towards the older ones; the last
+  // sheet wraps to the first.
+  const N = PHOTOS.length;                      // photos
+  const photoAt = (i) => PHOTOS[N - 1 - i];     // by photo index
+  function sheetsPer() { return TABLET && window.innerWidth > window.innerHeight ? 2 : 1; }
+  let K = sheetsPer();
+  let S = Math.ceil(N / K);                     // sheets
+  const wrap = (i) => ((i % S) + S) % S;
+  // sheet i's photos, newest first; the oldest sheet may be short
+  function photosOf(i) {
+    const out = [];
+    for (let j = 0; j < K; j++) { const p = PHOTOS[N - 1 - K * i - j]; if (p) out.push(p); }
+    return out;
+  }
+  const sheetOf = (photoIndex) => Math.floor(photoIndex / K);
 
   // Only a window of seven sheets exists in the DOM at any time: the top one
   // and three either side. Sheets are built as they enter the window and
@@ -78,13 +93,13 @@ if (DECK) {
   const sheets = new Map();     // index → section
 
   function buildSheet(i) {
-    const p = photoAt(i);
     const section = document.createElement('section');
-    section.innerHTML = `
+    section.classList.add(`k${K}`);
+    section.innerHTML = photosOf(i).map(p => `
       <div class="awbox" data-n="${p.n}">
         <div class="awphoto" style="background-image: url('${p.thumb}')">${mediaHTML(p)}</div>
-        <p class="subtitle">afterworkphoto ${p.n}</p>
-      </div>`;
+        <p class="subtitle">${captionOf(p)}</p>
+      </div>`).join('');
     track.appendChild(section);
     sheets.set(i, section);
     return section;
@@ -151,11 +166,10 @@ if (DECK) {
     keep.forEach(i => sheet(i));
     for (const [i, el] of sheets) {
       el.classList.toggle('current', i === current);
-      el.classList.toggle('next', N > 1 && i === wrap(current + 1));
-      el.classList.toggle('next2', N > 2 && i === wrap(current + 2));
+      el.classList.toggle('next', S > 1 && i === wrap(current + 1));
+      el.classList.toggle('next2', S > 2 && i === wrap(current + 2));
       // a video plays only while its sheet is the top one
-      const v = el.querySelector('video');
-      if (v) { if (i === current) v.play().catch(() => {}); else v.pause(); }
+      el.querySelectorAll('video').forEach(v => { if (i === current) v.play().catch(() => {}); else v.pause(); });
     }
   }
   layout();
