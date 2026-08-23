@@ -20,7 +20,7 @@ The site never shows file names; it numbers photos 1…N in date order.
 
 ## The page
 
-**Desktop** — one, two or three photos per screen depending on the window's shape, newest first, scroll-snap; dimmed, lit on hover; keyboard navigation. Two knobs at the bottom: turn the year and the print with the mouse wheel, move the mouse away and the wall goes there.
+**Desktop** — a wall (white plaster or concrete — click the wall to switch) showing one row of one to three prints by window shape, newest first; a wheel notch moves one row, nothing free-scrolls. Dimmed, lit on hover and when the wall comes to rest; keyboard navigation. Two knobs at the bottom: turn the year and the print, move the mouse away (or click the knob) and the wall goes there.
 
 **Phone and iPad** — the photos are a pile of paper sheets, newest on top (held sideways, two per sheet). Swipe up to lift the top sheet off and see the one before it, swipe down to put it back; tapping the upper/lower half does the same. The right edge of the screen is the pile seen edge-on: touch it and drag to run through the years, slide the finger in from the edge for finer control (the label shows the neighbouring prints while the strip is too short for single-sheet hits), let go and the pile cuts to that sheet. Only seven sheets exist in the DOM at a time, so the size of the pile doesn't matter. Dark mode follows the system. Videos play only while on screen.
 

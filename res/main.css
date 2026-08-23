@@ -76,10 +76,36 @@ html:not(.deck) p.subtitle {
 	font-size: 165%;
 }
 
-/* The wall: white, behind everything, still — the prints glide over it */
+/* ── The wall ──
+   A real wall behind everything, still at all times (it is the body, which
+   never scrolls — only the rows glide over it). Two materials, generated
+   (SVG noise, no image files): white plaster, and concrete. Clicking on
+   empty wall switches them (main.js), the choice is kept. */
 html:not(.deck),
 html:not(.deck) body {
-	background: #f2f1ee;
+	background-color: #f2f1ee;
+}
+
+/* white plaster: fine grain and very soft trowel streaks */
+html:not(.deck):not(.wall-concrete) body {
+	background-image:
+		url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='p'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' seed='7' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/><feComponentTransfer><feFuncA type='linear' slope='0.055'/></feComponentTransfer></filter><rect width='240' height='240' filter='url(%23p)'/></svg>"),
+		url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='520' height='520'><filter id='s'><feTurbulence type='fractalNoise' baseFrequency='0.004 0.05' numOctaves='2' seed='11' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/><feComponentTransfer><feFuncA type='linear' slope='0.04'/></feComponentTransfer></filter><rect width='520' height='520' filter='url(%23s)'/></svg>");
+	background-size: 240px 240px, 520px 520px;
+}
+
+/* concrete: cooler, cloudy, pores, a faint formwork line every 380px */
+html.wall-concrete,
+html.wall-concrete body {
+	background-color: #cfcfcd;
+}
+
+html.wall-concrete body {
+	background-image:
+		linear-gradient(rgba(0, 0, 0, 0.05) 0.5px, rgba(0, 0, 0, 0) 1.5px),
+		url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><filter id='c'><feTurbulence type='fractalNoise' baseFrequency='0.012' numOctaves='4' seed='4' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/><feComponentTransfer><feFuncA type='linear' slope='0.16'/></feComponentTransfer></filter><rect width='300' height='300' filter='url(%23c)'/></svg>"),
+		url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='2' seed='9' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/><feComponentTransfer><feFuncA type='discrete' tableValues='0 0 0 0 0 0 0 0.18 0'/></feComponentTransfer></filter><rect width='140' height='140' filter='url(%23g)'/></svg>");
+	background-size: 100% 380px, 300px 300px, 140px 140px;
 }
 
 /* ── Desktop: one row at a time ──

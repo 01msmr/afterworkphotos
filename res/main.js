@@ -671,6 +671,16 @@ if (DECK) {
     main.scrollTo({ top, behavior: 'smooth' });
   }
 
+  // ── The wall's material ──
+  // Plaster or concrete; clicking on empty wall (not a print, not the
+  // knobs) switches, and the choice is kept
+  try { if (localStorage.getItem('wall') === 'concrete') document.documentElement.classList.add('wall-concrete'); } catch (e) {}
+  main.addEventListener('click', (e) => {
+    if (e.target.closest('.awbox')) return;
+    const concrete = document.documentElement.classList.toggle('wall-concrete');
+    try { localStorage.setItem('wall', concrete ? 'concrete' : 'plaster'); } catch (e) {}
+  });
+
   // ── Single screen ──
   // The wall never free-scrolls: it shows one row and is switched row by
   // row — the same idea as the phone's deck. A wheel notch (or one trackpad
