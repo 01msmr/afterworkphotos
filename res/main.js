@@ -657,6 +657,46 @@ if (DECK) {
   fitTitle();
   window.addEventListener('resize', fitTitle);
 
+  let gliding = false;        // the wall is on its way to a chosen print: the windows hold still
+  let glideTarget = 0, glideTimer = 0;
+
+  // A glide ends on arrival (or a safety timeout) — not on a pause in the
+  // scroll events: a long smooth scroll starts so slowly that none fire for
+  // a while, which must not count as "rested"
+  function glideTo(top) {
+    gliding = true;
+    glideTarget = top;
+    clearTimeout(glideTimer);
+    glideTimer = setTimeout(() => { gliding = false; }, 6000);
+    main.scrollTo({ top, behavior: 'smooth' });
+  }
+
+  // ── Single screen ──
+  // The wall never free-scrolls: it shows one row and is switched row by
+  // row — the same idea as the phone's deck. A wheel notch (or one trackpad
+  // gesture, its inertia tail swallowed) moves one row; so do Page Up/Down
+  // and Space; arrows, digits and the knobs as before. The glide to the next
+  // row is the only motion.
+  const rowOf = () => Math.round(main.scrollTop / (sections[0] ? sections[0].offsetHeight : 1));
+  function stepRow(d) {
+    const target = Math.max(0, Math.min(sections.length - 1, rowOf() + d));
+    gliding = false;                                   // the user moves the wall: the windows follow again
+    clearTimeout(glideTimer);
+    main.scrollTo({ top: sections[target].offsetTop, behavior: 'smooth' });
+  }
+  let wheelAcc = 0, wheelLockUntil = 0;
+  main.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const now = Date.now();
+    if (now < wheelLockUntil) { wheelAcc = 0; return; }            // the tail of a gesture
+    const notch = e.deltaMode !== 0 || Math.abs(e.deltaY) >= 50;   // a mouse wheel notch
+    wheelAcc += e.deltaY;
+    if (!notch && Math.abs(wheelAcc) < 40) return;                  // a trackpad: wait for enough travel
+    stepRow(Math.sign(notch ? e.deltaY : wheelAcc));
+    wheelAcc = 0;
+    wheelLockUntil = now + 350;
+  }, { passive: false });
+
   window.addEventListener('resize', () => {
     const n = perRow();
     if (n === PER_ROW) return;
@@ -708,9 +748,7 @@ if (DECK) {
 
   function select(i) {
     light(i);
-    requestAnimationFrame(() => {
-      boxes[selected].closest('section').scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
+    glideTo(boxes[selected].closest('section').offsetTop);
   }
 
   // ── Go-to: two knobs under the wall ──
@@ -743,7 +781,6 @@ if (DECK) {
   let goTouched = false;      // the image window stays paper until a knob is turned
   let goPending = false;      // a turn happened; the wall follows when the mouse leaves
   let printAngle = 0;
-  let autoScrollUntil = 0;
 
   const fullDate = (p) => p.taken
     ? new Date(p.taken).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
@@ -772,7 +809,6 @@ if (DECK) {
   function goNow() {
     goPending = false;
     if (mode === 'mouse') { mode = 'kbd'; mouseHasMoved = false; document.body.classList.add('kbd-active'); }
-    autoScrollUntil = Date.now() + 2500;
     select(goIdx);
   }
   function armGoto() { goPending = true; }
@@ -812,29 +848,37 @@ if (DECK) {
   goto.querySelector('.goto-img').addEventListener('click', () => { if (goTouched) goNow(); });
   knobPrint.addEventListener('click', () => { if (goTouched) goNow(); });
 
-  // The windows follow the wall when it is scrolled by hand — and a moment
-  // after the scrolling has come to rest, the row on screen lights up as
-  // if selected from the keyboard (with the print's own slow fade-in)
+  // The windows show the row on screen — the chosen print if it is in that
+  // row, else the row's first
+  function syncGoto(top) {
+    if (boxes[goIdx] && boxes[goIdx].closest('section') === top) return;
+    goIdx = boxes.indexOf(top.querySelector('.awbox'));
+    goPending = false;
+    showGoto();
+  }
+
+  // The windows follow the wall when the user moves it — but hold still
+  // while the wall glides to a print they chose. A moment after any
+  // scrolling has come to rest, the row on screen lights up as if selected
+  // from the keyboard (with the print's own slow fade-in)
   let scrollTick = 0, scrollEndTimer = 0;
   main.addEventListener('scroll', () => {
+    if (gliding && Math.abs(main.scrollTop - glideTarget) < 2) { gliding = false; clearTimeout(glideTimer); }
     clearTimeout(scrollEndTimer);
     scrollEndTimer = setTimeout(() => {
+      if (gliding) return;                              // a pause on the way, not the end
       const top = sections.find(s => s.getBoundingClientRect().bottom > 0);
       if (!top) return;
+      syncGoto(top);
       const i = boxes.indexOf(top.querySelector('.awbox'));
       if (mode === 'mouse') { mode = 'kbd'; mouseHasMoved = false; document.body.classList.add('kbd-active'); }
       if (selected !== i && !(selected >= 0 && boxes[selected].closest('section') === top)) light(i);
     }, 600);
-    if (scrollTick) return;
+    if (gliding || scrollTick) return;
     scrollTick = requestAnimationFrame(() => {
       scrollTick = 0;
       const top = sections.find(s => s.getBoundingClientRect().bottom > 0);
-      if (!top) return;
-      const i = boxes.indexOf(top.querySelector('.awbox'));
-      if (i === goIdx) return;
-      goIdx = i;
-      if (Date.now() > autoScrollUntil) goPending = false;
-      showGoto();
+      if (top) syncGoto(top);
     });
   }, { passive: true });
   showGoto();
@@ -868,6 +912,9 @@ if (DECK) {
     }
 
     if (/^[0-9]$/.test(e.key)) { typeDigit(e.key); return; }
+
+    if (e.key === 'PageDown' || e.key === ' ') { e.preventDefault(); stepRow(e.shiftKey ? -1 : 1); return; }
+    if (e.key === 'PageUp') { e.preventDefault(); stepRow(-1); return; }
 
     if (e.key === 'Enter' && typed) {
       e.preventDefault();

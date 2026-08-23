@@ -76,11 +76,18 @@ html:not(.deck) p.subtitle {
 	font-size: 165%;
 }
 
-/* ── Desktop: scroll-snap ── */
+/* The wall: white, behind everything, still — the prints glide over it */
+html:not(.deck),
+html:not(.deck) body {
+	background: #f2f1ee;
+}
+
+/* ── Desktop: one row at a time ──
+   The wall is switched row by row (main.js), never free-scrolled: no
+   scrollbar, no snap — the glide between rows is programmatic */
 .main {
 	height: var(--app-height);
-	overflow-y: scroll;
-	scroll-snap-type: y mandatory;
+	overflow-y: hidden;
 	touch-action: pan-y;
 	overscroll-behavior-y: none;
 }
@@ -88,7 +95,6 @@ html:not(.deck) p.subtitle {
 section {
 	position: relative;
 	height: var(--app-height);
-	scroll-snap-align: start;
 	display: flex;
 	align-items: flex-start;
 	justify-content: center;
