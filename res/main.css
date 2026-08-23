@@ -134,6 +134,7 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 		--title: #000;
 		--title-link: blue;
 		--title-link-bg: #dedede;
+		--divider: rgba(0, 0, 0, 0.12);
 		/* lit bevel on the top/left edge, and the sheet's dark thickness */
 		--edge-light: rgba(255, 255, 255, 0.55);
 		--edge-dark: rgba(0, 0, 0, 0.22);
@@ -168,6 +169,7 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 			--title: #fff;
 			--title-link: #9db8ff;
 			--title-link-bg: #2b2927;
+			--divider: rgba(255, 255, 255, 0.16);
 			--edge-light: rgba(255, 255, 255, 0.14);
 			--edge-dark: rgba(0, 0, 0, 0.7);
 			--shade: 0, 0, 0;
@@ -347,6 +349,18 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 			transform 0.45s cubic-bezier(0.4, 0, 0.2, 1),
 			top 0.3s ease, right 0.3s ease, bottom 0.3s ease, left 0.3s ease,
 			border-radius 0.3s ease, box-shadow 0.3s ease;
+	}
+
+	/* The tap divider, printed on every sheet at the same screen height
+	   (--divider-y is set by main.js), so it travels with the sheet */
+	section::after {
+		content: '';
+		position: absolute;
+		left: 0;
+		right: 0;
+		top: calc(var(--divider-y, 60vh) - env(safe-area-inset-top, 0px) - var(--top-gap) - var(--inset));
+		border-top: 1.4px dotted var(--divider);
+		pointer-events: none;
 	}
 
 	div.awbox {

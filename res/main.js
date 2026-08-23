@@ -209,7 +209,7 @@ if (PER_SECTION === 1) {
 
   // ── Tap zones ──
   // Where the screen splits into "tap here to go on" and "tap here to go back".
-  // Nothing is drawn for it — a line here would sit over the cards.
+  // The sheets print a dotted line there (see section::after in the CSS).
   let dividerY = null;
 
   function computeDivider() {
@@ -218,6 +218,7 @@ if (PER_SECTION === 1) {
     const boxRect = box.getBoundingClientRect();
     const wh = H() - boxRect.bottom;
     dividerY = wh > 0 ? boxRect.bottom + wh * 0.6 : H() * 0.6;
+    document.documentElement.style.setProperty('--divider-y', dividerY + 'px');
   }
 
   function setDivider() { requestAnimationFrame(computeDivider); }
