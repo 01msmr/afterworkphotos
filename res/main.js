@@ -901,19 +901,22 @@ if (DECK) {
   // while the wall glides to a print they chose. A moment after any
   // scrolling has come to rest, the row on screen lights up as if selected
   // from the keyboard (with the print's own slow fade-in)
-  // The motion has (as good as) arrived: sync, and light the row — the
-  // known target row when there is one (early in the approach, the first
-  // visible row is still the outgoing one)
+  // Sync the windows to a row and light its first print (unless the
+  // selected print already lives in that row)
+  function lightRow(top) {
+    syncGoto(top);
+    const i = boxes.indexOf(top.querySelector('.awbox'));
+    if (mode === 'mouse') { mode = 'kbd'; mouseHasMoved = false; document.body.classList.add('kbd-active'); }
+    if (selected !== i && !(selected >= 0 && boxes[selected].closest('section') === top)) light(i);
+  }
+
+  // The motion has arrived: hover may light prints again
   function settle(target) {
     gliding = false;
     settledNear = true;
     document.body.classList.remove('moving');
     const top = target || sections.find(s => s.getBoundingClientRect().bottom > 0);
-    if (!top) return;
-    syncGoto(top);
-    const i = boxes.indexOf(top.querySelector('.awbox'));
-    if (mode === 'mouse') { mode = 'kbd'; mouseHasMoved = false; document.body.classList.add('kbd-active'); }
-    if (selected !== i && !(selected >= 0 && boxes[selected].closest('section') === top)) light(i);
+    if (top) lightRow(top);
   }
 
   let scrollTick = 0, scrollEndTimer = 0;
@@ -921,14 +924,13 @@ if (DECK) {
     if (!settledNear) document.body.classList.add('moving');   // nothing undims while the wall moves
     if (gliding && Math.abs(main.scrollTop - glideTarget) < 2) { gliding = false; clearTimeout(glideTimer); }
     clearTimeout(scrollEndTimer);
-    // the undim begins once the incoming image is a third on screen; the
-    // timer is only the fallback
+    // the incoming row's light begins once its image is a third on screen —
+    // hover stays quiet (body.moving) until the wall truly rests
     const rowH = sections[0].offsetHeight;
     if (approachTop >= 0 && Math.abs(main.scrollTop - approachTop) < rowH * 0.67) {
       const target = sections[Math.round(approachTop / rowH)];
       approachTop = -1;
-      settle(target);
-      return;
+      lightRow(target);
     }
     scrollEndTimer = setTimeout(() => {
       if (gliding) return;                              // a pause on the way, not the end

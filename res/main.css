@@ -172,23 +172,20 @@ html:not(.deck) body.kbd-active .awbox:hover:not(.kbd-focus) video {
 	opacity: 0.1;
 }
 
-/* Nothing undims while the wall is in motion (body.moving, set from the
-   scroll events): the light — hover or selection — arrives only once the
-   wall has come to rest */
-html:not(.deck) body.moving .awbox:hover img,
-html:not(.deck) body.moving .awbox:hover video,
-html:not(.deck) body.moving .awbox.kbd-focus img,
-html:not(.deck) body.moving .awbox.kbd-focus video {
+/* The mouse must not light passing prints while the wall is in motion
+   (body.moving, set from the scroll events): hover works again once the
+   wall has come to rest. The selected row (kbd-focus) is exempt — it is
+   the one arriving, and its light starts on approach. */
+html:not(.deck) body.moving .awbox:hover:not(.kbd-focus) img,
+html:not(.deck) body.moving .awbox:hover:not(.kbd-focus) video {
 	opacity: 0.1;
 }
 
-html:not(.deck) body.moving .awbox:hover .subtitle,
-html:not(.deck) body.moving .awbox.kbd-focus .subtitle {
+html:not(.deck) body.moving .awbox:hover:not(.kbd-focus) .subtitle {
 	opacity: 0.5;
 }
 
-html:not(.deck) body.moving .awbox:hover .awphoto,
-html:not(.deck) body.moving .awbox.kbd-focus .awphoto {
+html:not(.deck) body.moving .awbox:hover:not(.kbd-focus) .awphoto {
 	box-shadow:
 		0 0.3cqw 0.6cqw -0.2cqw rgba(48, 42, 18, 0.18),
 		0.4cqw 1.4cqw 1.2cqw -0.3cqw rgba(48, 42, 18, 0.10),
