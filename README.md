@@ -10,10 +10,11 @@
 | `res/main.js` | builds the photo sections; desktop scroll/keyboard UI and the mobile sheet deck |
 | `res/main.css` | desktop layout at the top, the whole mobile deck inside `@media (max-width: 600px)` |
 | `manifest.json` | web app manifest — required, see *iOS home screen app* |
-| `img/1.jpg … N.jpg` | the photos, square, 1000 px; numbered in order of date taken |
-| `img/thumb/N.jpg` | 200 px thumbnails, same crop — generated, for the overview UIs |
-| `img originals/` | the originals at full size, cropped to the same square |
-| `photos.json` | generated index: count, and per photo its number, date taken, file, thumbnail |
+| `img/awp-YYYY-MM-DD-NN.jpg` | the photos, square, 1000 px — named by date taken, NN counting that day's photos |
+| `img/awp-….mp4` | a photo that is a video: 1000 px square H.264; the `.jpg` of the same name is its first frame |
+| `img/thumb/awp-….jpg` | 200 px thumbnails, same crop — generated, for the overview UIs |
+| `img originals/awp-….<ext>` | the originals at full size, cropped to the same square |
+| `photos.json` | generated index the page is built from: count, and per photo `n` (1 = oldest), `id`, `taken`, `file`, `thumb`, `video` |
 | `inbox/` | where new photos land (the Shortcut puts them there); emptied by the ingest workflow |
 | `scripts/ingest.sh` | numbers an inbox photo, makes the 1000 px square, moves the original, bumps `PHOTO_COUNT` |
 | `.github/workflows/ingest.yml` | runs the script on every push to `inbox/` and commits the result |
@@ -21,7 +22,7 @@
 | `apple-touch-icon.png`, `favicon.ico` | icons |
 | `card-stack.html`, `res/onepage.*`, `res/noRubberband.js`, `favicon_.ico` | legacy / prototypes, not referenced by the page |
 
-`PHOTO_COUNT` at the top of `res/main.js` is the single source of truth for how many photos exist.
+The file names are internal. The site shows photos as `afterworkphoto N`, N being the position in date order from `photos.json` — which is the single source of truth for what exists; the page builds nothing until it has loaded it.
 
 ## How the page works
 
@@ -53,19 +54,19 @@ The look is CSS only, all tokens in `:root` inside the mobile block:
 
 Put an image into `inbox/` on `main` — that is all. The ingest workflow (`.github/workflows/ingest.yml` → `scripts/ingest.sh`) takes it from there:
 
-1. numbers it `PHOTO_COUNT + 1` (several at once in date-taken order; the final numbering comes in step 5);
-2. writes the 1000 px square derivative to `img/N.jpg` — auto-oriented, centre-cropped (a no-op for a square), JPEG q85, metadata stripped so no GPS reaches the public image;
-3. keeps the original at full size in `img originals/N_original.<ext>` — cropped to the same square (quality 95, metadata intact); one that already is square is moved untouched;
-4. bumps `PHOTO_COUNT` in `res/main.js`;
-5. **renumbers every photo so that number order is date-taken order** (photos without a date keep their relative order at the end): an older arrival slots in where it belongs and everything after it shifts by one — files, originals and thumbnails are renamed with `git mv`, so history follows;
-6. makes any missing 200 px thumbnail in `img/thumb/` (from the derivative, so it is the same crop) and rewrites `photos.json` from scratch — count, and per photo `n`, `taken` (the original's EXIF date, `null` if none), `file`, `thumb`;
-7. commits `photo N` (the final number), pushes. The server pulls; live within seconds.
+1. writes the 1000 px square derivative — auto-oriented, centre-cropped (a no-op for a square), JPEG q85, metadata stripped so no GPS reaches the public image;
+2. keeps the original at full size in `img originals/` — cropped to the same square (quality 95, metadata intact); one that already is square is moved untouched;
+3. **names every photo by its date taken**, `awp-YYYY-MM-DD-NN` (EXIF `DateTimeOriginal`, the QuickTime creation date for a video; undated ones become `awp-undated-NN` at the end). An arrival earlier in a day than existing ones renumbers that day — derivative, original, thumbnail and video are renamed with `git mv`, so history follows;
+4. makes any missing 200 px thumbnail (from the derivative, so it is the same crop) and rewrites `photos.json` from scratch;
+5. commits `photo awp-…`, pushes. The server pulls; live within seconds.
 
-Because of step 5 a photo's number is not permanent: adding an old favourite renumbers the ones after it. The pile reads chronologically for it — newest on top, oldest at the bottom.
+**Videos** (`.mov`, `.mp4`, `.m4v`) up to 30 s (`MAX_VIDEO_SECONDS`) go through the same steps with ffmpeg: a 1000 px square H.264 `img/N.mp4` with audio kept, its first frame as `img/N.jpg`, the full-size square original as `N_original.mp4`, date from the QuickTime creation date. Longer ones are moved to `inbox/too-long/`. A Mac without ffmpeg leaves videos in the inbox for the runner. The page plays them muted, looping, inline, swapped in once `photos.json` has arrived.
+
+A photo's number on the site is its position in date order, so adding an old favourite shifts the numbers after it. The pile reads chronologically — newest on top, oldest at the bottom.
 
 The workflow can also be run by hand (*Actions → ingest photos → Run workflow*) to regenerate thumbnails and `photos.json` with an empty inbox.
 
-Runs are serialised, so two uploads can never both become photo N. A commit made by the workflow does not trigger it again.
+Runs are serialised, so two uploads can never both become the same name. A commit made by the workflow does not trigger it again.
 
 The phone does this with a Shortcut that PUTs favourited photos into `inbox/` through the GitHub contents API (`PUT /repos/01msmr/afterworkphotos/contents/inbox/<yyyyMMdd-HHmmss>.jpg`, body `{"message":"inbox","content":"<base64>"}`, a fine-grained token with *Contents: read/write* on this repo only). It remembers what it has sent in a text file in iCloud Drive, so re-favouriting an old photo still works and un-favouriting never deletes anything.
 
@@ -91,7 +92,7 @@ python3 -m http.server 8765 --bind 0.0.0.0     # then open http://<your LAN IP>:
 
 Send `Cache-Control: no-store` if you iterate on the phone — iOS caches hard. Mind that another project's server on `127.0.0.1:8765` wins over `0.0.0.0:8765` for localhost requests.
 
-Mobile breakpoint is `PER_SECTION = innerWidth < 600 ? 1 : 2`, so a desktop window narrower than 600 px shows the deck.
+Mobile breakpoint is `PER_SECTION = innerWidth < 600 ? 1 : 2`, so a desktop window narrower than 600 px shows the deck. The page needs `photos.json`, so it must be served, not opened as a file.
 
 ## iOS home screen app — what was learned the hard way
 

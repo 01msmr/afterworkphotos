@@ -31,12 +31,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: ImageMagick
+      - name: ImageMagick and ffmpeg
         run: |
-          if ! command -v convert >/dev/null; then
-            sudo apt-get update && sudo apt-get install -y imagemagick
+          if ! command -v convert >/dev/null || ! command -v ffmpeg >/dev/null; then
+            sudo apt-get update && sudo apt-get install -y imagemagick ffmpeg
           fi
           convert -version | head -1
+          ffmpeg -version | head -1
 
       - name: ingest
         id: ingest

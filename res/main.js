@@ -1,9 +1,29 @@
-const PHOTO_COUNT = 8;       // increment when adding photos
 const PER_SECTION = window.innerWidth < 600 ? 1 : 2;
 
 const main = document.querySelector('.main');
 const boxes = [];
 const sections = [];
+
+/* ──────────────────────────────────────────────────────────
+   Photos
+   photos.json is the list, in date order: n (1 = oldest), id, taken,
+   file, thumb and — for a video — video. The files carry date names
+   (awp-2026-08-23-01.jpg); the site only ever shows n. Nothing is built
+   until the list is here.
+   ────────────────────────────────────────────────────────── */
+let PHOTOS = [];
+
+function mediaHTML(p) {
+  if (p.video) {
+    return `<video src="${p.video}" poster="${p.file}" autoplay muted loop playsinline width="100%"></video>`;
+  }
+  return `<img src="${p.file}" alt="afterworkphoto ${p.n}" width="100%">`;
+}
+
+fetch('photos.json').then(r => r.json()).then(data => {
+  PHOTOS = data.photos;
+  init();
+});
 
 /* ──────────────────────────────────────────────────────────
    Reliable viewport height
@@ -25,6 +45,7 @@ window.addEventListener('resize', setAppHeight);
    shadowing whatever lies below. The wraparound is the same move as any
    other, so there are no clones and nothing scrolls.
    ============================================================ */
+function init() {
 if (PER_SECTION === 1) {
 
   const track = document.createElement('div');
@@ -32,11 +53,11 @@ if (PER_SECTION === 1) {
   main.appendChild(track);
 
   // ── The pile ──
-  // Index 0 is the newest photo (N), index N-1 is photo 1; "forward" is
-  // towards the older ones. The last sheet wraps to the first.
-  const N = PHOTO_COUNT;
+  // Index 0 is the newest photo (the last in PHOTOS), index N-1 the oldest;
+  // "forward" is towards the older ones. The last sheet wraps to the first.
+  const N = PHOTOS.length;
   const wrap = (i) => ((i % N) + N) % N;
-  const photoOf = (i) => N - i;
+  const photoAt = (i) => PHOTOS[N - 1 - i];
 
   // Only a window of seven sheets exists in the DOM at any time: the top one
   // and three either side. Sheets are built as they enter the window and
@@ -47,12 +68,12 @@ if (PER_SECTION === 1) {
   const sheets = new Map();     // index → section
 
   function buildSheet(i) {
-    const n = photoOf(i);
+    const p = photoAt(i);
     const section = document.createElement('section');
     section.innerHTML = `
-      <div class="awbox">
-        <div class="awphoto"><img src="img/${n}.jpg" alt="afterworkphoto ${n}" width="100%"></div>
-        <p class="subtitle">afterworkphoto ${n}</p>
+      <div class="awbox" data-n="${p.n}">
+        <div class="awphoto">${mediaHTML(p)}</div>
+        <p class="subtitle">afterworkphoto ${p.n}</p>
       </div>`;
     track.appendChild(section);
     sheets.set(i, section);
@@ -327,14 +348,16 @@ if (PER_SECTION === 1) {
      DESKTOP: scroll-snap + keyboard + mouse
      Same order as mobile: newest first, scrolling down goes back in time.
      ============================================================ */
-  for (let i = PHOTO_COUNT; i >= 1; i -= PER_SECTION) {
+  for (let i = PHOTOS.length - 1; i >= 0; i -= PER_SECTION) {
     const section = document.createElement('section');
-    for (let j = i; j > i - PER_SECTION && j >= 1; j--) {
+    for (let j = i; j > i - PER_SECTION && j >= 0; j--) {
+      const p = PHOTOS[j];
       const box = document.createElement('div');
       box.className = 'awbox';
+      box.dataset.n = p.n;
       box.innerHTML = `
-        <div class="awphoto"><img src="img/${j}.jpg" alt="afterworkphoto ${j}" loading="lazy" width="100%"></div>
-        <p class="subtitle">afterworkphoto ${j}</p>`;
+        <div class="awphoto">${mediaHTML(p)}</div>
+        <p class="subtitle">afterworkphoto ${p.n}</p>`;
       section.appendChild(box);
       boxes.push(box);
     }
@@ -427,4 +450,5 @@ if (PER_SECTION === 1) {
     } else if (e.key === 'ArrowRight') select(selected + 1);
     else if (e.key === 'ArrowLeft') select(selected - 1);
   });
+}
 }
