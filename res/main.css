@@ -139,7 +139,7 @@ div.awbox {
 }
 
 /* An opaque white sheet behind every image, exactly its size: the wall's
-   texture never shows through a dimmed print — unlit (33 %), it reads as
+   texture never shows through a dimmed print — unlit (50 %), it reads as
    a pale print on white paper. The dimming is on the image and caption,
    not on the sheet, so the sheet and its shadow stay. */
 html:not(.deck) .awphoto {
@@ -149,7 +149,7 @@ html:not(.deck) .awphoto {
 html:not(.deck) .awphoto img,
 html:not(.deck) .awphoto video,
 html:not(.deck) div.awbox .subtitle {
-	opacity: 0.33;
+	opacity: 0.5;
 	transition: opacity 0.9s ease-in;
 }
 
@@ -166,7 +166,7 @@ html:not(.deck) .awbox.kbd-focus .subtitle {
 html:not(.deck) body.kbd-active .awbox:hover:not(.kbd-focus) img,
 html:not(.deck) body.kbd-active .awbox:hover:not(.kbd-focus) video,
 html:not(.deck) body.kbd-active .awbox:hover:not(.kbd-focus) .subtitle {
-	opacity: 0.33;
+	opacity: 0.5;
 }
 
 /* The print's shadow on the wall, as a plate a little off the wall throws
