@@ -34,7 +34,11 @@ Two photos per full-height section, newest first, vertical scroll-snap. Photos a
 
 The newest photo is on top, like a pile of daily prints. Swiping up lifts it off and uncovers the one before; swiping down pulls the newer sheet back on. Only seven sheets exist in the DOM at a time — the top one and three either side, built as they enter that window and dropped as they leave it, images loaded ahead — so a pile of hundreds costs what a pile of seven does (`WINDOW`, `sheet(i)`, `layout()` in `main.js`). Tapping does the same: the upper part of the screen goes forward, the lower part back — the boundary is the thin dotted line printed on every sheet (`--divider-y`, set from the photo's position). The last sheet wraps to the first; it is the same move as any other, there are no clones.
 
-**Edge scrubber.** The right edge of the screen is the pile seen edge-on. A touch there opens it: a strip of sheet edges with the years marked, and under the finger the sheet as a small print with its number and month. Dragging runs through the pile (top = newest); letting go cuts the deck to that sheet — the top sheet lifts off straight onto an older target, a newer target comes down straight onto the top sheet. `startMove(dir, target)` is the same move as a swipe, just not to the neighbour.
+**Edge scrubber.** The right 28 px of the screen (below the status backdrop) is the pile seen edge-on. A touch there opens it: a strip of sheet edges with the years marked (marks that would land within 18 px of the previous one are left out), and under the finger the sheet as a small print with its number and month. Dragging runs through the pile (top = newest); letting go cuts the deck to that sheet — the top sheet lifts off straight onto an older target, a newer target comes down straight onto the top sheet. `startMove(dir, target)` is the same move as a swipe, just not to the neighbour; the sheet being uncovered (`.under`) sits above the resting pile (z 4) so the pile's own next sheets never show through during the cut.
+
+Loading, so nothing looks empty: all thumbnails are fetched in the background once the page is up (batches of eight, `preloadThumbs`); every print has its thumbnail as a background, so a sheet still loading already shows its picture softly; the small print under the finger only ever shows a thumbnail that is already decoded (an `<img>` would otherwise keep showing its previous picture until the new one arrives) and stays blank paper until then; and when the finger rests on a sheet for 200 ms its full photo is fetched ahead (`warmUp`), so it is in the cache by the time the pile is cut to it.
+
+**Videos** play only while on screen: on the phone while their sheet is the top one (paused in `layout()` otherwise), on the desktop while the mouse is over them. No autoplay.
 
 What is on screen, always: the **top sheet**, 3 px in from the phone's edge with its paper edge showing, and the **two sheets beneath it**, full size and flat, so the top sheet's edge always shows paper around it. Stack positions are the classes `current`, `next`, `next2`, assigned by `layout()`.
 
@@ -76,14 +80,21 @@ By hand: `git add inbox/whatever.jpg && git commit && git push` does the same. T
 
 `upload.php` is the old way — it edited `res/main.js` on the server, which the next pull undid — and is to be removed.
 
+## Known issues / to check
+
+- **Phone: a wrong big picture for a moment after a scrubber cut** — reported on the device ("what was under my thumb just before?"), not reproduced on the desktop: there the landing sheet is in place from the first frame of the cut with the right, decoded image, and nothing else is ever under the centre of the screen (sampled at 0–1.8 s). Candidates to check on the device: iOS decode timing of a freshly inserted `<img>` after the rest-prefetch loaded a *different* sheet's photo; the `touchend` landing on a neighbour of the sheet the label showed. Start by logging `scrubIndex` at release against what the label showed, and the `complete` state of the landing sheet's image at the first frame.
+- **Status bar text / blur** cannot be controlled from the page (see below).
+
 ## Deployment
 
-Push to `main`; the server (nginx) pulls automatically within seconds. Four files matter: `index.html`, `manifest.json`, `res/main.css`, `res/main.js`. The host serves `manifest.json` as `application/json` — keep the `.json` name, a `.webmanifest` may come back as `octet-stream` and iOS then ignores it.
+Push to `main`; the server (nginx) pulls automatically within seconds. The page is `index.html`, `manifest.json`, `res/main.css`, `res/main.js`, `photos.json` and the images. The host serves `manifest.json` as `application/json` — keep the `.json` name, a `.webmanifest` may come back as `octet-stream` and iOS then ignores it.
+
+**Caching.** The server sends no `Cache-Control`, so browsers — and the installed app most of all — keep old files on heuristics. `index.html` references `res/main.css?v=…` and `res/main.js?v=…`: **bump that version whenever CSS or JS change**, or the phone keeps the old code. `photos.json` is fetched with `cache: no-cache`, so it revalidates on every open. What the repo cannot fix is a stale `index.html` itself; the cure for that is one nginx line, `add_header Cache-Control "no-cache";` for `/index.html` (and `/`), after which a changed page arrives on the next launch and an unchanged one costs a 304.
 
 Check a deploy from anywhere:
 
 ```sh
-curl -s "https://afterworkphoto.com/res/main.js?cb=$RANDOM" | grep -c SCREEN_RADII   # 2 = new deck is live
+curl -s "https://afterworkphoto.com/photos.json?cb=$RANDOM" | python3 -c "import json,sys; print(json.load(sys.stdin)['count'])"
 ```
 
 ## Local development
