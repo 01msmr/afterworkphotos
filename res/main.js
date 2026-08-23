@@ -955,18 +955,9 @@ if (DECK) {
     if (!settledNear) document.body.classList.add('moving');   // nothing undims while the wall moves
     if (gliding && Math.abs(main.scrollTop - glideTarget) < 2) { gliding = false; clearTimeout(glideTimer); }
     clearTimeout(scrollEndTimer);
-    // the incoming row's light begins only once its image is fully inside
-    // the screen — hover stays quiet (body.moving) until the wall truly
-    // rests
-    if (approachTop >= 0) {
-      const target = sections[Math.round(approachTop / sections[0].offsetHeight)];
-      const ph = target.querySelector('.awphoto').getBoundingClientRect();
-      const visible = Math.min(ph.bottom, window.innerHeight) - Math.max(ph.top, 0);
-      if (visible >= ph.height - 0.5) {
-        approachTop = -1;
-        lightRow(target);
-      }
-    }
+    // nothing undims before the wall has come to rest: the step's target
+    // only marks the arrival, the light comes from the rest-settle below
+    if (approachTop >= 0 && Math.abs(main.scrollTop - approachTop) < 2) approachTop = -1;
     scrollEndTimer = setTimeout(() => {
       // a pause on the way is not the end: while a step or glide still has
       // a target, only the fully-inside check may light anything
