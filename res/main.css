@@ -293,7 +293,6 @@ html:not(.deck) body.kbd-active .awbox:hover:not(.kbd-focus) .awphoto {
 	bottom: -7px;
 	height: calc(6px / 1.8);
 	background: #444;
-	border-radius: 2px;
 	opacity: 1;
 	transition: opacity 0s linear 0.6s;
 }
