@@ -732,6 +732,15 @@ if (DECK) {
   let idleTimer;
   document.addEventListener('mousemove', (e) => {
     goto.classList.remove('quiet');
+    // The latest input wins: real mouse movement (not over the knobs, not
+    // jitter) takes over from the keyboard — the selection light yields to
+    // hover, exactly as a keypress takes over from the mouse
+    if (mode === 'kbd' && Math.abs(e.movementX) + Math.abs(e.movementY) > 2 && !e.target.closest('.goto')) {
+      if (selected >= 0) boxes[selected].classList.remove('kbd-focus');
+      selected = -1;
+      document.body.classList.remove('kbd-active');
+      mode = 'mouse';
+    }
     cursor.style.left = e.clientX + 'px';
     cursor.style.top = e.clientY + 'px';
     cursor.style.opacity = '0.65';
