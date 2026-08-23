@@ -167,8 +167,9 @@ if (PER_SECTION === 1) {
     mover.style.transform = `translateY(${commit ? awayY() : homeY()}px)`;
     requestAnimationFrame(trackReveal);
     clearTimeout(finishTimer);
-    // transitionend can be skipped when the tab is backgrounded mid-slide
-    finishTimer = setTimeout(finish, 1200);
+    // transitionend can be skipped when the tab is backgrounded mid-slide;
+    // well past the 0.9s settle so it never cuts a real one short
+    finishTimer = setTimeout(finish, 2000);
   }
 
   function finish() {
