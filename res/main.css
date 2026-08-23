@@ -128,7 +128,7 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 		/* The sheets start this much below the status inset: iOS blurs what
 		   lies just under the status bar and the fade reaches a little past
 		   it, so that band is left to the backdrop rather than to paper. */
-		--top-gap: 16px;
+		--top-gap: 22px;
 		--paper: #dedede;
 		--ink: #000;
 		--title: #000;

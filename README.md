@@ -35,7 +35,7 @@ A move, in `main.js` terms:
 
 - `startMove(dir)` picks the `mover` (the top sheet to lift off, or the previous one to put back) and the `under` sheet it uncovers or covers. `travel` is measured from the mover's real position — the distance it needs to clear the screen, shadow included.
 - While the mover is in the air it is always sheet-size (3 px inset, lifted shadow). The sheet beneath stays flat until the mover's bottom edge has cleared the lower 30 % of the screen (`revealAt`), then takes sheet size too — all four edges move in very slightly — and goes flat again on the way back. `updateReveal()` reads the mover's actual transform, so drags and the animated settle behave the same.
-- `settle(commit)` animates the rest of the way; `finish()` re-assigns the stack. A 1.2 s watchdog covers a `transitionend` that never arrives (backgrounded tab).
+- `settle(commit)` animates the rest of the way; `finish()` re-assigns the stack. A 2 s watchdog covers a `transitionend` that never arrives (backgrounded tab).
 
 The look is CSS only, all tokens in `:root` inside the mobile block:
 
@@ -43,7 +43,7 @@ The look is CSS only, all tokens in `:root` inside the mobile block:
 - **Paper edge** (`--sheet-edge`): 1 px lit bevel top/left, 1 px dark thickness line, 1–3 px contact shadow. Sized for a very small rounded object.
 - **Letterpress print**: the photo sits in a recess — inset shadow on its top/left wall, a lit paper lip below. 6 px corners. No drop shadow.
 - **Corners**: sheet corners are concentric with the phone's own; a sheet lying flat has square bottom corners (the glass rounds them). The phone's radius comes from `SCREEN_RADII` in `main.js` (per model, e.g. iPhone 16 → 55 px) with a CSS fallback derived from `safe-area-inset-bottom`.
-- **Status bar backdrop** (`.main::before`): an opaque black strip the height of the status inset plus `--top-gap` (16 px), with two convex corner fills in the phone's radius. Sheets start below it and slide under it, corners and all. The desk (`html, body`) is black so the Dynamic Island disappears into it.
+- **Status bar backdrop** (`.main::before`): an opaque black strip the height of the status inset plus `--top-gap` (22 px), with two convex corner fills in the phone's radius. Sheets start below it and slide under it, corners and all. The desk (`html, body`) is black so the Dynamic Island disappears into it.
 
 ## Adding a photo
 
