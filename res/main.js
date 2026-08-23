@@ -854,6 +854,30 @@ if (DECK) {
   }
   knobWheel(knobYear, turnYear);
   knobWheel(knobPrint, turnPrint);
+
+  // Dragging a knob turns it too: press and pull up or down, ~14px per
+  // step, the pointer captured so the pull may leave the knob. A real drag
+  // swallows the release's click, so it cannot commit by accident.
+  function knobDrag(knob, turn) {
+    let dragging = false, acc = 0, lastY = 0, moved = 0;
+    knob.addEventListener('pointerdown', (e) => {
+      dragging = true; moved = 0; acc = 0; lastY = e.clientY;
+      knob.setPointerCapture(e.pointerId);
+    });
+    knob.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      const dy = e.clientY - lastY;
+      lastY = e.clientY;
+      moved += Math.abs(dy);
+      acc += dy;
+      while (acc >= 14) { acc -= 14; turn(1); }
+      while (acc <= -14) { acc += 14; turn(-1); }
+    });
+    knob.addEventListener('pointerup', () => { dragging = false; });
+    knob.addEventListener('click', (e) => { if (moved > 5) { e.stopImmediatePropagation(); e.preventDefault(); } }, true);
+  }
+  knobDrag(knobYear, turnYear);
+  knobDrag(knobPrint, turnPrint);
   // clicking the print knob or the image commits at once, without leaving
   goto.querySelector('.goto-img').addEventListener('click', () => { if (goTouched) goNow(); });
   knobPrint.addEventListener('click', () => { if (goTouched) goNow(); });

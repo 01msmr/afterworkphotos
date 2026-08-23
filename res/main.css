@@ -195,7 +195,8 @@ div.awbox {
 		0 0.3cqw 0.6cqw -0.2cqw rgba(48, 42, 18, 0.18),
 		0.4cqw 1.4cqw 1.2cqw -0.3cqw rgba(48, 42, 18, 0.10),
 		0 2cqw 4cqw 0.3cqw rgba(48, 42, 18, 0.06);
-	transition: box-shadow 0.9s ease-in;
+	/* the spot lands well before the print has woken up */
+	transition: box-shadow 0.25s ease-out;
 }
 
 html:not(.deck) .awbox:hover .awphoto,
