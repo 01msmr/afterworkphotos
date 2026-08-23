@@ -211,34 +211,36 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 		color: var(--ink);
 	}
 
-	/* The virtual phone. It starts below the status strip and is clipped to
-	   the phone's corner radius at the top, which makes a phone top at the
-	   status line. The bottom is left square: the glass rounds it, and any
-	   radius of ours that is tighter than the glass shows as black wedges —
-	   a "backdrop" mirrored from the top. Every sheet moves inside it, so
-	   one sliding up goes under the strip — corners and all — as if the
-	   phone ended there; no pixel of a sheet is ever drawn under the status
-	   bar. The transform makes it the containing block for the fixed
-	   sheets.
-
-	   Sized from 100lvh, never with bottom: 0 — in a home screen app iOS
-	   resolves a fixed element's bottom against a viewport that is one
-	   status bar short, anchored at the top, so bottom: 0 ends one status
-	   bar above the glass. 100lvh is the whole screen. */
+	/* Plain viewport container, as in the version whose bottom was right on
+	   the phone. It is not a clipping box and has no transform: the sheets
+	   are fixed to the viewport themselves, which is the one arrangement iOS
+	   sizes correctly down to the glass. */
 	.main {
-		position: fixed;
-		top: env(safe-area-inset-top, 0px);
-		right: 0;
-		left: 0;
-		height: calc(var(--app-height) - env(safe-area-inset-top, 0px));
-		/* fallback */
-		height: calc(100lvh - env(safe-area-inset-top, 0px));
+		height: var(--app-height);
 		overflow: hidden;
-		border-radius: var(--screen-radius) var(--screen-radius) 0 0;
-		transform: translateZ(0);
-		isolation: isolate;
 		scroll-snap-type: none;
 		touch-action: none;
+		position: relative;
+	}
+
+	/* The status bar backdrop, painted over the sheets: a fully opaque strip
+	   the height of the status inset, plus the two convex corner fills
+	   below it that give the sheets a phone top with the phone's own radius
+	   at the status line. A sheet sliding up goes under it, corners and all,
+	   as if the phone ended there. */
+	.main::before {
+		content: '';
+		position: fixed;
+		top: 0;
+		left: 0;
+		right: 0;
+		height: calc(env(safe-area-inset-top, 0px) + var(--screen-radius));
+		pointer-events: none;
+		z-index: 500;
+		background:
+			linear-gradient(var(--desk), var(--desk)) top / 100% env(safe-area-inset-top, 0px) no-repeat,
+			radial-gradient(circle at 100% 100%, transparent calc(var(--screen-radius) - 0.5px), var(--desk) calc(var(--screen-radius) + 0.5px)) left bottom / var(--screen-radius) var(--screen-radius) no-repeat,
+			radial-gradient(circle at 0 100%, transparent calc(var(--screen-radius) - 0.5px), var(--desk) calc(var(--screen-radius) + 0.5px)) right bottom / var(--screen-radius) var(--screen-radius) no-repeat;
 	}
 
 	/* Nothing scrolls: the track is only a container, the cards stack themselves.
@@ -257,13 +259,13 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 	section {
 		--inset: 0px;
 		position: fixed;
-		top: var(--inset);
+		/* fixed to the viewport, top below the status inset, bottom on the
+		   glass — the geometry that was right on the phone */
+		top: calc(env(safe-area-inset-top, 0px) + var(--inset));
 		right: var(--inset);
+		bottom: var(--inset);
 		left: var(--inset);
-		/* height from 100lvh for the same reason as .main, never from bottom */
-		height: calc(var(--app-height) - env(safe-area-inset-top, 0px) - var(--inset) * 2);
-		/* fallback */
-		height: calc(100lvh - env(safe-area-inset-top, 0px) - var(--inset) * 2);
+		height: auto;
 		padding: 0;
 		padding-top: calc(2rem + var(--tp) * 2 + 12px);
 		/* keep the caption clear of the home indicator */
@@ -282,7 +284,7 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 		visibility: hidden;
 		z-index: 0;
 		transition:
-			top 0.3s ease, right 0.3s ease, height 0.3s ease, left 0.3s ease,
+			top 0.3s ease, right 0.3s ease, bottom 0.3s ease, left 0.3s ease,
 			border-radius 0.3s ease, box-shadow 0.3s ease;
 	}
 
@@ -333,7 +335,7 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 	section.mover.animating {
 		transition:
 			transform 0.45s cubic-bezier(0.4, 0, 0.2, 1),
-			top 0.3s ease, right 0.3s ease, height 0.3s ease, left 0.3s ease,
+			top 0.3s ease, right 0.3s ease, bottom 0.3s ease, left 0.3s ease,
 			border-radius 0.3s ease, box-shadow 0.3s ease;
 	}
 
