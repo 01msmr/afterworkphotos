@@ -102,15 +102,18 @@ div.awbox {
 	transition: opacity 0.9s ease-in;
 }
 
-/* The print's shadow on the wall: a tight contact shadow, the body of it
-   a little below (light from above), and a wide soft penumbra — warm,
-   slightly yellow, as a spot's shadow on a light wall is */
+/* The print's shadow on the wall, as a plate a little off the wall throws
+   it under gallery spots from the upper left: the slot under the bottom
+   edge (tight, darkest), the key spot's shadow 15px down and a little
+   right, a weaker second spot's shadow from the other side, a soft bed and
+   a short faint halo. Slightly warm — a warm room's bounce light. */
 .awphoto {
 	box-shadow:
-		0 2px 4px rgba(48, 42, 18, 0.35),
-		2px 10px 24px rgba(48, 42, 18, 0.40),
-		4px 28px 60px 6px rgba(48, 42, 18, 0.42),
-		0 60px 110px 10px rgba(48, 42, 18, 0.25);
+		0 2px 4px -1px rgba(48, 42, 18, 0.47),
+		4px 15px 9px -1.5px rgba(48, 42, 18, 0.33),
+		-2.5px 12.5px 12px -2px rgba(48, 42, 18, 0.11),
+		2px 13px 28px 2.5px rgba(48, 42, 18, 0.27),
+		0 23px 48px 4.5px rgba(48, 42, 18, 0.18);
 }
 
 .awphoto img,
