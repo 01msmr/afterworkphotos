@@ -168,6 +168,7 @@ if (DECK) {
   let dir = 0;              // +1 forward (lift off), -1 backward (put back)
   let landing = 0;          // the index a committed move lands on
   let travel = 0;           // how far the mover goes to clear the screen
+  let moverBottom = 0;      // the mover's resting bottom edge (its shadow hangs below)
   let revealAt = 0;         // how far up it must be before the sheet beneath is dealt in
   let animating = false;
   let committed = false;    // does the pending move land on the neighbour?
@@ -214,10 +215,15 @@ if (DECK) {
     }
     under.classList.add('under');
     mover.classList.add('mover');
+    // A sheet pulled down from above the screen enters paper first: until
+    // its bottom edge is on screen it wears only the flat sheet edge, the
+    // long lifted shadow fades in (0.2s) once the edge has entered
+    if (dir < 0) mover.classList.add('entering');
     // Measured in place: the sheet's bottom edge plus the shadow it casts
     // below itself, so nothing of it is left showing once it is "away"
     mover.style.transform = '';
     const bottom = mover.getBoundingClientRect().bottom;
+    moverBottom = bottom;
     travel = bottom + 220;   // the lifted shadow reaches ~180px below the sheet
     // The sheet beneath shows its edges only once the mover's bottom edge is
     // 30% of the way up the screen — and loses them again on the way back down
@@ -232,7 +238,10 @@ if (DECK) {
 
   function updateReveal() {
     if (!mover) return;
-    under.classList.toggle('revealed', -moverY() >= revealAt);
+    const y = moverY();
+    under.classList.toggle('revealed', -y >= revealAt);
+    // the incoming sheet's bottom edge has entered: the lifted shadow may come
+    if (dir < 0 && y > -moverBottom + 1) mover.classList.remove('entering');
   }
 
   // During an animated settle the position lives in CSS, so poll it per frame
@@ -269,7 +278,7 @@ if (DECK) {
     if (!mover) return;
     clearTimeout(finishTimer);
     if (committed) current = landing;
-    mover.classList.remove('mover', 'animating');
+    mover.classList.remove('mover', 'animating', 'entering');
     mover.style.transform = '';
     under.classList.remove('under', 'revealed');
     layout();

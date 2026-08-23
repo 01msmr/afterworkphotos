@@ -787,6 +787,7 @@ html.deck {
 		visibility: visible;
 		z-index: 10;
 		will-change: transform;
+		transition: box-shadow 0.2s ease;
 		box-shadow:
 			inset 1px 1px 0 var(--edge-light),
 			inset -1px -1px 0 rgba(var(--shade), 0.08),
@@ -803,7 +804,12 @@ html.deck {
 		transition:
 			transform 1.2s cubic-bezier(0.4, 0, 0.2, 1),
 			top 0.3s ease, right 0.3s ease, bottom 0.3s ease, left 0.3s ease,
-			border-radius 0.3s ease, box-shadow 0.3s ease;
+			border-radius 0.3s ease, box-shadow 0.2s ease;
+	}
+
+	/* still above the screen: paper edge only, no long throw yet */
+	section.mover.entering {
+		box-shadow: var(--sheet-edge);
 	}
 
 	/* The tap divider, printed on every sheet at the same screen height
