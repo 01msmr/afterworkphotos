@@ -3,10 +3,12 @@
 <head>
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover">
-	<meta name="color-scheme" content="light dark">
-	<!-- Experiment: if iOS picks the status bar text colour from theme-color
-	     rather than from the pixels beneath, a light value here gives black
-	     text — invisible on the black desk -->
+	<!-- Both declare a light page although the desk behind the status bar is
+	     black: if iOS picks the status bar text colour from them rather than
+	     from the pixels beneath, the text comes out black on black and the
+	     status bar disappears along with the Face ID pill. The page's own
+	     dark mode keys off prefers-color-scheme and is not affected. -->
+	<meta name="color-scheme" content="light">
 	<meta name="theme-color" content="#dedede">
 	<title>@maasmeiers afterworkphotos</title>
 	<link rel="stylesheet" href="res/main.css">

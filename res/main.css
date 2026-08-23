@@ -223,7 +223,9 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 
 	/* At rest a sheet is the phone's front: it fills the virtual phone, which
 	   gives it the phone's corners. Flat — a sheet lying down has no edge to
-	   show. Only the top sheet is visible at rest. */
+	   show. Only the top sheet is visible at rest.
+
+	   Its corners are concentric with the phone's at whatever inset it is. */
 	section {
 		--inset: 0px;
 		position: fixed;
@@ -241,7 +243,6 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 		background-color: var(--paper);
 		background-image: var(--paper-grain);
 		background-size: 120px 120px;
-		/* concentric with the screen corner at any inset */
 		border-radius: max(8px, calc(var(--screen-radius) - var(--inset)));
 		visibility: hidden;
 		z-index: 0;
@@ -262,11 +263,12 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 
 	/* The sheet beneath is there from the first pixel, flat and full like
 	   any resting sheet. Once the moving one has cleared the lower 30% of the
-	   screen (see revealAt) it shrinks by a few pixels — just the room its
-	   rounded paper edge needs to render in 3D on the sheet behind it. On
-	   the way back down the same happens in reverse, and once it is the
-	   resting sheet it grows back to full. Comes after .current on purpose:
-	   on the way back the sheet beneath is the current one. */
+	   screen (see revealAt) all four of its edges move very slightly inwards
+	   — just the room its rounded paper edge needs to render in 3D on the
+	   sheet behind it. On the way back down the same happens in reverse, and
+	   once it is the resting sheet it grows back to full. Comes after
+	   .current on purpose: on the way back the sheet beneath is the current
+	   one. */
 	section.under {
 		transition:
 			top 0.3s ease, right 0.3s ease, bottom 0.3s ease, left 0.3s ease,
@@ -274,7 +276,7 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 	}
 
 	section.under.revealed {
-		--inset: 8px;
+		--inset: 4px;
 		box-shadow: var(--sheet-edge);
 	}
 
