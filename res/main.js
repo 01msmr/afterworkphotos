@@ -713,8 +713,9 @@ if (DECK) {
   // them the print's image in a window (white paper until the first turn).
   // Scrolling on a knob turns it: the year knob steps a year, the print
   // knob a print (carrying into the next year at the ends). When the mouse
-  // then leaves the unit, the wall scrolls to the print and lights it, as a
-  // key would. Like the prints, the unit is dim until the mouse is on it.
+  // then leaves the unit — or clicks the print knob or the image — the wall
+  // scrolls to the print and lights it, as a key would. Like the prints,
+  // the unit is dim until the mouse is on it.
   const photoOfBox = (i) => PHOTOS[PHOTOS.length - 1 - i];
   const yearOf = (p) => p.taken ? p.taken.slice(0, 4) : 'undated';
   const years = [...new Set(PHOTOS.map(yearOf))].sort().reverse();      // newest first
@@ -801,7 +802,9 @@ if (DECK) {
   }
   knobWheel(knobYear, turnYear);
   knobWheel(knobPrint, turnPrint);
+  // clicking the print knob or the image commits at once, without leaving
   goto.querySelector('.goto-img').addEventListener('click', () => { if (goTouched) goNow(); });
+  knobPrint.addEventListener('click', () => { if (goTouched) goNow(); });
 
   // the windows follow the wall when it is scrolled by hand
   let scrollTick = 0;
