@@ -909,7 +909,7 @@ if (DECK) {
       const i = boxes.indexOf(top.querySelector('.awbox'));
       if (mode === 'mouse') { mode = 'kbd'; mouseHasMoved = false; document.body.classList.add('kbd-active'); }
       if (selected !== i && !(selected >= 0 && boxes[selected].closest('section') === top)) light(i);
-    }, 1000);
+    }, 300);
     if (gliding || scrollTick) return;
     scrollTick = requestAnimationFrame(() => {
       scrollTick = 0;
