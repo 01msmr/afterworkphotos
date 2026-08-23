@@ -10,8 +10,10 @@
 | `res/main.js` | builds the photo sections; desktop scroll/keyboard UI and the mobile sheet deck |
 | `res/main.css` | desktop layout at the top, the whole mobile deck inside `@media (max-width: 600px)` |
 | `manifest.json` | web app manifest — required, see *iOS home screen app* |
-| `img/1.jpg … N.jpg` | the photos, square, ~1000 px; numbered in order of adding |
+| `img/1.jpg … N.jpg` | the photos, square, 1000 px; numbered in order of adding |
+| `img/thumb/N.jpg` | 200 px thumbnails, same crop — generated, for the overview UIs |
 | `img originals/` | the untouched originals |
+| `photos.json` | generated index: count, and per photo its number, date taken, file, thumbnail |
 | `inbox/` | where new photos land (the Shortcut puts them there); emptied by the ingest workflow |
 | `scripts/ingest.sh` | numbers an inbox photo, makes the 1000 px square, moves the original, bumps `PHOTO_COUNT` |
 | `.github/workflows/ingest.yml` | runs the script on every push to `inbox/` and commits the result |
@@ -54,7 +56,11 @@ Put an image into `inbox/` on `main` — that is all. The ingest workflow (`.git
 1. numbers it `PHOTO_COUNT + 1` — several at once are ordered by date taken (EXIF `DateTimeOriginal`; a file without one sorts by the digits in its name, which the Shortcut makes a date stamp);
 2. writes the 1000 px square derivative to `img/N.jpg` — auto-oriented, centre-cropped (a no-op for a square), JPEG q85, metadata stripped so no GPS reaches the public image;
 3. moves the incoming file to `img originals/N_original.<ext>`, metadata intact;
-4. bumps `PHOTO_COUNT` in `res/main.js`, commits `photo N`, pushes. The server pulls; live within seconds.
+4. bumps `PHOTO_COUNT` in `res/main.js`;
+5. makes any missing 200 px thumbnail in `img/thumb/` (from the derivative, so it is the same crop) and rewrites `photos.json` from scratch — count, and per photo `n`, `taken` (the original's EXIF date, `null` if none), `file`, `thumb`;
+6. commits `photo N`, pushes. The server pulls; live within seconds.
+
+The workflow can also be run by hand (*Actions → ingest photos → Run workflow*) to regenerate thumbnails and `photos.json` with an empty inbox.
 
 Runs are serialised, so two uploads can never both become photo N. A commit made by the workflow does not trigger it again.
 
