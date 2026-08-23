@@ -82,7 +82,7 @@ By hand: `git add inbox/whatever.jpg && git commit && git push` does the same. T
 
 ## Known issues / to check
 
-- **Phone: a wrong big picture for a moment after a scrubber cut** — reported on the device ("what was under my thumb just before?"), not reproduced on the desktop: there the landing sheet is in place from the first frame of the cut with the right, decoded image, and nothing else is ever under the centre of the screen (sampled at 0–1.8 s). Candidates to check on the device: iOS decode timing of a freshly inserted `<img>` after the rest-prefetch loaded a *different* sheet's photo; the `touchend` landing on a neighbour of the sheet the label showed. Start by logging `scrubIndex` at release against what the label showed, and the `complete` state of the landing sheet's image at the first frame.
+- **Fixed: a wrong picture for a moment after a scrubber cut down the pile** (to an older, smaller number; cutting up was fine). The sheet being uncovered carried only `.under`, which never set `visibility` — so it stayed hidden like any resting sheet, and the pile's own next sheet showed through for the whole lift until the landing snapped it into place. Cuts of one or two sheets looked right only because the target happened to be `.next`/`.next2`. `section.under` is now `visibility: visible` (commit `eaef3ee`). Reproduced and verified on the desktop at phone width with synthetic touch events on the scrubber, sampling each sheet's computed visibility and z-index during the move.
 - **Status bar text / blur** cannot be controlled from the page (see below).
 
 ## Deployment
