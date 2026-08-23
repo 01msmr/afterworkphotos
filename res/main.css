@@ -115,11 +115,11 @@ div.awbox {
 
 .awphoto {
 	box-shadow:
-		0 0.6cqw 1.25cqw -0.3cqw rgba(48, 42, 18, 0.47),
-		1.25cqw 4.7cqw 2.8cqw -0.45cqw rgba(48, 42, 18, 0.33),
-		-0.8cqw 3.9cqw 3.75cqw -0.6cqw rgba(48, 42, 18, 0.11),
-		0.6cqw 4cqw 8.75cqw 0.8cqw rgba(48, 42, 18, 0.27),
-		0 7.2cqw 15cqw 1.4cqw rgba(48, 42, 18, 0.18);
+		0 0.6cqw 1.25cqw -0.3cqw rgba(48, 42, 18, 0.45),
+		1.25cqw 4.7cqw 2.8cqw -0.45cqw rgba(48, 42, 18, 0.31),
+		-0.8cqw 3.9cqw 3.75cqw -0.6cqw rgba(48, 42, 18, 0.10),
+		0.6cqw 4cqw 8.75cqw 0.8cqw rgba(48, 42, 18, 0.26),
+		0 7.2cqw 15cqw 1.4cqw rgba(48, 42, 18, 0.17);
 }
 
 .awphoto img,
