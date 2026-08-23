@@ -41,7 +41,7 @@ h1.title {
 	width: min(92%, 340px);
 	text-align: right;
 	white-space: nowrap;
-	opacity: .12;
+	opacity: 0.06;
 	transition: opacity 0.9s ease-out;
 	padding: var(--tp) 0;
 	margin: 0;
@@ -571,7 +571,7 @@ html.deck {
 		background-color: var(--title-link);
 	}
 
-	/* Quieter than on the desktop */
+	/* The title stays a touch above the unlit prints: 6% on all devices */
 	h1.title {
 		opacity: 0.06;
 	}
