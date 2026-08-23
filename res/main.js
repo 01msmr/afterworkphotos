@@ -1014,10 +1014,12 @@ if (DECK) {
 
     if (/^[0-9]$/.test(e.key)) { typeDigit(e.key); return; }
 
-    if (e.key === 'PageDown' || e.key === ' ') { e.preventDefault(); stepRow(e.shiftKey ? -1 : 1); return; }
+    if (e.key === 'PageDown') { e.preventDefault(); stepRow(e.shiftKey ? -1 : 1); return; }
     if (e.key === 'PageUp') { e.preventDefault(); stepRow(-1); return; }
+    // Space is a second Enter (it does not page)
+    const enter = e.key === 'Enter' || e.key === ' ';
 
-    if (e.key === 'Enter' && typed) {
+    if (enter && typed) {
       e.preventDefault();
       typed = '';
       goNow();
@@ -1036,7 +1038,7 @@ if (DECK) {
       return;
     }
 
-    if (e.key === 'Enter' && (station === 1 || station === 2)) {
+    if (enter && (station === 1 || station === 2)) {
       e.preventDefault();
       station = 0;
       applyStation();
@@ -1044,13 +1046,13 @@ if (DECK) {
       return;
     }
 
-    if (e.key === 'Enter' && station === 3) {
+    if (enter && station === 3) {
       e.preventDefault();
       toggleWall();
       return;
     }
 
-    if (e.key === 'Enter') {
+    if (enter) {
       e.preventDefault();
       if (mode === 'mouse') {
         mode = 'kbd';
