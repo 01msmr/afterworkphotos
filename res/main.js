@@ -266,6 +266,22 @@ if (DECK) {
   function goForward() { if (!mover) { startMove(1); settle(true); } }
   function goBackward() { if (!mover) { startMove(-1); settle(true); } }
 
+  // Turning the iPad changes K: the deck is rebuilt with the same photo on
+  // top. Only a handful of sheets exist, so this is cheap.
+  function rebuild() {
+    const k = sheetsPer();
+    if (k === K) return;
+    if (mover) { committed = true; finish(); }   // land the move that is in flight first
+    const topN = photosOf(current)[0].n;
+    for (const el of sheets.values()) el.remove();
+    sheets.clear();
+    K = k;
+    S = Math.ceil(N / K);
+    current = sheetOf(N - topN);                 // photo index of n is N - n
+    layout();
+  }
+  window.addEventListener('resize', rebuild);
+
   // ── Fit title ──
   const title = document.querySelector('h1.title');
   function fitTitle() {
