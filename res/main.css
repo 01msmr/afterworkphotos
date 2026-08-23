@@ -138,12 +138,12 @@ div.awbox {
 	max-width: calc(var(--app-height) - 16rem);
 }
 
-/* An opaque sheet of 50% gray behind every image, exactly its size: the
+/* An opaque sheet of 24% gray behind every image, exactly its size: the
    wall's texture never shows through a dimmed print — unlit, the image
    sits at 10% over the gray. The dimming is on the image and caption, not
    on the sheet, so the sheet and its shadow stay. */
 html:not(.deck) .awphoto {
-	background: #808080;
+	background: #c2c2c2;   /* 24% black */
 }
 
 html:not(.deck) .awphoto img,
