@@ -34,6 +34,8 @@ Two photos per full-height section, newest first, vertical scroll-snap. Photos a
 
 The newest photo is on top, like a pile of daily prints. Swiping up lifts it off and uncovers the one before; swiping down pulls the newer sheet back on. Only seven sheets exist in the DOM at a time — the top one and three either side, built as they enter that window and dropped as they leave it, images loaded ahead — so a pile of hundreds costs what a pile of seven does (`WINDOW`, `sheet(i)`, `layout()` in `main.js`). Tapping does the same: the upper part of the screen goes forward, the lower part back — the boundary is the thin dotted line printed on every sheet (`--divider-y`, set from the photo's position). The last sheet wraps to the first; it is the same move as any other, there are no clones.
 
+**Edge scrubber.** The right edge of the screen is the pile seen edge-on. A touch there opens it: a strip of sheet edges with the years marked, and under the finger the sheet as a small print with its number and month. Dragging runs through the pile (top = newest); letting go cuts the deck to that sheet — the top sheet lifts off straight onto an older target, a newer target comes down straight onto the top sheet. `startMove(dir, target)` is the same move as a swipe, just not to the neighbour.
+
 What is on screen, always: the **top sheet**, 3 px in from the phone's edge with its paper edge showing, and the **two sheets beneath it**, full size and flat, so the top sheet's edge always shows paper around it. Stack positions are the classes `current`, `next`, `next2`, assigned by `layout()`.
 
 A move, in `main.js` terms:

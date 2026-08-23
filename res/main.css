@@ -402,9 +402,13 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 
 	/* The photo is pressed into the sheet, letterpress style: no drop shadow
 	   (paper doesn't float), instead the recess is in shadow along its top and
-	   left wall and the paper just below its lower edge catches the light. */
+	   left wall and the paper just below its lower edge catches the light.
+	   The thumbnail sits behind the print, so a sheet that is still loading
+	   already shows its picture, softly. */
 	.awphoto {
 		position: relative;
+		background-size: cover;
+		aspect-ratio: 1;
 		/* a print's corners: barely rounded */
 		border-radius: 6px;
 		box-shadow:
@@ -439,5 +443,79 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 		background-image: var(--paper-grain);
 		background-size: 120px 120px;
 		opacity: 0.5;
+	}
+
+	/* ── Edge scrubber ── the pile seen edge-on, along the right edge */
+	.scrub {
+		position: fixed;
+		top: calc(env(safe-area-inset-top, 0px) + var(--top-gap));
+		right: 0;
+		bottom: 0;
+		width: 28px;
+		z-index: 600;
+		touch-action: none;
+	}
+
+	/* the edge itself: sheet after sheet, as a pattern; the years beside it */
+	.scrub-strip {
+		position: absolute;
+		top: 28px;
+		bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+		right: 4px;
+		width: 10px;
+		border-radius: 3px;
+		background: repeating-linear-gradient(
+			to bottom,
+			var(--paper) 0 2px,
+			rgba(var(--shade), 0.35) 2px 3px);
+		box-shadow: 0 0 0 1px var(--edge-dark), 0 2px 8px rgba(var(--shade), 0.4);
+		opacity: 0;
+		transition: opacity 0.25s ease;
+	}
+
+	.scrub-year {
+		position: absolute;
+		right: 16px;
+		transform: translateY(-50%);
+		font: 600 10px/1 "Helvetica Neue", Helvetica, Arial, sans-serif;
+		letter-spacing: 0.04em;
+		color: var(--ink);
+		background: var(--paper);
+		padding: 3px 5px;
+		border-radius: 3px;
+		box-shadow: 0 0 0 1px var(--edge-dark);
+		white-space: nowrap;
+	}
+
+	/* the sheet under the finger: a small print and its number and month */
+	.scrub-label {
+		position: fixed;
+		right: 40px;
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		padding: 6px 10px 6px 6px;
+		background: var(--paper);
+		color: var(--ink);
+		border-radius: 6px;
+		box-shadow: var(--sheet-edge), 0 12px 28px rgba(var(--shade), 0.4);
+		font: 700 13px/1.2 "Helvetica Neue", Helvetica, Arial, sans-serif;
+		white-space: nowrap;
+		opacity: 0;
+		pointer-events: none;
+		transition: opacity 0.2s ease;
+		z-index: 700;
+	}
+
+	.scrub-label img {
+		width: 56px;
+		height: 56px;
+		border-radius: 4px;
+		display: block;
+	}
+
+	body.scrubbing .scrub-strip,
+	body.scrubbing .scrub-label {
+		opacity: 1;
 	}
 }

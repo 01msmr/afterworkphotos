@@ -13,9 +13,11 @@ const sections = [];
    ────────────────────────────────────────────────────────── */
 let PHOTOS = [];
 
+// A video does not play by itself: on the desktop it plays while the mouse
+// is over it, on the phone while its sheet is the top one (see layout()).
 function mediaHTML(p) {
   if (p.video) {
-    return `<video src="${p.video}" poster="${p.file}" autoplay muted loop playsinline width="100%"></video>`;
+    return `<video src="${p.video}" poster="${p.file}" muted loop playsinline preload="metadata" width="100%"></video>`;
   }
   return `<img src="${p.file}" alt="afterworkphoto ${p.n}" width="100%">`;
 }
@@ -72,7 +74,7 @@ if (PER_SECTION === 1) {
     const section = document.createElement('section');
     section.innerHTML = `
       <div class="awbox" data-n="${p.n}">
-        <div class="awphoto">${mediaHTML(p)}</div>
+        <div class="awphoto" style="background-image: url('${p.thumb}')">${mediaHTML(p)}</div>
         <p class="subtitle">afterworkphoto ${p.n}</p>
       </div>`;
     track.appendChild(section);
@@ -121,6 +123,7 @@ if (PER_SECTION === 1) {
   let mover = null;         // the sheet being lifted off or put back
   let under = null;         // the sheet it reveals / covers
   let dir = 0;              // +1 forward (lift off), -1 backward (put back)
+  let landing = 0;          // the index a committed move lands on
   let travel = 0;           // how far the mover goes to clear the screen
   let revealAt = 0;         // how far up it must be before the sheet beneath is dealt in
   let animating = false;
@@ -142,6 +145,9 @@ if (PER_SECTION === 1) {
       el.classList.toggle('current', i === current);
       el.classList.toggle('next', N > 1 && i === wrap(current + 1));
       el.classList.toggle('next2', N > 2 && i === wrap(current + 2));
+      // a video plays only while its sheet is the top one
+      const v = el.querySelector('video');
+      if (v) { if (i === current) v.play().catch(() => {}); else v.pause(); }
     }
   }
   layout();
@@ -150,14 +156,18 @@ if (PER_SECTION === 1) {
   function homeY() { return dir > 0 ? 0 : -travel; }   // where it starts
   function awayY() { return dir > 0 ? -travel : 0; }   // where a committed move ends
 
-  // Pick the moving sheet: the top one to lift off, the previous one to put back
-  function startMove(direction) {
+  // Pick the moving sheet: the top one to lift off, the newer one to put
+  // back. Normally the neighbour; the scrubber lands anywhere — then the
+  // top sheet lifts off straight onto an older target, or a newer target
+  // comes down straight onto the top sheet, as if the pile were cut there.
+  function startMove(direction, target) {
     dir = direction;
+    landing = target === undefined ? wrap(current + dir) : target;
     if (dir > 0) {
       mover = sheet(current);                 // lift the top sheet off
-      under = sheet(current + 1);
+      under = sheet(landing);
     } else {
-      mover = sheet(current - 1);             // put the newer sheet back on
+      mover = sheet(landing);                 // put the newer sheet back on
       under = sheet(current);
     }
     under.classList.add('under');
@@ -216,7 +226,7 @@ if (PER_SECTION === 1) {
   function finish() {
     if (!mover) return;
     clearTimeout(finishTimer);
-    if (committed) current = wrap(current + dir);
+    if (committed) current = landing;
     mover.classList.remove('mover', 'animating');
     mover.style.transform = '';
     under.classList.remove('under', 'revealed');
@@ -256,6 +266,86 @@ if (PER_SECTION === 1) {
     title.classList.add('lit');
     clearTimeout(titleTimer);
     titleTimer = setTimeout(() => title.classList.remove('lit'), 2500);
+  }, { passive: true });
+
+  // ── Edge scrubber ──
+  // The pile seen edge-on, along the right edge of the screen. A touch
+  // there opens it; dragging runs through the pile (top = newest) with the
+  // finger's sheet shown as a small print and its number and month; years
+  // are marked along the edge. Letting go cuts the deck to that sheet.
+  const scrub = document.createElement('div');
+  scrub.className = 'scrub';
+  scrub.innerHTML = '<div class="scrub-strip"></div>';
+  const strip = scrub.querySelector('.scrub-strip');
+  const scrubLabel = document.createElement('div');
+  scrubLabel.className = 'scrub-label';
+  scrubLabel.innerHTML = '<img alt=""><span></span>';
+  document.body.append(scrub, scrubLabel);
+
+  const monthYear = (p) => p.taken
+    ? new Date(p.taken).toLocaleString('en', { month: 'short', year: 'numeric' })
+    : 'undated';
+
+  // year marks: the first sheet of each year, counted from the top. Years
+  // with few sheets sit close together at the bottom; a mark that would
+  // land within 18px of the previous one is left out.
+  function markYears() {
+    strip.querySelectorAll('.scrub-year').forEach(m => m.remove());
+    const h = strip.getBoundingClientRect().height || 1;
+    let last = null, lastY = -Infinity;
+    for (let i = 0; i < N; i++) {
+      const p = photoAt(i);
+      const year = p.taken ? p.taken.slice(0, 4) : null;
+      if (!year || year === last) continue;
+      last = year;
+      const f = N > 1 ? i / (N - 1) : 0;
+      if (f * h - lastY < 18) continue;
+      lastY = f * h;
+      const mark = document.createElement('div');
+      mark.className = 'scrub-year';
+      mark.style.top = (f * 100) + '%';
+      mark.textContent = year;
+      strip.appendChild(mark);
+    }
+  }
+  markYears();
+  window.addEventListener('resize', markYears);
+
+  let scrubbing = false;
+  let scrubIndex = 0;
+
+  function scrubTo(clientY) {
+    const r = strip.getBoundingClientRect();
+    const f = Math.min(1, Math.max(0, (clientY - r.top) / r.height));
+    scrubIndex = Math.round(f * (N - 1));
+    const p = photoAt(scrubIndex);
+    scrubLabel.querySelector('img').src = p.thumb;
+    scrubLabel.querySelector('span').textContent = `${p.n} · ${monthYear(p)}`;
+    scrubLabel.style.top = Math.min(r.bottom - 60, Math.max(r.top, clientY)) + 'px';
+  }
+
+  scrub.addEventListener('touchstart', (e) => {
+    if (animating) return;
+    scrubbing = true;
+    document.body.classList.add('scrubbing');
+    scrubTo(e.touches[0].clientY);
+  }, { passive: true });
+
+  scrub.addEventListener('touchmove', (e) => {
+    if (!scrubbing) return;
+    e.preventDefault();
+    scrubTo(e.touches[0].clientY);
+  }, { passive: false });
+
+  scrub.addEventListener('touchend', () => {
+    if (!scrubbing) return;
+    scrubbing = false;
+    document.body.classList.remove('scrubbing');
+    if (scrubIndex === current || mover) return;
+    // older (further down the pile): lift the top sheet off onto it;
+    // newer: bring it down onto the top sheet
+    startMove(scrubIndex > current ? 1 : -1, scrubIndex);
+    settle(true);
   }, { passive: true });
 
   // ── Tap zones ──
@@ -360,6 +450,12 @@ if (PER_SECTION === 1) {
       box.innerHTML = `
         <div class="awphoto">${mediaHTML(p)}</div>
         <p class="subtitle">afterworkphoto ${p.n}</p>`;
+      // a video plays only while the mouse is over it
+      const v = box.querySelector('video');
+      if (v) {
+        box.addEventListener('mouseenter', () => { v.play().catch(() => {}); });
+        box.addEventListener('mouseleave', () => { v.pause(); });
+      }
       section.appendChild(box);
       boxes.push(box);
     }
