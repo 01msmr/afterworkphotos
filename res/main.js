@@ -955,14 +955,14 @@ if (DECK) {
     if (!settledNear) document.body.classList.add('moving');   // nothing undims while the wall moves
     if (gliding && Math.abs(main.scrollTop - glideTarget) < 2) { gliding = false; clearTimeout(glideTimer); }
     clearTimeout(scrollEndTimer);
-    // the incoming row's light begins once 85% of its image's height is
+    // the incoming row's light begins once 90% of its image's height is
     // inside the screen — hover stays quiet (body.moving) until the wall
     // truly rests
     if (approachTop >= 0) {
       const target = sections[Math.round(approachTop / sections[0].offsetHeight)];
       const ph = target.querySelector('.awphoto').getBoundingClientRect();
       const visible = Math.min(ph.bottom, window.innerHeight) - Math.max(ph.top, 0);
-      if (visible >= ph.height * 0.85) {
+      if (visible >= ph.height * 0.9) {
         approachTop = -1;
         lightRow(target);
       }
