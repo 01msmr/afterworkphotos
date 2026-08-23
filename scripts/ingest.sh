@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Ingest photos from inbox/ into the site.
 #
-# For every image in inbox/, in name order (the Shortcut names them by date
-# taken): number it PHOTO_COUNT + 1, write the 1000px square derivative to
+# For every image in inbox/, oldest first by date taken (EXIF
+# DateTimeOriginal; a file without one sorts by its name, which the Shortcut
+# makes a date stamp): number it PHOTO_COUNT + 1, write the 1000px square derivative to
 # img/N.jpg, move the incoming file to "img originals/N_original.<ext>" and
 # bump PHOTO_COUNT in res/main.js. Moves are staged (git mv); nothing is
 # committed here — the workflow does that.
@@ -25,8 +26,18 @@ if (( ${#files[@]} == 0 )); then
   exit 0
 fi
 
-# name order = date order
-IFS=$'\n' files=( $(printf '%s\n' "${files[@]}" | sort) ); unset IFS
+# Date taken first; the name stands in where there is none. Keys are digits
+# only (20260823190000), so the two kinds sort together sensibly.
+taken() {
+  local d
+  d=$(identify -quiet -format '%[EXIF:DateTimeOriginal]' "$1" 2>/dev/null | tr -cd '0-9')
+  if [[ -n "$d" ]]; then printf '%s' "$d"; else basename "$1" | tr -cd '0-9'; fi
+}
+ordered=()
+while IFS= read -r line; do ordered+=( "${line#*$'\t'}" ); done < <(
+  for f in "${files[@]}"; do printf '%s\t%s\n' "$(taken "$f")" "$f"; done | sort -s -t $'\t' -k1,1
+)
+files=( "${ordered[@]}" )
 
 count=$(grep -oE 'const PHOTO_COUNT = [0-9]+' res/main.js | grep -oE '[0-9]+$')
 first=$(( count + 1 ))

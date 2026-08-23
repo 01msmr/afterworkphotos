@@ -145,7 +145,7 @@ if (PER_SECTION === 1) {
     // below itself, so nothing of it is left showing once it is "away"
     mover.style.transform = '';
     const bottom = mover.getBoundingClientRect().bottom;
-    travel = bottom + 70;
+    travel = bottom + 220;   // the lifted shadow reaches ~180px below the sheet
     // The sheet beneath shows its edges only once the mover's bottom edge is
     // 30% of the way up the screen — and loses them again on the way back down
     revealAt = bottom * 0.3;

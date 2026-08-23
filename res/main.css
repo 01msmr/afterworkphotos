@@ -362,9 +362,10 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 			inset 1px 1px 0 var(--edge-light),
 			inset -1px -1px 0 rgba(var(--shade), 0.08),
 			0 0 0 1px var(--edge-dark),
-			0 2px 4px rgba(var(--shade), 0.3),
-			0 12px 28px rgba(var(--shade), 0.4),
-			0 30px 70px rgba(var(--shade), 0.45);
+			0 2px 4px rgba(var(--shade), 0.35),
+			0 16px 36px rgba(var(--shade), 0.45),
+			0 48px 110px rgba(var(--shade), 0.55),
+			0 90px 180px rgba(var(--shade), 0.5);
 	}
 
 	/* The settle — a tap animates the whole travel, a released swipe the
