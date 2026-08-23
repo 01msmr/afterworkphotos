@@ -4,7 +4,7 @@ Date: 2026-08-23. Status: **draft for Uli's review** — written while the iPad 
 
 ## The idea
 
-A white-cube gallery you walk through: the afterworkphotos as big prints in wood frames with a white paper gap (mat) inside the frame, hanging from the ceiling on thin transparent lines, singly or in groups of two or three. A switchboard on the wall left of the entrance door sets light/dark mode, the frame colour and a few other things. Where the headset can see the real room, the gallery *is* that room — frames hang on its actual walls; elsewhere it is a synthetic room of a chosen size.
+A white-cube gallery you walk through: the afterworkphotos as big prints in wood frames with a white paper gap (mat) inside the frame, hanging from the ceiling on thin transparent lines, singly or in groups of two or three. **One room per year.** An **elevator** in a corner of the room takes you between the years: its panel lists the years as floors, each with an overview strip of that year's images. A switchboard beside the elevator sets light/dark mode, the frame colour and a few other things. Where the headset can see the real room, the gallery *is* that room — frames hang on its actual walls, the elevator stands in one of its real corners; elsewhere it is a synthetic room of a chosen size.
 
 ## What the web can and cannot do today (the constraints that shape the plan)
 
@@ -32,22 +32,34 @@ Tier 3 is the "scan": the headset's own room setup already knows the walls — t
 
 ## The room
 
-Synthetic room: floor W × D, height H (assumed defaults 6 × 4 × 3 m, settable). Walls off-white (`#f2f1ee`) in light mode, dark grey (`#1b1b1b`) in dark mode; floor pale concrete; ceiling white with a track of spots. The **entrance door** is in the middle of one short wall — the viewer starts just inside it, facing the room. The **switchboard** is on the wall immediately left of the door at 1.3 m height.
+Synthetic room: floor W × D, height H (assumed defaults 6 × 4 × 3 m, settable). Walls off-white (`#f2f1ee`) in light mode, dark grey (`#1b1b1b`) in dark mode; floor pale concrete; ceiling white with a track of spots. There is no entrance door: you arrive **by the elevator**, which stands in a corner (≈ 1.2 × 1.2 m, doors opening into the room); you step out of it facing the room. The **switchboard** is on the wall immediately beside the elevator at 1.3 m height.
 
-Real room (tier 3): walls from planes, door = the wall segment nearest the viewer's start position (where the headset was when the session began) — assumed; a "this is the door" gesture can replace it.
+Real room (tier 3): walls from planes; the elevator is placed in the real corner nearest the viewer's start position (where the headset was when the session began) — assumed; a "put it here" gesture can move it to another corner.
+
+**The elevator.** Inside: a panel with one button per year (floors), newest at the top; beside each year a small overview strip of that year's images (thumbnails, in order) so you see what hangs there before you go. Press a year and the elevator **switches rooms**: the doors close and open again on that year's room (a short dip and the floor indicator counting — one second, no more). The current year's button is lit. Going back is pressing another floor. The overview strip is the "years divider": in the 3D view it is also reachable as a DOM overlay (press `Y`).
 
 ## The frames
 
-- **Print** 60 × 60 cm (assumed; 50 or 70 selectable), the 1000 px image as texture (1000 px on 60 cm = 1.7 px/mm, fine at gallery distance; a 2000 px derivative would be a later upgrade).
-- **Mat** (white paper gap) 6 cm all round, paper white with a faint bevel at the window cut.
+- **Two kinds of print.** *Singles*: 90 × 90 cm, for the architectural and big-view photos. *Group prints*: 40 × 40 cm, hung in grids of 6 (3 × 2) or 9 (3 × 3) with 8 cm between frames, for the fun and simple ones — but not every simple one: a grid forms only where at least six group-candidates follow each other in date order; the rest of them hang single at 60 cm. So three sizes: 90 (single), 60 (single, simple), 40 (in a grid).
+- **Which is which.** A per-photo field `hang: "single" | "group"` in `photos.json`, set once for the existing photos by a classification pass and for each new photo by the ingest workflow (see *Curation* below); hand-editable.
+- **Texture**: the 1000 px image — on 90 cm that is 1.1 px/mm, soft up close; a 2000 px derivative (`img/large/`) is phase 5.
+- **Mat** (white paper gap) 6 cm all round on a 90, 4 cm on a 60, 3 cm on a 40; paper white with a faint bevel at the window cut.
 - **Frame** wood, 3 cm face × 4 cm deep, colours: natural oak, walnut, black, white (switchboard). Slight wood grain texture (procedural, 1 tileable image) so it doesn't read as plastic.
 - **Glass** none (assumed — glass adds reflections that fight the photos).
 - **Hanging**: two lines from the ceiling to the frame's top corners, 0.5 mm "nylon" — a thin, slightly transparent cylinder that catches a highlight; the frames hang plumb, **no sway** (motion for its own sake is noise in a gallery).
-- **Groups**: singles, pairs and triples, laid out along the walls with gallery spacing (≈ 40 cm inside a group, ≈ 1.2 m between groups). The grouping rule (assumed): consecutive days form a group (a run of 2 or 3 daily photos hangs together; a lone day hangs alone); groups longer than 3 split into 3 + rest.
+- **Along the wall**: singles and grids in date order with gallery spacing (≈ 1.2 m between pieces; a grid counts as one piece, ≈ 1.4 m wide for 3 × 3). A run of group-candidates longer than 9 splits into grids of 9 and 6 (e.g. 15 = 9 + 6; 7 = 6 + 1 single at 60).
 - **Order**: newest first from the door, clockwise — the same order as the site.
 - **Labels**: a small card to the lower right of each group: `afterworkphoto 208 · Oct 2018` (switchable).
 
-**How many hang at once.** A 6 × 4 m room has ≈ 18 m of hangable wall ≈ 16–20 prints. 208 (and growing) don't fit, so the gallery is a **sequence of rooms**: the far wall has a second door, and walking through it loads the next room with the next run of photos (rooms are generated on the fly from `photos.json`; the room behind is dropped). In the real room (AR) the same: walking "through" the far wall's door — a virtual door drawn on the real wall — swaps the hung prints for the next run, in place. *Assumed*: one room = one run of ~16–20 prints; a room per **year** is the natural alternative (the door label says the year) — see questions.
+**How many hang at once — a full room.** A 6 × 4 m room has ≈ 18 m of hangable wall ≈ 16–20 prints at gallery spacing. A year with more photos does not get a second room; the room **fills up**: first the spacing tightens and groups grow (prints side by side, ≈ 10 cm apart, up to the wall's length), then prints hang **free in the middle of the room** from the ceiling — rows of frames back to back down the room's centre line, double-sided (a print on each face), with ≈ 1.5 m walkways either side, like a hanging exhibition. `Hang` computes the wall capacity from the room's perimeter (minus the elevator's corner) and the print size, then the centre rows. A thin year (a few photos) hangs sparse on one wall. Rooms are generated on the fly from `photos.json` (the year from `taken`); only the current room exists, the elevator swap builds the next.
+
+## Curation — deciding single or group
+
+The rule wants a judgement per photo ("architectural / big view" → single, "fun / simple" → group-candidate). Options, my recommendation first:
+
+1. **A one-off pass with a vision model** (Claude, `claude-sonnet-5`, one image per call, a fixed prompt returning `single` or `group` with a one-line reason), written into `photos.json` as `hang`, with the reasons kept in a side file for review. New photos get classified in the ingest workflow the same way (one API call per photo; the key as a repository secret). Cost: 208 thumbnails ≈ cents. Uli reviews the list once and flips what's wrong.
+2. **Manual**: a `hang.txt` of numbers that are singles; everything else is a group-candidate. No dependency; 208 decisions by hand, and every new photo needs one.
+3. **Image statistics** (edge density, entropy): free but wrong often enough to need the manual list anyway.
 
 ## Light and shadow
 
@@ -93,9 +105,9 @@ Settings persist in `localStorage`; the URL carries them too (`gallery.html?fram
 ## Open questions (please answer before phase 1)
 
 1. **Devices** — *answered*: a Quest 3S is available for testing, so all three tiers apply; the real-room tier is developed and tested on it. Apple devices get tier 1 (iPhone/iPad/Mac) — no Vision Pro.
-2. **Dependency**: OK with a vendored three.js (~650 KB) on a site that is otherwise a few KB and framework-free? The alternative is hand-written WebGL, which I'd advise against.
-3. **Rooms**: one run of ~18 prints per room, or one room per year (fewer, fuller or emptier rooms; a sign on each door)?
+2. **Dependency** — *answered*: vendored three.js, pinned, loaded only by `gallery.html`.
+3. **Rooms** — *answered*: one room per year; an elevator in a corner (not a door) switches years, with an overview strip per year on its panel; a full room hangs prints denser and then free in the middle of the room.
 4. **Grouping**: consecutive-day runs hang together (my assumption), or groups by month, or purely visual (alternate 1/2/3)?
-5. **Print size and mat**: 60 cm with a 6 cm mat — does that match how you'd actually print them?
-6. **The door and the switchboard in the real room**: is "where you stood when you started" an acceptable door position, or should you tap the real door frame?
-7. **Link from the main page**: visible ("gallery" under the title) or hidden (only via URL) at first?
+5. **Print size and grouping** — *answered*: 90 cm singles; smaller prints in grids of 6 or 9 for fun/simple photos, not always grouped. Still open: **how the single/group decision is made** — vision-model pass (recommended), manual list, or statistics (see *Curation*).
+6. **The elevator in the real room** — *answered*: the corner nearest where you stood when the session started, placed automatically.
+7. **Link** — *answered*: hidden, `gallery.html` by URL only until it is worth showing.
