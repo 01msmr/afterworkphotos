@@ -856,7 +856,8 @@ if (DECK) {
   goto.addEventListener('mouseleave', () => { if (goPending) goNow(); });
 
   function turnYear(d) {
-    const yi = Math.max(0, Math.min(years.length - 1, years.indexOf(yearOf(photoOfBox(goIdx))) + d));
+    // past either end the years wrap around
+    const yi = (years.indexOf(yearOf(photoOfBox(goIdx))) + d + years.length) % years.length;
     goIdx = boxes.findIndex((b, i) => yearOf(photoOfBox(i)) === years[yi]);
     goTouched = true;
     showGoto();
@@ -864,7 +865,8 @@ if (DECK) {
   }
 
   function turnPrint(d) {
-    goIdx = Math.max(0, Math.min(boxes.length - 1, goIdx + d));
+    // past either end the pile wraps around
+    goIdx = (goIdx + d + boxes.length) % boxes.length;
     printAngle += d * 18;
     goTouched = true;
     showGoto();
