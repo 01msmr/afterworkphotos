@@ -25,6 +25,39 @@ let PHOTOS = [];
 // A video is an afterworkvideo; the number is the same series as the photos
 const captionOf = (p) => `afterwork${p.video ? 'video' : 'photo'} ${p.n}`;
 
+/* ──────────────────────────────────────────────────────────
+   Deep links
+   #154 opens print 154; #y2017 opens that year's newest print — the year
+   always wears its y, so photo numbers and years can never collide. The
+   address follows along as the shown print changes (replaceState, no
+   history).
+   ────────────────────────────────────────────────────────── */
+function hashTarget() {
+  const h = location.hash.slice(1);
+  if (!h) return null;
+  if (/^y\d{4}$/.test(h)) return { year: h.slice(1) };
+  if (/^\d+$/.test(h)) {
+    const n = parseInt(h, 10);
+    if (n >= 1 && n <= PHOTOS.length) return { n };
+  }
+  return null;
+}
+
+// the target as a photo number, or null
+function targetN() {
+  const t = hashTarget();
+  if (!t) return null;
+  if (t.n) return t.n;
+  for (let i = PHOTOS.length - 1; i >= 0; i--) {
+    if (PHOTOS[i].taken && PHOTOS[i].taken.slice(0, 4) === t.year) return PHOTOS[i].n;
+  }
+  return null;
+}
+
+function writeHash(n) {
+  if (location.hash !== '#' + n) history.replaceState(null, '', '#' + n);
+}
+
 // A video does not play by itself: on the desktop it plays while the mouse
 // is over it, on the phone while its sheet is the top one (see layout()).
 function mediaHTML(p) {
@@ -162,7 +195,8 @@ if (DECK) {
   })();
 
   // ── Stack state ──
-  let current = 0;          // sheet on top
+  const startN = targetN();
+  let current = startN ? sheetOf(N - startN) : 0;   // sheet on top
   let mover = null;         // the sheet being lifted off or put back
   let under = null;         // the sheet it reveals / covers
   let dir = 0;              // +1 forward (lift off), -1 backward (put back)
@@ -192,6 +226,7 @@ if (DECK) {
       // a video plays only while its sheet is the top one
       el.querySelectorAll('video').forEach(v => { if (i === current) v.play().catch(() => {}); else v.pause(); });
     }
+    writeHash(photosOf(current)[0].n);
   }
   layout();
 
@@ -290,6 +325,15 @@ if (DECK) {
   track.addEventListener('transitionend', (e) => {
     if (!animating || e.target !== mover || e.propertyName !== 'transform') return;
     finish();
+  });
+
+  window.addEventListener('hashchange', () => {
+    const n = targetN();
+    if (n === null) return;
+    const t = sheetOf(N - n);
+    if (t === current || mover) return;
+    startMove(t > current ? 1 : -1, t);
+    settle(true);
   });
 
   function goForward() { if (!mover) { startMove(1); settle(true); } }
@@ -785,6 +829,7 @@ if (DECK) {
     selected = Math.max(0, Math.min(boxes.length - 1, i));
     boxes[selected].classList.add('kbd-focus');
     playVideo(boxes[selected]);
+    writeHash(+boxes[selected].dataset.n);
   }
 
   function select(i) {
@@ -983,6 +1028,26 @@ if (DECK) {
     });
   }, { passive: true });
   showGoto();
+
+  // a deep link opens on its print, instantly and lit
+  const startN = targetN();
+  if (startN !== null) {
+    goIdx = PHOTOS.length - startN;
+    goTouched = true;
+    main.scrollTo({ top: boxes[goIdx].closest('section').offsetTop, behavior: 'instant' });
+    if (mode === 'mouse') { mode = 'kbd'; document.body.classList.add('kbd-active'); }
+    light(goIdx);
+    showGoto();
+  }
+
+  window.addEventListener('hashchange', () => {
+    const n = targetN();
+    if (n === null) return;
+    goIdx = PHOTOS.length - n;
+    goTouched = true;
+    showGoto();
+    goNow();
+  });
 
   // digits type a number into the date window; Enter goes at once
   let typed = '', typedTimer = 0;
