@@ -298,6 +298,22 @@ html:not(.deck) body.kbd-active .awbox:hover:not(.kbd-focus) .awphoto {
 	transition: none;
 }
 
+/* Tab's knob stations: the unit shows, the focused knob wears a ring */
+.goto.kbd-open > * {
+	opacity: 1;
+}
+
+.goto.kbd-open::after {
+	opacity: 0;
+	transition: none;
+}
+
+.knob.kfocus {
+	outline: calc(2px / 1.8) solid rgba(0, 0, 0, 0.55);
+	outline-offset: 3px;
+	border-radius: 50%;
+}
+
 /* while the keyboard is in use only the line shows, mouse on it or not */
 .goto.quiet > *,
 .goto.quiet:hover > * {

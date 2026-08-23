@@ -741,6 +741,9 @@ if (DECK) {
       selected = -1;
       document.body.classList.remove('kbd-active');
       mode = 'mouse';
+      station = 0;
+      applyStation();
+      goto.classList.remove('quiet');
     }
     cursor.style.left = e.clientX + 'px';
     cursor.style.top = e.clientY + 'px';
@@ -894,6 +897,18 @@ if (DECK) {
   }
   knobDrag(knobYear, turnYear);
   knobDrag(knobPrint, turnPrint);
+
+  // Tab walks three stations: the wall's lit print, the year knob, the
+  // print knob — full circle. A focused knob shows the unit with a ring;
+  // arrows turn it, Enter commits.
+  let station = 0;            // 0 wall, 1 year knob, 2 print knob
+  function applyStation() {
+    knobYear.classList.toggle('kfocus', station === 1);
+    knobPrint.classList.toggle('kfocus', station === 2);
+    goto.classList.toggle('kbd-open', station !== 0);
+    if (station !== 0) goto.classList.remove('quiet');
+    else goto.classList.add('quiet');
+  }
   // clicking the print knob or the image commits at once, without leaving
   goto.querySelector('.goto-img').addEventListener('click', () => { if (goTouched) goNow(); });
   knobPrint.addEventListener('click', () => { if (goTouched) goNow(); });
@@ -971,9 +986,11 @@ if (DECK) {
 
   document.addEventListener('keydown', (e) => {
     cursor.style.opacity = '0';
-    goto.classList.add('quiet');      // keyboard in use: the knobs stay dim even under the mouse
+    if (station === 0) goto.classList.add('quiet');   // keyboard in use: the knobs stay dim even under the mouse
 
     if (e.key === 'Escape') {
+      station = 0;
+      applyStation();
       if (selected >= 0) boxes[selected].classList.remove('kbd-focus');
       playVideo(null);
       selected = -1;
@@ -995,7 +1012,27 @@ if (DECK) {
       return;
     }
 
-    if (e.key === 'Enter' || e.key === 'Tab') {
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      if (mode === 'mouse') { mode = 'kbd'; mouseHasMoved = false; document.body.classList.add('kbd-active'); }
+      station = (station + (e.shiftKey ? 2 : 1)) % 3;
+      applyStation();
+      if (station === 0 && selected < 0) {
+        const top = sections.find(s => s.getBoundingClientRect().bottom > 0);
+        if (top) lightRow(top);
+      }
+      return;
+    }
+
+    if (e.key === 'Enter' && station !== 0) {
+      e.preventDefault();
+      station = 0;
+      applyStation();
+      goNow();
+      return;
+    }
+
+    if (e.key === 'Enter') {
       e.preventDefault();
       if (mode === 'mouse') {
         mode = 'kbd';
@@ -1012,6 +1049,12 @@ if (DECK) {
 
     if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return;
     e.preventDefault();
+
+    if (station !== 0) {
+      const d = (e.key === 'ArrowDown' || e.key === 'ArrowRight') ? 1 : -1;
+      (station === 1 ? turnYear : turnPrint)(d);
+      return;
+    }
 
     if (mode === 'mouse') {
       mode = 'kbd';
