@@ -659,6 +659,8 @@ if (DECK) {
 
   let gliding = false;        // the wall is on its way to a chosen print: the windows hold still
   let glideTarget = 0, glideTimer = 0;
+  let approachTop = -1;       // where the wall is headed: the undim starts on approach
+  let settledNear = false;    // the tail of the motion must not re-dim what has lit
 
   // A glide ends on arrival (or a safety timeout) — not on a pause in the
   // scroll events: a long smooth scroll starts so slowly that none fire for
@@ -666,6 +668,8 @@ if (DECK) {
   function glideTo(top) {
     gliding = true;
     glideTarget = top;
+    approachTop = top;
+    settledNear = false;
     clearTimeout(glideTimer);
     glideTimer = setTimeout(() => { gliding = false; }, 6000);
     main.scrollTo({ top, behavior: 'smooth' });
@@ -691,6 +695,8 @@ if (DECK) {
   function stepRow(d) {
     const target = Math.max(0, Math.min(sections.length - 1, rowOf() + d));
     gliding = false;                                   // the user moves the wall: the windows follow again
+    approachTop = sections[target].offsetTop;
+    settledNear = false;
     clearTimeout(glideTimer);
     main.scrollTo({ top: sections[target].offsetTop, behavior: 'smooth' });
   }
@@ -895,20 +901,34 @@ if (DECK) {
   // while the wall glides to a print they chose. A moment after any
   // scrolling has come to rest, the row on screen lights up as if selected
   // from the keyboard (with the print's own slow fade-in)
+  // The motion has (as good as) arrived: sync, and light the row
+  function settle() {
+    gliding = false;
+    settledNear = true;
+    document.body.classList.remove('moving');
+    const top = sections.find(s => s.getBoundingClientRect().bottom > 0);
+    if (!top) return;
+    syncGoto(top);
+    const i = boxes.indexOf(top.querySelector('.awbox'));
+    if (mode === 'mouse') { mode = 'kbd'; mouseHasMoved = false; document.body.classList.add('kbd-active'); }
+    if (selected !== i && !(selected >= 0 && boxes[selected].closest('section') === top)) light(i);
+  }
+
   let scrollTick = 0, scrollEndTimer = 0;
   main.addEventListener('scroll', () => {
-    document.body.classList.add('moving');              // nothing undims while the wall moves
+    if (!settledNear) document.body.classList.add('moving');   // nothing undims while the wall moves
     if (gliding && Math.abs(main.scrollTop - glideTarget) < 2) { gliding = false; clearTimeout(glideTimer); }
     clearTimeout(scrollEndTimer);
+    // the undim begins when the incoming row has (almost) fully entered and
+    // the motion is in its slow tail; the timer is only the fallback
+    if (approachTop >= 0 && Math.abs(main.scrollTop - approachTop) < sections[0].offsetHeight * 0.04) {
+      approachTop = -1;
+      settle();
+      return;
+    }
     scrollEndTimer = setTimeout(() => {
       if (gliding) return;                              // a pause on the way, not the end
-      document.body.classList.remove('moving');
-      const top = sections.find(s => s.getBoundingClientRect().bottom > 0);
-      if (!top) return;
-      syncGoto(top);
-      const i = boxes.indexOf(top.querySelector('.awbox'));
-      if (mode === 'mouse') { mode = 'kbd'; mouseHasMoved = false; document.body.classList.add('kbd-active'); }
-      if (selected !== i && !(selected >= 0 && boxes[selected].closest('section') === top)) light(i);
+      settle();
     }, 300);
     if (gliding || scrollTick) return;
     scrollTick = requestAnimationFrame(() => {
