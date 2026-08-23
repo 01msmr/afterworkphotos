@@ -97,7 +97,8 @@ section {
    them (main.js sets data-per-row) — but never taller than the window */
 div.awbox {
 	flex: 1 1 0;
-	max-width: calc(var(--app-height) - 9rem);
+	/* room below for the go-to knobs */
+	max-width: calc(var(--app-height) - 12rem);
 	opacity: 0.12;
 	transition: opacity 0.9s ease-in;
 }
@@ -139,6 +140,178 @@ div.awbox {
 body.kbd-active .awbox:hover:not(.kbd-focus) {
 	opacity: 0.12;
 	transition: opacity 0.9s ease-in;
+}
+
+/* ── Go-to: two knobs under the wall (desktop) ──
+   Year knob under its window, print knob under the number/date window,
+   the print's image beside them. Machined aluminium knobs: brushed ring,
+   turned centre, bevelled rim, engraved index; they turn by --a. Dim like
+   an unlit print until the mouse is on it. */
+.goto {
+	position: fixed;
+	left: 50%;
+	bottom: 18px;
+	transform: translateX(-50%);
+	display: flex;
+	gap: 16px;
+	align-items: flex-end;
+	z-index: 900;
+	font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+	user-select: none;
+	opacity: 0.1;
+	transition: opacity 0.6s ease;
+}
+
+.goto:hover {
+	opacity: 1;
+	transition: opacity 0.3s ease;
+}
+
+.goto-col {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 7px;
+}
+
+.goto-win {
+	background: #e9e7e2;
+	border-radius: 4px;
+	box-shadow:
+		inset 0 1px 0 rgba(255, 255, 255, 0.8),
+		inset 0 0 0 1px rgba(0, 0, 0, 0.18),
+		inset 0 2px 4px rgba(48, 42, 18, 0.25);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+}
+
+/* the year: four digit drums behind one window, each rolling to its figure */
+.goto-year {
+	width: 60px;
+	height: 28px;
+	gap: 2px;
+	padding: 3px;
+}
+
+.drum {
+	flex: 1;
+	height: 22px;
+	overflow: hidden;
+	border-radius: 2px;
+	background: linear-gradient(#bdbab3, #f4f2ee 40%, #f4f2ee 60%, #bdbab3);
+	box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.22), inset 0 2px 3px rgba(0, 0, 0, 0.25);
+}
+
+.drum .strip {
+	--d: 0;
+	display: block;
+	transform: translateY(calc(var(--d) * -22px));
+	transition: transform 0.35s cubic-bezier(0.3, 0.8, 0.4, 1);
+}
+
+.drum .strip i {
+	display: block;
+	height: 22px;
+	font: 700 13px/22px "Helvetica Neue", Helvetica, Arial, sans-serif;
+	font-style: normal;
+	color: #000;
+	text-align: center;
+}
+
+/* the image fills its window; white paper until the first turn. As tall
+   as a window plus its knob */
+.goto-img {
+	width: 79px;
+	height: 79px;
+	overflow: hidden;
+	background: #f4f2ee;
+	cursor: none;
+}
+
+.goto-img img {
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+.goto-date {
+	width: 84px;
+	height: 28px;
+	flex-direction: column;
+	gap: 3px;
+}
+
+.goto-date b {
+	font: 700 12px/1 "Helvetica Neue", Helvetica, Arial, sans-serif;
+	color: #000;
+}
+
+.goto-date span {
+	font: 500 7px/1 "Helvetica Neue", Helvetica, Arial, sans-serif;
+	color: #333;
+	white-space: nowrap;
+}
+
+.knob {
+	--s: 44px;
+	--a: 0deg;
+	position: relative;
+	width: var(--s);
+	height: var(--s);
+	border-radius: 50%;
+	flex: none;
+}
+
+.knob .face {
+	position: absolute;
+	inset: 0;
+	border-radius: 50%;
+	transform: rotate(var(--a));
+	transition: transform 0.12s ease-out;
+	background:
+		radial-gradient(circle at 50% 50%, #d9d6d0 0 27%, rgba(0, 0, 0, 0) 28%),
+		radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0) 60%, rgba(0, 0, 0, 0.22) 100%),
+		repeating-conic-gradient(from 0deg, #dcdad5 0deg, #c9c6c0 1.2deg, #e9e7e2 2.4deg, #cfccc6 3.6deg);
+	box-shadow:
+		inset 0 0 0 calc(var(--s) * 0.055) #b6b2ab,
+		inset 0 0 0 calc(var(--s) * 0.07) #e8e6e1,
+		inset 0 0 0 calc(var(--s) * 0.085) #a29e97,
+		0 calc(var(--s) * 0.03) calc(var(--s) * 0.05) rgba(0, 0, 0, 0.45),
+		0 calc(var(--s) * 0.16) calc(var(--s) * 0.24) calc(var(--s) * -0.08) rgba(48, 42, 18, 0.55);
+}
+
+.knob .face::before {
+	content: '';
+	position: absolute;
+	inset: 0;
+	border-radius: 50%;
+	background: linear-gradient(155deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0) 45%, rgba(0, 0, 0, 0.12) 100%);
+}
+
+.knob .face::after {
+	content: '';
+	position: absolute;
+	inset: 36%;
+	border-radius: 50%;
+	background: radial-gradient(circle at 40% 35%, #e6e4df, #c4c1ba 80%);
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
+
+.knob .ptr {
+	position: absolute;
+	z-index: 1;
+	left: 50%;
+	top: 50%;
+	width: calc(var(--s) * 0.07);
+	height: calc(var(--s) * 0.36);
+	margin-left: calc(var(--s) * -0.035);
+	margin-top: calc(var(--s) * -0.42);
+	background: #111;
+	border-radius: 2px;
+	box-shadow: inset 0 0 0 1px #000, 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
 /* ── Deck: paper stack (html.deck, set by main.js on touch devices) ── */

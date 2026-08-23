@@ -36,7 +36,7 @@ Synthetic room: floor W × D, height H (assumed defaults 6 × 4 × 3 m, settable
 
 Real room (tier 3): walls from planes; the elevator is placed in the real corner nearest the viewer's start position (where the headset was when the session began) — assumed; a "put it here" gesture can move it to another corner.
 
-**The elevator.** Inside: a panel with one button per year (floors), newest at the top; beside each year a small overview strip of that year's images (thumbnails, in order) so you see what hangs there before you go. Press a year and the elevator **switches rooms**: the doors close and open again on that year's room (a short dip and the floor indicator counting — one second, no more). The current year's button is lit. Going back is pressing another floor. The overview strip is the "years divider": in the 3D view it is also reachable as a DOM overlay (press `Y`).
+**The elevator.** Inside: the desktop's two go-to knobs, made physical — a year knob under four digit drums and a print knob under a number/date window, the print shown beside them; twisting them picks a year and a print, and the ride starts when you let go. Also a panel with one button per year (floors), newest at the top; beside each year a small overview strip of that year's images (thumbnails, in order) so you see what hangs there before you go. Press a year and the elevator **switches rooms**: the doors close and open again on that year's room (a short dip and the floor indicator counting — one second, no more). The current year's button is lit. Going back is pressing another floor. The overview strip is the "years divider": in the 3D view it is also reachable as a DOM overlay (press `Y`).
 
 ## The frames
 

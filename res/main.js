@@ -707,6 +707,133 @@ if (DECK) {
     });
   }
 
+  // ── Go-to: two knobs under the wall ──
+  // A small machine centred below the prints: a year knob under its
+  // window, a print knob under a window with number and date, and beside
+  // them the print's image in a window (white paper until the first turn).
+  // Scrolling on a knob turns it: the year knob steps a year, the print
+  // knob a print (carrying into the next year at the ends). When the mouse
+  // then leaves the unit, the wall scrolls to the print and lights it, as a
+  // key would. Like the prints, the unit is dim until the mouse is on it.
+  const photoOfBox = (i) => PHOTOS[PHOTOS.length - 1 - i];
+  const yearOf = (p) => p.taken ? p.taken.slice(0, 4) : 'undated';
+  const years = [...new Set(PHOTOS.map(yearOf))].sort().reverse();      // newest first
+  const goto = document.createElement('div');
+  goto.className = 'goto';
+  goto.innerHTML = `
+    <div class="goto-col"><div class="goto-win goto-year">${`<span class="drum"><span class="strip">${'0123456789–'.split('').map(ch => `<i>${ch}</i>`).join('')}</span></span>`.repeat(4)}</div><div class="knob knob-year"><div class="face"><div class="ptr"></div></div></div></div>
+    <div class="goto-col"><div class="goto-win goto-date"><b></b><span></span></div><div class="knob knob-print"><div class="face"><div class="ptr"></div></div></div></div>
+    <div class="goto-win goto-img"><img alt=""></div>`;
+  document.body.appendChild(goto);
+  const yearDrums = [...goto.querySelectorAll('.goto-year .strip')];
+  const gotoImg = goto.querySelector('.goto-img img');
+  const gotoN = goto.querySelector('.goto-date b');
+  const gotoDate = goto.querySelector('.goto-date span');
+  const knobYear = goto.querySelector('.knob-year');
+  const knobPrint = goto.querySelector('.knob-print');
+
+  let goIdx = 0;              // the box the knobs point at
+  let goTouched = false;      // the image window stays paper until a knob is turned
+  let goPending = false;      // a turn happened; the wall follows when the mouse leaves
+  let printAngle = 0;
+  let autoScrollUntil = 0;
+
+  const fullDate = (p) => p.taken
+    ? new Date(p.taken).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+    : 'undated';
+
+  function showGoto() {
+    const p = photoOfBox(goIdx);
+    // four digit drums roll to the year's figures ('–' for an undated one)
+    const y = yearOf(p).padStart(4, '–').slice(-4);
+    yearDrums.forEach((d, i) => { const ch = y[i]; d.style.setProperty('--d', /[0-9]/.test(ch) ? +ch : 10); });
+    const yi = years.indexOf(yearOf(p));
+    knobYear.style.setProperty('--a', (years.length > 1 ? -150 + 300 * yi / (years.length - 1) : 0) + 'deg');
+    knobPrint.style.setProperty('--a', printAngle + 'deg');
+    if (goTouched) {
+      gotoImg.src = p.thumb;
+      gotoImg.style.visibility = '';
+      gotoN.textContent = p.n;
+      gotoDate.textContent = fullDate(p);
+    } else {
+      gotoImg.style.visibility = 'hidden';
+      gotoN.textContent = '—';
+      gotoDate.textContent = 'turn a knob';
+    }
+  }
+
+  function goNow() {
+    goPending = false;
+    if (mode === 'mouse') { mode = 'kbd'; mouseHasMoved = false; document.body.classList.add('kbd-active'); }
+    autoScrollUntil = Date.now() + 2500;
+    select(goIdx);
+  }
+  function armGoto() { goPending = true; }
+  goto.addEventListener('mouseleave', () => { if (goPending) goNow(); });
+
+  function turnYear(d) {
+    const yi = Math.max(0, Math.min(years.length - 1, years.indexOf(yearOf(photoOfBox(goIdx))) + d));
+    goIdx = boxes.findIndex((b, i) => yearOf(photoOfBox(i)) === years[yi]);
+    goTouched = true;
+    showGoto();
+    armGoto();
+  }
+
+  function turnPrint(d) {
+    goIdx = Math.max(0, Math.min(boxes.length - 1, goIdx + d));
+    printAngle += d * 18;
+    goTouched = true;
+    showGoto();
+    armGoto();
+  }
+
+  // One notch of a mouse wheel (deltaY ≈ 100, or a line/page delta) is one
+  // step; a trackpad sends many small deltas, which accumulate to steps
+  function knobWheel(knob, turn) {
+    let acc = 0;
+    knob.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      if (e.deltaMode !== 0 || Math.abs(e.deltaY) >= 50) { acc = 0; turn(Math.sign(e.deltaY)); return; }
+      acc += e.deltaY;
+      while (acc >= 24) { acc -= 24; turn(1); }
+      while (acc <= -24) { acc += 24; turn(-1); }
+    }, { passive: false });
+  }
+  knobWheel(knobYear, turnYear);
+  knobWheel(knobPrint, turnPrint);
+  goto.querySelector('.goto-img').addEventListener('click', () => { if (goTouched) goNow(); });
+
+  // the windows follow the wall when it is scrolled by hand
+  let scrollTick = 0;
+  main.addEventListener('scroll', () => {
+    if (scrollTick) return;
+    scrollTick = requestAnimationFrame(() => {
+      scrollTick = 0;
+      const top = sections.find(s => s.getBoundingClientRect().bottom > 0);
+      if (!top) return;
+      const i = boxes.indexOf(top.querySelector('.awbox'));
+      if (i === goIdx) return;
+      goIdx = i;
+      if (Date.now() > autoScrollUntil) goPending = false;
+      showGoto();
+    });
+  }, { passive: true });
+  showGoto();
+
+  // digits type a number into the date window; Enter goes at once
+  let typed = '', typedTimer = 0;
+  function typeDigit(ch) {
+    clearTimeout(typedTimer);
+    typed = (typed + ch).slice(-4);
+    typedTimer = setTimeout(() => { typed = ''; }, 1500);
+    const n = parseInt(typed, 10);
+    if (n < 1 || n > PHOTOS.length) return;
+    goIdx = PHOTOS.length - n;
+    goTouched = true;
+    showGoto();
+    armGoto();
+  }
+
   document.addEventListener('keydown', (e) => {
     cursor.style.opacity = '0';
 
@@ -717,6 +844,15 @@ if (DECK) {
       document.body.classList.remove('kbd-active');
       mode = 'mouse';
       mouseHasMoved = false;
+      return;
+    }
+
+    if (/^[0-9]$/.test(e.key)) { typeDigit(e.key); return; }
+
+    if (e.key === 'Enter' && typed) {
+      e.preventDefault();
+      typed = '';
+      goNow();
       return;
     }
 
