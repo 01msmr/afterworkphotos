@@ -966,7 +966,9 @@ if (DECK) {
       }
     }
     scrollEndTimer = setTimeout(() => {
-      if (gliding) return;                              // a pause on the way, not the end
+      // a pause on the way is not the end: while a step or glide still has
+      // a target, only the fully-inside check may light anything
+      if (gliding || approachTop >= 0) return;
       settle();
     }, 300);
     if (gliding || scrollTick) return;
