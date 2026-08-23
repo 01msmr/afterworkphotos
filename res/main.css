@@ -133,15 +133,16 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 		--edge-dark: rgba(0, 0, 0, 0.22);
 		/* shadow colour, warm — paper on a desk, not a UI panel */
 		--shade: 40, 30, 20;
-		/* Paper edges: a 1px rounded bevel catching light from the top left,
-		   a 1px dark edge face for the sheet's thickness, then a tight
-		   contact shadow where it meets what lies below. */
+		/* Paper edge, rendered on the sheet behind: a 1px rounded bevel
+		   catching light from the top left, a 1px dark edge face for the
+		   sheet's thickness, and a very small contact shadow — it is a very
+		   small rounded object, so the lighting stays very small too. */
 		--sheet-edge:
 			inset 1px 1px 0 var(--edge-light),
 			inset -1px -1px 0 rgba(var(--shade), 0.08),
 			0 0 0 1px var(--edge-dark),
-			0 1px 2px rgba(var(--shade), 0.28),
-			0 3px 8px rgba(var(--shade), 0.22);
+			0 1px 1px rgba(var(--shade), 0.3),
+			0 2px 3px rgba(var(--shade), 0.18);
 		/* Paper grain: fractal noise, desaturated, at most 10% alpha. Tiles
 		   seamlessly at 120px, which on a ~12cm wide card is sub-millimetre
 		   fibre — read as a surface, not as a pattern. */
@@ -192,12 +193,26 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 		color: var(--ink);
 	}
 
+	/* The virtual phone. It starts below the status strip and is clipped to
+	   the phone's corner radius on all four corners: the bottom two coincide
+	   with the screen's own, the top two make a phone top at the status
+	   line. Every sheet moves inside it, so one sliding up goes under the
+	   strip — corners and all — as if the phone ended there; no pixel of a
+	   sheet is ever drawn under the status bar. The transform makes it the
+	   containing block for the fixed sheets. */
 	.main {
-		height: var(--app-height);
+		position: fixed;
+		top: env(safe-area-inset-top, 0px);
+		right: 0;
+		bottom: 0;
+		left: 0;
+		height: auto;
 		overflow: hidden;
+		border-radius: var(--screen-radius);
+		transform: translateZ(0);
+		isolation: isolate;
 		scroll-snap-type: none;
 		touch-action: none;
-		position: relative;
 	}
 
 	/* Nothing scrolls: the track is only a container, the cards stack themselves.
@@ -206,16 +221,13 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 		display: block;
 	}
 
-	/* At rest the card is the phone's front, minus the status bar: it runs
-	   the full width and the full height below the status strip (a 2px
-	   hairline short of the edge), with the phone's own corner radius on all
-	   four corners — the bottom two coincide with the screen's, the top two
-	   make a virtual phone top at the status line. Flat: a sheet lying down
-	   has no edge to show. Only the top sheet is visible at rest. */
+	/* At rest a sheet is the phone's front: it fills the virtual phone, which
+	   gives it the phone's corners. Flat — a sheet lying down has no edge to
+	   show. Only the top sheet is visible at rest. */
 	section {
-		--inset: 2px;
+		--inset: 0px;
 		position: fixed;
-		top: calc(env(safe-area-inset-top, 0px) + var(--inset));
+		top: var(--inset);
 		right: var(--inset);
 		bottom: var(--inset);
 		left: var(--inset);
@@ -241,14 +253,20 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 		z-index: 1;
 	}
 
+	/* The sheet behind the one beneath: full and flat, so that when the one
+	   beneath shrinks there is paper around it, never desk */
+	section.behind {
+		visibility: visible;
+		z-index: 0;
+	}
+
 	/* The sheet beneath is there from the first pixel, flat and full like
 	   any resting sheet. Once the moving one has cleared the lower 30% of the
 	   screen (see revealAt) it shrinks by a few pixels — just the room its
-	   rounded paper edge needs to render in 3D: the lit bevel, the dark
-	   thickness line and a small contact shadow. On the way back down the
-	   same happens in reverse, and once it is the resting sheet it grows
-	   back to full. Comes after .current on purpose: on the way back the
-	   sheet beneath is the current one. */
+	   rounded paper edge needs to render in 3D on the sheet behind it. On
+	   the way back down the same happens in reverse, and once it is the
+	   resting sheet it grows back to full. Comes after .current on purpose:
+	   on the way back the sheet beneath is the current one. */
 	section.under {
 		transition:
 			top 0.3s ease, right 0.3s ease, bottom 0.3s ease, left 0.3s ease,
