@@ -138,16 +138,20 @@ div.awbox {
 	max-width: calc(var(--app-height) - 16rem);
 }
 
-/* An opaque white sheet behind every image, exactly its size: the wall's
-   texture never shows through a dimmed print — unlit (50 %), it reads as
-   a pale print on white paper. The dimming is on the image and caption,
-   not on the sheet, so the sheet and its shadow stay. */
+/* An opaque sheet of 50% gray behind every image, exactly its size: the
+   wall's texture never shows through a dimmed print — unlit, the image
+   sits at 10% over the gray. The dimming is on the image and caption, not
+   on the sheet, so the sheet and its shadow stay. */
 html:not(.deck) .awphoto {
-	background: #fff;
+	background: #808080;
 }
 
 html:not(.deck) .awphoto img,
-html:not(.deck) .awphoto video,
+html:not(.deck) .awphoto video {
+	opacity: 0.1;
+	transition: opacity 0.9s ease-in;
+}
+
 html:not(.deck) div.awbox .subtitle {
 	opacity: 0.5;
 	transition: opacity 0.9s ease-in;
@@ -164,7 +168,10 @@ html:not(.deck) .awbox.kbd-focus .subtitle {
 }
 
 html:not(.deck) body.kbd-active .awbox:hover:not(.kbd-focus) img,
-html:not(.deck) body.kbd-active .awbox:hover:not(.kbd-focus) video,
+html:not(.deck) body.kbd-active .awbox:hover:not(.kbd-focus) video {
+	opacity: 0.1;
+}
+
 html:not(.deck) body.kbd-active .awbox:hover:not(.kbd-focus) .subtitle {
 	opacity: 0.5;
 }
@@ -205,9 +212,10 @@ div.awbox {
    an unlit print until the mouse is on it. */
 .goto {
 	position: fixed;
-	left: 50%;
+	/* right edge on the prints' right edge — the same --side line as the
+	   title (zoom does not scale the offset) */
+	right: var(--side);
 	bottom: 18px;
-	transform: translateX(-50%);
 	display: flex;
 	gap: 16px;
 	align-items: flex-end;
