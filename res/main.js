@@ -314,6 +314,31 @@ if (PER_SECTION === 1) {
   let scrubbing = false;
   let scrubIndex = 0;
 
+  // Nothing should appear empty while scrubbing. The thumbnails are fetched
+  // once, in the background, as soon as the page is up — so the small print
+  // under the finger is always there. The full photo of the sheet the finger
+  // rests on is fetched ahead, so it is in the cache by the time the pile
+  // is cut to it.
+  const warm = new Set();
+  function warmUp(url) {
+    if (warm.has(url)) return;
+    warm.add(url);
+    const img = new Image();
+    img.decoding = 'async';
+    img.src = url;
+  }
+  (function preloadThumbs() {
+    let i = 0;
+    const step = () => {
+      for (let k = 0; k < 8 && i < N; k++, i++) warmUp(PHOTOS[i].thumb);
+      if (i < N) setTimeout(step, 50);
+    };
+    const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 1500));
+    idle(step);
+  })();
+
+  let restTimer = 0;
+
   function scrubTo(clientY) {
     const r = strip.getBoundingClientRect();
     const f = Math.min(1, Math.max(0, (clientY - r.top) / r.height));
@@ -322,6 +347,9 @@ if (PER_SECTION === 1) {
     scrubLabel.querySelector('img').src = p.thumb;
     scrubLabel.querySelector('span').textContent = `${p.n} · ${monthYear(p)}`;
     scrubLabel.style.top = Math.min(r.bottom - 60, Math.max(r.top, clientY)) + 'px';
+    // the finger resting on a sheet for a moment is enough to fetch its photo
+    clearTimeout(restTimer);
+    restTimer = setTimeout(() => warmUp(p.file), 200);
   }
 
   scrub.addEventListener('touchstart', (e) => {
