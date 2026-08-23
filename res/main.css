@@ -1,5 +1,8 @@
 :root {
 	--tp: 12px;
+	/* the prints' side margin — the title shares it, so its right edge is
+	   the rightmost print's */
+	--side: 4%;
 	--app-height: 100vh;
 	/* overridden by JS with window.innerHeight */
 }
@@ -30,11 +33,14 @@ body {
 	transition: opacity 0.9s ease;
 }
 
+/* Small, its right edge on the rightmost print's */
 h1.title {
 	position: fixed;
 	top: 0;
-	left: 3%;
-	width: 96%;
+	right: var(--side);
+	width: min(92%, 340px);
+	text-align: right;
+	white-space: nowrap;
 	opacity: .12;
 	transition: opacity 0.9s ease-out;
 	padding: var(--tp) 0;
@@ -82,13 +88,16 @@ section {
 	align-items: flex-start;
 	justify-content: center;
 	gap: 3%;
-	padding: 3%;
+	padding: 3% var(--side);
 	padding-top: calc(4rem + var(--tp) * 2);
 	box-sizing: border-box;
 }
 
+/* The row's prints share the width between --side margins — 1, 2 or 3 of
+   them (main.js sets data-per-row) — but never taller than the window */
 div.awbox {
-	width: 44%;
+	flex: 1 1 0;
+	max-width: calc(var(--app-height) - 9rem);
 	opacity: 0.12;
 	transition: opacity 0.9s ease-in;
 }
@@ -191,11 +200,13 @@ html.deck {
 		-webkit-touch-callout: none;
 	}
 
+	/* Exactly the print's width: the sheet's 3px inset plus the print's
+	   side margin on both sides */
 	h1.title {
-		width: 92%;
+		width: auto;
 		top: calc(env(safe-area-inset-top, 0px) + var(--top-gap));
-		left: 50%;
-		transform: translateX(-50%);
+		left: calc(var(--side) + 3px);
+		right: calc(var(--side) + 3px);
 		text-align: center;
 		white-space: nowrap;
 		padding-top: 12px;
@@ -217,13 +228,11 @@ html.deck {
 		opacity: 0.06;
 	}
 
-	/* On a tablet the title keeps a phone's size rather than filling the
-	   sheet's width (fitTitle() fits it to this box), and sits at the right */
+	/* On a tablet the title is small rather than the sheet's width, its
+	   right edge on the right print's (placeTitle() sets right) */
 	&.tablet h1.title {
-		width: min(92%, 420px);
+		width: min(92%, 340px);
 		left: auto;
-		right: 4%;
-		transform: none;
 		text-align: right;
 	}
 
@@ -415,19 +424,22 @@ html.deck {
 	}
 
 	div.awbox {
+		flex: none;
+		max-width: none;
 		width: 92%;
 		/* Nothing is dimmed on mobile: a sheet is either on the stack or not */
 		opacity: 1;
 		transition: none !important;
 	}
 
-	/* two prints side by side on a tablet held sideways */
+	/* two prints side by side on a tablet held sideways: room between them,
+	   the same 4% at the sides as one print has (42 + 8 + 42 = 92) */
 	section.k2 {
-		gap: 3%;
+		gap: calc(var(--side) * 2);
 	}
 
 	section.k2 div.awbox {
-		width: 44%;
+		width: 42%;
 	}
 
 	/* The photo is pressed into the sheet, letterpress style: no drop shadow

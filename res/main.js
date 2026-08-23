@@ -40,6 +40,25 @@ fetch('photos.json', { cache: 'no-cache' }).then(r => r.json()).then(data => {
 });
 
 /* ──────────────────────────────────────────────────────────
+   Title
+   Fitted to its box: on a phone the sheet's width, centred; on a tablet and
+   on the desktop a small box at the right, with the prints' own side margin
+   (--side in the CSS), so its right edge is the rightmost print's.
+   ────────────────────────────────────────────────────────── */
+const title = document.querySelector('h1.title');
+
+function fitTitle() {
+  let lo = 1, hi = 200;
+  while (hi - lo > 0.5) {
+    const mid = (lo + hi) / 2;
+    title.style.fontSize = mid + 'px';
+    if (title.scrollWidth <= title.clientWidth) lo = mid;
+    else hi = mid;
+  }
+  title.style.fontSize = lo + 'px';
+}
+
+/* ──────────────────────────────────────────────────────────
    Reliable viewport height
    On iOS Safari / PWA the CSS 100vh ≠ window.innerHeight.
    We set a CSS custom property from JS and update on resize.
@@ -283,18 +302,6 @@ if (DECK) {
   }
   window.addEventListener('resize', rebuild);
 
-  // ── Fit title ──
-  const title = document.querySelector('h1.title');
-  function fitTitle() {
-    let lo = 1, hi = 200;
-    while (hi - lo > 0.5) {
-      const mid = (lo + hi) / 2;
-      title.style.fontSize = mid + 'px';
-      if (title.scrollWidth <= title.clientWidth) lo = mid;
-      else hi = mid;
-    }
-    title.style.fontSize = lo + 'px';
-  }
   fitTitle();
   window.addEventListener('resize', fitTitle);
 
@@ -525,28 +532,59 @@ if (DECK) {
      DESKTOP: scroll-snap + keyboard + mouse
      Same order as mobile: newest first, scrolling down goes back in time.
      ============================================================ */
-  for (let i = PHOTOS.length - 1; i >= 0; i -= PER_ROW) {
-    const section = document.createElement('section');
-    for (let j = i; j > i - PER_ROW && j >= 0; j--) {
-      const p = PHOTOS[j];
-      const box = document.createElement('div');
-      box.className = 'awbox';
-      box.dataset.n = p.n;
-      box.innerHTML = `
-        <div class="awphoto">${mediaHTML(p)}</div>
-        <p class="subtitle">afterworkphoto ${p.n}</p>`;
-      // a video plays only while the mouse is over it
-      const v = box.querySelector('video');
-      if (v) {
-        box.addEventListener('mouseenter', () => { v.play().catch(() => {}); });
-        box.addEventListener('mouseleave', () => { v.pause(); });
-      }
-      section.appendChild(box);
-      boxes.push(box);
-    }
-    main.appendChild(section);
-    sections.push(section);
+  // Photos per row by the window's shape: taller than wide one, wider two,
+  // wider than 2:1 three
+  function perRow() {
+    const aspect = window.innerWidth / window.innerHeight;
+    return aspect < 1 ? 1 : aspect < 2 ? 2 : 3;
   }
+  PER_ROW = perRow();
+
+  // The boxes are built once; sections are only the rows they are grouped into
+  for (let j = PHOTOS.length - 1; j >= 0; j--) {
+    const p = PHOTOS[j];
+    const box = document.createElement('div');
+    box.className = 'awbox';
+    box.dataset.n = p.n;
+    box.innerHTML = `
+      <div class="awphoto">${mediaHTML(p)}</div>
+      <p class="subtitle">${captionOf(p)}</p>`;
+    // a video plays only while the mouse is over it
+    const v = box.querySelector('video');
+    if (v) {
+      box.addEventListener('mouseenter', () => { v.play().catch(() => {}); });
+      box.addEventListener('mouseleave', () => { v.pause(); });
+    }
+    boxes.push(box);
+  }
+
+  // Rows of PER_ROW boxes. Moving the existing boxes keeps their images;
+  // the photo that was on screen stays on screen.
+  function regroup() {
+    const onScreen = sections.length
+      ? sections.find(s => s.getBoundingClientRect().bottom > 0)?.querySelector('.awbox')
+      : null;
+    sections.forEach(s => s.remove());
+    sections.length = 0;
+    for (let i = 0; i < boxes.length; i += PER_ROW) {
+      const section = document.createElement('section');
+      boxes.slice(i, i + PER_ROW).forEach(b => section.appendChild(b));
+      main.appendChild(section);
+      sections.push(section);
+    }
+    main.dataset.perRow = PER_ROW;
+    if (onScreen) onScreen.closest('section').scrollIntoView({ block: 'start' });
+  }
+  regroup();
+  fitTitle();
+  window.addEventListener('resize', fitTitle);
+
+  window.addEventListener('resize', () => {
+    const n = perRow();
+    if (n === PER_ROW) return;
+    PER_ROW = n;
+    regroup();
+  });
 
   let selected = -1;
   let lastMouseIndex = 0;
