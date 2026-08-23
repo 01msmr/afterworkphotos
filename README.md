@@ -12,8 +12,10 @@
 | `manifest.json` | web app manifest — required, see *iOS home screen app* |
 | `img/1.jpg … N.jpg` | the photos, square, ~1000 px; numbered in order of adding |
 | `img originals/` | the untouched originals |
-| `upload.php`, `secret.php` | server-side upload endpoint (see *Adding a photo*); `secret.php` holds the token |
-| `.user.ini` | PHP upload size limits for the host |
+| `inbox/` | where new photos land (the Shortcut puts them there); emptied by the ingest workflow |
+| `scripts/ingest.sh` | numbers an inbox photo, makes the 1000 px square, moves the original, bumps `PHOTO_COUNT` |
+| `.github/workflows/ingest.yml` | runs the script on every push to `inbox/` and commits the result |
+| `upload.php`, `secret.php`, `.user.ini` | the old server-side upload endpoint — superseded by the inbox, to be removed |
 | `apple-touch-icon.png`, `favicon.ico` | icons |
 | `card-stack.html`, `res/onepage.*`, `res/noRubberband.js`, `favicon_.ico` | legacy / prototypes, not referenced by the page |
 
@@ -35,7 +37,7 @@ A move, in `main.js` terms:
 
 - `startMove(dir)` picks the `mover` (the top sheet to lift off, or the previous one to put back) and the `under` sheet it uncovers or covers. `travel` is measured from the mover's real position — the distance it needs to clear the screen, shadow included.
 - While the mover is in the air it is always sheet-size (3 px inset, lifted shadow). The sheet beneath stays flat until the mover's bottom edge has cleared the lower 30 % of the screen (`revealAt`), then takes sheet size too — all four edges move in very slightly — and goes flat again on the way back. `updateReveal()` reads the mover's actual transform, so drags and the animated settle behave the same.
-- `settle(commit)` animates the rest of the way; `finish()` re-assigns the stack. A 2 s watchdog covers a `transitionend` that never arrives (backgrounded tab).
+- `settle(commit)` animates the rest of the way; `finish()` re-assigns the stack. A 2.5 s watchdog covers a `transitionend` that never arrives (backgrounded tab).
 
 The look is CSS only, all tokens in `:root` inside the mobile block:
 
@@ -47,9 +49,20 @@ The look is CSS only, all tokens in `:root` inside the mobile block:
 
 ## Adding a photo
 
-`upload.php` (POST with `token` = `UPLOAD_SECRET` from `secret.php`, and `photo` as a file field or base64 text) saves the image as `img/<N+1>.jpg` and bumps `PHOTO_COUNT` in `res/main.js` **on the server**. Add `debug=1` to see what arrived without writing anything.
+Put an image into `inbox/` on `main` — that is all. The ingest workflow (`.github/workflows/ingest.yml` → `scripts/ingest.sh`) takes it from there:
 
-**Caveat — the server also pulls `res/main.js` from GitHub.** After an upload, put the new `img/N.jpg` and the new `PHOTO_COUNT` into the repo and push, otherwise the next pull resets the count and the photo disappears. Or skip the endpoint: add the file, bump the constant, push.
+1. numbers it `PHOTO_COUNT + 1` (several at once go in name order, so name them by date taken);
+2. writes the 1000 px square derivative to `img/N.jpg` — auto-oriented, centre-cropped (a no-op for a square), JPEG q85, metadata stripped so no GPS reaches the public image;
+3. moves the incoming file to `img originals/N_original.<ext>`, metadata intact;
+4. bumps `PHOTO_COUNT` in `res/main.js`, commits `photo N`, pushes. The server pulls; live within seconds.
+
+Runs are serialised, so two uploads can never both become photo N. A commit made by the workflow does not trigger it again.
+
+The phone does this with a Shortcut that PUTs favourited photos into `inbox/` through the GitHub contents API (`PUT /repos/01msmr/afterworkphotos/contents/inbox/<yyyyMMdd-HHmmss>.jpg`, body `{"message":"inbox","content":"<base64>"}`, a fine-grained token with *Contents: read/write* on this repo only). It remembers what it has sent in a text file in iCloud Drive, so re-favouriting an old photo still works and un-favouriting never deletes anything.
+
+By hand: `git add inbox/whatever.jpg && git commit && git push` does the same. To try the script locally: `scripts/ingest.sh` (needs ImageMagick), then look at what it staged.
+
+`upload.php` is the old way — it edited `res/main.js` on the server, which the next pull undid — and is to be removed.
 
 ## Deployment
 

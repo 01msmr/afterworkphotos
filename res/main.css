@@ -371,7 +371,7 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 	   rest of it. Slow: a sheet of paper, not a UI panel. */
 	section.mover.animating {
 		transition:
-			transform 0.9s cubic-bezier(0.4, 0, 0.2, 1),
+			transform 1.2s cubic-bezier(0.4, 0, 0.2, 1),
 			top 0.3s ease, right 0.3s ease, bottom 0.3s ease, left 0.3s ease,
 			border-radius 0.3s ease, box-shadow 0.3s ease;
 	}

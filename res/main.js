@@ -168,8 +168,8 @@ if (PER_SECTION === 1) {
     requestAnimationFrame(trackReveal);
     clearTimeout(finishTimer);
     // transitionend can be skipped when the tab is backgrounded mid-slide;
-    // well past the 0.9s settle so it never cuts a real one short
-    finishTimer = setTimeout(finish, 2000);
+    // well past the 1.2s settle so it never cuts a real one short
+    finishTimer = setTimeout(finish, 2500);
   }
 
   function finish() {
