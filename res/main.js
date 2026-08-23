@@ -679,10 +679,13 @@ if (DECK) {
   // Plaster or concrete; clicking on empty wall (not a print, not the
   // knobs) switches, and the choice is kept
   try { if (localStorage.getItem('wall') === 'concrete') document.documentElement.classList.add('wall-concrete'); } catch (e) {}
-  main.addEventListener('click', (e) => {
-    if (e.target.closest('.awbox')) return;
+  function toggleWall() {
     const concrete = document.documentElement.classList.toggle('wall-concrete');
     try { localStorage.setItem('wall', concrete ? 'concrete' : 'plaster'); } catch (e) {}
+  }
+  main.addEventListener('click', (e) => {
+    if (e.target.closest('.awbox')) return;
+    toggleWall();
   });
 
   // ── Single screen ──
@@ -898,15 +901,18 @@ if (DECK) {
   knobDrag(knobYear, turnYear);
   knobDrag(knobPrint, turnPrint);
 
-  // Tab walks three stations: the wall's lit print, the year knob, the
-  // print knob — full circle. A focused knob shows the unit with a ring;
-  // arrows turn it, Enter commits.
-  let station = 0;            // 0 wall, 1 year knob, 2 print knob
+  // Tab walks four stations: the wall's lit print, the year knob, the
+  // print knob, the wall itself (its material) — full circle. A focused
+  // knob shows the unit with a ring, arrows turn it, Enter commits; the
+  // focused wall shows a dark border just inside the screen, arrows or
+  // Enter switch its material.
+  let station = 0;            // 0 print, 1 year knob, 2 print knob, 3 the wall
   function applyStation() {
     knobYear.classList.toggle('kfocus', station === 1);
     knobPrint.classList.toggle('kfocus', station === 2);
-    goto.classList.toggle('kbd-open', station !== 0);
-    if (station !== 0) goto.classList.remove('quiet');
+    goto.classList.toggle('kbd-open', station === 1 || station === 2);
+    document.documentElement.classList.toggle('bg-focus', station === 3);
+    if (station === 1 || station === 2) goto.classList.remove('quiet');
     else goto.classList.add('quiet');
   }
   // clicking the print knob or the image commits at once, without leaving
@@ -1015,7 +1021,7 @@ if (DECK) {
     if (e.key === 'Tab') {
       e.preventDefault();
       if (mode === 'mouse') { mode = 'kbd'; mouseHasMoved = false; document.body.classList.add('kbd-active'); }
-      station = (station + (e.shiftKey ? 2 : 1)) % 3;
+      station = (station + (e.shiftKey ? 3 : 1)) % 4;
       applyStation();
       if (station === 0 && selected < 0) {
         const top = sections.find(s => s.getBoundingClientRect().bottom > 0);
@@ -1024,11 +1030,17 @@ if (DECK) {
       return;
     }
 
-    if (e.key === 'Enter' && station !== 0) {
+    if (e.key === 'Enter' && (station === 1 || station === 2)) {
       e.preventDefault();
       station = 0;
       applyStation();
       goNow();
+      return;
+    }
+
+    if (e.key === 'Enter' && station === 3) {
+      e.preventDefault();
+      toggleWall();
       return;
     }
 
@@ -1049,6 +1061,8 @@ if (DECK) {
 
     if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return;
     e.preventDefault();
+
+    if (station === 3) { toggleWall(); return; }
 
     if (station !== 0) {
       const d = (e.key === 'ArrowDown' || e.key === 'ArrowRight') ? 1 : -1;

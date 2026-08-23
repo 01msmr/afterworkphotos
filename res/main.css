@@ -309,9 +309,21 @@ html:not(.deck) body.kbd-active .awbox:hover:not(.kbd-focus) .awphoto {
 }
 
 .knob.kfocus {
-	outline: calc(2px / 1.8) solid rgba(0, 0, 0, 0.55);
-	outline-offset: 3px;
+	outline: calc(3px / 1.8) solid #444;
+	outline-offset: calc(4px / 1.8);
 	border-radius: 50%;
+}
+
+/* the fourth station: the wall itself — a dark border just inside the
+   screen; arrows or Enter switch its material */
+html.bg-focus body::after {
+	content: '';
+	position: fixed;
+	inset: 6px;
+	border: 6px solid #444;
+	border-radius: 2px;
+	pointer-events: none;
+	z-index: 9998;
 }
 
 /* while the keyboard is in use only the line shows, mouse on it or not */
@@ -422,6 +434,10 @@ html:not(.deck) body.kbd-active .awbox:hover:not(.kbd-focus) .awphoto {
 	height: var(--s);
 	border-radius: 50%;
 	flex: none;
+	/* the cast shadow lives on the still base, never turning with the face */
+	box-shadow:
+		0 calc(var(--s) * 0.03) calc(var(--s) * 0.05) rgba(0, 0, 0, 0.45),
+		0 calc(var(--s) * 0.16) calc(var(--s) * 0.24) calc(var(--s) * -0.08) rgba(48, 42, 18, 0.55);
 }
 
 .knob .face {
@@ -437,24 +453,28 @@ html:not(.deck) body.kbd-active .awbox:hover:not(.kbd-focus) .awphoto {
 	box-shadow:
 		inset 0 0 0 calc(var(--s) * 0.055) #b6b2ab,
 		inset 0 0 0 calc(var(--s) * 0.07) #e8e6e1,
-		inset 0 0 0 calc(var(--s) * 0.085) #a29e97,
-		0 calc(var(--s) * 0.03) calc(var(--s) * 0.05) rgba(0, 0, 0, 0.45),
-		0 calc(var(--s) * 0.16) calc(var(--s) * 0.24) calc(var(--s) * -0.08) rgba(48, 42, 18, 0.55);
+		inset 0 0 0 calc(var(--s) * 0.085) #a29e97;
 }
 
-.knob .face::before {
+/* the room's light doesn't turn with the knob: gloss and the centre cap's
+   lighting sit above the rotating face, unrotated */
+.knob::before {
 	content: '';
 	position: absolute;
 	inset: 0;
+	z-index: 2;
 	border-radius: 50%;
+	pointer-events: none;
 	background: linear-gradient(155deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0) 45%, rgba(0, 0, 0, 0.12) 100%);
 }
 
-.knob .face::after {
+.knob::after {
 	content: '';
 	position: absolute;
 	inset: 36%;
+	z-index: 2;
 	border-radius: 50%;
+	pointer-events: none;
 	background: radial-gradient(circle at 40% 35%, #e6e4df, #c4c1ba 80%);
 	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 0 0 1px rgba(0, 0, 0, 0.12);
 }
