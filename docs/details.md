@@ -99,6 +99,10 @@ By hand: `git add inbox/whatever.jpg && git commit && git push` does the same. T
 
 `upload.php` is the old way — it edited `res/main.js` on the server, which the next pull undid — and is to be removed.
 
+## Deep links
+
+`#154` opens print 154 — on the desktop the wall opens on its row, lit, knobs synced; on a touch device the deck opens with its sheet on top. `#y2017` opens that year's newest print; the year always wears its `y`, so photo numbers and years can never collide, whatever the pile grows to. As the shown print changes (keys, knobs, scrubber, swipes), the address follows via `history.replaceState` — always copyable, never polluting the back button. A later hash change (pasting, back/forward across pages) glides/cuts to its print. Path forms (`/154`) would need an nginx rewrite (`try_files $uri /index.html;`) before the page could read `location.pathname`; the hash needs nothing.
+
 ## Known issues / to check
 
 - **Fixed: a wrong picture for a moment after a scrubber cut down the pile** (to an older, smaller number; cutting up was fine). The sheet being uncovered carried only `.under`, which never set `visibility` — so it stayed hidden like any resting sheet, and the pile's own next sheet showed through for the whole lift until the landing snapped it into place. Cuts of one or two sheets looked right only because the target happened to be `.next`/`.next2`. `section.under` is now `visibility: visible` (commit `eaef3ee`). Reproduced and verified on the desktop at phone width with synthetic touch events on the scrubber, sampling each sheet's computed visibility and z-index during the move.

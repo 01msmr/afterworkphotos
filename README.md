@@ -24,6 +24,8 @@ The site never shows file names; it numbers photos 1…N in date order.
 
 **Phone and iPad** — the photos are a pile of paper sheets, newest on top (held sideways, two per sheet). Swipe up to lift the top sheet off and see the one before it, swipe down to put it back; tapping the upper/lower half does the same. The right edge of the screen is the pile seen edge-on: touch it and drag to run through the years, slide the finger in from the edge for finer control (the label shows the neighbouring prints while the strip is too short for single-sheet hits), let go and the pile cuts to that sheet. Only seven sheets exist in the DOM at a time, so the size of the pile doesn't matter. Dark mode follows the system. Videos play only while on screen.
 
+**Deep links** — `afterworkphoto.com/#154` opens print 154, `#y2017` a year's newest; the address follows as you move.
+
 ## Adding photos
 
 Put an image (or a video up to 30 s) into `inbox/` on `main` — the workflow names it by date taken, makes the square derivative, the thumbnail and the full-size square original, rewrites `photos.json`, commits and pushes; the server pulls and it's live. Several at once are fine; one that is already there (same date to the second) is recognised and not duplicated.
