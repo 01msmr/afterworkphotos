@@ -319,13 +319,16 @@ if (PER_SECTION === 1) {
   // under the finger is always there. The full photo of the sheet the finger
   // rests on is fetched ahead, so it is in the cache by the time the pile
   // is cut to it.
-  const warm = new Set();
+  const warm = new Map();          // url → Image, once requested
   function warmUp(url) {
-    if (warm.has(url)) return;
-    warm.add(url);
-    const img = new Image();
-    img.decoding = 'async';
-    img.src = url;
+    let img = warm.get(url);
+    if (!img) {
+      img = new Image();
+      img.decoding = 'async';
+      img.src = url;
+      warm.set(url, img);
+    }
+    return img;
   }
   (function preloadThumbs() {
     let i = 0;
@@ -344,8 +347,23 @@ if (PER_SECTION === 1) {
     const f = Math.min(1, Math.max(0, (clientY - r.top) / r.height));
     scrubIndex = Math.round(f * (N - 1));
     const p = photoAt(scrubIndex);
-    scrubLabel.querySelector('img').src = p.thumb;
     scrubLabel.querySelector('span').textContent = `${p.n} · ${monthYear(p)}`;
+    // Never the wrong picture: an <img> keeps showing its old image until the
+    // new one has loaded, so only a thumbnail that is already there goes in;
+    // otherwise the print stays blank paper until it arrives — and only if
+    // the finger is still on that sheet by then
+    const print = scrubLabel.querySelector('img');
+    const thumb = warmUp(p.thumb);
+    if (thumb.complete && thumb.naturalWidth) {
+      print.src = p.thumb;
+      print.style.visibility = '';
+    } else {
+      print.style.visibility = 'hidden';
+      const want = scrubIndex;
+      thumb.addEventListener('load', () => {
+        if (scrubbing && scrubIndex === want) { print.src = p.thumb; print.style.visibility = ''; }
+      }, { once: true });
+    }
     scrubLabel.style.top = Math.min(r.bottom - 60, Math.max(r.top, clientY)) + 'px';
     // the finger resting on a sheet for a moment is enough to fetch its photo
     clearTimeout(restTimer);
