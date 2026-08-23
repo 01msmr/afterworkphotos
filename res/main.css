@@ -125,6 +125,10 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 		   radius puts the corner fills on half pixels and clips them. */
 		--screen-radius: env(device-corner-radius, max(24px, calc(env(safe-area-inset-bottom, 0px) * 1.62)));
 		--desk: #000;
+		/* The sheets start this much below the status inset: iOS blurs what
+		   lies just under the status bar and the fade reaches a little past
+		   it, so that band is left to the backdrop rather than to paper. */
+		--top-gap: 16px;
 		--paper: #dedede;
 		--ink: #000;
 		--title: #000;
@@ -176,27 +180,9 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 		background: var(--desk);
 	}
 
-	/* Status bar trick, round three. iOS samples the page to pick white or
-	   black status text, and the declared colours did not sway it. WebKit's
-	   sample is taken along the page's top edge — so a 2px light hairline
-	   right at the screen edge, above everything, offers it a light page
-	   while the bar itself stays black: black text on black. Remove if it
-	   does nothing. */
-	body::before {
-		content: '';
-		position: fixed;
-		top: 0;
-		left: 0;
-		right: 0;
-		height: 2px;
-		background: #dedede;
-		z-index: 10000;
-		pointer-events: none;
-	}
-
 	h1.title {
 		width: 92%;
-		top: env(safe-area-inset-top, 0px);
+		top: calc(env(safe-area-inset-top, 0px) + var(--top-gap));
 		left: 50%;
 		transform: translateX(-50%);
 		text-align: center;
@@ -242,11 +228,11 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 		top: 0;
 		left: 0;
 		right: 0;
-		height: calc(env(safe-area-inset-top, 0px) + var(--screen-radius));
+		height: calc(env(safe-area-inset-top, 0px) + var(--top-gap) + var(--screen-radius));
 		pointer-events: none;
 		z-index: 500;
 		background:
-			linear-gradient(var(--desk), var(--desk)) top / 100% env(safe-area-inset-top, 0px) no-repeat,
+			linear-gradient(var(--desk), var(--desk)) top / 100% calc(env(safe-area-inset-top, 0px) + var(--top-gap)) no-repeat,
 			radial-gradient(circle at 100% 100%, transparent calc(var(--screen-radius) - 0.5px), var(--desk) calc(var(--screen-radius) + 0.5px)) left bottom / var(--screen-radius) var(--screen-radius) no-repeat,
 			radial-gradient(circle at 0 100%, transparent calc(var(--screen-radius) - 0.5px), var(--desk) calc(var(--screen-radius) + 0.5px)) calc(100% - 1px) bottom / var(--screen-radius) var(--screen-radius) no-repeat;
 	}
@@ -259,8 +245,9 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 
 	/* A sheet is always a sheet: 3px in from the phone's edge on all sides,
 	   with its small paper edge showing — at rest, and while it is in the
-	   air. Only a sheet lying flat beneath another (the one being uncovered,
-	   until it is, and the one behind that) fills the phone completely.
+	   air. The sheets beneath it lie flat and fill the phone completely, so
+	   its edge always shows paper around it; the one directly beneath takes
+	   sheet size while it is being uncovered (see .under).
 
 	   Its corners are concentric with the phone's at whatever inset it is —
 	   except that a sheet lying flat has square bottom corners, because
@@ -270,7 +257,7 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 		position: fixed;
 		/* fixed to the viewport, top below the status inset, bottom on the
 		   glass — the geometry that was right on the phone */
-		top: calc(env(safe-area-inset-top, 0px) + var(--inset));
+		top: calc(env(safe-area-inset-top, 0px) + var(--top-gap) + var(--inset));
 		right: var(--inset);
 		bottom: var(--inset);
 		left: var(--inset);
@@ -290,6 +277,7 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 			/* bottom corners: 0 at inset 0, concentric once lifted off the glass */
 			min(calc(var(--inset) * 1000), max(8px, calc(var(--screen-radius) - var(--inset))))
 			min(calc(var(--inset) * 1000), max(8px, calc(var(--screen-radius) - var(--inset))));
+		box-shadow: var(--sheet-edge);
 		visibility: hidden;
 		z-index: 0;
 		transition:
@@ -297,22 +285,25 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 			border-radius 0.3s ease, box-shadow 0.3s ease;
 	}
 
-	section.current,
-	section.under {
-		visibility: visible;
-		z-index: 1;
-	}
-
 	section.current {
-		box-shadow: var(--sheet-edge);
+		visibility: visible;
+		z-index: 3;
 	}
 
-	/* The sheet behind the one beneath: full and flat, so that when the one
-	   beneath shrinks there is paper around it, never desk */
-	section.behind {
+	/* The two sheets beneath the top one: always on view, full and flat */
+	section.next,
+	section.next2 {
 		--inset: 0px;
+		box-shadow: none;
 		visibility: visible;
-		z-index: 0;
+	}
+
+	section.next {
+		z-index: 2;
+	}
+
+	section.next2 {
+		z-index: 1;
 	}
 
 	/* The sheet beneath is there from the first pixel, flat and full like

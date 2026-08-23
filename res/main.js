@@ -86,7 +86,6 @@ if (PER_SECTION === 1) {
   let current = 0;          // sheet on top
   let mover = null;         // the sheet being lifted off or put back
   let under = null;         // the sheet it reveals / covers
-  let behind = null;        // the sheet behind that one, so shrinking never shows desk
   let dir = 0;              // +1 forward (lift off), -1 backward (put back)
   let travel = 0;           // how far the mover goes to clear the screen
   let revealAt = 0;         // how far up it must be before the sheet beneath is dealt in
@@ -94,7 +93,17 @@ if (PER_SECTION === 1) {
   let committed = false;    // does the pending move land on the neighbour?
   let finishTimer = 0;
 
-  sections[current].classList.add('current');
+  // Stack positions: the top sheet, the one beneath it and the one beneath
+  // that are always on view — beneath ones full size, so the top sheet's
+  // edge always shows paper around it, never desk
+  function layout() {
+    sections.forEach((s, i) => {
+      s.classList.toggle('current', i === current);
+      s.classList.toggle('next', N > 1 && i === wrap(current + 1));
+      s.classList.toggle('next2', N > 2 && i === wrap(current + 2));
+    });
+  }
+  layout();
 
   // Where the moving sheet rests at each end of its travel
   function homeY() { return dir > 0 ? 0 : -travel; }   // where it starts
@@ -106,14 +115,11 @@ if (PER_SECTION === 1) {
     if (dir > 0) {
       mover = sections[current];              // lift the top sheet off
       under = sections[wrap(current + 1)];
-      behind = sections[wrap(current + 2)];
     } else {
       mover = sections[wrap(current - 1)];    // put the previous sheet back on
       under = sections[current];
-      behind = sections[wrap(current + 1)];
     }
     under.classList.add('under');
-    behind.classList.add('behind');
     mover.classList.add('mover');
     // Measured in place: the sheet's bottom edge plus the shadow it casts
     // below itself, so nothing of it is left showing once it is "away"
@@ -172,9 +178,8 @@ if (PER_SECTION === 1) {
     mover.classList.remove('mover', 'animating');
     mover.style.transform = '';
     under.classList.remove('under', 'revealed');
-    behind.classList.remove('behind');
-    sections.forEach((s, i) => s.classList.toggle('current', i === current));
-    mover = under = behind = null;
+    layout();
+    mover = under = null;
     dir = 0;
     animating = false;
   }
