@@ -237,13 +237,14 @@ html.deck {
 	}
 
 	/* A phone held sideways: the prints are bound by the height and sit
-	   centred, so the title is small and centred over them */
+	   centred, so the right print's edge is half the gap plus one print
+	   right of the centre — the title, smaller still, ends there */
 	@media (orientation: landscape) {
 		&:not(.tablet) h1.title {
-			width: min(92%, 340px);
-			left: 50%;
-			right: auto;
-			transform: translateX(-50%);
+			width: min(92%, 260px);
+			left: auto;
+			right: calc(50% - var(--side) * 0.75 - min(43%, var(--app-height) - 8.5rem));
+			text-align: right;
 		}
 	}
 
