@@ -6,12 +6,19 @@
 #    Shortcut makes a date stamp): number it PHOTO_COUNT + 1, write the
 #    1000px square derivative to img/N.jpg, move the incoming file to
 #    "img originals/N_original.<ext>" and bump PHOTO_COUNT in res/main.js.
-#    Square is a centre crop, a no-op for a photo that already is one. The
-#    derivative is stripped of metadata (no GPS on the public image); the
-#    original keeps its metadata, as the existing originals do.
-# 2. For every photo 1..N make sure the 200px thumbnail img/thumb/N.jpg
+#    Square is a centre crop. The original is kept at full size but gets the
+#    same square crop (quality 95, metadata kept); one that already is
+#    square is moved untouched. The derivative is stripped of metadata, so
+#    no GPS reaches the public image.
+#    New arrivals are staged so the next step can move them.
+# 2. Renumber ALL photos so that number order is time order: sorted by the
+#    original's EXIF date taken (photos without one keep their relative
+#    order at the end), files renamed with git mv in two phases so history
+#    follows and nothing collides. A photo older than existing ones slots
+#    in where it belongs and everything after it shifts by one.
+# 3. For every photo 1..N make sure the 200px thumbnail img/thumb/N.jpg
 #    exists — made from the derivative, so it is the same crop.
-# 3. Rewrite photos.json from scratch: count, and per photo its number,
+# 4. Rewrite photos.json from scratch: count, and per photo its number,
 #    date taken (from the original's EXIF, null if there is none), file and
 #    thumbnail. Always regenerated, never appended, so it cannot drift.
 #
@@ -63,7 +70,15 @@ if (( ${#files[@]} > 0 )); then
     convert "$tmp" -gravity center -crop "${s}x${s}+0+0" +repage \
       -resize 1000x1000 -quality 85 -strip "img/$n.jpg"
 
-    git mv "$f" "img originals/${n}_original.${ext}"
+    git add "img/$n.jpg"
+    if (( w == h )); then
+      git mv "$f" "img originals/${n}_original.${ext}"
+    else
+      convert "$f" -auto-orient -gravity center -crop "${s}x${s}+0+0" +repage \
+        -quality 95 "img originals/${n}_original.jpg"
+      git rm -q "$f"
+      git add "img originals/${n}_original.jpg"
+    fi
     sed -i.bak -E "s/const PHOTO_COUNT = [0-9]+/const PHOTO_COUNT = $n/" res/main.js
     rm -f res/main.js.bak
 
@@ -72,7 +87,59 @@ if (( ${#files[@]} > 0 )); then
   done
 fi
 
-# ── 2. thumbnails ─────────────────────────────────────────────────────────
+# ── 2. renumber, so that number order is time order ──────────────────────
+original_of() {   # path of photo $1's original, empty if none
+  for o in "img originals/${1}_original".*; do printf '%s' "$o"; return; done
+}
+
+# sort key per photo: date taken, else "after everything" keeping the
+# current order; secondary key is the current number (stable)
+order=()
+while IFS= read -r line; do order+=( "${line#*$'	'}" ); done < <(
+  for (( n = 1; n <= count; n++ )); do
+    o=$(original_of "$n"); d=""
+    [[ -n "$o" ]] && d=$(exif_taken "$o")
+    (( ${#d} >= 14 )) || d="99999999999999"
+    printf '%s	%s
+' "$d" "$n"
+  done | sort -s -t $'	' -k1,1 -k2,2n
+)
+# order[m-1] = old number that becomes m
+
+declare -a newnum
+moved=0
+for (( m = 1; m <= count; m++ )); do
+  n=${order[m-1]}
+  newnum[n]=$m
+  (( n != m )) && moved=$(( moved + 1 ))
+done
+
+if (( moved > 0 )); then
+  # phase 1: park everything that moves under a name nothing else can take
+  for (( n = 1; n <= count; n++ )); do
+    m=${newnum[n]}; (( n == m )) && continue
+    git mv "img/$n.jpg" "img/renum_$n.jpg"
+    o=$(original_of "$n"); [[ -n "$o" ]] && git mv "$o" "img originals/renum_${n}.${o##*.}"
+    [[ -f "img/thumb/$n.jpg" ]] && git mv "img/thumb/$n.jpg" "img/thumb/renum_$n.jpg"
+  done
+  # phase 2: give them their new numbers
+  for (( n = 1; n <= count; n++ )); do
+    m=${newnum[n]}; (( n == m )) && continue
+    git mv "img/renum_$n.jpg" "img/$m.jpg"
+    for o in "img originals/renum_${n}".*; do git mv "$o" "img originals/${m}_original.${o##*.}"; done
+    [[ -f "img/thumb/renum_$n.jpg" ]] && git mv "img/thumb/renum_$n.jpg" "img/thumb/$m.jpg"
+    echo "renumber: $n -> $m"
+  done
+fi
+
+# the commit message names the new arrivals by their final numbers
+final=()
+for (( n = first; n <= count; n++ )); do final+=( "${newnum[n]}" ); done
+IFS=$'
+' final=( $(printf '%s
+' "${final[@]}" | sort -n) ); unset IFS
+
+# ── 3. thumbnails ─────────────────────────────────────────────────────────
 mkdir -p img/thumb
 for (( n = 1; n <= count; n++ )); do
   if [[ ! -f "img/thumb/$n.jpg" ]]; then
@@ -81,7 +148,7 @@ for (( n = 1; n <= count; n++ )); do
   fi
 done
 
-# ── 3. photos.json ────────────────────────────────────────────────────────
+# ── 4. photos.json ────────────────────────────────────────────────────────
 {
   echo '{'
   echo "  \"count\": $count,"
@@ -105,10 +172,10 @@ done
 shopt -u nullglob
 
 # last line is the commit message
-if (( first > count )); then
-  echo "photos.json + thumbnails"
-elif (( first == count )); then
-  echo "photo $count"
+if (( ${#final[@]} == 0 )); then
+  if (( moved > 0 )); then echo "photos renumbered by date taken"; else echo "photos.json + thumbnails"; fi
+elif (( ${#final[@]} == 1 )); then
+  echo "photo ${final[0]}"
 else
-  echo "photos $first-$count"
+  echo "photos $(IFS=,; echo "${final[*]}")"
 fi
