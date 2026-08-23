@@ -87,12 +87,12 @@ if (DECK) {
 
   // ── The pile ──
   // Photo index 0 is the newest (the last in PHOTOS), N-1 the oldest; sheet
-  // index 0 is the top sheet. A sheet carries K photos: one on a phone, two
-  // on a tablet held sideways. "Forward" is towards the older ones; the last
-  // sheet wraps to the first.
+  // index 0 is the top sheet. A sheet carries K photos: one upright, two
+  // side by side when the device is held sideways. "Forward" is towards the
+  // older ones; the last sheet wraps to the first.
   const N = PHOTOS.length;                      // photos
   const photoAt = (i) => PHOTOS[N - 1 - i];     // by photo index
-  function sheetsPer() { return TABLET && window.innerWidth > window.innerHeight ? 2 : 1; }
+  function sheetsPer() { return window.innerWidth > window.innerHeight ? 2 : 1; }
   let K = sheetsPer();
   let S = Math.ceil(N / K);                     // sheets
   const wrap = (i) => ((i % S) + S) % S;

@@ -87,7 +87,7 @@ section {
 	display: flex;
 	align-items: flex-start;
 	justify-content: center;
-	gap: 3%;
+	gap: calc(var(--side) * 1.5);
 	padding: 3% var(--side);
 	padding-top: calc(4rem + var(--tp) * 2);
 	box-sizing: border-box;
@@ -229,11 +229,22 @@ html.deck {
 	}
 
 	/* On a tablet the title is small rather than the sheet's width, its
-	   right edge on the right print's (placeTitle() sets right) */
+	   right edge on the right print's (the same --side margin) */
 	&.tablet h1.title {
 		width: min(92%, 340px);
 		left: auto;
 		text-align: right;
+	}
+
+	/* A phone held sideways: the prints are bound by the height and sit
+	   centred, so the title is small and centred over them */
+	@media (orientation: landscape) {
+		&:not(.tablet) h1.title {
+			width: min(92%, 340px);
+			left: 50%;
+			right: auto;
+			transform: translateX(-50%);
+		}
 	}
 
 	/* iOS keeps :hover after a tap until the next tap elsewhere, which would
@@ -425,15 +436,17 @@ html.deck {
 
 	div.awbox {
 		flex: none;
-		max-width: none;
 		width: 92%;
+		/* never taller than the sheet: a phone held sideways has little
+		   height, and then the prints are small and centred */
+		max-width: calc(var(--app-height) - 8.5rem);
 		/* Nothing is dimmed on mobile: a sheet is either on the stack or not */
 		opacity: 1;
 		transition: none !important;
 	}
 
-	/* two prints side by side on a tablet held sideways: 1.5 margins between
-	   them, the same 4% at the sides as one print has (43 + 6 + 43 = 92) */
+	/* two prints side by side when held sideways: 1.5 margins between them,
+	   the same 4% at the sides as one print has (43 + 6 + 43 = 92) */
 	section.k2 {
 		gap: calc(var(--side) * 1.5);
 	}

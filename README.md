@@ -21,7 +21,7 @@ The site never shows file names; it numbers photos 1…N in date order.
 
 **Desktop** — one, two or three photos per screen depending on the window's shape, newest first, scroll-snap; dimmed, lit on hover; keyboard navigation.
 
-**Phone and iPad** — the photos are a pile of paper sheets, newest on top (on an iPad held sideways, two per sheet). Swipe up to lift the top sheet off and see the one before it, swipe down to put it back; tapping the upper/lower half does the same. The right edge of the screen is the pile seen edge-on: touch it and drag to run through the years, slide the finger in from the edge for finer control, let go and the pile cuts to that sheet. Only seven sheets exist in the DOM at a time, so the size of the pile doesn't matter. Dark mode follows the system. Videos play only while on screen.
+**Phone and iPad** — the photos are a pile of paper sheets, newest on top (held sideways, two per sheet). Swipe up to lift the top sheet off and see the one before it, swipe down to put it back; tapping the upper/lower half does the same. The right edge of the screen is the pile seen edge-on: touch it and drag to run through the years, slide the finger in from the edge for finer control, let go and the pile cuts to that sheet. Only seven sheets exist in the DOM at a time, so the size of the pile doesn't matter. Dark mode follows the system. Videos play only while on screen.
 
 ## Adding photos
 
