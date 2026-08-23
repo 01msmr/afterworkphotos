@@ -104,16 +104,22 @@ div.awbox {
 
 /* The print's shadow on the wall, as a plate a little off the wall throws
    it under gallery spots from the upper left: the slot under the bottom
-   edge (tight, darkest), the key spot's shadow 15px down and a little
-   right, a weaker second spot's shadow from the other side, a soft bed and
-   a short faint halo. Slightly warm — a warm room's bounce light. */
+   edge (tight, darkest), the key spot's shadow ~5% of the print's width
+   down and a little right, a weaker second spot's shadow from the other
+   side, a soft bed and a short faint halo. Slightly warm — a warm room's
+   bounce light. In cqw, so it scales with the print (1cqw = 1% of the
+   box's width; the values are 15px etc. on a 320px print). */
+div.awbox {
+	container-type: inline-size;
+}
+
 .awphoto {
 	box-shadow:
-		0 2px 4px -1px rgba(48, 42, 18, 0.47),
-		4px 15px 9px -1.5px rgba(48, 42, 18, 0.33),
-		-2.5px 12.5px 12px -2px rgba(48, 42, 18, 0.11),
-		2px 13px 28px 2.5px rgba(48, 42, 18, 0.27),
-		0 23px 48px 4.5px rgba(48, 42, 18, 0.18);
+		0 0.6cqw 1.25cqw -0.3cqw rgba(48, 42, 18, 0.47),
+		1.25cqw 4.7cqw 2.8cqw -0.45cqw rgba(48, 42, 18, 0.33),
+		-0.8cqw 3.9cqw 3.75cqw -0.6cqw rgba(48, 42, 18, 0.11),
+		0.6cqw 4cqw 8.75cqw 0.8cqw rgba(48, 42, 18, 0.27),
+		0 7.2cqw 15cqw 1.4cqw rgba(48, 42, 18, 0.18);
 }
 
 .awphoto img,
