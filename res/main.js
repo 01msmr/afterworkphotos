@@ -18,38 +18,51 @@ window.addEventListener('resize', setAppHeight);
 
 /* ============================================================
    MOBILE: Card stack
-   The photos lie on each other like a stack of prints, photo 1 on top of
-   photo 2 on top of … Swiping up lifts the current card off and uncovers the
-   next number underneath; swiping down pulls the previous card back down over
-   the current one. Either way it is the upper card that moves, travelling
+   The photos lie on each other like a pile of daily prints, the newest on
+   top. Swiping up lifts the top sheet off and uncovers the one before it;
+   swiping down pulls the newer sheet back down over it. Either way it is the upper card that moves, travelling
    between "in place" and "off the top of the screen", with its bottom edge
    shadowing whatever lies below. The wraparound is the same move as any
    other, so there are no clones and nothing scrolls.
    ============================================================ */
 if (PER_SECTION === 1) {
 
-  // Build the deck, lowest number on top
   const track = document.createElement('div');
   track.className = 'carousel-track';
   main.appendChild(track);
 
-  for (let i = 1; i <= PHOTO_COUNT; i += PER_SECTION) {
+  // ── The pile ──
+  // Index 0 is the newest photo (N), index N-1 is photo 1; "forward" is
+  // towards the older ones. The last sheet wraps to the first.
+  const N = PHOTO_COUNT;
+  const wrap = (i) => ((i % N) + N) % N;
+  const photoOf = (i) => N - i;
+
+  // Only a window of seven sheets exists in the DOM at any time: the top one
+  // and three either side. Sheets are built as they enter the window and
+  // thrown away as they leave it, so a pile of hundreds costs what a pile of
+  // seven does — and the three beyond the visible ones have their image
+  // loaded before they are needed. A sheet in motion is always inside it.
+  const WINDOW = 3;
+  const sheets = new Map();     // index → section
+
+  function buildSheet(i) {
+    const n = photoOf(i);
     const section = document.createElement('section');
-    for (let j = i; j < i + PER_SECTION && j <= PHOTO_COUNT; j++) {
-      const box = document.createElement('div');
-      box.className = 'awbox';
-      box.innerHTML = `
-        <div class="awphoto"><img src="img/${j}.jpg" alt="afterworkphoto ${j}" loading="lazy" width="100%"></div>
-        <p class="subtitle">afterworkphoto ${j}</p>`;
-      section.appendChild(box);
-      boxes.push(box);
-    }
+    section.innerHTML = `
+      <div class="awbox">
+        <div class="awphoto"><img src="img/${n}.jpg" alt="afterworkphoto ${n}" width="100%"></div>
+        <p class="subtitle">afterworkphoto ${n}</p>
+      </div>`;
     track.appendChild(section);
-    sections.push(section);
+    sheets.set(i, section);
+    return section;
   }
 
-  const N = sections.length;
-  const wrap = (i) => ((i % N) + N) % N;
+  function sheet(i) {
+    i = wrap(i);
+    return sheets.get(i) || buildSheet(i);
+  }
 
   // Live window height — the part you can actually see and touch
   function H() { return window.innerHeight; }
@@ -93,15 +106,22 @@ if (PER_SECTION === 1) {
   let committed = false;    // does the pending move land on the neighbour?
   let finishTimer = 0;
 
-  // Stack positions: the top sheet, the one beneath it and the one beneath
-  // that are always on view — beneath ones full size, so the top sheet's
-  // edge always shows paper around it, never desk
+  // Keeps the window of sheets around `current`, then assigns the stack
+  // positions: the top sheet, the one beneath it and the one beneath that
+  // are on view — beneath ones full size, so the top sheet's edge always
+  // shows paper around it, never desk
   function layout() {
-    sections.forEach((s, i) => {
-      s.classList.toggle('current', i === current);
-      s.classList.toggle('next', N > 1 && i === wrap(current + 1));
-      s.classList.toggle('next2', N > 2 && i === wrap(current + 2));
-    });
+    const keep = new Set();
+    for (let d = -WINDOW; d <= WINDOW; d++) keep.add(wrap(current + d));
+    for (const [i, el] of sheets) {
+      if (!keep.has(i)) { el.remove(); sheets.delete(i); }
+    }
+    keep.forEach(i => sheet(i));
+    for (const [i, el] of sheets) {
+      el.classList.toggle('current', i === current);
+      el.classList.toggle('next', N > 1 && i === wrap(current + 1));
+      el.classList.toggle('next2', N > 2 && i === wrap(current + 2));
+    }
   }
   layout();
 
@@ -113,11 +133,11 @@ if (PER_SECTION === 1) {
   function startMove(direction) {
     dir = direction;
     if (dir > 0) {
-      mover = sections[current];              // lift the top sheet off
-      under = sections[wrap(current + 1)];
+      mover = sheet(current);                 // lift the top sheet off
+      under = sheet(current + 1);
     } else {
-      mover = sections[wrap(current - 1)];    // put the previous sheet back on
-      under = sections[current];
+      mover = sheet(current - 1);             // put the newer sheet back on
+      under = sheet(current);
     }
     under.classList.add('under');
     mover.classList.add('mover');
@@ -223,7 +243,7 @@ if (PER_SECTION === 1) {
   let dividerY = null;
 
   function computeDivider() {
-    const box = sections[0].querySelector('.awbox');
+    const box = sheet(current).querySelector('.awbox');
     if (!box) return;
     const boxRect = box.getBoundingClientRect();
     const wh = H() - boxRect.bottom;
@@ -237,7 +257,7 @@ if (PER_SECTION === 1) {
   // and a backgrounded tab defers rAF — either would leave taps dead
   computeDivider();
   setDivider();
-  sections[0].querySelector('img').addEventListener('load', setDivider);
+  sheet(current).querySelector('img').addEventListener('load', setDivider);
   window.addEventListener('load', setDivider);
   window.addEventListener('resize', setDivider);
 
@@ -305,11 +325,11 @@ if (PER_SECTION === 1) {
 
   /* ============================================================
      DESKTOP: scroll-snap + keyboard + mouse
-     Same order as mobile: scrolling down goes to the next number.
+     Same order as mobile: newest first, scrolling down goes back in time.
      ============================================================ */
-  for (let i = 1; i <= PHOTO_COUNT; i += PER_SECTION) {
+  for (let i = PHOTO_COUNT; i >= 1; i -= PER_SECTION) {
     const section = document.createElement('section');
-    for (let j = i; j < i + PER_SECTION && j <= PHOTO_COUNT; j++) {
+    for (let j = i; j > i - PER_SECTION && j >= 1; j--) {
       const box = document.createElement('div');
       box.className = 'awbox';
       box.innerHTML = `

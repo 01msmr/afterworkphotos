@@ -25,11 +25,11 @@
 
 ### Desktop (wider than 600 px)
 
-Two photos per full-height section, vertical scroll-snap. Photos are dimmed to 12 % and light up on hover. Keyboard: `Enter`/`Tab` enter keyboard mode, arrows move, `Escape` leaves. The mouse cursor is replaced by a small white dot.
+Two photos per full-height section, newest first, vertical scroll-snap. Photos are dimmed to 12 % and light up on hover. Keyboard: `Enter`/`Tab` enter keyboard mode, arrows move, `Escape` leaves. The mouse cursor is replaced by a small white dot.
 
 ### Mobile — the sheet deck
 
-Photos run 1 → N and lie on each other like a stack of prints, photo 1 on top. Swiping up lifts the top sheet off and uncovers the next number; swiping down pulls the previous sheet back on. Tapping does the same: the upper part of the screen goes forward, the lower part back — the boundary is the thin dotted line printed on every sheet (`--divider-y`, set from the photo's position). The last sheet wraps to the first; it is the same move as any other, there are no clones.
+The newest photo is on top, like a pile of daily prints. Swiping up lifts it off and uncovers the one before; swiping down pulls the newer sheet back on. Only seven sheets exist in the DOM at a time — the top one and three either side, built as they enter that window and dropped as they leave it, images loaded ahead — so a pile of hundreds costs what a pile of seven does (`WINDOW`, `sheet(i)`, `layout()` in `main.js`). Tapping does the same: the upper part of the screen goes forward, the lower part back — the boundary is the thin dotted line printed on every sheet (`--divider-y`, set from the photo's position). The last sheet wraps to the first; it is the same move as any other, there are no clones.
 
 What is on screen, always: the **top sheet**, 3 px in from the phone's edge with its paper edge showing, and the **two sheets beneath it**, full size and flat, so the top sheet's edge always shows paper around it. Stack positions are the classes `current`, `next`, `next2`, assigned by `layout()`.
 
