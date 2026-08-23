@@ -955,13 +955,15 @@ if (DECK) {
     if (!settledNear) document.body.classList.add('moving');   // nothing undims while the wall moves
     if (gliding && Math.abs(main.scrollTop - glideTarget) < 2) { gliding = false; clearTimeout(glideTimer); }
     clearTimeout(scrollEndTimer);
-    // the incoming row's light begins once two thirds of its image are on
-    // screen — hover stays quiet (body.moving) until the wall truly rests
-    const rowH = sections[0].offsetHeight;
-    if (approachTop >= 0 && Math.abs(main.scrollTop - approachTop) < rowH * 0.34) {
-      const target = sections[Math.round(approachTop / rowH)];
-      approachTop = -1;
-      lightRow(target);
+    // the incoming row's light begins the moment its image is fully inside
+    // the screen — hover stays quiet (body.moving) until the wall truly rests
+    if (approachTop >= 0) {
+      const target = sections[Math.round(approachTop / sections[0].offsetHeight)];
+      const ph = target.querySelector('.awphoto').getBoundingClientRect();
+      if (ph.top >= 0 && ph.bottom <= window.innerHeight) {
+        approachTop = -1;
+        lightRow(target);
+      }
     }
     scrollEndTimer = setTimeout(() => {
       if (gliding) return;                              // a pause on the way, not the end
