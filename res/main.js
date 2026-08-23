@@ -208,6 +208,15 @@ if (PER_SECTION === 1) {
   fitTitle();
   window.addEventListener('resize', fitTitle);
 
+  // A tap lights the title for a moment, then it fades back — iOS would
+  // otherwise hold :hover until the next tap elsewhere
+  let titleTimer = 0;
+  title.addEventListener('touchstart', () => {
+    title.classList.add('lit');
+    clearTimeout(titleTimer);
+    titleTimer = setTimeout(() => title.classList.remove('lit'), 2500);
+  }, { passive: true });
+
   // ── Tap zones ──
   // Where the screen splits into "tap here to go on" and "tap here to go back".
   // The sheets print a dotted line there (see section::after in the CSS).

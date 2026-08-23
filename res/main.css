@@ -203,6 +203,29 @@ body.kbd-active .awbox:hover:not(.kbd-focus) {
 		background-color: var(--title-link);
 	}
 
+	/* Quieter than on the desktop */
+	h1.title {
+		opacity: 0.06;
+	}
+
+	/* iOS keeps :hover after a tap until the next tap elsewhere, which would
+	   leave the title lit. On touch screens hover does nothing; a tap lights
+	   the title for a moment through .lit instead (main.js). */
+	@media (hover: none) {
+		h1.title:hover {
+			opacity: 0.06;
+		}
+
+		h1.title a:hover {
+			color: var(--title-link);
+			background-color: transparent;
+		}
+	}
+
+	h1.title.lit {
+		opacity: 1;
+	}
+
 	p.subtitle {
 		color: var(--ink);
 	}
