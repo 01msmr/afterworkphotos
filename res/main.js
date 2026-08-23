@@ -621,14 +621,20 @@ if (DECK) {
     box.innerHTML = `
       <div class="awphoto">${mediaHTML(p)}</div>
       <p class="subtitle">${captionOf(p)}</p>`;
-    // a video plays only while the mouse is over it
-    const v = box.querySelector('video');
-    if (v) {
-      box.addEventListener('mouseenter', () => { v.play().catch(() => {}); });
-      box.addEventListener('mouseleave', () => { v.pause(); });
-    }
     boxes.push(box);
   }
+
+  // A video plays only while it is the lit print: under the mouse, or the
+  // one selected from the keyboard. At most one plays at a time.
+  function playVideo(box) {
+    boxes.forEach(b => { if (b !== box) { const v = b.querySelector('video'); if (v) v.pause(); } });
+    const v = box && box.querySelector('video');
+    if (v) v.play().catch(() => {});
+  }
+  boxes.forEach(box => {
+    box.addEventListener('mouseenter', () => { if (mode === 'mouse') playVideo(box); });
+    box.addEventListener('mouseleave', () => { if (mode === 'mouse') playVideo(null); });
+  });
 
   // Rows of PER_ROW boxes. Moving the existing boxes keeps their images;
   // the photo that was on screen stays on screen.
@@ -686,6 +692,7 @@ if (DECK) {
         selected = -1;
         document.body.classList.remove('kbd-active');
         mode = 'mouse';
+        playVideo(box);
       }
     });
   });
@@ -693,6 +700,7 @@ if (DECK) {
   function select(i) {
     if (selected >= 0) boxes[selected].classList.remove('kbd-focus');
     selected = Math.max(0, Math.min(boxes.length - 1, i));
+    playVideo(boxes[selected]);
     requestAnimationFrame(() => {
       boxes[selected].classList.add('kbd-focus');
       boxes[selected].closest('section').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -704,6 +712,7 @@ if (DECK) {
 
     if (e.key === 'Escape') {
       if (selected >= 0) boxes[selected].classList.remove('kbd-focus');
+      playVideo(null);
       selected = -1;
       document.body.classList.remove('kbd-active');
       mode = 'mouse';
