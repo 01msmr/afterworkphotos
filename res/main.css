@@ -269,18 +269,19 @@ html:not(.deck) body.kbd-active .awbox:hover:not(.kbd-focus) .awphoto {
 	zoom: 1.8;
 }
 
-/* At rest the unit is only a thin line below where its elements sit; the
-   knobs and windows appear under the mouse */
+/* At rest the unit is only a line below where its elements sit; the knobs
+   and windows appear under the mouse. The line switches hard: gone the
+   instant the elements begin to rise, back the instant they begin to dim */
 .goto::after {
 	content: '';
 	position: absolute;
 	left: 0;
 	right: 0;
 	bottom: -7px;
-	height: calc(2px / 1.8);
-	background: rgba(0, 0, 0, 0.4);
-	border-radius: 1px;
-	transition: opacity 0.3s ease;
+	height: calc(6px / 1.8);
+	background: #444;
+	border-radius: 2px;
+	transition: none;
 }
 
 .goto > * {
