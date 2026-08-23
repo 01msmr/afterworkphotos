@@ -432,14 +432,14 @@ html.deck {
 		transition: none !important;
 	}
 
-	/* two prints side by side on a tablet held sideways: room between them,
-	   the same 4% at the sides as one print has (42 + 8 + 42 = 92) */
+	/* two prints side by side on a tablet held sideways: 1.5 margins between
+	   them, the same 4% at the sides as one print has (43 + 6 + 43 = 92) */
 	section.k2 {
-		gap: calc(var(--side) * 2);
+		gap: calc(var(--side) * 1.5);
 	}
 
 	section.k2 div.awbox {
-		width: 42%;
+		width: 43%;
 	}
 
 	/* The photo is pressed into the sheet, letterpress style: no drop shadow
@@ -529,31 +529,93 @@ html.deck {
 		white-space: nowrap;
 	}
 
-	/* the sheet under the finger: a small print and its number and month */
+	/* The finger's photo: number above month beside its print, one paper
+	   card; neighbours, when the strip is too short for single-sheet hits,
+	   float free above (newer) and below (older), dimmed, flush right */
 	.scrub-label {
 		position: fixed;
-		right: 40px;
+		right: 56px;            /* set from the year marks by main.js */
 		display: flex;
-		align-items: center;
-		gap: 10px;
-		padding: 6px 10px 6px 6px;
-		background: var(--paper);
-		color: var(--ink);
-		border-radius: 6px;
-		box-shadow: var(--sheet-edge), 0 12px 28px rgba(var(--shade), 0.4);
-		font: 700 13px/1.2 "Helvetica Neue", Helvetica, Arial, sans-serif;
-		white-space: nowrap;
+		flex-direction: column;
+		align-items: flex-end;
+		gap: 4px;
 		opacity: 0;
 		pointer-events: none;
 		transition: opacity 0.2s ease;
 		z-index: 700;
+		font: 700 13px/1.1 "Helvetica Neue", Helvetica, Arial, sans-serif;
+		color: var(--ink);
+		white-space: nowrap;
 	}
 
-	.scrub-label img {
+	.scrub-up,
+	.scrub-down {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-end;
+		gap: 4px;
+	}
+
+	.scrub-up:empty,
+	.scrub-down:empty {
+		display: none;
+	}
+
+	.scrub-up img,
+	.scrub-down img {
+		width: 44px;
+		height: 44px;
+		border-radius: 4px;
+		display: block;
+		opacity: 0.7;
+		box-shadow: 0 0 0 1px var(--edge-dark);
+	}
+
+	.scrub-card {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		padding: 4px 4px 4px 12px;
+		background: var(--paper);
+		border-radius: 6px;
+		box-shadow: var(--sheet-edge), 0 12px 28px rgba(var(--shade), 0.4);
+	}
+
+	.scrub-text {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-end;
+	}
+
+	.scrub-text b {
+		font-size: 110%;
+	}
+
+	.scrub-text span {
+		font-weight: 500;
+		font-size: 11px;
+		margin-top: 3px;
+		opacity: 0.8;
+	}
+
+	.scrub-card img {
 		width: 56px;
 		height: 56px;
 		border-radius: 4px;
 		display: block;
+		box-shadow: 0 0 0 1px var(--edge-dark);
+	}
+
+	.scrub-hint {
+		font: 600 10px/1 "Helvetica Neue", Helvetica, Arial, sans-serif;
+		letter-spacing: 0.03em;
+		color: var(--ink);
+		opacity: 0.6;
+		margin-top: 2px;
+	}
+
+	.scrub-hint[hidden] {
+		display: none;
 	}
 
 	body.scrubbing .scrub-strip,

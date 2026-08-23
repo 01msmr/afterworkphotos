@@ -325,7 +325,18 @@ if (DECK) {
   const strip = scrub.querySelector('.scrub-strip');
   const scrubLabel = document.createElement('div');
   scrubLabel.className = 'scrub-label';
-  scrubLabel.innerHTML = '<img alt=""><span></span>';
+  scrubLabel.innerHTML = `
+    <div class="scrub-up"></div>
+    <div class="scrub-card"><div class="scrub-text"><b></b><span></span></div><img alt=""></div>
+    <div class="scrub-down"></div>
+    <div class="scrub-hint">← finer</div>`;
+  const labelUp = scrubLabel.querySelector('.scrub-up');
+  const labelDown = scrubLabel.querySelector('.scrub-down');
+  const labelCard = scrubLabel.querySelector('.scrub-card');
+  const labelN = scrubLabel.querySelector('.scrub-text b');
+  const labelMonth = scrubLabel.querySelector('.scrub-text span');
+  const labelPrint = scrubLabel.querySelector('.scrub-card img');
+  const hint = scrubLabel.querySelector('.scrub-hint');
   document.body.append(scrub, scrubLabel);
 
   const monthYear = (p) => p.taken
@@ -353,12 +364,17 @@ if (DECK) {
       mark.textContent = year;
       strip.appendChild(mark);
     }
+    // the label stops short of the widest year mark, so no year is ever covered
+    let widest = 0;
+    strip.querySelectorAll('.scrub-year').forEach(m => { widest = Math.max(widest, m.getBoundingClientRect().width); });
+    scrubLabel.style.right = (16 + widest + 8) + 'px';
   }
   markYears();
   window.addEventListener('resize', markYears);
 
   let scrubbing = false;
-  let scrubIndex = 0;
+  let scrubPos = 0;        // photo index, fractional while scrubbing
+  let scrubIndex = 0;      // the photo shown
 
   // Nothing should appear empty while scrubbing. The thumbnails are fetched
   // once, in the background, as soon as the page is up — so the small print
@@ -386,57 +402,113 @@ if (DECK) {
     idle(step);
   })();
 
+  // How many prints the label shows: one when a finger-width of strip is one
+  // photo or less, otherwise the neighbours too. px = strip pixels per photo
+  // at the current gear.
+  function neighbourCount(px) { return px >= 6 ? 1 : px >= 2 ? 3 : 5; }
+
+  // Never the wrong picture: an <img> keeps showing its old image until the
+  // new one has loaded, so only a thumbnail that is already there goes in;
+  // otherwise the print stays blank paper until it arrives — and only if it
+  // is still the wanted one by then
+  function setPrint(img, p) {
+    const thumb = warmUp(p.thumb);
+    img.dataset.want = p.thumb;
+    if (thumb.complete && thumb.naturalWidth) { img.src = p.thumb; img.style.visibility = ''; return; }
+    img.style.visibility = 'hidden';
+    thumb.addEventListener('load', () => {
+      if (scrubbing && img.dataset.want === p.thumb) { img.src = p.thumb; img.style.visibility = ''; }
+    }, { once: true });
+  }
+
+  // The finger's photo as a card — number, month, print — with the
+  // neighbours floating above (newer) and below (older)
+  function renderLabel(index, count) {
+    const p = photoAt(index);
+    labelN.textContent = p.n;
+    labelMonth.textContent = monthYear(p);
+    setPrint(labelPrint, p);
+    const side = (count - 1) / 2;
+    const fill = (box, from, to) => {
+      const want = [];
+      for (let i = from; i <= to; i++) if (i >= 0 && i < N) want.push(i);
+      while (box.children.length > want.length) box.lastElementChild.remove();
+      while (box.children.length < want.length) { const im = document.createElement('img'); im.alt = ''; box.appendChild(im); }
+      want.forEach((i, k) => setPrint(box.children[k], photoAt(i)));
+    };
+    fill(labelUp, index - side, index - 1);
+    fill(labelDown, index + 1, index + side);
+  }
+
+  // The card at the finger's height; the whole label kept on screen
+  function placeLabel(clientY) {
+    const r = strip.getBoundingClientRect();
+    const h = scrubLabel.offsetHeight;
+    const cardMid = labelUp.offsetHeight + labelCard.offsetHeight / 2;
+    const top = Math.min(r.bottom - h, Math.max(r.top, clientY - cardMid));
+    scrubLabel.style.top = top + 'px';
+  }
+
+  // Precision gear: when the strip gives less than GEAR_NEEDED_PX per photo,
+  // sliding the finger left off the strip slows the scrub — ¼ from 60px in,
+  // 1/16 from 160px. The touch-down sets the position from the strip; once a
+  // finer gear has been used the position follows the finger's travel
+  const GEAR_NEEDED_PX = 6;
+  let gearsOn = false, fineUsed = false, lastY = 0;
+  function gearRate(clientX) {
+    if (!gearsOn) return 1;
+    const d = scrub.getBoundingClientRect().left - clientX;
+    return d < 60 ? 1 : d < 160 ? 0.25 : 1 / 16;
+  }
+
   let restTimer = 0;
 
-  function scrubTo(clientY) {
+  function scrubTo(clientX, clientY, first = false) {
     const r = strip.getBoundingClientRect();
-    const f = Math.min(1, Math.max(0, (clientY - r.top) / r.height));
-    scrubIndex = Math.round(f * (N - 1));
-    const p = photoAt(scrubIndex);
-    scrubLabel.querySelector('span').textContent = `${p.n} · ${monthYear(p)}`;
-    // Never the wrong picture: an <img> keeps showing its old image until the
-    // new one has loaded, so only a thumbnail that is already there goes in;
-    // otherwise the print stays blank paper until it arrives — and only if
-    // the finger is still on that sheet by then
-    const print = scrubLabel.querySelector('img');
-    const thumb = warmUp(p.thumb);
-    if (thumb.complete && thumb.naturalWidth) {
-      print.src = p.thumb;
-      print.style.visibility = '';
+    const rate = gearRate(clientX);
+    if (rate < 1) fineUsed = true;
+    if (first || !fineUsed) {
+      const f = Math.min(1, Math.max(0, (clientY - r.top) / r.height));
+      scrubPos = f * (N - 1);
     } else {
-      print.style.visibility = 'hidden';
-      const want = scrubIndex;
-      thumb.addEventListener('load', () => {
-        if (scrubbing && scrubIndex === want) { print.src = p.thumb; print.style.visibility = ''; }
-      }, { once: true });
+      scrubPos += (clientY - lastY) * (N - 1) / r.height * rate;
+      scrubPos = Math.min(N - 1, Math.max(0, scrubPos));
     }
-    scrubLabel.style.top = Math.min(r.bottom - 60, Math.max(r.top, clientY)) + 'px';
-    // the finger resting on a sheet for a moment is enough to fetch its photo
+    lastY = clientY;
+    scrubIndex = Math.round(scrubPos);
+    const count = neighbourCount(r.height / N / rate);
+    renderLabel(scrubIndex, count);
+    hint.hidden = !(gearsOn && rate === 1 && count > 1);
+    placeLabel(clientY);
+    // the finger resting on a photo for a moment is enough to fetch it
     clearTimeout(restTimer);
-    restTimer = setTimeout(() => warmUp(p.file), 200);
+    restTimer = setTimeout(() => warmUp(photoAt(scrubIndex).file), 200);
   }
 
   scrub.addEventListener('touchstart', (e) => {
     if (animating) return;
     scrubbing = true;
     document.body.classList.add('scrubbing');
-    scrubTo(e.touches[0].clientY);
+    gearsOn = strip.getBoundingClientRect().height / N < GEAR_NEEDED_PX;
+    fineUsed = false;
+    scrubTo(e.touches[0].clientX, e.touches[0].clientY, true);
   }, { passive: true });
 
   scrub.addEventListener('touchmove', (e) => {
     if (!scrubbing) return;
     e.preventDefault();
-    scrubTo(e.touches[0].clientY);
+    scrubTo(e.touches[0].clientX, e.touches[0].clientY);
   }, { passive: false });
 
   scrub.addEventListener('touchend', () => {
     if (!scrubbing) return;
     scrubbing = false;
     document.body.classList.remove('scrubbing');
-    if (scrubIndex === current || mover) return;
+    const target = sheetOf(scrubIndex);
+    if (target === current || mover) return;
     // older (further down the pile): lift the top sheet off onto it;
     // newer: bring it down onto the top sheet
-    startMove(scrubIndex > current ? 1 : -1, scrubIndex);
+    startMove(target > current ? 1 : -1, target);
     settle(true);
   }, { passive: true });
 
