@@ -20,7 +20,7 @@ function mediaHTML(p) {
   return `<img src="${p.file}" alt="afterworkphoto ${p.n}" width="100%">`;
 }
 
-fetch('photos.json').then(r => r.json()).then(data => {
+fetch('photos.json', { cache: 'no-cache' }).then(r => r.json()).then(data => {
   PHOTOS = data.photos;
   init();
 });
