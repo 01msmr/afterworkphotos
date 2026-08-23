@@ -182,18 +182,37 @@ html:not(.deck) body.kbd-active .awbox:hover:not(.kbd-focus) .subtitle {
    down and a little right, a weaker second spot's shadow from the other
    side, a soft bed and a short faint halo. Slightly warm — a warm room's
    bounce light. In cqw, so it scales with the print (1cqw = 1% of the
-   box's width; the values are 15px etc. on a 320px print). */
+   box's width; the values are 15px etc. on a 320px print).
+
+   The full shadow belongs to the lit print — the spot is on it. A dimmed
+   one keeps only a faint close shadow. */
 div.awbox {
 	container-type: inline-size;
 }
 
 .awphoto {
 	box-shadow:
+		0 0.3cqw 0.6cqw -0.2cqw rgba(48, 42, 18, 0.18),
+		0.4cqw 1.4cqw 1.2cqw -0.3cqw rgba(48, 42, 18, 0.10),
+		0 2cqw 4cqw 0.3cqw rgba(48, 42, 18, 0.06);
+	transition: box-shadow 0.9s ease-in;
+}
+
+html:not(.deck) .awbox:hover .awphoto,
+html:not(.deck) .awbox.kbd-focus .awphoto {
+	box-shadow:
 		0 0.6cqw 1.25cqw -0.3cqw rgba(48, 42, 18, 0.45),
 		1.25cqw 4.7cqw 2.8cqw -0.45cqw rgba(48, 42, 18, 0.31),
 		-0.8cqw 3.9cqw 3.75cqw -0.6cqw rgba(48, 42, 18, 0.10),
 		0.6cqw 4cqw 8.75cqw 0.8cqw rgba(48, 42, 18, 0.26),
 		0 7.2cqw 15cqw 1.4cqw rgba(48, 42, 18, 0.17);
+}
+
+html:not(.deck) body.kbd-active .awbox:hover:not(.kbd-focus) .awphoto {
+	box-shadow:
+		0 0.3cqw 0.6cqw -0.2cqw rgba(48, 42, 18, 0.18),
+		0.4cqw 1.4cqw 1.2cqw -0.3cqw rgba(48, 42, 18, 0.10),
+		0 2cqw 4cqw 0.3cqw rgba(48, 42, 18, 0.06);
 }
 
 .awphoto img,
