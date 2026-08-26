@@ -964,69 +964,50 @@ if (DECK) {
   const mapgo = document.createElement('div');
   mapgo.className = 'mapgo';
   mapgo.title = 'map';
-  // Seen from above: a quarter of a town. Three of its streets happen to
-  // read as M, A and P — each a shape a plan really carries: a serpentine
-  // climbing in switchbacks, a triangular block with its connecting lane, a
-  // dead end ending in a turning loop. They run in the same weight as the
-  // other through roads and carry on into the network at both ends, so they
-  // are found rather than read. All of it is cut out of the dark square, so
-  // the wall shows through the streets.
+  // A quarter of a town seen from above, drawn in streets alone. Three of
+  // them fill the square — a serpentine with switchbacks, a triangular
+  // block with its connecting lane, a dead end whose bowl returns to the
+  // stem — each running between the through roads north and south the way
+  // a street does. The lanes of the quarter run up to them and stop there:
+  // nothing crosses them, nothing runs parallel beside them, and only the
+  // width of the line tells the three apart. Read as letters they say MAP.
+  // All of it is cut out of the dark square, so the wall shows through the
+  // streets.
   mapgo.innerHTML = `<svg viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
     <defs><mask id="mapgo-m"><rect width="44" height="44" fill="#fff"/>
-      <g fill="none" stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-width="0.5">
-        <path d="M-2 8.6 C12 10.4 28 6.4 46 9.4" stroke-width="0.9"/>
-        <path d="M-2 35.4 C12 36.6 30 34.6 46 35.4" stroke-width="0.9"/>
-        <path d="M-2 43.4 C11 40.2 24 45.4 46 41.6" stroke-width="1.5"/>
-        <path d="M4.4 -2 L3.4 46" stroke-width="0.75"/>
-        <path d="M39.6 -2 L40.6 46" stroke-width="0.75"/>
-        <path d="M-2 1.6 L46 0.4"/>
-        <path d="M-2 17.4 L4.2 17.6"/>
-        <path d="M-2 26.6 L4 26.8"/>
-        <path d="M40.2 14.6 L46 14.2"/>
-        <path d="M40.4 24.4 L46 24"/>
-        <path d="M40.4 30.6 L46 30.4"/>
-        <path d="M9.6 -2 L9.8 8.8"/>
-        <path d="M20.4 -2 L20.6 8.6"/>
-        <path d="M31.4 -2 L31.2 8.8"/>
-        <path d="M14.6 -2 L14.8 8.7"/>
-        <path d="M8.4 35.8 L8.2 42"/>
-        <path d="M16.6 35.6 L16.4 41.4"/>
-        <path d="M25.4 35.4 L25.2 40.6"/>
-        <path d="M33.4 35.2 L33.6 40.4"/>
-        <path d="M4 12.6 L44 12"/>
-        <path d="M4 31.4 L44 31"/>
-        <path d="M3.8 18.8 L40.4 18.2"/>
-        <path d="M3.8 28.2 L40.4 27.8"/>
-        <rect x="9.2" y="14.6" width="2.2" height="3" rx="0.3"/>
-        <rect x="12.8" y="14.6" width="2.4" height="3" rx="0.3"/>
-        <rect x="21.2" y="29.4" width="2.2" height="1.4" rx="0.3"/>
-        <rect x="30.6" y="14.8" width="3.2" height="2.6" rx="0.3"/>
-        <rect x="9" y="20" width="2.4" height="2.2" rx="0.3"/>
-        <rect x="17.4" y="20" width="2.2" height="2.2" rx="0.3"/>
-        <rect x="30.4" y="23.2" width="3" height="2.2" rx="0.3"/>
-        <rect x="10.4" y="37" width="5" height="3.2" rx="0.4"/>
-        <rect x="26.6" y="36.6" width="6" height="3" rx="0.4"/>
-        <circle cx="37.2" cy="27.6" r="1.6" stroke-width="0.6"/>
-        <path d="M35.6 27.6 L31 27.2"/>
-        <g stroke-width="0.9">
-          <path d="M8 35.6 L8 13 L12 21.4 L16 13 L16 35.6"/>
-          <path d="M18.4 35.5 L22.2 13 L26 35.4"/>
-          <path d="M19.6 24.6 L24.8 24.4" stroke-width="0.55"/>
-          <path d="M28.4 35.4 L28.4 13 C33.4 12.4 36 14.8 36 17.4 C36 20 33.4 21.6 28.4 20.8"/>
+      <g fill="none" stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-width="0.55">
+        <path d="M-2 3.4 C12 4.6 30 2.6 46 4" stroke-width="0.8"/>
+        <path d="M-2 40.4 C12 41.6 30 39.6 46 41" stroke-width="0.8"/>
+        <path d="M-2 44.6 C12 42 26 46.4 46 43.4" stroke-width="1.2"/>
+        <path d="M-1 21.8 L3.3 21.8"/>
+        <path d="M-1 33 L3.3 33"/>
+        <path d="M14.7 12 L21.3 12"/>
+        <path d="M14.7 31.4 L18.1 31.4"/>
+        <path d="M23.7 11.6 L30.8 11.6"/>
+        <path d="M27.3 33.4 L30.8 33.4"/>
+        <path d="M31.2 27.4 L45 27.4"/>
+        <path d="M31.2 34.6 L45 34.6"/>
+        <g stroke-width="1.7">
+          <path d="M3.4 40.2 L3.4 3.6 L9 18.4 L14.6 3.5 L14.6 40.1"/>
+          <path d="M17 40 L22.5 3.5 L28 39.9"/>
+          <path d="M18.9 27 L26.1 26.9" stroke-width="0.85"/>
+          <path d="M31 39.8 L31 3.4 L36 3.4 C40.8 3.4 40.9 17.4 36.1 17.5 L31 17.5"/>
         </g>
       </g></mask></defs>
     <rect width="44" height="44" fill="#3a3a3a" mask="url(#mapgo-m)"/></svg>`;
   const towns = [...new Set(PHOTOS.map(p => p.place).filter(Boolean))]
     .sort((a, b) => a.localeCompare(b, 'en'));
+  // the list stands beside the grown plan, not on it — its own element, so
+  // the map's 1.8 zoom does not reach it
   const list = document.createElement('div');
   list.className = 'towns';
   list.innerHTML = towns.map(t => `<span data-place="${t}">${t.toLowerCase()}</span>`).join('');
-  mapgo.appendChild(list);
   document.body.appendChild(mapgo);
-  mapgo.addEventListener('click', (e) => {
+  document.body.appendChild(list);
+  mapgo.addEventListener('click', () => toggleMap());
+  list.addEventListener('click', (e) => {
     const t = e.target.closest('[data-place]');
-    if (t) { goToPlace(t.dataset.place); return; }   // a town: go there, the map stays
-    toggleMap();
+    if (t) goToPlace(t.dataset.place);              // the map stays up
   });
 
   const yearDrums = [...goto.querySelectorAll('.goto-year .strip')];

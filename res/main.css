@@ -11,8 +11,13 @@
 	   width of one of (prints + 1) equal squares between the --side margins */
 	--gap: 6vw;   /* 1.5 × --side, but of the viewport: a percentage gap would shrink with the room the map takes */
 	--wall-top: calc(4rem + var(--tp) * 2);
-	/* the MAP icon grown: 4 × its 44px face, at the 1.8 it is drawn in */
-	--map-grown: calc(44px * 4 * 1.8);
+	/* the MAP icon grown: 5 × its 44px face, at the 1.8 it is drawn in —
+	   and the town list standing beside it */
+	--map-grown: calc(44px * 5 * 1.8);
+	/* the size the wall's desc and meta lines come out at (165% × 69% of the
+	   root size) — the town list is never smaller than they are */
+	--meta-size: calc(1rem * 1.65 * 0.69);
+	--towns-w: min(490px, 34vw);
 	--app-height: 100vh;
 	/* overridden by JS with window.innerHeight */
 }
@@ -170,7 +175,7 @@ section {
 	padding: 3% var(--side);
 	padding-top: var(--wall-top);
 	box-sizing: border-box;
-	/* room for the carried map opens and closes at the map's own pace */
+	/* room for the map opens and closes at the map's own pace and curve */
 	transition: padding-left 0.6s cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
@@ -178,7 +183,7 @@ section {
    margin, and shrink towards the top right — their top and right edges
    stay where they are */
 html.map-on section {
-	padding-left: calc(var(--side) + var(--map-grown) + var(--gap));
+	padding-left: calc(var(--side) + var(--map-grown) + 44px + var(--towns-w) + var(--gap) * 0.8);
 	justify-content: flex-end;
 }
 
@@ -389,7 +394,11 @@ html:not(.deck) body.kbd-active .awbox:hover:not(.kbd-focus) .awphoto {
 	zoom: 1.8;
 	opacity: 0.12;
 	cursor: none;
-	transition: opacity 0.6s ease, width 0.6s cubic-bezier(0.22, 0.61, 0.36, 1), height 0.6s cubic-bezier(0.22, 0.61, 0.36, 1);
+	/* it grows by scaling from its own bottom left corner: that corner and
+	   both those edges stay exactly where they are, and the growth is one
+	   smooth movement rather than a re-layout */
+	transform-origin: bottom left;
+	transition: opacity 0.6s ease, transform 0.6s cubic-bezier(0.22, 0.61, 0.36, 1);
 	box-shadow:
 		0 1px 2px rgba(0, 0, 0, 0.35),
 		0 6px 10px -3px rgba(48, 42, 18, 0.45);
@@ -402,59 +411,54 @@ html:not(.deck) body.kbd-active .awbox:hover:not(.kbd-focus) .awphoto {
 }
 
 html.map-on .mapgo {
-	width: calc(44px * 4);
-	height: calc(44px * 4);
+	transform: scale(5);
 	opacity: 1;
+	/* the small mark casts a shadow; the plan itself is flat on the wall */
+	box-shadow: none;
 }
-
-/* open, a thin dark veil lies over the plan so the names read — the
-   streets stay visible through it */
-.mapgo::after {
-	content: '';
-	position: absolute;
-	inset: 0;
-	background: rgba(28, 28, 28, 0);
-	pointer-events: none;
-	transition: background 0.4s ease;
-}
-
-/* open, the plan lies under a veil so the names read on it */
-html.map-on .mapgo::after {
-	background: rgba(26, 26, 26, 0.55);
-}
-
 
 /* the towns of the archive, alphabetical, in the descriptions' small type —
-   a plain list, no numbers, no bullets */
-.mapgo .towns {
-	position: absolute;
-	inset: 7px;
-	z-index: 1;
-	columns: 78px;
-	column-gap: 5px;
-	font: 400 5px/1.45 "Helvetica Neue", Helvetica, Arial, sans-serif;
-	color: #f2f2f2;
+   a plain list, no numbers, no bullets — standing beside the grown plan,
+   its foot on the plan's foot. Its own element, so the map's 1.8 zoom does
+   not reach it. */
+.towns {
+	position: fixed;
+	left: calc(var(--side) + var(--map-grown) + 44px);
+	/* the plan sits 18px up at its own 1.8 zoom: the list's foot meets it */
+	bottom: calc(18px * 1.8);
+	width: var(--towns-w);
+	/* never taller than the plan beside it: the names fill one column to the
+	   plan's height, then start the next — as many as the width takes, so
+	   they keep the size the wall's descriptions have */
+	height: var(--map-grown);
+	column-fill: auto;
+	columns: 150px;
+	column-gap: 18px;
+	font: 400 var(--meta-size)/1.45 "Helvetica Neue", Helvetica, Arial, sans-serif;
+	color: #444;
+	text-transform: lowercase;
+	z-index: 900;
 	opacity: 0;
-	overflow: hidden;
 	pointer-events: none;
-	transition: opacity 0.25s ease;
+	cursor: none;
+	transition: opacity 0.3s ease;
 }
 
-html.map-on .mapgo .towns {
-	opacity: 1;
+html.map-on .towns {
+	opacity: 0.75;
 	pointer-events: auto;
-	transition: opacity 0.4s ease 0.25s;
+	transition: opacity 0.4s ease 0.2s;
 }
 
-.mapgo .towns span {
+.towns span {
 	display: block;
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
 }
 
-.mapgo .towns span:hover {
-	color: #fff;
+.towns span:hover {
+	color: #000;
 }
 
 .mapgo:hover,
