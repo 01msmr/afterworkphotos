@@ -20,6 +20,12 @@
 	/* the size the wall's desc and meta lines come out at (165% × 69% of the
 	   root size) — the town list is never smaller than they are */
 	--meta-size: calc(1rem * 1.65 * 0.69);
+	/* the town list's two inks: the names at rest and the one under the
+	   mark. Everything in the list — the count, and the Enter key, whose
+	   frame and glyph are currentColor — takes its colour from these, so an
+	   inverted ground only has to redefine the pair. */
+	--towns-ink: #444;
+	--towns-mark: #000;
 	--towns-w: min(490px, 34vw);
 	--app-height: 100vh;
 	/* overridden by JS with window.innerHeight */
@@ -443,7 +449,7 @@ html.map-on .mapgo {
 	/* 1.42, so fifteen names fit a column of the plan's height — at 1.45 the
 	   fifteenth falls into a fourth column and leaves it holding one name */
 	font: 400 var(--meta-size)/1.42 "Helvetica Neue", Helvetica, Arial, sans-serif;
-	color: #444;
+	color: var(--towns-ink);
 	text-transform: lowercase;
 	z-index: 900;
 	opacity: 0;
@@ -497,12 +503,12 @@ html.map-on .towns {
 }
 
 .towns span:hover {
-	color: #000;
+	color: var(--towns-mark);
 }
 
 /* the town the arrows stand on, at the map's Tab station */
 .towns span.here {
-	color: #000;
+	color: var(--towns-mark);
 	font-weight: 700;
 }
 
