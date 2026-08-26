@@ -464,10 +464,41 @@ html.map-on .towns {
 }
 
 .towns span {
-	display: block;
+	display: flex;
+	align-items: baseline;
+	gap: 0.4em;
 	white-space: nowrap;
+}
+
+.towns span b {
+	font-weight: inherit;
+	min-width: 0;
 	overflow: hidden;
 	text-overflow: ellipsis;
+}
+
+/* the count and the Enter key belong to the town one stands on */
+.towns .n,
+.towns .go {
+	display: none;
+	flex: none;
+	font-style: normal;
+	font-weight: 400;
+}
+
+.towns .here .n {
+	display: block;
+	opacity: 0.6;
+}
+
+.towns .here .go {
+	display: block;
+	font-size: 0.78em;
+	line-height: 1.1;
+	padding: 0 0.3em;
+	border: 1px solid currentColor;
+	border-radius: 3px;
+	opacity: 0.75;
 }
 
 .towns span:hover {

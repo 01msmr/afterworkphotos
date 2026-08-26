@@ -745,13 +745,15 @@ if (DECK) {
   function goToPlace(name) {
     const idx = [];
     boxes.forEach((b, i) => { if (photoOfBox(i).place === name) idx.push(i); });
-    if (!idx.length) return;
+    if (!idx.length) return 0;
     const last = placeCursor.has(name) ? idx.indexOf(placeCursor.get(name)) : -1;
-    goIdx = idx[(last + 1) % idx.length];
+    const at = (last + 1) % idx.length;
+    goIdx = idx[at];
     placeCursor.set(name, goIdx);
     goTouched = true;
     showGoto();
     goNow();
+    return at + 1;                       // the print's place in that town: 1 … max
   }
   function toggleMap(on) {
     const v = on === undefined ? !document.documentElement.classList.contains('map-on') : on;
@@ -1017,9 +1019,14 @@ if (DECK) {
     .sort((a, b) => a.localeCompare(b, 'en'));
   // the list stands beside the grown plan, not on it — its own element, so
   // the map's 1.8 zoom does not reach it
+  const townCount = new Map();
+  PHOTOS.forEach(p => { if (p.place) townCount.set(p.place, (townCount.get(p.place) || 0) + 1); });
   const list = document.createElement('div');
   list.className = 'towns';
-  list.innerHTML = towns.map(t => `<span data-place="${t}">${t.toLowerCase()}</span>`).join('');
+  // the count and the Enter key show on the town the arrows stand on: the
+  // count starts at how many prints the town has and then tells which of
+  // them one is looking at, 1 … max, over and over
+  list.innerHTML = towns.map(t => `<span data-place="${t}"><b>${t.toLowerCase()}</b><i class="n">${townCount.get(t)}</i><i class="go">\u23ce</i></span>`).join('');
   document.body.appendChild(mapgo);
   document.body.appendChild(list);
   mapgo.addEventListener('click', () => toggleMap());
@@ -1031,13 +1038,25 @@ if (DECK) {
   // From the map's Tab station the arrows walk the list and Space or Enter
   // goes to the town under the mark — the same move the click makes.
   let townIdx = -1;
+  // leaving a town sets its count back and forgets where one was in it, so
+  // coming back starts at its first print again
+  function releaseTown(span) {
+    if (!span) return;
+    span.classList.remove('here');
+    const n = span.querySelector('.n');
+    if (n) n.textContent = townCount.get(span.dataset.place);
+    placeCursor.delete(span.dataset.place);
+  }
   function markTown(i) {
     const spans = list.children;
-    if (townIdx >= 0 && spans[townIdx]) spans[townIdx].classList.remove('here');
+    if (townIdx >= 0 && spans[townIdx]) releaseTown(spans[townIdx]);
     townIdx = spans.length ? (i + spans.length) % spans.length : -1;
     if (townIdx >= 0) spans[townIdx].classList.add('here');
   }
-  function clearTown() { markTown(-1); if (townIdx >= 0) list.children[townIdx].classList.remove('here'); townIdx = -1; }
+  function clearTown() {
+    if (townIdx >= 0) releaseTown(list.children[townIdx]);
+    townIdx = -1;
+  }
   // how many names one column holds — asked of the list itself, since the
   // browser decides the column count from the width it is given
   function townRows() {
@@ -1336,7 +1355,9 @@ if (DECK) {
       // they go to the marked town instead and the map stays up; Escape or
       // Tab lets go of the town, and the keys open and shut it again.
       if (document.documentElement.classList.contains('map-on') && townIdx >= 0) {
-        goToPlace(list.children[townIdx].dataset.place);
+        const span = list.children[townIdx];
+        const at = goToPlace(span.dataset.place);
+        if (at) span.querySelector('.n').textContent = at;
         return;
       }
       toggleMap();
