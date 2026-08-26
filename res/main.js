@@ -1046,11 +1046,12 @@ if (DECK) {
 
   // ── The guide: the keys of whatever is in hand ──
   // No panel that covers anything, and no mark on the wall either: a line
-  // of key caps at the foot of the wall, showing what the station one is
-  // standing on answers to. It is the last stop of the round — where it
-  // shows every group at once — and the key ? steps in and out of it. On
-  // the very first visit the three keys that always work show themselves
-  // once, and go at the first touch.
+  // of key caps at the foot of the wall. It shows itself at the first
+  // station — the wall's own, where one arrives — with every group at
+  // once, and goes again after five seconds; twice a day is enough, so it
+  // keeps a count. The knobs and the map show their own group while the
+  // round is new to the visit. The key ? calls it up whenever one likes,
+  // and the count does not apply to that.
   // Each group says where it belongs before it says what it does, and
   // every key gets its own cap — two keys are two caps, as on the board.
   const HINTS = {
@@ -1063,11 +1064,27 @@ if (DECK) {
   hints.className = 'hints';
   document.body.appendChild(hints);
   // The stations show their keys while the round is new to this visit:
-  // after one full turn of Tab the hand knows them, and only the guide's
-  // own stop still says anything.
+  // after one full turn of Tab the hand knows them.
   let tabsWalked = 0;
-  const taught = () => tabsWalked >= 4;
+  const taught = () => tabsWalked >= 3;
+  // Twice a day the wall greets one with the whole guide; the tally lives
+  // under the day it belongs to, so it starts over tomorrow.
+  const TODAY = () => new Date().toISOString().slice(0, 10);
+  function guideLeft() {
+    try {
+      const [day, n] = (localStorage.getItem('guide') || '').split(':');
+      return day === TODAY() ? Math.max(0, 2 - (+n || 0)) : 2;
+    } catch (e) { return 0; }
+  }
+  function spendGuide() {
+    try {
+      const [day, n] = (localStorage.getItem('guide') || '').split(':');
+      localStorage.setItem('guide', TODAY() + ':' + (day === TODAY() ? (+n || 0) + 1 : 1));
+    } catch (e) {}
+  }
+  let hintTimer = 0;
   function showHints(groups) {
+    clearTimeout(hintTimer);
     if (!groups.length) { hints.classList.remove('on'); return; }
     hints.innerHTML = groups.map(g => `<span class="hint-group"><i class="where">${HINTS[g][0]}</i>` +
       HINTS[g][1].map(([keys, what]) => `<span class="hint"><span class="caps">${keys.map(k => `<i class="keycap">${k}</i>`).join('')}</span>${what}</span>`).join('') +
@@ -1076,6 +1093,7 @@ if (DECK) {
     // neighbourhoods side by side, each under its own heading
     hints.classList.toggle('full', groups.length > 1);
     hints.classList.add('on');
+    hintTimer = setTimeout(() => hints.classList.remove('on'), 5000);   // it says its piece and goes
   }
 
   mapgo.addEventListener('click', () => setMap(!mapOpen()));
@@ -1251,11 +1269,14 @@ if (DECK) {
     // document.documentElement.classList.toggle('bg-focus', station === 4);   // station 4: the wall
     if (station === 1) goto.classList.remove('quiet');
     else goto.classList.add('quiet');
-    // the guide shows the keys of the station one holds — until the round
-    // has been walked once; standing on the guide itself, it shows them all
-    showHints(station === 3 ? ['print', 'knobs', 'map', 'keys']
-      : taught() ? []
-      : station === 1 ? ['knobs'] : station === 2 ? ['map'] : []);
+    // the wall's own station shows the whole guide — twice a day, no more;
+    // the knobs and the map show their group while the round is new
+    if (station === 0) {
+      if (guideLeft() > 0) { showHints(['print', 'knobs', 'map', 'keys']); spendGuide(); }
+      else showHints([]);
+    } else {
+      showHints(taught() ? [] : station === 1 ? ['knobs'] : station === 2 ? ['map'] : []);
+    }
   }
   // clicking the print knob or the image commits at once, without leaving
   goto.querySelector('.goto-img').addEventListener('click', () => { if (goTouched) goNow(); });
@@ -1315,20 +1336,9 @@ if (DECK) {
   }, { passive: true });
   showGoto();
 
-  // the first visit is shown the three keys that always work; they go at
-  // the first touch of anything, and are not shown again
-  try {
-    if (!localStorage.getItem('guide')) {
-      showHints(['keys']);
-      const done = () => {
-        if (station === 0) hints.classList.remove('on');
-        try { localStorage.setItem('guide', 'seen'); } catch (e) {}
-        ['keydown', 'wheel', 'pointerdown', 'mousemove'].forEach(t => window.removeEventListener(t, done));
-      };
-      ['keydown', 'wheel', 'pointerdown', 'mousemove'].forEach(t => window.addEventListener(t, done, { once: true }));
-      setTimeout(done, 6000);
-    }
-  } catch (e) {}
+  // arriving at the wall is arriving at the first station: the guide
+  // greets whoever has not had it twice today
+  if (guideLeft() > 0) { showHints(['print', 'knobs', 'map', 'keys']); spendGuide(); }
 
   // a deep link opens on its print, instantly and lit
   const startN = targetN();
@@ -1386,13 +1396,9 @@ if (DECK) {
     // navigation (the knob unit), m the map
     if (e.key === 'b' || e.key === 'B') { toggleWall(); return; }
     if (e.key === 'n' || e.key === 'N') { toggleNav(); return; }
-    if (e.key === '?') {
-      if (mode === 'mouse') { mode = 'kbd'; mouseHasMoved = false; document.body.classList.add('kbd-active'); }
-      station = station === 3 ? 0 : 3;
-      applyStation();
-      setMap(false);
-      return;
-    }
+    // the guide on demand, whatever station one stands on and however
+    // often one asks
+    if (e.key === '?') { showHints(['print', 'knobs', 'map', 'keys']); return; }
 
     if (e.key === 'm' || e.key === 'M') {
       if (mode === 'mouse') { mode = 'kbd'; mouseHasMoved = false; document.body.classList.add('kbd-active'); }
@@ -1420,7 +1426,7 @@ if (DECK) {
       e.preventDefault();
       if (mode === 'mouse') { mode = 'kbd'; mouseHasMoved = false; document.body.classList.add('kbd-active'); }
       tabsWalked++;
-      station = (station + (e.shiftKey ? 3 : 1)) % 4;
+      station = (station + (e.shiftKey ? 2 : 1)) % 3;
       applyStation();
       setMap(station === 2);
       if (station === 0 && selected < 0) {

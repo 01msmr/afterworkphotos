@@ -547,7 +547,9 @@ html.map-on .towns {
 	gap: 0.8em 4em;
 	align-items: baseline;
 	font: 400 var(--meta-size)/1.4 "Helvetica Neue", Helvetica, Arial, sans-serif;
-	color: var(--towns-ink);
+	/* 66 % black, the way the wall's greys are counted here: there when
+	   looked for, never louder than the prints */
+	color: #575757;
 	text-transform: lowercase;
 	white-space: nowrap;
 	pointer-events: none;
@@ -619,9 +621,12 @@ html.map-on .towns {
 }
 
 /* the guide's caps are keys to look at, not marks in a line of type: the
-   glyph sits centred in a box with air on all four sides. (The town
-   list's Enter keeps the tighter box, so its line never grows.) */
+   glyph sits centred in a box with air on all four sides, in the mid grey
+   of the line. (The town list's Enter keeps the tighter box and the ink of
+   the list, so its line never grows and the mark stays black.) */
 .hints .keycap {
+	background: #575757;
+	border-color: #575757;
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
