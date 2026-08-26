@@ -509,9 +509,83 @@ html.map-on .towns {
 	opacity: 0.6;
 }
 
-/* the key is the mark's ink with the return sign cut out of it — a black
-   key with a white arrow on the light wall, and the other way round on a
-   dark one. Same box as before, so no line ever changes height. */
+/* A key cap: the mark's ink with the sign cut out of it — black with a
+   white glyph on the light wall, and the other way round on a dark one.
+   The town list's Enter and the guide's keys are the same object. */
+.keycap,
+.towns .here .go {
+	font-size: 0.78em;
+	line-height: 1.1;
+	padding: 0 0.3em;
+	border: 1px solid var(--towns-mark);
+	border-radius: 3px;
+	background: var(--towns-mark);
+	color: var(--towns-paper);
+	/* the sign sits low in its own line box: a pixel up puts the cap level
+	   with the type beside it */
+	position: relative;
+	top: -1px;
+	/* it stands a little off the wall, and goes down into that when struck */
+	box-shadow: 1.5px 1.5px 0 rgba(0, 0, 0, 0.3);
+	font-style: normal;
+	font-weight: 400;
+}
+
+/* ── The guide: a line of keys at the foot of the wall, and the quiet ?
+   that calls it. Both as light as the rest of the machinery until they
+   are wanted. ── */
+.hints {
+	position: fixed;
+	left: 50%;
+	transform: translateX(-50%);
+	bottom: 52px;
+	z-index: 900;
+	display: flex;
+	gap: 2.2em;
+	align-items: baseline;
+	font: 400 var(--meta-size)/1.4 "Helvetica Neue", Helvetica, Arial, sans-serif;
+	color: var(--towns-ink);
+	text-transform: lowercase;
+	white-space: nowrap;
+	pointer-events: none;
+	opacity: 0;
+	transition: opacity 0.3s ease;
+}
+
+.hints.on {
+	opacity: 0.75;
+}
+
+.hint-group {
+	display: flex;
+	gap: 1.1em;
+	align-items: baseline;
+}
+
+.hint {
+	display: flex;
+	gap: 0.4em;
+	align-items: baseline;
+}
+
+.helpmark {
+	position: fixed;
+	left: 50%;
+	transform: translateX(-50%);
+	bottom: 18px;
+	z-index: 900;
+	font: 700 var(--meta-size)/1 "Helvetica Neue", Helvetica, Arial, sans-serif;
+	color: var(--towns-mark);
+	opacity: 0.12;
+	cursor: none;
+	transition: opacity 0.3s ease;
+}
+
+.helpmark:hover,
+.helpmark.kfocus {
+	opacity: 1;
+}
+
 .towns .here .go {
 	display: block;
 	font-size: 0.78em;

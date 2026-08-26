@@ -1043,6 +1043,40 @@ if (DECK) {
   list.innerHTML = towns.map(t => `<span data-place="${t}"><b>${t.toLowerCase()}</b><i class="n">${townCount.get(t)}</i><i class="go">\u23ce</i></span>`).join('');
   document.body.appendChild(mapgo);
   document.body.appendChild(list);
+
+  // ── The guide: the keys of whatever is in hand ──
+  // No panel that covers anything: a line of key caps at the foot of the
+  // wall, showing what the station one is standing on answers to. The mark
+  // that opens it is a quiet ? beside them — the last stop of the round,
+  // and the key ? steps in and out of it. On the very first visit the three
+  // keys that always work show themselves once, and go at the first touch.
+  const HINTS = {
+    knobs: [['\u2191\u2193', 'year'], ['\u2190\u2192', 'print'], ['\u23ce', 'go']],
+    map: [['\u2191\u2193\u2190\u2192', 'towns'], ['\u23ce', 'visit'], ['\u21e7\u23ce', 'back']],
+    print: [['\u23ce', 'next'], ['\u21e7\u23ce', 'back'], ['0\u20139', 'number'], ['\u21de\u21df', 'screen']],
+    keys: [['m', 'map'], ['n', 'knobs'], ['b', 'wall']]
+  };
+  const hints = document.createElement('div');
+  hints.className = 'hints';
+  document.body.appendChild(hints);
+  const helpMark = document.createElement('div');
+  helpMark.className = 'helpmark';
+  helpMark.textContent = '?';
+  helpMark.title = 'keys';
+  document.body.appendChild(helpMark);
+  function showHints(groups) {
+    if (!groups.length) { hints.classList.remove('on'); return; }
+    hints.innerHTML = groups.map(g => `<span class="hint-group">` +
+      HINTS[g].map(([k, what]) => `<span class="hint"><i class="keycap">${k}</i>${what}</span>`).join('') +
+      `</span>`).join('');
+    hints.classList.add('on');
+  }
+  helpMark.addEventListener('click', () => {
+    if (mode === 'mouse') { mode = 'kbd'; mouseHasMoved = false; document.body.classList.add('kbd-active'); }
+    station = station === 3 ? 0 : 3;
+    applyStation();
+    setMap(station === 2);
+  });
   mapgo.addEventListener('click', () => setMap(!mapOpen()));
   list.addEventListener('click', (e) => {
     const t = e.target.closest('[data-place]');
@@ -1206,7 +1240,7 @@ if (DECK) {
   // own; both are out of the round now (the lines marked "station 4" and
   // the old station 2 below), while the key b still switches plaster and
   // concrete as it always did.
-  let station = 0;            // 0 print, 1 the knobs, 2 the map
+  let station = 0;            // 0 print, 1 the knobs, 2 the map, 3 the guide
   function applyStation() {
     knobYear.classList.toggle('kfocus', station === 1);
     knobPrint.classList.toggle('kfocus', station === 1);
@@ -1216,6 +1250,11 @@ if (DECK) {
     // document.documentElement.classList.toggle('bg-focus', station === 4);   // station 4: the wall
     if (station === 1) goto.classList.remove('quiet');
     else goto.classList.add('quiet');
+    helpMark.classList.toggle('kfocus', station === 3);
+    // the guide shows the keys of the station one holds; standing on it, it
+    // shows them all
+    showHints(station === 1 ? ['knobs'] : station === 2 ? ['map']
+      : station === 3 ? ['print', 'knobs', 'map', 'keys'] : []);
   }
   // clicking the print knob or the image commits at once, without leaving
   goto.querySelector('.goto-img').addEventListener('click', () => { if (goTouched) goNow(); });
@@ -1275,6 +1314,21 @@ if (DECK) {
   }, { passive: true });
   showGoto();
 
+  // the first visit is shown the three keys that always work; they go at
+  // the first touch of anything, and are not shown again
+  try {
+    if (!localStorage.getItem('guide')) {
+      showHints(['keys']);
+      const done = () => {
+        if (station === 0) hints.classList.remove('on');
+        try { localStorage.setItem('guide', 'seen'); } catch (e) {}
+        ['keydown', 'wheel', 'pointerdown', 'mousemove'].forEach(t => window.removeEventListener(t, done));
+      };
+      ['keydown', 'wheel', 'pointerdown', 'mousemove'].forEach(t => window.addEventListener(t, done, { once: true }));
+      setTimeout(done, 6000);
+    }
+  } catch (e) {}
+
   // a deep link opens on its print, instantly and lit
   const startN = targetN();
   if (startN !== null) {
@@ -1331,6 +1385,14 @@ if (DECK) {
     // navigation (the knob unit), m the map
     if (e.key === 'b' || e.key === 'B') { toggleWall(); return; }
     if (e.key === 'n' || e.key === 'N') { toggleNav(); return; }
+    if (e.key === '?') {
+      if (mode === 'mouse') { mode = 'kbd'; mouseHasMoved = false; document.body.classList.add('kbd-active'); }
+      station = station === 3 ? 0 : 3;
+      applyStation();
+      setMap(false);
+      return;
+    }
+
     if (e.key === 'm' || e.key === 'M') {
       if (mode === 'mouse') { mode = 'kbd'; mouseHasMoved = false; document.body.classList.add('kbd-active'); }
       station = station === 2 ? 0 : 2;
@@ -1356,7 +1418,7 @@ if (DECK) {
     if (e.key === 'Tab') {
       e.preventDefault();
       if (mode === 'mouse') { mode = 'kbd'; mouseHasMoved = false; document.body.classList.add('kbd-active'); }
-      station = (station + (e.shiftKey ? 2 : 1)) % 3;
+      station = (station + (e.shiftKey ? 3 : 1)) % 4;
       applyStation();
       setMap(station === 2);
       if (station === 0 && selected < 0) {
