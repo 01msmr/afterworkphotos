@@ -2,7 +2,7 @@
 	--tp: 12px;
 	/* the prints' side margin — the title shares it, so its right edge is
 	   the rightmost print's */
-	--side: 1.9%;
+	--side: 3.4%;
 	/* height a print leaves free for title above and caption below — the
 	   landscape print bound and the title's alignment share it */
 	--caption-room: 10rem;
@@ -12,7 +12,7 @@
 	/* the wall's geometry, shared by the sections and the carried map: the
 	   gap between prints, the prints' top edge, and — with the map up — the
 	   width of one of (prints + 1) equal squares between the --side margins */
-	--gap: 2.9vw;   /* 1.5 × --side, but of the viewport: a percentage gap would shrink with the room the map takes */
+	--gap: 5.1vw;   /* 1.5 × --side, but of the viewport: a percentage gap would shrink with the room the map takes */
 	--wall-top: calc(4rem + var(--tp) * 2);
 	/* the MAP icon grown: 5 × its 44px face, at the 1.8 it is drawn in —
 	   and the town list standing beside it */
@@ -180,6 +180,13 @@ section {
 	box-sizing: border-box;
 	/* room for the map opens and closes at the map's own pace and curve */
 	transition: padding-left 0.6s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+/* With the map up the room is scarce, so the wall keeps its margins
+   closer — shut, the prints hang with all the air the wall can give. */
+html.map-on {
+	--side: 2%;
+	--gap: 3vw;
 }
 
 /* the map open: the prints give it the left of the screen and a wide

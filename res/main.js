@@ -757,6 +757,7 @@ if (DECK) {
     const v = on === undefined ? !document.documentElement.classList.contains('map-on') : on;
     document.documentElement.classList.toggle('map-on', v);
     try { localStorage.setItem('map', v ? 'on' : 'off'); } catch (e) {}
+    if (!v && typeof clearTown === 'function') clearTown();   // shut: no town held
     const n = perRow();                 // the room changed: the row may hold fewer
     if (n !== PER_ROW) { PER_ROW = n; regroup(); }
   }
@@ -1317,16 +1318,15 @@ if (DECK) {
 
     if (enter && station === 4) {
       e.preventDefault();
-      // Enter and Space never leave the map: shut, they open it; open, they
-      // go to the marked town — or mark the first one if none is marked
-      // yet. Only m, or a click on the plan, puts it away again.
-      if (!document.documentElement.classList.contains('map-on')) {
-        toggleMap();
-        markTown(0);
+      // With no town marked, Enter and Space simply open and shut the plan,
+      // as often as one likes. Once the arrows have walked into the list
+      // they go to the marked town instead and the map stays up; Escape or
+      // Tab lets go of the town, and the keys open and shut it again.
+      if (document.documentElement.classList.contains('map-on') && townIdx >= 0) {
+        goToPlace(list.children[townIdx].dataset.place);
         return;
       }
-      if (townIdx < 0) { markTown(0); return; }
-      goToPlace(list.children[townIdx].dataset.place);
+      toggleMap();
       return;
     }
 
