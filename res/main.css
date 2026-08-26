@@ -600,11 +600,11 @@ html.map-on .towns {
 	display: flex;
 	flex-direction: column;
 	align-items: flex-start;
-	gap: 0.34em;
+	gap: 0.22em;
 }
 
 .hints.full .where {
-	margin: 0 0 0.15em;
+	margin: 0 0 0.05em;
 	opacity: 0.45;
 	letter-spacing: 0.08em;
 }
@@ -626,8 +626,8 @@ html.map-on .towns {
 	align-items: center;
 	justify-content: center;
 	box-sizing: border-box;
-	min-width: 1.75em;
-	height: 1.75em;
+	min-width: 1.7em;
+	height: 1.55em;
 	padding: 0 0.4em;
 	line-height: 1;
 	top: 0;
