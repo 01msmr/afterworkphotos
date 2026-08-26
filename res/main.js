@@ -1050,11 +1050,12 @@ if (DECK) {
   // that opens it is a quiet ? beside them — the last stop of the round,
   // and the key ? steps in and out of it. On the very first visit the three
   // keys that always work show themselves once, and go at the first touch.
+  // each group says where it belongs before it says what it does
   const HINTS = {
-    knobs: [['\u2191\u2193', 'year'], ['\u2190\u2192', 'print'], ['\u23ce', 'go']],
-    map: [['\u2191\u2193\u2190\u2192', 'towns'], ['\u23ce', 'visit'], ['\u21e7\u23ce', 'back']],
-    print: [['\u23ce', 'next'], ['\u21e7\u23ce', 'back'], ['0\u20139', 'number'], ['\u21de\u21df', 'screen']],
-    keys: [['m', 'map'], ['n', 'knobs'], ['b', 'wall']]
+    print: ['on the wall', [['\u23ce', 'next'], ['\u21e7\u23ce', 'back'], ['0\u20139', 'number'], ['\u21de\u21df', 'screen']]],
+    knobs: ['at the knobs', [['\u2191\u2193', 'year'], ['\u2190\u2192', 'print'], ['\u23ce', 'go']]],
+    map: ['on the map', [['\u2191\u2193\u2190\u2192', 'towns'], ['\u23ce', 'visit'], ['\u21e7\u23ce', 'back']]],
+    keys: ['anywhere', [['m', 'map'], ['n', 'knobs'], ['b', 'wall'], ['?', 'keys']]]
   };
   const hints = document.createElement('div');
   hints.className = 'hints';
@@ -1066,8 +1067,8 @@ if (DECK) {
   document.body.appendChild(helpMark);
   function showHints(groups) {
     if (!groups.length) { hints.classList.remove('on'); return; }
-    hints.innerHTML = groups.map(g => `<span class="hint-group">` +
-      HINTS[g].map(([k, what]) => `<span class="hint"><i class="keycap">${k}</i>${what}</span>`).join('') +
+    hints.innerHTML = groups.map(g => `<span class="hint-group"><i class="where">${HINTS[g][0]}</i>` +
+      HINTS[g][1].map(([k, what]) => `<span class="hint"><i class="keycap">${k}</i>${what}</span>`).join('') +
       `</span>`).join('');
     hints.classList.add('on');
   }
