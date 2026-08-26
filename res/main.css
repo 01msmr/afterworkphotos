@@ -6,6 +6,13 @@
 	/* height a print leaves free for title above and caption below — the
 	   landscape print bound and the title's alignment share it */
 	--caption-room: 10rem;
+	/* the wall's geometry, shared by the sections and the carried map: the
+	   gap between prints, the prints' top edge, and — with the map up — the
+	   width of one of (prints + 1) equal squares between the --side margins */
+	--gap: 6vw;   /* 1.5 × --side, but of the viewport: a percentage gap would shrink with the room the map takes */
+	--wall-top: calc(4rem + var(--tp) * 2);
+	--cols: 3;
+	--map-w: calc((100vw - 2 * var(--side) - (var(--cols) - 1) * var(--gap)) / var(--cols));
 	--app-height: 100vh;
 	/* overridden by JS with window.innerHeight */
 }
@@ -83,7 +90,6 @@ p.subtitle .desc {
 	top: 0;
 	font-weight: normal;
 	font-size: 80%;
-	text-transform: lowercase;
 }
 
 /* the quiet line under the caption: place and date taken, not bold, light */
@@ -160,10 +166,19 @@ section {
 	display: flex;
 	align-items: flex-start;
 	justify-content: center;
-	gap: calc(var(--side) * 1.5);
+	gap: var(--gap);
 	padding: 3% var(--side);
-	padding-top: calc(4rem + var(--tp) * 2);
+	padding-top: var(--wall-top);
 	box-sizing: border-box;
+	/* room for the carried map opens and closes at the map's own pace */
+	transition: padding-left 0.6s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+html[data-per-row="1"] { --cols: 2; }
+html[data-per-row="3"] { --cols: 4; }
+
+html.map-on section {
+	padding-left: calc(var(--side) + var(--map-w) + var(--gap));
 }
 
 /* each screen is exactly one viewport wide (scoped off the deck: its
@@ -179,6 +194,76 @@ div.awbox {
 	flex: 1 1 0;
 	/* room below for the go-to knobs (≈ 145px at 1.8×) */
 	max-width: calc(var(--app-height) - 16rem);
+}
+
+/* ── The wall map: the plan one carries along. Fixed at the left, hung at
+   the prints' height and — one of the equal squares — their size; dark
+   grey, the streets transparent so the wall shows through. Off screen to
+   the left until switched on (html.map-on): then it slides in while the
+   sections open the same room at their left, so the prints on screen
+   scale down to make three equal squares — one motion, 0.6s. ── */
+.awmap {
+	position: fixed;
+	top: var(--wall-top);
+	left: var(--side);
+	width: var(--map-w);
+	max-width: calc(var(--app-height) - 16rem);
+	z-index: 800;
+	container-type: inline-size;
+	transform: translateX(calc(-100% - var(--side) - var(--gap)));
+	opacity: 0;
+	transition: transform 0.6s cubic-bezier(0.22, 0.61, 0.36, 1), opacity 0.4s ease;
+}
+
+html.map-on .awmap {
+	transform: none;
+	opacity: 1;
+}
+
+html:not(.deck) .awmap .awphoto {
+	background: transparent;   /* the wall shows through the streets */
+}
+
+.awmap svg {
+	display: block;
+	width: 100%;
+	aspect-ratio: 1;
+	opacity: 0.35;              /* darker material than a print: never as faint */
+	transition: opacity 0.2s ease-in;
+}
+
+.awmap:hover svg {
+	opacity: 1;
+	transition: opacity 0.8s ease-in;
+}
+
+.awmap .towns circle {
+	fill: #d9d9d9;
+	transition: fill 0.2s;
+}
+
+.awmap .towns text {
+	font: 400 3.2px/1 "Helvetica Neue", Helvetica, Arial, sans-serif;
+	fill: #cfcfcf;
+	text-transform: lowercase;
+}
+
+.awmap .city:hover circle {
+	fill: #fff;
+}
+
+.awmap .city:hover text {
+	fill: #fff;
+}
+
+.awmap .subtitle {
+	opacity: 0.2;
+	transition: opacity 0.2s ease-in;
+}
+
+.awmap:hover .subtitle {
+	opacity: 1;
+	transition: opacity 0.8s ease-in;
 }
 
 /* An opaque sheet of 12.5% gray behind every image, exactly its size: the
@@ -203,23 +288,35 @@ html:not(.deck) div.awbox .subtitle {
 
 /* the place in the meta line belongs to the lit print: dimmed, only the
    date remains (the line is right-aligned, so nothing shifts) */
-html:not(.deck) div.awbox .subtitle .place {
+html:not(.deck) div.awbox .subtitle .meta,
+html:not(.deck) div.awbox .subtitle .desc {
 	opacity: 0;
 	transition: opacity 0.2s ease-in;
 }
 
-html:not(.deck) .awbox:hover .subtitle .place,
-html:not(.deck) .awbox.kbd-focus .subtitle .place {
+html:not(.deck) .awbox:hover .subtitle .meta,
+html:not(.deck) .awbox:hover .subtitle .desc,
+html:not(.deck) .awbox.kbd-focus .subtitle .meta,
+html:not(.deck) .awbox.kbd-focus .subtitle .desc {
 	opacity: 1;
 	transition: opacity 0.8s ease-in;
 }
 
-html:not(.deck) .awbox.kbd-focus .subtitle .place {
+/* lit, the meta line returns to its own lightness */
+html:not(.deck) .awbox:hover .subtitle .meta,
+html:not(.deck) .awbox.kbd-focus .subtitle .meta {
+	opacity: 0.55;
+}
+
+html:not(.deck) .awbox.kbd-focus .subtitle .meta,
+html:not(.deck) .awbox.kbd-focus .subtitle .desc {
 	transition-delay: 0.1s;
 }
 
-html:not(.deck) body.moving .awbox:hover:not(.kbd-focus) .subtitle .place,
-html:not(.deck) body.kbd-active .awbox:hover:not(.kbd-focus) .subtitle .place {
+html:not(.deck) body.moving .awbox:hover:not(.kbd-focus) .subtitle .meta,
+html:not(.deck) body.moving .awbox:hover:not(.kbd-focus) .subtitle .desc,
+html:not(.deck) body.kbd-active .awbox:hover:not(.kbd-focus) .subtitle .meta,
+html:not(.deck) body.kbd-active .awbox:hover:not(.kbd-focus) .subtitle .desc {
 	opacity: 0;
 }
 
@@ -299,6 +396,7 @@ div.awbox {
 }
 
 html:not(.deck) .awbox:hover .awphoto,
+html:not(.deck) .awmap:hover .awphoto,
 html:not(.deck) .awbox.kbd-focus .awphoto {
 	transition: box-shadow 0.8s ease-in;
 	box-shadow:
@@ -344,6 +442,52 @@ html:not(.deck) body.kbd-active .awbox:hover:not(.kbd-focus) .awphoto {
 	user-select: none;
 	/* drawn at 1×, shown at 1.8× */
 	zoom: 1.8;
+}
+
+/* ── The MAP button: the plan, shown or hidden — lower left, the knobs' mirror.
+   Dark square, MAP set askew, its strokes transparent like streets. As
+   quiet as the unlit unit until the mouse (or its Tab station) is on it. */
+.mapgo {
+	position: fixed;
+	left: var(--side);
+	bottom: 18px;
+	width: 44px;
+	height: 44px;
+	z-index: 900;
+	zoom: 1.8;
+	opacity: 0.12;
+	cursor: none;
+	transition: opacity 0.6s ease;
+	box-shadow:
+		0 1px 2px rgba(0, 0, 0, 0.35),
+		0 6px 10px -3px rgba(48, 42, 18, 0.45);
+}
+
+.mapgo svg {
+	display: block;
+	width: 44px;
+	height: 44px;
+}
+
+.mapgo:hover,
+.mapgo.kfocus {
+	opacity: 1;
+	transition: opacity 0.3s ease;
+}
+
+/* the focus ring, like a knob's: 6px, standing 4px off */
+.mapgo.kfocus {
+	box-shadow: 0 0 0 calc(4px / 1.8) transparent, 0 0 0 calc(10px / 1.8) #111;
+}
+
+body.kbd-active .mapgo:not(.kfocus) {
+	opacity: 0.12;
+}
+
+/* the navigation put away (key n) — but Tab still reaches its stations,
+   and the unit shows while one of them is focused */
+html.nav-off .goto:not(.kbd-open) {
+	display: none;
 }
 
 /* At rest the unit is only a line below where its elements sit; the knobs

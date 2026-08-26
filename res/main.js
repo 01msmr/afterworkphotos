@@ -21,6 +21,7 @@ const sections = [];
    until the list is here.
    ────────────────────────────────────────────────────────── */
 let PHOTOS = [];
+let PLACES = {};   // place name → [lat, lon] of the town's centre, for the wall map
 
 // A video is an afterworkvideo; the number is the same series as the photos
 const captionOf = (p) => `afterwork${p.video ? 'video' : 'photo'} ${p.n}`;
@@ -89,6 +90,7 @@ function mediaHTML(p) {
 
 fetch('photos.json', { cache: 'no-cache' }).then(r => r.json()).then(data => {
   PHOTOS = data.photos;
+  PLACES = data.places || {};
   init();
 });
 
@@ -718,6 +720,84 @@ if (DECK) {
     box.addEventListener('mouseleave', () => { if (mode === 'mouse') playVideo(null); });
   });
 
+  // ── The wall map: the gallery's plan, carried along ──
+  // A square like a print, first on the wall. Dark grey with the streets
+  // of an imagined town as transparent lines (the wall shows through), the
+  // towns of the archive as dots in their true relative position — from
+  // the towns' centre coordinates in photos.json, nothing about a photo —
+  // sized by how many prints come from there. A click on a town cuts to
+  // its newest print; further clicks walk through the town's prints. The
+  // map is carried along: fixed at the left on every screen, shown or
+  // hidden by the MAP button, its Tab station or the key m — it slides in
+  // from outside while the sections open the same room (html.map-on, the
+  // CSS does the geometry), and the choice is kept in localStorage.
+  const STREETS = `<path d="M-4 38 L104 26"/><path d="M-4 62 L104 54" stroke-width="1.1"/><path d="M22 -4 L34 104"/><path d="M58 -4 L66 104" stroke-width="1.1"/><path d="M-4 12 C30 18 44 6 104 14" stroke-width="0.7"/><path d="M-4 84 C24 78 48 92 104 80" stroke-width="0.7"/><path d="M6 104 L104 6" stroke-width="1.6"/><path d="M-4 70 L40 -4" stroke-width="0.8"/><path d="M76 104 L104 68" stroke-width="0.8"/><circle cx="46" cy="47" r="19" stroke-width="0.9"/><path d="M40 -4 L46 28" stroke-width="0.6"/><path d="M84 30 L104 44" stroke-width="0.6"/><path d="M12 56 L28 60" stroke-width="0.6"/>`;
+  function buildMap() {
+    const el = document.createElement('div');
+    el.className = 'awmap';
+    const counts = new Map();
+    PHOTOS.forEach(p => { if (p.place && PLACES[p.place]) counts.set(p.place, (counts.get(p.place) || 0) + 1); });
+    const cities = [...counts].map(([name, n]) => ({ name, n, lat: PLACES[name][0], lon: PLACES[name][1] }));
+    let dots = '';
+    if (cities.length) {
+      // equirectangular, fitted into the square; distances from the centre
+      // are compressed (power 0.6) so the far towns do not crush the near ones
+      const lat0 = cities.reduce((a, c) => a + c.lat, 0) / cities.length;
+      const kx = Math.cos(lat0 * Math.PI / 180);
+      const xs = cities.map(c => c.lon * kx), ys = cities.map(c => -c.lat);
+      const cx = (Math.min(...xs) + Math.max(...xs)) / 2, cy = (Math.min(...ys) + Math.max(...ys)) / 2;
+      const span = Math.max(...xs.map(x => Math.abs(x - cx)), ...ys.map(y => Math.abs(y - cy))) || 1;
+      const soft = (v) => Math.sign(v) * Math.pow(Math.abs(v) / span, 0.6);
+      const M = 16, H = 50 - M;
+      cities.forEach((c, i) => { c.x = 50 + soft(xs[i] - cx) * H; c.y = 50 + soft(ys[i] - cy) * H; });
+      const maxN = Math.max(...cities.map(c => c.n));
+      dots = cities.map(c => {
+        const r = 1 + 3.5 * Math.sqrt(c.n / maxN);
+        return `<g class="city" data-place="${c.name}"><circle cx="${c.x.toFixed(2)}" cy="${c.y.toFixed(2)}" r="${r.toFixed(2)}"/>` +
+          `<text x="${(c.x + r + 1.4).toFixed(2)}" y="${(c.y + 1.1).toFixed(2)}">${c.name.toLowerCase()} ${c.n}</text></g>`;
+      }).join('');
+    }
+    el.innerHTML = `<div class="awphoto"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+      <defs><mask id="wallmap-streets"><rect width="100" height="100" fill="#fff"/>
+        <g fill="none" stroke="#000" stroke-width="1.3" stroke-linecap="round">${STREETS}</g></mask></defs>
+      <rect width="100" height="100" fill="#3a3a3a" mask="url(#wallmap-streets)"/>
+      <g class="towns">${dots}</g></svg></div>
+      <p class="subtitle">map</p>`;
+    return el;
+  }
+  const mapTile = buildMap();
+  document.body.appendChild(mapTile);
+  const placeCursor = new Map();     // per town: the box last walked to
+  function goToPlace(name) {
+    const idx = [];
+    boxes.forEach((b, i) => { if (photoOfBox(i).place === name) idx.push(i); });
+    if (!idx.length) return;
+    const last = placeCursor.has(name) ? idx.indexOf(placeCursor.get(name)) : -1;
+    goIdx = idx[(last + 1) % idx.length];
+    placeCursor.set(name, goIdx);
+    goTouched = true;
+    showGoto();
+    goNow();
+  }
+  mapTile.addEventListener('click', (e) => {
+    const g = e.target.closest('.city');
+    if (g) goToPlace(g.dataset.place);
+  });
+  function toggleMap(on) {
+    const v = on === undefined ? !document.documentElement.classList.contains('map-on') : on;
+    document.documentElement.classList.toggle('map-on', v);
+    try { localStorage.setItem('map', v ? 'on' : 'off'); } catch (e) {}
+  }
+  // the navigation — the knob unit — can be put away entirely (html.nav-off,
+  // kept in localStorage); Tab still walks its stations, and the unit shows
+  // while one of them is focused
+  function toggleNav() {
+    const off = !document.documentElement.classList.contains('nav-off');
+    document.documentElement.classList.toggle('nav-off', off);
+    try { localStorage.setItem('nav', off ? 'off' : 'on'); } catch (e) {}
+  }
+  try { if (localStorage.getItem('nav') === 'off') document.documentElement.classList.add('nav-off'); } catch (e) {}
+
   // Rows of PER_ROW boxes. Moving the existing boxes keeps their images;
   // the photo that was on screen stays on screen.
   function regroup() {
@@ -733,6 +813,7 @@ if (DECK) {
       sections.push(section);
     }
     main.dataset.perRow = PER_ROW;
+    document.documentElement.dataset.perRow = PER_ROW;   // the map's share of the width follows
     if (onScreen) onScreen.closest('section').scrollIntoView({ inline: 'start', block: 'nearest' });
   }
   regroup();
@@ -796,7 +877,7 @@ if (DECK) {
     try { localStorage.setItem('wall', concrete ? 'concrete' : 'plaster'); } catch (e) {}
   }
   main.addEventListener('click', (e) => {
-    if (e.target.closest('.awbox')) return;
+    if (e.target.closest('.awbox') || e.target.closest('.awmap')) return;
     toggleWall();
   });
 
@@ -919,6 +1000,27 @@ if (DECK) {
     <div class="goto-col"><div class="goto-win goto-date"><b></b><span></span></div><div class="knob knob-print"><div class="face"><div class="ptr"></div></div></div></div>
     <div class="goto-win goto-img"><img alt=""></div>`;
   document.body.appendChild(goto);
+
+  // ── The MAP button: the plan, shown or hidden ──
+  // A dark square at the lower left, mirroring the knobs at the right:
+  // the word MAP set askew and pressed into the square, its strokes
+  // transparent lines like the streets of a town plan. Click, Enter on
+  // its Tab station, or the key m show and hide the map.
+  const mapgo = document.createElement('div');
+  mapgo.className = 'mapgo';
+  mapgo.title = 'map';
+  mapgo.innerHTML = `<svg viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
+    <defs><mask id="mapgo-m"><rect width="44" height="44" fill="#fff"/>
+      <g fill="none" stroke="#000" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M-2 34 L46 30" stroke-width="0.9"/><path d="M30 -2 L34 46" stroke-width="0.7"/>
+        <text x="22" y="30" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-weight="700" font-size="24"
+          text-anchor="middle" textLength="40" lengthAdjust="spacingAndGlyphs" stroke-width="1.6"
+          transform="rotate(-24 22 22)">MAP</text>
+      </g></mask></defs>
+    <rect width="44" height="44" fill="#3a3a3a" mask="url(#mapgo-m)"/></svg>`;
+  document.body.appendChild(mapgo);
+  mapgo.addEventListener('click', () => toggleMap());
+
   const yearDrums = [...goto.querySelectorAll('.goto-year .strip')];
   const gotoImg = goto.querySelector('.goto-img img');
   const gotoN = goto.querySelector('.goto-date b');
@@ -1027,10 +1129,11 @@ if (DECK) {
   // knob shows the unit with a ring, arrows turn it, Enter commits; the
   // focused wall shows a dark border just inside the screen, arrows or
   // Enter switch its material.
-  let station = 0;            // 0 print, 1 year knob, 2 print knob, 3 the wall
+  let station = 0;            // 0 print, 1 year knob, 2 print knob, 3 the wall, 4 the MAP button
   function applyStation() {
     knobYear.classList.toggle('kfocus', station === 1);
     knobPrint.classList.toggle('kfocus', station === 2);
+    mapgo.classList.toggle('kfocus', station === 4);
     goto.classList.toggle('kbd-open', station === 1 || station === 2);
     document.documentElement.classList.toggle('bg-focus', station === 3);
     if (station === 1 || station === 2) goto.classList.remove('quiet');
@@ -1105,6 +1208,10 @@ if (DECK) {
     showGoto();
   }
 
+  // the plan comes along if it was up last time — laid out outside first
+  // (the reflow), so it slides in as the gallery opens
+  try { if (localStorage.getItem('map') === 'on') { void mapTile.offsetWidth; toggleMap(true); } } catch (e) {}
+
   window.addEventListener('hashchange', () => {
     const n = targetN();
     if (n === null) return;
@@ -1144,6 +1251,12 @@ if (DECK) {
       return;
     }
 
+    // three toggles: b the background (the wall's material), n the
+    // navigation (the knob unit), m the map
+    if (e.key === 'b' || e.key === 'B') { toggleWall(); return; }
+    if (e.key === 'n' || e.key === 'N') { toggleNav(); return; }
+    if (e.key === 'm' || e.key === 'M') { toggleMap(); return; }
+
     if (/^[0-9]$/.test(e.key)) { typeDigit(e.key); return; }
 
     if (e.key === 'PageDown') { e.preventDefault(); stepRow(e.shiftKey ? -1 : 1); return; }
@@ -1161,7 +1274,7 @@ if (DECK) {
     if (e.key === 'Tab') {
       e.preventDefault();
       if (mode === 'mouse') { mode = 'kbd'; mouseHasMoved = false; document.body.classList.add('kbd-active'); }
-      station = (station + (e.shiftKey ? 3 : 1)) % 4;
+      station = (station + (e.shiftKey ? 4 : 1)) % 5;
       applyStation();
       if (station === 0 && selected < 0) {
         const top = sections.find(s => s.getBoundingClientRect().right > 0);
@@ -1184,6 +1297,14 @@ if (DECK) {
       return;
     }
 
+    if (enter && station === 4) {
+      e.preventDefault();
+      station = 0;
+      applyStation();
+      toggleMap();
+      return;
+    }
+
     if (enter) {
       e.preventDefault();
       if (mode === 'mouse') {
@@ -1203,6 +1324,7 @@ if (DECK) {
     e.preventDefault();
 
     if (station === 3) { toggleWall(); return; }
+    if (station === 4) return;
 
     if (station !== 0) {
       const d = (e.key === 'ArrowDown' || e.key === 'ArrowRight') ? 1 : -1;
