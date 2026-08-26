@@ -531,14 +531,14 @@ html.map-on .towns {
 	font-weight: 400;
 }
 
-/* ── The guide: a line of keys at the foot of the wall, and the quiet ?
-   that calls it. Both as light as the rest of the machinery until they
-   are wanted. ── */
+/* ── The guide: a line of keys at the foot of the wall. No mark calls it —
+   the last stop of the Tab round does, and the key ?. ── */
 .hints {
 	position: fixed;
 	left: 50%;
 	transform: translateX(-50%);
-	bottom: 52px;
+	/* as low as the wall allows, a little margin off the edge */
+	bottom: 8px;
 	z-index: 900;
 	display: flex;
 	flex-wrap: wrap;
@@ -633,22 +633,22 @@ html.map-on .towns {
 	top: 0;
 }
 
-.helpmark {
-	position: fixed;
-	left: 50%;
-	transform: translateX(-50%);
-	bottom: 18px;
-	z-index: 900;
-	font: 700 var(--meta-size)/1 "Helvetica Neue", Helvetica, Arial, sans-serif;
-	color: var(--towns-mark);
-	opacity: 0.12;
-	cursor: none;
-	transition: opacity 0.3s ease;
-}
-
-.helpmark:hover,
-.helpmark.kfocus {
-	opacity: 1;
+.towns .here .go {
+	font-size: 0.78em;
+	line-height: 1.1;
+	padding: 0 0.3em;
+	border: 1px solid var(--towns-mark);
+	border-radius: 3px;
+	background: var(--towns-mark);
+	color: var(--towns-paper);
+	/* the sign sits low in its own line box: a pixel up puts the cap level
+	   with the type beside it */
+	position: relative;
+	top: -1px;
+	/* it stands a little off the wall, and goes down into that when struck */
+	box-shadow: 1.5px 1.5px 0 rgba(0, 0, 0, 0.3);
+	font-style: normal;
+	font-weight: 400;
 }
 
 .towns .here .go {

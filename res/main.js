@@ -1045,15 +1045,16 @@ if (DECK) {
   document.body.appendChild(list);
 
   // ── The guide: the keys of whatever is in hand ──
-  // No panel that covers anything: a line of key caps at the foot of the
-  // wall, showing what the station one is standing on answers to. The mark
-  // that opens it is a quiet ? beside them — the last stop of the round,
-  // and the key ? steps in and out of it. On the very first visit the three
-  // keys that always work show themselves once, and go at the first touch.
+  // No panel that covers anything, and no mark on the wall either: a line
+  // of key caps at the foot of the wall, showing what the station one is
+  // standing on answers to. It is the last stop of the round — where it
+  // shows every group at once — and the key ? steps in and out of it. On
+  // the very first visit the three keys that always work show themselves
+  // once, and go at the first touch.
   // Each group says where it belongs before it says what it does, and
   // every key gets its own cap — two keys are two caps, as on the board.
   const HINTS = {
-    print: ['on the wall', [[['\u23ce'], 'next'], [['\u21e7', '\u23ce'], 'back'], [['0\u20139'], 'number'], [['\u21de', '\u21df'], 'screen']]],
+    print: ['on the wall', [[['\u23ce'], 'next'], [['\u21e7', '\u23ce'], 'back'], [['0\u20139'], 'number']]],
     knobs: ['at the knobs', [[['\u2191', '\u2193'], 'year'], [['\u2190', '\u2192'], 'print'], [['\u23ce'], 'go']]],
     map: ['on the map', [[['\u2190', '\u2191', '\u2193', '\u2192'], 'towns'], [['\u23ce'], 'visit'], [['\u21e7', '\u23ce'], 'back']]],
     keys: ['anywhere', [[['m'], 'map'], [['n'], 'knobs'], [['b'], 'wall']]]
@@ -1061,11 +1062,6 @@ if (DECK) {
   const hints = document.createElement('div');
   hints.className = 'hints';
   document.body.appendChild(hints);
-  const helpMark = document.createElement('div');
-  helpMark.className = 'helpmark';
-  helpMark.textContent = '?';
-  helpMark.title = 'keys';
-  document.body.appendChild(helpMark);
   // The stations show their keys while the round is new to this visit:
   // after one full turn of Tab the hand knows them, and only the guide's
   // own stop still says anything.
@@ -1081,12 +1077,7 @@ if (DECK) {
     hints.classList.toggle('full', groups.length > 1);
     hints.classList.add('on');
   }
-  helpMark.addEventListener('click', () => {
-    if (mode === 'mouse') { mode = 'kbd'; mouseHasMoved = false; document.body.classList.add('kbd-active'); }
-    station = station === 3 ? 0 : 3;
-    applyStation();
-    setMap(station === 2);
-  });
+
   mapgo.addEventListener('click', () => setMap(!mapOpen()));
   list.addEventListener('click', (e) => {
     const t = e.target.closest('[data-place]');
@@ -1260,7 +1251,6 @@ if (DECK) {
     // document.documentElement.classList.toggle('bg-focus', station === 4);   // station 4: the wall
     if (station === 1) goto.classList.remove('quiet');
     else goto.classList.add('quiet');
-    helpMark.classList.toggle('kfocus', station === 3);
     // the guide shows the keys of the station one holds — until the round
     // has been walked once; standing on the guide itself, it shows them all
     showHints(station === 3 ? ['print', 'knobs', 'map', 'keys']
