@@ -679,8 +679,23 @@ if (DECK) {
      ============================================================ */
   // Photos per row by the window's shape: taller than wide one, wider two,
   // wider than 2:1 three
+  // How many prints share a row — from the shape of the room they actually
+  // have: with the map open the wall keeps only what is left of the width,
+  // so the prints stay as large as the screen allows instead of shrinking
+  // to make space. The widths come from the CSS variables, nothing is
+  // measured.
+  // These three mirror the CSS (--map-grown, --towns-w and the 0.8 of --gap
+  // the section's padding-left adds up): a custom property that holds a
+  // calc() or a min() comes back unresolved from getComputedStyle, so the
+  // numbers are done here rather than read.
+  const MAP_GROWN = 44 * 5 * 1.8;
+  function usableWidth() {
+    const w = window.innerWidth;
+    if (!document.documentElement.classList.contains('map-on')) return w;
+    return w - (MAP_GROWN + 44 + Math.min(490, w * 0.34) + w * 0.06 * 0.8);
+  }
   function perRow() {
-    const aspect = window.innerWidth / window.innerHeight;
+    const aspect = usableWidth() / window.innerHeight;
     return aspect < 1 ? 1 : aspect < 2 ? 2 : 3;
   }
   PER_ROW = perRow();
@@ -742,6 +757,8 @@ if (DECK) {
     const v = on === undefined ? !document.documentElement.classList.contains('map-on') : on;
     document.documentElement.classList.toggle('map-on', v);
     try { localStorage.setItem('map', v ? 'on' : 'off'); } catch (e) {}
+    const n = perRow();                 // the room changed: the row may hold fewer
+    if (n !== PER_ROW) { PER_ROW = n; regroup(); }
   }
   // the navigation — the knob unit — can be put away entirely (html.nav-off,
   // kept in localStorage); Tab still walks its stations, and the unit shows
@@ -1010,6 +1027,17 @@ if (DECK) {
     if (t) goToPlace(t.dataset.place);              // the map stays up
   });
 
+  // From the map's Tab station the arrows walk the list and Space or Enter
+  // goes to the town under the mark — the same move the click makes.
+  let townIdx = -1;
+  function markTown(i) {
+    const spans = list.children;
+    if (townIdx >= 0 && spans[townIdx]) spans[townIdx].classList.remove('here');
+    townIdx = spans.length ? (i + spans.length) % spans.length : -1;
+    if (townIdx >= 0) spans[townIdx].classList.add('here');
+  }
+  function clearTown() { markTown(-1); if (townIdx >= 0) list.children[townIdx].classList.remove('here'); townIdx = -1; }
+
   const yearDrums = [...goto.querySelectorAll('.goto-year .strip')];
   const gotoImg = goto.querySelector('.goto-img img');
   const gotoN = goto.querySelector('.goto-date b');
@@ -1123,6 +1151,7 @@ if (DECK) {
     knobYear.classList.toggle('kfocus', station === 1);
     knobPrint.classList.toggle('kfocus', station === 2);
     mapgo.classList.toggle('kfocus', station === 4);
+    if (station !== 4) clearTown();
     goto.classList.toggle('kbd-open', station === 1 || station === 2);
     document.documentElement.classList.toggle('bg-focus', station === 3);
     if (station === 1 || station === 2) goto.classList.remove('quiet');
@@ -1288,9 +1317,16 @@ if (DECK) {
 
     if (enter && station === 4) {
       e.preventDefault();
-      station = 0;
-      applyStation();
-      toggleMap();
+      // Enter and Space never leave the map: shut, they open it; open, they
+      // go to the marked town — or mark the first one if none is marked
+      // yet. Only m, or a click on the plan, puts it away again.
+      if (!document.documentElement.classList.contains('map-on')) {
+        toggleMap();
+        markTown(0);
+        return;
+      }
+      if (townIdx < 0) { markTown(0); return; }
+      goToPlace(list.children[townIdx].dataset.place);
       return;
     }
 
@@ -1313,7 +1349,13 @@ if (DECK) {
     e.preventDefault();
 
     if (station === 3) { toggleWall(); return; }
-    if (station === 4) return;
+
+    if (station === 4) {
+      if (!document.documentElement.classList.contains('map-on')) return;
+      const d = (e.key === 'ArrowDown' || e.key === 'ArrowRight') ? 1 : -1;
+      markTown(townIdx < 0 ? (d > 0 ? 0 : -1) : townIdx + d);
+      return;
+    }
 
     if (station !== 0) {
       const d = (e.key === 'ArrowDown' || e.key === 'ArrowRight') ? 1 : -1;

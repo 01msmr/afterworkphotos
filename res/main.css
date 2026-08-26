@@ -2,14 +2,17 @@
 	--tp: 12px;
 	/* the prints' side margin — the title shares it, so its right edge is
 	   the rightmost print's */
-	--side: 4%;
+	--side: 1.9%;
 	/* height a print leaves free for title above and caption below — the
 	   landscape print bound and the title's alignment share it */
 	--caption-room: 10rem;
+	/* what a print on the wall leaves free above and below: the top gap,
+	   the caption's two lines and the row's own padding */
+	--wall-room: 11.8rem;
 	/* the wall's geometry, shared by the sections and the carried map: the
 	   gap between prints, the prints' top edge, and — with the map up — the
 	   width of one of (prints + 1) equal squares between the --side margins */
-	--gap: 6vw;   /* 1.5 × --side, but of the viewport: a percentage gap would shrink with the room the map takes */
+	--gap: 2.9vw;   /* 1.5 × --side, but of the viewport: a percentage gap would shrink with the room the map takes */
 	--wall-top: calc(4rem + var(--tp) * 2);
 	/* the MAP icon grown: 5 × its 44px face, at the 1.8 it is drawn in —
 	   and the town list standing beside it */
@@ -198,8 +201,9 @@ html:not(.deck) section {
    them (main.js sets data-per-row) — but never taller than the window */
 div.awbox {
 	flex: 1 1 0;
-	/* room below for the go-to knobs (≈ 145px at 1.8×) */
-	max-width: calc(var(--app-height) - 16rem);
+	/* as tall as the window allows: the wall's top gap, the caption's two
+	   lines and the row's own padding are what a print leaves free */
+	max-width: calc(var(--app-height) - var(--wall-room));
 }
 
 /* An opaque sheet of 12.5% gray behind every image, exactly its size: the
@@ -459,6 +463,12 @@ html.map-on .towns {
 
 .towns span:hover {
 	color: #000;
+}
+
+/* the town the arrows stand on, at the map's Tab station */
+.towns span.here {
+	color: #000;
+	font-weight: 700;
 }
 
 .mapgo:hover,
