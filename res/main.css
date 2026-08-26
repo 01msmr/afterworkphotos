@@ -544,7 +544,7 @@ html.map-on .towns {
 	flex-wrap: wrap;
 	justify-content: center;
 	max-width: 88vw;
-	gap: 0.6em 2.2em;
+	gap: 0.8em 4em;
 	align-items: baseline;
 	font: 400 var(--meta-size)/1.4 "Helvetica Neue", Helvetica, Arial, sans-serif;
 	color: var(--towns-ink);
@@ -561,7 +561,7 @@ html.map-on .towns {
 
 .hint-group {
 	display: flex;
-	gap: 1.1em;
+	gap: 1.6em;
 	align-items: baseline;
 }
 
@@ -571,10 +571,11 @@ html.map-on .towns {
 	align-items: baseline;
 }
 
-/* the place the keys belong to, ahead of them */
+/* the place the keys belong to, ahead of them and set a little apart */
 .hint-group .where {
 	font-style: normal;
 	opacity: 0.5;
+	margin-right: 0.5em;
 }
 
 .helpmark {

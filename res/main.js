@@ -1065,6 +1065,11 @@ if (DECK) {
   helpMark.textContent = '?';
   helpMark.title = 'keys';
   document.body.appendChild(helpMark);
+  // The stations show their keys while the round is new to this visit:
+  // after one full turn of Tab the hand knows them, and only the guide's
+  // own stop still says anything.
+  let tabsWalked = 0;
+  const taught = () => tabsWalked >= 4;
   function showHints(groups) {
     if (!groups.length) { hints.classList.remove('on'); return; }
     hints.innerHTML = groups.map(g => `<span class="hint-group"><i class="where">${HINTS[g][0]}</i>` +
@@ -1252,10 +1257,11 @@ if (DECK) {
     if (station === 1) goto.classList.remove('quiet');
     else goto.classList.add('quiet');
     helpMark.classList.toggle('kfocus', station === 3);
-    // the guide shows the keys of the station one holds; standing on it, it
-    // shows them all
-    showHints(station === 1 ? ['knobs'] : station === 2 ? ['map']
-      : station === 3 ? ['print', 'knobs', 'map', 'keys'] : []);
+    // the guide shows the keys of the station one holds — until the round
+    // has been walked once; standing on the guide itself, it shows them all
+    showHints(station === 3 ? ['print', 'knobs', 'map', 'keys']
+      : taught() ? []
+      : station === 1 ? ['knobs'] : station === 2 ? ['map'] : []);
   }
   // clicking the print knob or the image commits at once, without leaving
   goto.querySelector('.goto-img').addEventListener('click', () => { if (goTouched) goNow(); });
@@ -1419,6 +1425,7 @@ if (DECK) {
     if (e.key === 'Tab') {
       e.preventDefault();
       if (mode === 'mouse') { mode = 'kbd'; mouseHasMoved = false; document.body.classList.add('kbd-active'); }
+      tabsWalked++;
       station = (station + (e.shiftKey ? 3 : 1)) % 4;
       applyStation();
       setMap(station === 2);
