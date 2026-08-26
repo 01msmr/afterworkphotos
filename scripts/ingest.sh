@@ -74,11 +74,17 @@ is_video() { case "$(lower "${1##*.}")" in mov|mp4|m4v) return 0;; *) return 1;;
 taken_of() {
   if is_video "$1"; then
     command -v ffprobe >/dev/null || return 0
-    # the QuickTime date first (local time), else any creation_time, on the
-    # container or a stream; first non-empty answer wins
-    ffprobe -v error \
-      -show_entries 'format_tags=com.apple.quicktime.creationdate,creation_time:stream_tags=creation_time' \
-      -of default=nw=1:nk=1 "$1" 2>/dev/null | grep -m1 '[0-9]' | tr -cd '0-9' | cut -c1-14
+    # The QuickTime date is the one the camera wrote and the only one that
+    # survives a copy — ask for it ALONE first. Asked together with
+    # creation_time, ffprobe prints the tags in the file's order, not the
+    # order of the query, and a container stamped by the copy would win.
+    local d
+    d=$(ffprobe -v error -show_entries 'format_tags=com.apple.quicktime.creationdate' \
+      -of default=nw=1:nk=1 "$1" 2>/dev/null | grep -m1 '[0-9]' | tr -cd '0-9' | cut -c1-14)
+    [[ -n "$d" ]] || d=$(ffprobe -v error \
+      -show_entries 'format_tags=creation_time:stream_tags=creation_time' \
+      -of default=nw=1:nk=1 "$1" 2>/dev/null | grep -m1 '[0-9]' | tr -cd '0-9' | cut -c1-14)
+    printf '%s' "$d"
   else
     identify -quiet -format '%[EXIF:DateTimeOriginal]' "$1" 2>/dev/null | tr -cd '0-9'
   fi
@@ -190,8 +196,9 @@ idx=$(mktemp "${TMPDIR:-/tmp}/ingest-idx.XXXXXX")
 pidx=$(mktemp "${TMPDIR:-/tmp}/ingest-pidx.XXXXXX")
 didx=$(mktemp "${TMPDIR:-/tmp}/ingest-didx.XXXXXX")
 cidx=$(mktemp "${TMPDIR:-/tmp}/ingest-cidx.XXXXXX")
+tmap=$(mktemp "${TMPDIR:-/tmp}/ingest-tmap.XXXXXX")
 used=$(mktemp "${TMPDIR:-/tmp}/ingest-used.XXXXXX")
-trap 'rm -f "$tmp" "$map" "$idx" "$pidx" "$didx" "$cidx" "$used"' EXIT
+trap 'rm -f "$tmp" "$map" "$idx" "$pidx" "$didx" "$cidx" "$used" "$tmap"' EXIT
 
 # what exists, by date taken (digits) → id, from the last photos.json —
 # and what already has a place, by date taken → place, so Nominatim is
@@ -300,13 +307,19 @@ while IFS= read -r line; do ordered+=( "${line#*$'\t'}" ); done < <(
 )
 
 : > "$map"     # lines: old id <TAB> new id
+: > "$tmap"    # lines: new id <TAB> date taken — the dates measured here,
+               # under the names the photos are about to carry: after a
+               # rename the cache is keyed by the old id, and photos.json
+               # would be written with a null date and the photo go undated
 prev_day=""; nn=0
 for id in "${ordered[@]}"; do
   d=$(taken_of_photo "$id")
   if (( ${#d} >= 8 )); then day="${d:0:4}-${d:4:2}-${d:6:2}"; else day="undated"; fi
   if [[ "$day" != "$prev_day" ]]; then nn=0; prev_day=$day; fi
   nn=$(( nn + 1 ))
-  printf '%s\t%s\n' "$id" "$(printf 'awp-%s-%02d' "$day" "$nn")" >> "$map"
+  newname=$(printf 'awp-%s-%02d' "$day" "$nn")
+  printf '%s\t%s\n' "$id" "$newname" >> "$map"
+  printf '%s\t%s\n' "$newname" "$d" >> "$tmap"
 done
 
 # phase 1: park everything that changes name under a name nothing can take
@@ -352,7 +365,8 @@ done
   n=0
   for name in "${names[@]}"; do
     n=$(( n + 1 ))
-    d=$(taken_of_photo "$name")
+    d=$(awk -F'\t' -v n="$name" '$1 == n {print $2; exit}' "$tmap")
+    [[ -n "$d" ]] || d=$(taken_of_photo "$name")
     taken_json=null
     (( ${#d} >= 14 )) && taken_json="\"${d:0:4}-${d:4:2}-${d:6:2}T${d:8:2}:${d:10:2}:${d:12:2}\""
     place=$(place_of "$d" || true)
