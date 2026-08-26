@@ -30,7 +30,14 @@
 #    phases, so history follows and nothing collides.
 # 3. Thumbnails for any photo lacking one (from the derivative: same crop).
 # 4. photos.json, rewritten from scratch: count, and per photo n (its
-#    position in date order), id, taken, file, thumb, video.
+#    position in date order), id, taken, place, file, thumb, video. The
+#    place is the city-level name for the original's GPS (the public
+#    derivative is stripped of it), asked of Nominatim once per photo and
+#    carried forward from the previous photos.json by date taken — only
+#    the name is ever published, never the coordinates. The desc is a 1–3
+#    word image description, asked of Claude (Haiku) once per photo when
+#    ANTHROPIC_API_KEY is set (repo secret), cached the same way; a photo
+#    without one is asked again on the next run.
 #
 # Nothing is committed here — the workflow does that. The last line printed
 # is the commit message. Runs on the GitHub runner (ImageMagick 6, ffmpeg)
@@ -63,14 +70,21 @@ taken_of() {
 }
 
 # the date a photo was taken, from its untouched --unc file when there is
-# one (the most faithful source), else from the original
+# one (the most faithful source), else from the original — and when neither
+# is readable on this machine (a video without ffprobe, an exotic format),
+# the date the last photos.json knew, so a run on a lean machine never
+# renames a photo to undated that has a perfectly good date
 taken_of_photo() {
-  local u
+  local u d=""
   for u in "img originals/$1--unc".*; do
-    [[ -f "$u" ]] && { taken_of "$u"; return; }
+    [[ -f "$u" ]] && { d=$(taken_of "$u"); break; }
   done
-  local o; o=$(original_of "$1")
-  [[ -n "$o" ]] && taken_of "$o"
+  if [[ -z "$d" ]]; then
+    local o; o=$(original_of "$1")
+    [[ -n "$o" ]] && d=$(taken_of "$o")
+  fi
+  [[ -z "$d" ]] && d=$(awk -F'\t' -v id="$1" '$2 == id {print $1; exit}' "$idx")
+  printf '%s' "$d"
   return 0
 }
 
@@ -82,17 +96,91 @@ original_of() {
   done
 }
 
+# the GPS of a photo, as decimal "lat lon" — from the untouched --unc file
+# when there is one, else the original; empty when there is none (videos
+# are not read: ffprobe has no portable GPS tags here)
+gps_of_photo() {
+  local src="" u
+  for u in "img originals/$1--unc".*; do [[ -f "$u" ]] && { src="$u"; break; }; done
+  [[ -n "$src" ]] || src=$(original_of "$1")
+  [[ -n "$src" ]] || return 0
+  is_video "$src" && return 0
+  identify -quiet -format '%[EXIF:GPSLatitude]|%[EXIF:GPSLatitudeRef]|%[EXIF:GPSLongitude]|%[EXIF:GPSLongitudeRef]' "$src" 2>/dev/null \
+    | awk -F'|' '
+      function dec(s,   a, n, i, p, v, div) {
+        n = split(s, a, ","); v = 0; div = 1
+        for (i = 1; i <= n; i++) { split(a[i], p, "/"); v += (p[2] ? p[1] / p[2] : p[1] + 0) / div; div *= 60 }
+        return v
+      }
+      $1 != "" && $3 != "" {
+        lat = dec($1); if ($2 == "S") lat = -lat
+        lon = dec($3); if ($4 == "W") lon = -lon
+        printf "%.5f %.5f", lat, lon
+      }'
+  return 0
+}
+
+# a 1–3 word description of the photo (its thumbnail), asked of Claude —
+# lowercase English, concrete nouns ("garage door", "snow on street").
+# Needs ANTHROPIC_API_KEY and jq; empty without them or on any failure
+describe() {
+  [[ -n "${ANTHROPIC_API_KEY:-}" ]] || return 0
+  command -v jq >/dev/null || return 0
+  local b64; b64=$(base64 < "$1" | tr -d '\n')
+  jq -n --arg img "$b64" '{
+    model: "claude-haiku-4-5", max_tokens: 50,
+    system: "You caption photos for an art archive. Reply with only a 1-3 word literal description of the main subject: lowercase English, concrete nouns, no article, no punctuation — like: snow on street, forest, clouds in sky, foot, garage door. Be precise about what the object actually is. Name its color only when the color is striking (bright orange, vivid green) — leave ordinary colors like gray or brown out. White may stay when it marks the object itself (white fruit) and the caption is two words, never as a third word. If the subject is geometric (grid, circle, spiral, zigzag, diamond), or the composition has stark geometric elements (a strong diagonal, repetition, symmetry), name that geometry even when it takes an extra word. Mind that snow under warm evening light can look like sand — check texture and season before calling it sandy.",
+    messages: [{role: "user", content: [
+      {type: "image", source: {type: "base64", media_type: "image/jpeg", data: $img}},
+      {type: "text", text: "Caption this photo."}]}]}' \
+  | curl -sS -m 30 https://api.anthropic.com/v1/messages \
+      -H "Content-Type: application/json" -H "x-api-key: $ANTHROPIC_API_KEY" \
+      -H "anthropic-version: 2023-06-01" -d @- 2>/dev/null \
+  | jq -r '[.content[]? | select(.type == "text") | .text][0] // empty' \
+  | head -1 | tr '[:upper:]' '[:lower:]' | tr -d '"' | cut -c1-40
+  return 0
+}
+
+# the city-level name for decimal coordinates, from Nominatim (OSM) — the
+# address field city, else town, village, municipality, in English; empty
+# on any failure, so a missed one is simply asked again on the next run
+geocode() {
+  curl -sS -m 20 -A "afterworkphotos-ingest/1.0 (https://github.com/01msmr/afterworkphotos)" \
+    "https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=$1&lon=$2&zoom=10&accept-language=en" 2>/dev/null \
+    | python3 -c '
+import json, sys
+try:
+    a = json.load(sys.stdin).get("address", {})
+except Exception:
+    a = {}
+for k in ("city", "town", "village", "municipality"):
+    if a.get(k):
+        print(a[k]); break
+' 2>/dev/null
+  return 0
+}
+
 tmp=$(mktemp "${TMPDIR:-/tmp}/ingest.XXXXXX")
 map=$(mktemp "${TMPDIR:-/tmp}/ingest-map.XXXXXX")
 idx=$(mktemp "${TMPDIR:-/tmp}/ingest-idx.XXXXXX")
-trap 'rm -f "$tmp" "$map" "$idx"' EXIT
+pidx=$(mktemp "${TMPDIR:-/tmp}/ingest-pidx.XXXXXX")
+didx=$(mktemp "${TMPDIR:-/tmp}/ingest-didx.XXXXXX")
+trap 'rm -f "$tmp" "$map" "$idx" "$pidx" "$didx"' EXIT
 
-# what exists, by date taken (digits) → id, from the last photos.json
+# what exists, by date taken (digits) → id, from the last photos.json —
+# and what already has a place, by date taken → place, so Nominatim is
+# asked only about photos it has never seen
 if [[ -f photos.json ]]; then
   sed -nE 's/.*"id": "([^"]+)", "taken": "([^"]+)".*/\2\t\1/p' photos.json \
     | awk -F'\t' '{gsub(/[^0-9]/, "", $1); print $1 "\t" $2}' > "$idx"
+  sed -nE 's/.*"taken": "([^"]+)", "place": "([^"]+)".*/\1\t\2/p' photos.json \
+    | awk -F'\t' '{gsub(/[^0-9]/, "", $1); print $1 "\t" $2}' > "$pidx"
+  sed -nE 's/.*"taken": "([^"]+)", "place": [^,]*, "desc": "([^"]+)".*/\1\t\2/p' photos.json \
+    | awk -F'\t' '{gsub(/[^0-9]/, "", $1); print $1 "\t" $2}' > "$didx"
 fi
 existing_with_taken() { [[ -n "$1" ]] && awk -F'\t' -v t="$1" '$1 == t {print $2; exit}' "$idx"; }
+place_of() { [[ -n "$1" ]] && awk -F'\t' -v t="$1" '$1 == t {print $2; exit}' "$pidx"; return 0; }
+desc_of() { [[ -n "$1" ]] && awk -F'\t' -v t="$1" '$1 == t {print $2; exit}' "$didx"; return 0; }
 
 # ── 1. inbox ──────────────────────────────────────────────────────────────
 shopt -s nullglob nocaseglob
@@ -239,10 +327,29 @@ done
     d=$(taken_of_photo "$name")
     taken_json=null
     (( ${#d} >= 14 )) && taken_json="\"${d:0:4}-${d:4:2}-${d:6:2}T${d:8:2}:${d:10:2}:${d:12:2}\""
+    place=$(place_of "$d" || true)
+    if [[ -z "$place" ]]; then
+      gps=$(gps_of_photo "$name" || true)
+      if [[ -n "$gps" ]]; then
+        read -r glat glon <<< "$gps"
+        place=$(geocode "$glat" "$glon" || true)
+        sleep 1     # Nominatim asks for at most one request per second
+        [[ -n "$place" ]] && echo "place for $name: $place" >&2
+      fi
+    fi
+    place_json=null
+    [[ -n "$place" ]] && place_json="\"$(printf '%s' "$place" | sed 's/\\/\\\\/g; s/"/\\"/g')\""
+    desc=$(desc_of "$d" || true)
+    if [[ -z "$desc" && -f "img/thumb/$name.jpg" ]]; then
+      desc=$(describe "img/thumb/$name.jpg" || true)
+      [[ -n "$desc" ]] && echo "desc for $name: $desc" >&2
+    fi
+    desc_json=null
+    [[ -n "$desc" ]] && desc_json="\"$(printf '%s' "$desc" | sed 's/\\/\\\\/g; s/"/\\"/g')\""
     video_json=null; [[ -f "img/$name.mp4" ]] && video_json="\"img/$name.mp4\""
     sep=','; (( n == ${#names[@]} )) && sep=''
-    printf '    {"n": %d, "id": "%s", "taken": %s, "file": "img/%s.jpg", "thumb": "img/thumb/%s.jpg", "video": %s}%s\n' \
-      "$n" "$name" "$taken_json" "$name" "$name" "$video_json" "$sep"
+    printf '    {"n": %d, "id": "%s", "taken": %s, "place": %s, "desc": %s, "file": "img/%s.jpg", "thumb": "img/thumb/%s.jpg", "video": %s}%s\n' \
+      "$n" "$name" "$taken_json" "$place_json" "$desc_json" "$name" "$name" "$video_json" "$sep"
   done
   echo '  ]'
   echo '}'

@@ -41,6 +41,9 @@ jobs:
 
       - name: ingest
         id: ingest
+        env:
+          # for describe() — the 1-3 word photo descriptions; absent, descs stay null
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           chmod +x scripts/ingest.sh
           scripts/ingest.sh | tee ingest.log
