@@ -2,7 +2,7 @@
 	--tp: 12px;
 	/* the prints' side margin — the title shares it, so its right edge is
 	   the rightmost print's */
-	--side: 3.4%;
+	--side: 4%;
 	/* height a print leaves free for title above and caption below — the
 	   landscape print bound and the title's alignment share it */
 	--caption-room: 10rem;
@@ -12,7 +12,7 @@
 	/* the wall's geometry, shared by the sections and the carried map: the
 	   gap between prints, the prints' top edge, and — with the map up — the
 	   width of one of (prints + 1) equal squares between the --side margins */
-	--gap: 5.1vw;   /* 1.5 × --side, but of the viewport: a percentage gap would shrink with the room the map takes */
+	--gap: 6vw;   /* 1.5 × --side, but of the viewport: a percentage gap would shrink with the room the map takes */
 	--wall-top: calc(4rem + var(--tp) * 2);
 	/* the MAP icon grown: 5 × its 44px face, at the 1.8 it is drawn in —
 	   and the town list standing beside it */
@@ -185,15 +185,15 @@ section {
 /* With the map up the room is scarce, so the wall keeps its margins
    closer — shut, the prints hang with all the air the wall can give. */
 html.map-on {
-	--side: 2%;
-	--gap: 3vw;
+	--side: 1.6%;
+	--gap: 2.6vw;
 }
 
 /* the map open: the prints give it the left of the screen and a wide
    margin, and shrink towards the top right — their top and right edges
    stay where they are */
 html.map-on section {
-	padding-left: calc(var(--side) + var(--map-grown) + 44px + var(--towns-w) + var(--gap) * 0.8);
+	padding-left: calc(var(--side) + var(--map-grown) + 32px + var(--towns-w) + var(--gap) * 0.6);
 	justify-content: flex-end;
 }
 
@@ -434,7 +434,7 @@ html.map-on .mapgo {
    not reach it. */
 .towns {
 	position: fixed;
-	left: calc(var(--side) + var(--map-grown) + 44px);
+	left: calc(var(--side) + var(--map-grown) + 32px);
 	/* the plan sits 18px up at its own 1.8 zoom: the list's foot meets it */
 	bottom: calc(18px * 1.8);
 	width: var(--towns-w);
@@ -445,7 +445,9 @@ html.map-on .mapgo {
 	column-fill: auto;
 	columns: 150px;
 	column-gap: 18px;
-	font: 400 var(--meta-size)/1.45 "Helvetica Neue", Helvetica, Arial, sans-serif;
+	/* 1.42, so fifteen names fit a column of the plan's height — at 1.45 the
+	   fifteenth falls into a fourth column and leaves it holding one name */
+	font: 400 var(--meta-size)/1.42 "Helvetica Neue", Helvetica, Arial, sans-serif;
 	color: #444;
 	text-transform: lowercase;
 	z-index: 900;

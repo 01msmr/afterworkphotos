@@ -692,7 +692,7 @@ if (DECK) {
   function usableWidth() {
     const w = window.innerWidth;
     if (!document.documentElement.classList.contains('map-on')) return w;
-    return w - (MAP_GROWN + 44 + Math.min(490, w * 0.34) + w * 0.06 * 0.8);
+    return w - (MAP_GROWN + 32 + Math.min(490, w * 0.34) + w * 0.026 * 0.6);
   }
   function perRow() {
     const aspect = usableWidth() / window.innerHeight;
@@ -1038,6 +1038,19 @@ if (DECK) {
     if (townIdx >= 0) spans[townIdx].classList.add('here');
   }
   function clearTown() { markTown(-1); if (townIdx >= 0) list.children[townIdx].classList.remove('here'); townIdx = -1; }
+  // how many names one column holds — asked of the list itself, since the
+  // browser decides the column count from the width it is given
+  function townRows() {
+    const items = list.children;
+    if (!items.length) return 1;
+    const left = items[0].getBoundingClientRect().left;
+    let n = 0;
+    for (const it of items) {
+      if (Math.abs(it.getBoundingClientRect().left - left) > 1) break;
+      n++;
+    }
+    return Math.max(1, n);
+  }
 
   const yearDrums = [...goto.querySelectorAll('.goto-year .strip')];
   const gotoImg = goto.querySelector('.goto-img img');
@@ -1352,7 +1365,11 @@ if (DECK) {
 
     if (station === 4) {
       if (!document.documentElement.classList.contains('map-on')) return;
-      const d = (e.key === 'ArrowDown' || e.key === 'ArrowRight') ? 1 : -1;
+      // up and down walk the column, left and right change column — the
+      // list is read in columns, so the arrows follow the reading
+      const rows = townRows();
+      const d = (e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1
+        : e.key === 'ArrowRight' ? rows : -rows);
       markTown(townIdx < 0 ? (d > 0 ? 0 : -1) : townIdx + d);
       return;
     }
