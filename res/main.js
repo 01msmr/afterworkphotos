@@ -755,14 +755,19 @@ if (DECK) {
     goNow();
     return at + 1;                       // the print's place in that town: 1 … max
   }
-  function toggleMap(on) {
-    const v = on === undefined ? !document.documentElement.classList.contains('map-on') : on;
+  // The plan is not a thing one switches on: it is large while it has
+  // attention. Tab into its station and it unfolds, Tab (or Escape) away
+  // and it folds up again — the knob unit has always behaved this way. The
+  // mouse has no Tab, so for the mouse a click on the plan opens and shuts
+  // it, and nothing else does: moving the mouse elsewhere leaves it alone.
+  function setMap(v) {
+    if (document.documentElement.classList.contains('map-on') === v) return;
     document.documentElement.classList.toggle('map-on', v);
-    try { localStorage.setItem('map', v ? 'on' : 'off'); } catch (e) {}
     if (!v && typeof clearTown === 'function') clearTown();   // shut: no town held
     const n = perRow();                 // the room changed: the row may hold fewer
     if (n !== PER_ROW) { PER_ROW = n; regroup(); }
   }
+  const mapOpen = () => document.documentElement.classList.contains('map-on');
   // the navigation — the knob unit — can be put away entirely (html.nav-off,
   // kept in localStorage); Tab still walks its stations, and the unit shows
   // while one of them is focused
@@ -911,7 +916,8 @@ if (DECK) {
     // jitter) takes over from the keyboard — the selection light yields to
     // hover, exactly as a keypress takes over from the mouse
     if (mode === 'kbd' && Math.abs(e.movementX) + Math.abs(e.movementY) > 2
-        && !(e.target instanceof Element && e.target.closest('.goto'))) {
+        && !(e.target instanceof Element
+             && (e.target.closest('.goto') || e.target.closest('.mapgo') || e.target.closest('.towns')))) {
       if (selected >= 0) boxes[selected].classList.remove('kbd-focus');
       selected = -1;
       document.body.classList.remove('kbd-active');
@@ -1023,13 +1029,16 @@ if (DECK) {
   PHOTOS.forEach(p => { if (p.place) townCount.set(p.place, (townCount.get(p.place) || 0) + 1); });
   const list = document.createElement('div');
   list.className = 'towns';
-  // the count and the Enter key show on the town the arrows stand on: the
+  // The count and the Enter key show on the town the arrows stand on: the
   // count starts at how many prints the town has and then tells which of
-  // them one is looking at, 1 … max, over and over
+  // them one is looking at, 1 … max, over and over. The key is drawn as the
+  // key is the return sign itself in a thin frame, no taller than the
+  // line, so no line ever jumps; it takes the list's ink and inverts with
+  // everything else.
   list.innerHTML = towns.map(t => `<span data-place="${t}"><b>${t.toLowerCase()}</b><i class="n">${townCount.get(t)}</i><i class="go">\u23ce</i></span>`).join('');
   document.body.appendChild(mapgo);
   document.body.appendChild(list);
-  mapgo.addEventListener('click', () => toggleMap());
+  mapgo.addEventListener('click', () => setMap(!mapOpen()));
   list.addEventListener('click', (e) => {
     const t = e.target.closest('[data-place]');
     if (t) goToPlace(t.dataset.place);              // the map stays up
@@ -1259,9 +1268,6 @@ if (DECK) {
     showGoto();
   }
 
-  // the plan comes along if it was up last time — laid out outside first
-  // (the reflow), so it slides in as the gallery opens
-  try { if (localStorage.getItem('map') === 'on') { void mapgo.offsetWidth; toggleMap(true); } } catch (e) {}
 
   window.addEventListener('hashchange', () => {
     const n = targetN();
@@ -1293,6 +1299,7 @@ if (DECK) {
     if (e.key === 'Escape') {
       station = 0;
       applyStation();
+      setMap(false);
       if (selected >= 0) boxes[selected].classList.remove('kbd-focus');
       playVideo(null);
       selected = -1;
@@ -1306,7 +1313,13 @@ if (DECK) {
     // navigation (the knob unit), m the map
     if (e.key === 'b' || e.key === 'B') { toggleWall(); return; }
     if (e.key === 'n' || e.key === 'N') { toggleNav(); return; }
-    if (e.key === 'm' || e.key === 'M') { toggleMap(); return; }
+    if (e.key === 'm' || e.key === 'M') {
+      if (mode === 'mouse') { mode = 'kbd'; mouseHasMoved = false; document.body.classList.add('kbd-active'); }
+      station = station === 4 ? 0 : 4;
+      applyStation();
+      setMap(station === 4);
+      return;
+    }
 
     if (/^[0-9]$/.test(e.key)) { typeDigit(e.key); return; }
 
@@ -1327,6 +1340,7 @@ if (DECK) {
       if (mode === 'mouse') { mode = 'kbd'; mouseHasMoved = false; document.body.classList.add('kbd-active'); }
       station = (station + (e.shiftKey ? 4 : 1)) % 5;
       applyStation();
+      setMap(station === 4);
       if (station === 0 && selected < 0) {
         const top = sections.find(s => s.getBoundingClientRect().right > 0);
         if (top) lightRow(top);
@@ -1350,17 +1364,12 @@ if (DECK) {
 
     if (enter && station === 4) {
       e.preventDefault();
-      // With no town marked, Enter and Space simply open and shut the plan,
-      // as often as one likes. Once the arrows have walked into the list
-      // they go to the marked town instead and the map stays up; Escape or
-      // Tab lets go of the town, and the keys open and shut it again.
-      if (document.documentElement.classList.contains('map-on') && townIdx >= 0) {
-        const span = list.children[townIdx];
-        const at = goToPlace(span.dataset.place);
-        if (at) span.querySelector('.n').textContent = at;
-        return;
-      }
-      toggleMap();
+      // The plan is already up — the station holds it. Enter and Space go
+      // to the town under the mark, or take hold of the first one.
+      if (townIdx < 0) { markTown(0); return; }
+      const span = list.children[townIdx];
+      const at = goToPlace(span.dataset.place);
+      if (at) span.querySelector('.n').textContent = at;
       return;
     }
 

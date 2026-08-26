@@ -26,6 +26,9 @@
 	   inverted ground only has to redefine the pair. */
 	--towns-ink: #444;
 	--towns-mark: #000;
+	/* the ground the list stands on — the key is cut out of the mark's ink
+	   in this, so an inverted list only has to redefine the three */
+	--towns-paper: #f2f1ee;
 	--towns-w: min(490px, 34vw);
 	--app-height: 100vh;
 	/* overridden by JS with window.innerHeight */
@@ -492,24 +495,18 @@ html.map-on .towns {
 	opacity: 0.6;
 }
 
+/* the key is the mark's ink with the return sign cut out of it — a black
+   key with a white arrow on the light wall, and the other way round on a
+   dark one. Same box as before, so no line ever changes height. */
 .towns .here .go {
 	display: block;
 	font-size: 0.78em;
 	line-height: 1.1;
 	padding: 0 0.3em;
-	border: 1px solid currentColor;
+	border: 1px solid var(--towns-mark);
 	border-radius: 3px;
-	opacity: 0.75;
-}
-
-.towns span:hover {
-	color: var(--towns-mark);
-}
-
-/* the town the arrows stand on, at the map's Tab station */
-.towns span.here {
-	color: var(--towns-mark);
-	font-weight: 700;
+	background: var(--towns-mark);
+	color: var(--towns-paper);
 }
 
 .mapgo:hover,
