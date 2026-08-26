@@ -3,6 +3,9 @@
 	/* the prints' side margin — the title shares it, so its right edge is
 	   the rightmost print's */
 	--side: 4%;
+	/* height a print leaves free for title above and caption below — the
+	   landscape print bound and the title's alignment share it */
+	--caption-room: 10rem;
 	--app-height: 100vh;
 	/* overridden by JS with window.innerHeight */
 }
@@ -65,15 +68,45 @@ h1.title a:hover {
 }
 
 p.subtitle {
+	position: relative;
 	text-align: right;
 	font-size: 110%;
 	color: black;
 	font-weight: bold;
 }
 
+/* the description, left-aligned opposite the caption: the meta line's
+   size, the caption's color — it dims with the caption */
+p.subtitle .desc {
+	position: absolute;
+	left: 0;
+	top: 0;
+	font-weight: normal;
+	font-size: 80%;
+	text-transform: lowercase;
+}
+
+/* the quiet line under the caption: place and date taken, not bold, light */
+p.subtitle .meta {
+	display: block;
+	font-weight: normal;
+	font-size: 80%;
+	margin-top: 0.525em;
+	opacity: 0.55;
+	text-transform: lowercase;
+}
+
 /* the list's captions, under big prints, are bigger */
 html:not(.deck) p.subtitle {
 	font-size: 165%;
+}
+
+html:not(.deck) p.subtitle .meta {
+	font-size: 69%;
+}
+
+html:not(.deck) p.subtitle .desc {
+	font-size: 69%;
 }
 
 /* ── The wall ──
@@ -108,14 +141,17 @@ html.wall-concrete body {
 	background-size: 100% 380px, 300px 300px, 140px 140px;
 }
 
-/* ── Desktop: one row at a time ──
-   The wall is switched row by row (main.js), never free-scrolled: no
-   scrollbar, no snap — the glide between rows is programmatic */
+/* ── Desktop: a gallery walk ──
+   The screens lie side by side — the newest print at the left, older to
+   the right — and the wall is switched screen by screen, sideways
+   (main.js), never free-scrolled: no scrollbar, no snap — the glide
+   between screens is programmatic */
 .main {
 	height: var(--app-height);
-	overflow-y: hidden;
-	touch-action: pan-y;
-	overscroll-behavior-y: none;
+	display: flex;
+	overflow: hidden;
+	touch-action: pan-x;
+	overscroll-behavior-x: none;
 }
 
 section {
@@ -128,6 +164,13 @@ section {
 	padding: 3% var(--side);
 	padding-top: calc(4rem + var(--tp) * 2);
 	box-sizing: border-box;
+}
+
+/* each screen is exactly one viewport wide (scoped off the deck: its
+   sheets size themselves from their fixed insets) */
+html:not(.deck) section {
+	flex: none;
+	width: 100%;
 }
 
 /* The row's prints share the width between --side margins — 1, 2 or 3 of
@@ -154,8 +197,30 @@ html:not(.deck) .awphoto video {
 }
 
 html:not(.deck) div.awbox .subtitle {
-	opacity: 0.5;
+	opacity: 0.2;
 	transition: opacity 0.2s ease-in;
+}
+
+/* the place in the meta line belongs to the lit print: dimmed, only the
+   date remains (the line is right-aligned, so nothing shifts) */
+html:not(.deck) div.awbox .subtitle .place {
+	opacity: 0;
+	transition: opacity 0.2s ease-in;
+}
+
+html:not(.deck) .awbox:hover .subtitle .place,
+html:not(.deck) .awbox.kbd-focus .subtitle .place {
+	opacity: 1;
+	transition: opacity 0.8s ease-in;
+}
+
+html:not(.deck) .awbox.kbd-focus .subtitle .place {
+	transition-delay: 0.1s;
+}
+
+html:not(.deck) body.moving .awbox:hover:not(.kbd-focus) .subtitle .place,
+html:not(.deck) body.kbd-active .awbox:hover:not(.kbd-focus) .subtitle .place {
+	opacity: 0;
 }
 
 html:not(.deck) .awbox:hover img,
@@ -196,7 +261,7 @@ html:not(.deck) body.moving .awbox:hover:not(.kbd-focus) video {
 }
 
 html:not(.deck) body.moving .awbox:hover:not(.kbd-focus) .subtitle {
-	opacity: 0.5;
+	opacity: 0.2;
 }
 
 html:not(.deck) body.moving .awbox:hover:not(.kbd-focus) .awphoto {
@@ -207,7 +272,7 @@ html:not(.deck) body.moving .awbox:hover:not(.kbd-focus) .awphoto {
 }
 
 html:not(.deck) body.kbd-active .awbox:hover:not(.kbd-focus) .subtitle {
-	opacity: 0.5;
+	opacity: 0.2;
 }
 
 /* The print's shadow on the wall, as a plate a little off the wall throws
@@ -484,6 +549,11 @@ html.bg-focus body::after {
 	font: 500 7px/1 "Helvetica Neue", Helvetica, Arial, sans-serif;
 	color: #333;
 	white-space: nowrap;
+	text-transform: lowercase;
+	/* a long place name ends in an ellipsis rather than leaving the window */
+	max-width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 .knob {
@@ -671,7 +741,7 @@ html.deck {
 		&:not(.tablet) h1.title {
 			width: min(92%, 260px);
 			left: auto;
-			right: calc(50% - var(--side) * 0.75 - min(43%, var(--app-height) - 8.5rem));
+			right: calc(50% - var(--side) * 0.75 - min(43%, var(--app-height) - var(--caption-room)));
 			text-align: right;
 		}
 	}
@@ -874,7 +944,7 @@ html.deck {
 		width: 92%;
 		/* never taller than the sheet: a phone held sideways has little
 		   height, and then the prints are small and centred */
-		max-width: calc(var(--app-height) - 8.5rem);
+		max-width: calc(var(--app-height) - var(--caption-room));
 		/* Nothing is dimmed on mobile: a sheet is either on the stack or not */
 		opacity: 1;
 		transition: none !important;

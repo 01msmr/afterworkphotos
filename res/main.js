@@ -25,6 +25,26 @@ let PHOTOS = [];
 // A video is an afterworkvideo; the number is the same series as the photos
 const captionOf = (p) => `afterwork${p.video ? 'video' : 'photo'} ${p.n}`;
 
+// The quiet line under the caption: "markdorf, 2018-08-17" — the place
+// (city-level, from photos.json, shown lowercase by CSS) when one is
+// known, and the date taken, language-neutral
+const metaOf = (p) => {
+  const parts = [];
+  if (p.place) parts.push(p.place);
+  if (p.taken) parts.push(p.taken.slice(0, 10));
+  return parts.join(', ');
+};
+// In the caption the place is its own span: on the wall it belongs to the
+// lit print — dimmed, only the date remains. The desc — a 1–3 word image
+// description from photos.json — sits left-aligned opposite the caption,
+// in the meta's size but the caption's color.
+const subtitleHTML = (p) => {
+  const date = p.taken ? p.taken.slice(0, 10) : '';
+  const place = p.place ? `<span class="place">${p.place}${date ? ', ' : ''}</span>` : '';
+  const desc = p.desc ? `<span class="desc">${p.desc}</span>` : '';
+  return `<p class="subtitle">${desc}${captionOf(p)}${place || date ? `<span class="meta">${place}${date}</span>` : ''}</p>`;
+};
+
 /* ──────────────────────────────────────────────────────────
    Deep links
    #154 opens print 154; #y2017 opens that year's newest print — the year
@@ -64,7 +84,7 @@ function mediaHTML(p) {
   if (p.video) {
     return `<video src="${p.video}" poster="${p.file}" muted loop playsinline preload="metadata" width="100%"></video>`;
   }
-  return `<img src="${p.file}" alt="${captionOf(p)}" width="100%">`;
+  return `<img src="${p.file}" alt="${p.desc || captionOf(p)}" width="100%">`;
 }
 
 fetch('photos.json', { cache: 'no-cache' }).then(r => r.json()).then(data => {
@@ -151,7 +171,7 @@ if (DECK) {
     section.innerHTML = photosOf(i).map(p => `
       <div class="awbox" data-n="${p.n}">
         <div class="awphoto" style="background-image: url('${p.thumb}')">${mediaHTML(p)}</div>
-        <p class="subtitle">${captionOf(p)}</p>
+        ${subtitleHTML(p)}
       </div>`).join('');
     track.appendChild(section);
     sheets.set(i, section);
@@ -673,16 +693,25 @@ if (DECK) {
     box.dataset.n = p.n;
     box.innerHTML = `
       <div class="awphoto">${mediaHTML(p)}</div>
-      <p class="subtitle">${captionOf(p)}</p>`;
+      ${subtitleHTML(p)}`;
     boxes.push(box);
   }
 
   // A video plays only while it is the lit print: under the mouse, or the
-  // one selected from the keyboard. At most one plays at a time.
+  // one selected from the keyboard. At most one plays at a time — and a
+  // leaving one keeps running while its print dims, the pause landing only
+  // once the 0.2s fade has finished (lit again in time, it never stops)
   function playVideo(box) {
-    boxes.forEach(b => { if (b !== box) { const v = b.querySelector('video'); if (v) v.pause(); } });
-    const v = box && box.querySelector('video');
-    if (v) v.play().catch(() => {});
+    boxes.forEach(b => {
+      const v = b.querySelector('video');
+      if (!v) return;
+      if (b === box) {
+        clearTimeout(v._stop); v._stop = 0;
+        v.play().catch(() => {});
+      } else if (!v.paused && !v._stop) {
+        v._stop = setTimeout(() => { v._stop = 0; v.pause(); }, 250);
+      }
+    });
   }
   boxes.forEach(box => {
     box.addEventListener('mouseenter', () => { if (mode === 'mouse') playVideo(box); });
@@ -693,7 +722,7 @@ if (DECK) {
   // the photo that was on screen stays on screen.
   function regroup() {
     const onScreen = sections.length
-      ? sections.find(s => s.getBoundingClientRect().bottom > 0)?.querySelector('.awbox')
+      ? sections.find(s => s.getBoundingClientRect().right > 0)?.querySelector('.awbox')
       : null;
     sections.forEach(s => s.remove());
     sections.length = 0;
@@ -704,7 +733,7 @@ if (DECK) {
       sections.push(section);
     }
     main.dataset.perRow = PER_ROW;
-    if (onScreen) onScreen.closest('section').scrollIntoView({ block: 'start' });
+    if (onScreen) onScreen.closest('section').scrollIntoView({ inline: 'start', block: 'nearest' });
   }
   regroup();
   fitTitle();
@@ -712,20 +741,50 @@ if (DECK) {
 
   let gliding = false;        // the wall is on its way to a chosen print: the windows hold still
   let glideTarget = 0, glideTimer = 0;
-  let approachTop = -1;       // where the wall is headed: the undim starts on approach
+  let approachLeft = -1;       // where the wall is headed: the undim starts on approach
   let settledNear = false;    // the tail of the motion must not re-dim what has lit
 
   // A glide ends on arrival (or a safety timeout) — not on a pause in the
   // scroll events: a long smooth scroll starts so slowly that none fire for
   // a while, which must not count as "rested"
-  function glideTo(top) {
+  // The glide is driven by hand: the browser's smooth scroll eases in and
+  // out at its own slow pace — this one starts promptly and lands softly
+  // (cubic ease-out), about 450ms per screen and capped, so a step is
+  // brisk and an arrival calm.
+  let glideRaf = 0;
+  function animateTo(left) {
+    cancelAnimationFrame(glideRaf);
+    const from = main.scrollLeft, dist = left - from;
+    if (!dist) return;
+    const screenW = sections[0] ? sections[0].offsetWidth : main.clientWidth;
+    const dur = Math.min(700, 250 + 350 * Math.abs(dist) / screenW);
+    let t0;
+    const tick = (ts) => {
+      if (t0 === undefined) t0 = ts;
+      const t = Math.min(1, (ts - t0) / dur);
+      main.scrollLeft = from + dist * (1 - Math.pow(1 - t, 3));
+      if (t < 1) glideRaf = requestAnimationFrame(tick);
+    };
+    glideRaf = requestAnimationFrame(tick);
+  }
+
+  // A far target is not a long ride: the wall cuts to one screen short of
+  // it and glides only that last screen in — the same move as the deck's
+  // scrubber cutting the pile, and every arrival looks the same, from the
+  // right direction. Nearby targets keep the full honest glide.
+  function glideTo(left) {
     gliding = true;
-    glideTarget = top;
-    approachTop = top;
+    glideTarget = left;
+    approachLeft = left;
     settledNear = false;
     clearTimeout(glideTimer);
     glideTimer = setTimeout(() => { gliding = false; }, 6000);
-    main.scrollTo({ top, behavior: 'smooth' });
+    const screenW = sections[0] ? sections[0].offsetWidth : main.clientWidth;
+    const d = left - main.scrollLeft;
+    if (Math.abs(d) > screenW * 1.5) {
+      main.scrollTo({ left: left - Math.sign(d) * screenW, behavior: 'instant' });
+    }
+    animateTo(left);
   }
 
   // ── The wall's material ──
@@ -742,29 +801,33 @@ if (DECK) {
   });
 
   // ── Single screen ──
-  // The wall never free-scrolls: it shows one row and is switched row by
-  // row — the same idea as the phone's deck. A wheel notch (or one trackpad
-  // gesture, its inertia tail swallowed) moves one row; so do Page Up/Down
-  // and Space; arrows, digits and the knobs as before. The glide to the next
-  // row is the only motion.
-  const rowOf = () => Math.round(main.scrollTop / (sections[0] ? sections[0].offsetHeight : 1));
+  // A gallery walk: the wall never free-scrolls — it shows one screen and
+  // is switched screen by screen, sideways. The newest print hangs at the
+  // left; walking right goes back in time. A wheel notch (or one trackpad
+  // gesture, its inertia tail swallowed) moves one screen; so do Page
+  // Up/Down and Space; arrows, digits and the knobs as before. The glide
+  // to the next screen is the only motion.
+  const rowOf = () => Math.round(main.scrollLeft / (sections[0] ? sections[0].offsetWidth : 1));
   function stepRow(d) {
     const target = Math.max(0, Math.min(sections.length - 1, rowOf() + d));
     gliding = false;                                   // the user moves the wall: the windows follow again
-    approachTop = sections[target].offsetTop;
+    approachLeft = sections[target].offsetLeft;
     settledNear = false;
     clearTimeout(glideTimer);
-    main.scrollTo({ top: sections[target].offsetTop, behavior: 'smooth' });
+    animateTo(sections[target].offsetLeft);
   }
   let wheelAcc = 0, wheelLockUntil = 0;
   main.addEventListener('wheel', (e) => {
     e.preventDefault();
     const now = Date.now();
     if (now < wheelLockUntil) { wheelAcc = 0; return; }            // the tail of a gesture
-    const notch = e.deltaMode !== 0 || Math.abs(e.deltaY) >= 50;   // a mouse wheel notch
-    wheelAcc += e.deltaY;
+    // a wheel has only deltaY, a sideways trackpad swipe speaks deltaX —
+    // the dominant axis counts, both step the walk
+    const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+    const notch = e.deltaMode !== 0 || Math.abs(delta) >= 50;   // a mouse wheel notch
+    wheelAcc += delta;
     if (!notch && Math.abs(wheelAcc) < 40) return;                  // a trackpad: wait for enough travel
-    stepRow(Math.sign(notch ? e.deltaY : wheelAcc));
+    stepRow(Math.sign(notch ? delta : wheelAcc));
     wheelAcc = 0;
     wheelLockUntil = now + 350;
   }, { passive: false });
@@ -834,7 +897,7 @@ if (DECK) {
 
   function select(i) {
     light(i);
-    glideTo(boxes[selected].closest('section').offsetTop);
+    glideTo(boxes[selected].closest('section').offsetLeft);
   }
 
   // ── Go-to: two knobs under the wall ──
@@ -866,29 +929,28 @@ if (DECK) {
   let goIdx = 0;              // the box the knobs point at
   let goTouched = false;      // the image window stays paper until a knob is turned
   let goPending = false;      // a turn happened; the wall follows when the mouse leaves
-  let printAngle = -90;       // begins at the left; 3.6° per print, 100 per revolution
-
-  const fullDate = (p) => p.taken
-    ? new Date(p.taken).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
-    : 'undated';
 
   function showGoto() {
     const p = photoOfBox(goIdx);
     // four digit drums roll to the year's figures ('–' for an undated one)
     const y = yearOf(p).padStart(4, '–').slice(-4);
     yearDrums.forEach((d, i) => { const ch = y[i]; d.style.setProperty('--d', /[0-9]/.test(ch) ? +ch : 10); });
-    // one revolution spans the full range of calendar years, beginning at
-    // the left: an empty year keeps its share of the circle, so a gap costs
-    // as much rotation as the years it skips
+    // Both angles are functions of the shown print alone, so a print always
+    // sits at the same angle however it was reached — scrolled to, deep-
+    // linked, typed — and the newest, the start, is at the top. One
+    // revolution of the year knob spans the full range of calendar years
+    // (an empty year keeps its share of the circle, so a gap costs as much
+    // rotation as the years it skips); the print knob turns 3.6° per print,
+    // 100 per revolution, older clockwise.
     const yr = +yearOf(p) || +years[0];
     const yr0 = +years[years.length - 1], spanY = +years[0] - yr0 + 1;
-    knobYear.style.setProperty('--a', (-90 + 360 * (+years[0] - yr) / spanY) + 'deg');
-    knobPrint.style.setProperty('--a', printAngle + 'deg');
+    knobYear.style.setProperty('--a', (360 * (+years[0] - yr) / spanY) + 'deg');
+    knobPrint.style.setProperty('--a', (goIdx * 3.6) + 'deg');
     if (goTouched) {
       gotoImg.src = p.thumb;
       gotoImg.style.visibility = '';
       gotoN.textContent = p.n;
-      gotoDate.textContent = fullDate(p);
+      gotoDate.textContent = metaOf(p) || 'undated';
     } else {
       gotoImg.style.visibility = 'hidden';
       gotoN.textContent = '—';
@@ -916,7 +978,6 @@ if (DECK) {
   function turnPrint(d) {
     // past either end the pile wraps around; 100 prints make one revolution
     goIdx = (goIdx + d + boxes.length) % boxes.length;
-    printAngle += d * 3.6;
     goTouched = true;
     showGoto();
     armGoto();
@@ -1006,28 +1067,28 @@ if (DECK) {
     gliding = false;
     settledNear = true;
     document.body.classList.remove('moving');
-    const top = target || sections.find(s => s.getBoundingClientRect().bottom > 0);
+    const top = target || sections.find(s => s.getBoundingClientRect().right > 0);
     if (top) lightRow(top);
   }
 
   let scrollTick = 0, scrollEndTimer = 0;
   main.addEventListener('scroll', () => {
     if (!settledNear) document.body.classList.add('moving');   // nothing undims while the wall moves
-    if (gliding && Math.abs(main.scrollTop - glideTarget) < 2) { gliding = false; clearTimeout(glideTimer); }
+    if (gliding && Math.abs(main.scrollLeft - glideTarget) < 2) { gliding = false; clearTimeout(glideTimer); }
     clearTimeout(scrollEndTimer);
     // nothing undims before the wall has come to rest: the step's target
     // only marks the arrival, the light comes from the rest-settle below
-    if (approachTop >= 0 && Math.abs(main.scrollTop - approachTop) < 2) approachTop = -1;
+    if (approachLeft >= 0 && Math.abs(main.scrollLeft - approachLeft) < 2) approachLeft = -1;
     scrollEndTimer = setTimeout(() => {
       // a pause on the way is not the end: while a step or glide still has
       // a target, only the fully-inside check may light anything
-      if (gliding || approachTop >= 0) return;
+      if (gliding || approachLeft >= 0) return;
       settle();
     }, 300);
     if (gliding || scrollTick) return;
     scrollTick = requestAnimationFrame(() => {
       scrollTick = 0;
-      const top = sections.find(s => s.getBoundingClientRect().bottom > 0);
+      const top = sections.find(s => s.getBoundingClientRect().right > 0);
       if (top) syncGoto(top);
     });
   }, { passive: true });
@@ -1038,7 +1099,7 @@ if (DECK) {
   if (startN !== null) {
     goIdx = PHOTOS.length - startN;
     goTouched = true;
-    main.scrollTo({ top: boxes[goIdx].closest('section').offsetTop, behavior: 'instant' });
+    main.scrollTo({ left: boxes[goIdx].closest('section').offsetLeft, behavior: 'instant' });
     if (mode === 'mouse') { mode = 'kbd'; document.body.classList.add('kbd-active'); }
     light(goIdx);
     showGoto();
@@ -1103,7 +1164,7 @@ if (DECK) {
       station = (station + (e.shiftKey ? 3 : 1)) % 4;
       applyStation();
       if (station === 0 && selected < 0) {
-        const top = sections.find(s => s.getBoundingClientRect().bottom > 0);
+        const top = sections.find(s => s.getBoundingClientRect().right > 0);
         if (top) lightRow(top);
       }
       return;
