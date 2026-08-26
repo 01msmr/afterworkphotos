@@ -531,6 +531,47 @@ html.map-on .towns {
 	font-weight: 400;
 }
 
+/* ── What the visitor keeps: the count at the top left, on the header's
+   own line (same top, same padding, so nothing is measured). The word is
+   bold, the number behind it is not. Quiet like the rest of the machinery
+   until the mouse is on it; nothing at all while nothing is kept. ── */
+.favmark {
+	position: fixed;
+	top: 0;
+	left: var(--side);
+	padding: var(--tp) 0;
+	z-index: 1000;
+	display: flex;
+	gap: 0.45em;
+	align-items: baseline;
+	font: 400 1.1rem/1.2 "Helvetica Neue", Helvetica, Arial, sans-serif;
+	color: var(--towns-mark);
+	opacity: 0;
+	cursor: none;
+	transition: opacity 0.6s ease;
+}
+
+.favmark.some {
+	opacity: 0.28;
+}
+
+.favmark b {
+	font-weight: 700;
+}
+
+.favmark:hover,
+.favmark.kfocus {
+	opacity: 1;
+	transition: opacity 0.3s ease;
+}
+
+/* a kept print says so at the end of its name */
+html:not(.deck) .awbox.fav .cap::after {
+	content: ' \2605';
+	font-size: 76%;
+	opacity: 0.55;
+}
+
 /* ── The guide: a line of keys at the foot of the wall. No mark calls it —
    the last stop of the Tab round does, and the key ?. ── */
 .hints {

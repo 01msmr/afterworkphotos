@@ -56,8 +56,18 @@ const subtitleHTML = (p) => {
    address follows along as the shown print changes (replaceState, no
    history).
    ────────────────────────────────────────────────────────── */
+// The address is the shown print, and after it the ones the visitor has
+// starred: #154&f=3,17,88. Both halves are readable, so a bookmark keeps a
+// whole selection — only the numbers, nothing about the person.
+let FAVS = new Set();
+const favList = () => [...FAVS].sort((a, b) => a - b);
+function hashFavs() {
+  const p = location.hash.slice(1).split('&').find(x => x.startsWith('f='));
+  return p ? p.slice(2).split(',').map(Number).filter(n => n >= 1) : [];
+}
+
 function hashTarget() {
-  const h = location.hash.slice(1);
+  const h = location.hash.slice(1).split('&')[0];
   if (!h) return null;
   if (/^y\d{4}$/.test(h)) return { year: h.slice(1) };
   if (/^\d+$/.test(h)) {
@@ -79,7 +89,8 @@ function targetN() {
 }
 
 function writeHash(n) {
-  if (location.hash !== '#' + n) history.replaceState(null, '', '#' + n);
+  const h = '#' + n + (FAVS.size ? '&f=' + favList().join(',') : '');
+  if (location.hash !== h) history.replaceState(null, '', h);
 }
 
 // A video does not play by itself: on the desktop it plays while the mouse
@@ -1044,6 +1055,45 @@ if (DECK) {
   document.body.appendChild(mapgo);
   document.body.appendChild(list);
 
+  // ── Favourites: what the visitor keeps ──
+  // The key f stars the print that is lit. The count stands at the top
+  // left, on the header's own line, and says favs; the numbers live
+  // in localStorage and in the address, so a bookmark carries a whole
+  // selection from one visit to the next — or to someone else.
+  try { (JSON.parse(localStorage.getItem('favs') || '[]') || []).forEach(n => FAVS.add(+n)); } catch (e) {}
+  hashFavs().forEach(n => FAVS.add(n));      // a bookmark brings its own along
+  const favMark = document.createElement('div');
+  favMark.className = 'favmark';
+  document.body.appendChild(favMark);
+  function drawFavs() {
+    favMark.innerHTML = FAVS.size ? `<b>favs</b><span>${FAVS.size}</span>` : '';
+    favMark.classList.toggle('some', FAVS.size > 0);
+    boxes.forEach(b => b.classList.toggle('fav', FAVS.has(+b.dataset.n)));
+  }
+  function keepFavs() {
+    try { localStorage.setItem('favs', JSON.stringify(favList())); } catch (e) {}
+    if (selected >= 0) writeHash(+boxes[selected].dataset.n);
+    drawFavs();
+  }
+  function starPrint() {
+    const i = selected >= 0 ? selected : lastMouseIndex;
+    const box = boxes[i];
+    if (!box) return;
+    const n = +box.dataset.n;
+    if (FAVS.has(n)) FAVS.delete(n); else FAVS.add(n);
+    keepFavs();
+  }
+  favMark.addEventListener('click', () => { if (FAVS.size) goFav(0); });
+  // walking the starred prints: the wall goes to each as one steps
+  let favAt = -1;
+  function goFav(d) {
+    const list = favList();
+    if (!list.length) return;
+    favAt = favAt < 0 ? 0 : (favAt + d + list.length) % list.length;
+    const i = boxes.findIndex(b => +b.dataset.n === list[favAt]);
+    if (i >= 0) select(i);
+  }
+
   // ── The guide: the keys of whatever is in hand ──
   // No panel that covers anything, and no mark on the wall either: a line
   // of key caps at the foot of the wall. It shows itself at the first
@@ -1055,9 +1105,10 @@ if (DECK) {
   // Each group says where it belongs before it says what it does, and
   // every key gets its own cap — two keys are two caps, as on the board.
   const HINTS = {
-    print: ['on the wall', [[['\u23ce'], 'next'], [['\u21e7', '\u23ce'], 'back'], [['0\u20139'], 'number']]],
+    print: ['on the wall', [[['\u23ce'], 'next'], [['\u21e7', '\u23ce'], 'back'], [['0\u20139'], 'number'], [['f'], 'favorite']]],
     knobs: ['at the knobs', [[['\u2191', '\u2193'], 'year'], [['\u2190', '\u2192'], 'print'], [['\u23ce'], 'go']]],
     map: ['on the map', [[['\u2190', '\u2191', '\u2193', '\u2192'], 'towns'], [['\u23ce'], 'visit'], [['\u21e7', '\u23ce'], 'back']]],
+    favs: ['at the favs', [[['\u2190', '\u2191', '\u2193', '\u2192'], 'walk'], [['f'], 'drop']]],
     keys: ['anywhere', [[['m'], 'map'], [['n'], 'knobs'], [['b'], 'wall']]]
   };
   const hints = document.createElement('div');
@@ -1082,6 +1133,10 @@ if (DECK) {
       localStorage.setItem('guide', TODAY() + ':' + (day === TODAY() ? (+n || 0) + 1 : 1));
     } catch (e) {}
   }
+  // the full guide names the favourites only once there are some
+  const favGroups = () => FAVS.size
+    ? ['print', 'knobs', 'map', 'favs', 'keys']
+    : ['print', 'knobs', 'map', 'keys'];
   let hintTimer = 0;
   function showHints(groups) {
     clearTimeout(hintTimer);
@@ -1259,11 +1314,15 @@ if (DECK) {
   // own; both are out of the round now (the lines marked "station 4" and
   // the old station 2 below), while the key b still switches plaster and
   // concrete as it always did.
-  let station = 0;            // 0 print, 1 the knobs, 2 the map, 3 the guide
+  let station = 0;            // 0 print, 1 the knobs, 2 the map, 3 the favs
+  // the favourites join the round only once there are some
+  const stops = () => (FAVS.size ? 4 : 3);
   function applyStation() {
     knobYear.classList.toggle('kfocus', station === 1);
     knobPrint.classList.toggle('kfocus', station === 1);
     mapgo.classList.toggle('kfocus', station === 2);
+    favMark.classList.toggle('kfocus', station === 3);
+    if (station !== 3) favAt = -1;
     if (station !== 2) clearTown();
     goto.classList.toggle('kbd-open', station === 1);
     // document.documentElement.classList.toggle('bg-focus', station === 4);   // station 4: the wall
@@ -1272,8 +1331,11 @@ if (DECK) {
     // the wall's own station shows the whole guide — twice a day, no more;
     // the knobs and the map show their group while the round is new
     if (station === 0) {
-      if (guideLeft() > 0) { showHints(['print', 'knobs', 'map', 'keys']); spendGuide(); }
+      drawFavs();
+  if (guideLeft() > 0) { showHints(favGroups()); spendGuide(); }
       else showHints([]);
+    } else if (station === 3) {
+      showHints(['favs']);                    // its own stop always says its keys
     } else {
       showHints(taught() ? [] : station === 1 ? ['knobs'] : station === 2 ? ['map'] : []);
     }
@@ -1398,7 +1460,10 @@ if (DECK) {
     if (e.key === 'n' || e.key === 'N') { toggleNav(); return; }
     // the guide on demand, whatever station one stands on and however
     // often one asks
-    if (e.key === '?') { showHints(['print', 'knobs', 'map', 'keys']); return; }
+    if (e.key === '?') { showHints(favGroups()); return; }
+
+    // f keeps the lit print, or lets it go again
+    if (e.key === 'f' || e.key === 'F') { starPrint(); return; }
 
     if (e.key === 'm' || e.key === 'M') {
       if (mode === 'mouse') { mode = 'kbd'; mouseHasMoved = false; document.body.classList.add('kbd-active'); }
@@ -1426,7 +1491,7 @@ if (DECK) {
       e.preventDefault();
       if (mode === 'mouse') { mode = 'kbd'; mouseHasMoved = false; document.body.classList.add('kbd-active'); }
       tabsWalked++;
-      station = (station + (e.shiftKey ? 2 : 1)) % 3;
+      station = (station + (e.shiftKey ? stops() - 1 : 1)) % stops();
       applyStation();
       setMap(station === 2);
       if (station === 0 && selected < 0) {
@@ -1478,6 +1543,11 @@ if (DECK) {
     e.preventDefault();
 
     // if (station === 4) { toggleWall(); return; }   // station 4: the wall
+
+    if (station === 3) {
+      goFav(e.key === 'ArrowDown' || e.key === 'ArrowRight' ? 1 : -1);
+      return;
+    }
 
     if (station === 2) {
       if (!document.documentElement.classList.contains('map-on')) return;
