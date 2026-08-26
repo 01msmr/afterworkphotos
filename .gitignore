@@ -1,3 +1,5 @@
 secret.php
 .DS_Store
 .superpowers/
+# the originals are local: full size, metadata intact (GPS!), never pushed
+img originals/

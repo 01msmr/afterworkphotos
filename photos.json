@@ -426,8 +426,8 @@
     {"n": 423, "id": "awp-2026-06-07-01", "taken": "2026-06-07T09:13:19", "place": "Gütersloh", "desc": "lined yellow card", "file": "img/awp-2026-06-07-01.jpg", "thumb": "img/thumb/awp-2026-06-07-01.jpg", "video": null},
     {"n": 424, "id": "awp-2026-06-19-01", "taken": "2026-06-19T16:05:22", "place": "Markdorf", "desc": "diagonal shadows on tiles", "file": "img/awp-2026-06-19-01.jpg", "thumb": "img/thumb/awp-2026-06-19-01.jpg", "video": null},
     {"n": 425, "id": "awp-2026-07-29-01", "taken": "2026-07-29T21:30:28", "place": null, "desc": "ship funnels", "file": "img/awp-2026-07-29-01.jpg", "thumb": "img/thumb/awp-2026-07-29-01.jpg", "video": null},
-    {"n": 426, "id": "awp-2026-08-26-01", "taken": "2026-08-26T20:07:11", "place": null, "desc": null, "file": "img/awp-2026-08-26-01.jpg", "thumb": "img/thumb/awp-2026-08-26-01.jpg", "video": "img/awp-2026-08-26-01.mp4"},
-    {"n": 427, "id": "awp-2026-08-26-02", "taken": "2026-08-26T20:08:27", "place": null, "desc": null, "file": "img/awp-2026-08-26-02.jpg", "thumb": "img/thumb/awp-2026-08-26-02.jpg", "video": "img/awp-2026-08-26-02.mp4"}
+    {"n": 426, "id": "awp-2026-08-26-01", "taken": "2026-08-26T20:07:11", "place": null, "desc": "headlights in fog", "file": "img/awp-2026-08-26-01.jpg", "thumb": "img/thumb/awp-2026-08-26-01.jpg", "video": "img/awp-2026-08-26-01.mp4"},
+    {"n": 427, "id": "awp-2026-08-26-02", "taken": "2026-08-26T20:08:27", "place": null, "desc": "water from manhole", "file": "img/awp-2026-08-26-02.jpg", "thumb": "img/thumb/awp-2026-08-26-02.jpg", "video": "img/awp-2026-08-26-02.mp4"}
   ],
   "places": {
     "Alsheim": [49.77, 8.34],

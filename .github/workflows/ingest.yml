@@ -54,7 +54,7 @@ jobs:
         run: |
           git config user.name "afterworkphotos ingest"
           git config user.email "ingest@afterworkphoto.com"
-          git add -A inbox img "img originals" res/main.js photos.json
+          git add -A inbox img res/main.js photos.json
           if git diff --cached --quiet; then
             echo "nothing to commit"
             exit 0

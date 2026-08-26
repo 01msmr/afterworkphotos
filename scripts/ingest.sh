@@ -13,6 +13,9 @@
 #    one that already is), written as the derivative (metadata stripped, so
 #    no GPS reaches the public image) and as the full-size square original
 #    (quality 95, metadata kept; an already-square one is moved untouched).
+#    The originals are LOCAL ONLY — gitignored, never pushed: they carry
+#    the GPS the public images are stripped of. A photo that arrives on the
+#    runner therefore keeps no original beyond that run.
 #    When the crop changed something, the uncropped file is kept too, as
 #    "<name>--unc.<ext>" next to the original.
 #    An arrival whose date taken matches an existing photo to the second is
@@ -51,8 +54,17 @@ cd "$(dirname "$0")/.."
 MAX_VIDEO_SECONDS=30
 
 # inbox files arrive tracked (pushed through the API) or untracked (dropped
-# in locally); git mv / git rm only work on tracked ones, so fall back
-move() { git mv "$1" "$2" 2>/dev/null || { mv "$1" "$2"; git add "$2"; }; }
+# in locally), and "img originals" is gitignored — git mv / git add work on
+# neither, so fall back to a plain move and record the departure by hand
+move() {
+  git mv "$1" "$2" 2>/dev/null && return 0
+  mv "$1" "$2"
+  git add "$2" 2>/dev/null || true                          # ignored target: nothing to stage
+  git rm -q --cached --ignore-unmatch "$1" 2>/dev/null || true
+}
+
+# move a file git does not track (an original): git mv would refuse
+movef() { git mv "$1" "$2" 2>/dev/null || mv "$1" "$2"; }
 remove() { git rm -q "$1" 2>/dev/null || rm -f "$1"; }
 
 lower() { printf '%s' "$1" | tr '[:upper:]' '[:lower:]'; }
@@ -248,7 +260,7 @@ for f in ${files[@]+"${files[@]}"}; do
       -map_metadata 0 -movflags +use_metadata_tags \
       -c:v libx264 -crf 18 -preset medium -pix_fmt yuv420p -c:a copy "img originals/$id.mp4"
     move "$f" "img originals/$id--unc.$ext"
-    git add "img/$id.mp4" "img/$id.jpg" "img originals/$id.mp4"
+    git add "img/$id.mp4" "img/$id.jpg"
     echo "inbox: $f -> video (${dur}s)"
   else
     # orient first, so the size we measure is the one you see
@@ -264,7 +276,6 @@ for f in ${files[@]+"${files[@]}"}; do
       convert "$f" -auto-orient -gravity center -crop "${s}x${s}+0+0" +repage \
         -quality 95 "img originals/$id.jpg"
       move "$f" "img originals/$id--unc.$ext"
-      git add "img originals/$id.jpg"
     fi
     echo "inbox: $f -> photo (${w}x${h} -> ${s}x${s})"
   fi
@@ -306,8 +317,8 @@ while IFS=$'\t' read -r old new; do
   git mv "img/$old.jpg" "img/renum_$old.jpg"
   [[ -f "img/$old.mp4" ]] && git mv "img/$old.mp4" "img/renum_$old.mp4"
   [[ -f "img/thumb/$old.jpg" ]] && git mv "img/thumb/$old.jpg" "img/thumb/renum_$old.jpg"
-  o=$(original_of "$old"); [[ -n "$o" ]] && git mv "$o" "img originals/renum_$old.${o##*.}"
-  for u in "img originals/$old--unc".*; do [[ -f "$u" ]] && git mv "$u" "img originals/renum_$old--unc.${u##*.}"; done
+  o=$(original_of "$old"); [[ -n "$o" ]] && movef "$o" "img originals/renum_$old.${o##*.}"
+  for u in "img originals/$old--unc".*; do [[ -f "$u" ]] && movef "$u" "img originals/renum_$old--unc.${u##*.}"; done
 done < "$map"
 # phase 2: the new names
 while IFS=$'\t' read -r old new; do
@@ -315,8 +326,8 @@ while IFS=$'\t' read -r old new; do
   git mv "img/renum_$old.jpg" "img/$new.jpg"
   [[ -f "img/renum_$old.mp4" ]] && git mv "img/renum_$old.mp4" "img/$new.mp4"
   [[ -f "img/thumb/renum_$old.jpg" ]] && git mv "img/thumb/renum_$old.jpg" "img/thumb/$new.jpg"
-  for o in "img originals/renum_$old".*; do [[ -f "$o" ]] && git mv "$o" "img originals/$new.${o##*.}"; done
-  for u in "img originals/renum_$old--unc".*; do [[ -f "$u" ]] && git mv "$u" "img originals/$new--unc.${u##*.}"; done
+  for o in "img originals/renum_$old".*; do [[ -f "$o" ]] && movef "$o" "img originals/$new.${o##*.}"; done
+  for u in "img originals/renum_$old--unc".*; do [[ -f "$u" ]] && movef "$u" "img originals/$new--unc.${u##*.}"; done
   echo "name: $old -> $new"
 done < "$map"
 
