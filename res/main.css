@@ -11,8 +11,8 @@
 	   width of one of (prints + 1) equal squares between the --side margins */
 	--gap: 6vw;   /* 1.5 × --side, but of the viewport: a percentage gap would shrink with the room the map takes */
 	--wall-top: calc(4rem + var(--tp) * 2);
-	--cols: 3;
-	--map-w: calc((100vw - 2 * var(--side) - (var(--cols) - 1) * var(--gap)) / var(--cols));
+	/* the MAP icon grown: 4 × its 44px face, at the 1.8 it is drawn in */
+	--map-grown: calc(44px * 4 * 1.8);
 	--app-height: 100vh;
 	/* overridden by JS with window.innerHeight */
 }
@@ -174,11 +174,12 @@ section {
 	transition: padding-left 0.6s cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
-html[data-per-row="1"] { --cols: 2; }
-html[data-per-row="3"] { --cols: 4; }
-
+/* the map open: the prints give it the left of the screen and a wide
+   margin, and shrink towards the top right — their top and right edges
+   stay where they are */
 html.map-on section {
-	padding-left: calc(var(--side) + var(--map-w) + var(--gap));
+	padding-left: calc(var(--side) + var(--map-grown) + var(--gap));
+	justify-content: flex-end;
 }
 
 /* each screen is exactly one viewport wide (scoped off the deck: its
@@ -194,76 +195,6 @@ div.awbox {
 	flex: 1 1 0;
 	/* room below for the go-to knobs (≈ 145px at 1.8×) */
 	max-width: calc(var(--app-height) - 16rem);
-}
-
-/* ── The wall map: the plan one carries along. Fixed at the left, hung at
-   the prints' height and — one of the equal squares — their size; dark
-   grey, the streets transparent so the wall shows through. Off screen to
-   the left until switched on (html.map-on): then it slides in while the
-   sections open the same room at their left, so the prints on screen
-   scale down to make three equal squares — one motion, 0.6s. ── */
-.awmap {
-	position: fixed;
-	top: var(--wall-top);
-	left: var(--side);
-	width: var(--map-w);
-	max-width: calc(var(--app-height) - 16rem);
-	z-index: 800;
-	container-type: inline-size;
-	transform: translateX(calc(-100% - var(--side) - var(--gap)));
-	opacity: 0;
-	transition: transform 0.6s cubic-bezier(0.22, 0.61, 0.36, 1), opacity 0.4s ease;
-}
-
-html.map-on .awmap {
-	transform: none;
-	opacity: 1;
-}
-
-html:not(.deck) .awmap .awphoto {
-	background: transparent;   /* the wall shows through the streets */
-}
-
-.awmap svg {
-	display: block;
-	width: 100%;
-	aspect-ratio: 1;
-	opacity: 0.35;              /* darker material than a print: never as faint */
-	transition: opacity 0.2s ease-in;
-}
-
-.awmap:hover svg {
-	opacity: 1;
-	transition: opacity 0.8s ease-in;
-}
-
-.awmap .towns circle {
-	fill: #d9d9d9;
-	transition: fill 0.2s;
-}
-
-.awmap .towns text {
-	font: 400 3.2px/1 "Helvetica Neue", Helvetica, Arial, sans-serif;
-	fill: #cfcfcf;
-	text-transform: lowercase;
-}
-
-.awmap .city:hover circle {
-	fill: #fff;
-}
-
-.awmap .city:hover text {
-	fill: #fff;
-}
-
-.awmap .subtitle {
-	opacity: 0.2;
-	transition: opacity 0.2s ease-in;
-}
-
-.awmap:hover .subtitle {
-	opacity: 1;
-	transition: opacity 0.8s ease-in;
 }
 
 /* An opaque sheet of 12.5% gray behind every image, exactly its size: the
@@ -396,7 +327,6 @@ div.awbox {
 }
 
 html:not(.deck) .awbox:hover .awphoto,
-html:not(.deck) .awmap:hover .awphoto,
 html:not(.deck) .awbox.kbd-focus .awphoto {
 	transition: box-shadow 0.8s ease-in;
 	box-shadow:
@@ -444,9 +374,11 @@ html:not(.deck) body.kbd-active .awbox:hover:not(.kbd-focus) .awphoto {
 	zoom: 1.8;
 }
 
-/* ── The MAP button: the plan, shown or hidden — lower left, the knobs' mirror.
-   Dark square, MAP set askew, its strokes transparent like streets. As
-   quiet as the unlit unit until the mouse (or its Tab station) is on it. */
+/* ── The map: the MAP icon, grown — lower left, the knobs' mirror.
+   Dark square, MAP set askew, its strokes transparent like streets. Shut it
+   is the small quiet mark; open it grows to four times its size with its
+   left and bottom edges staying put, so it unfolds towards the top right,
+   and carries the list of towns. */
 .mapgo {
 	position: fixed;
 	left: var(--side);
@@ -457,7 +389,7 @@ html:not(.deck) body.kbd-active .awbox:hover:not(.kbd-focus) .awphoto {
 	zoom: 1.8;
 	opacity: 0.12;
 	cursor: none;
-	transition: opacity 0.6s ease;
+	transition: opacity 0.6s ease, width 0.6s cubic-bezier(0.22, 0.61, 0.36, 1), height 0.6s cubic-bezier(0.22, 0.61, 0.36, 1);
 	box-shadow:
 		0 1px 2px rgba(0, 0, 0, 0.35),
 		0 6px 10px -3px rgba(48, 42, 18, 0.45);
@@ -465,8 +397,64 @@ html:not(.deck) body.kbd-active .awbox:hover:not(.kbd-focus) .awphoto {
 
 .mapgo svg {
 	display: block;
-	width: 44px;
-	height: 44px;
+	width: 100%;
+	height: 100%;
+}
+
+html.map-on .mapgo {
+	width: calc(44px * 4);
+	height: calc(44px * 4);
+	opacity: 1;
+}
+
+/* open, a thin dark veil lies over the plan so the names read — the
+   streets stay visible through it */
+.mapgo::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	background: rgba(28, 28, 28, 0);
+	pointer-events: none;
+	transition: background 0.4s ease;
+}
+
+/* open, the plan lies under a veil so the names read on it */
+html.map-on .mapgo::after {
+	background: rgba(26, 26, 26, 0.55);
+}
+
+
+/* the towns of the archive, alphabetical, in the descriptions' small type —
+   a plain list, no numbers, no bullets */
+.mapgo .towns {
+	position: absolute;
+	inset: 7px;
+	z-index: 1;
+	columns: 78px;
+	column-gap: 5px;
+	font: 400 5px/1.45 "Helvetica Neue", Helvetica, Arial, sans-serif;
+	color: #f2f2f2;
+	opacity: 0;
+	overflow: hidden;
+	pointer-events: none;
+	transition: opacity 0.25s ease;
+}
+
+html.map-on .mapgo .towns {
+	opacity: 1;
+	pointer-events: auto;
+	transition: opacity 0.4s ease 0.25s;
+}
+
+.mapgo .towns span {
+	display: block;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.mapgo .towns span:hover {
+	color: #fff;
 }
 
 .mapgo:hover,

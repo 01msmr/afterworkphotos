@@ -21,7 +21,6 @@ const sections = [];
    until the list is here.
    ────────────────────────────────────────────────────────── */
 let PHOTOS = [];
-let PLACES = {};   // place name → [lat, lon] of the town's centre, for the wall map
 
 // A video is an afterworkvideo; the number is the same series as the photos
 const captionOf = (p) => `afterwork${p.video ? 'video' : 'photo'} ${p.n}`;
@@ -90,7 +89,6 @@ function mediaHTML(p) {
 
 fetch('photos.json', { cache: 'no-cache' }).then(r => r.json()).then(data => {
   PHOTOS = data.photos;
-  PLACES = data.places || {};
   init();
 });
 
@@ -720,53 +718,14 @@ if (DECK) {
     box.addEventListener('mouseleave', () => { if (mode === 'mouse') playVideo(null); });
   });
 
-  // ── The wall map: the gallery's plan, carried along ──
-  // A square like a print, first on the wall. Dark grey with the streets
-  // of an imagined town as transparent lines (the wall shows through), the
-  // towns of the archive as dots in their true relative position — from
-  // the towns' centre coordinates in photos.json, nothing about a photo —
-  // sized by how many prints come from there. A click on a town cuts to
-  // its newest print; further clicks walk through the town's prints. The
-  // map is carried along: fixed at the left on every screen, shown or
-  // hidden by the MAP button, its Tab station or the key m — it slides in
-  // from outside while the sections open the same room (html.map-on, the
-  // CSS does the geometry), and the choice is kept in localStorage.
-  const STREETS = `<path d="M-4 38 L104 26"/><path d="M-4 62 L104 54" stroke-width="1.1"/><path d="M22 -4 L34 104"/><path d="M58 -4 L66 104" stroke-width="1.1"/><path d="M-4 12 C30 18 44 6 104 14" stroke-width="0.7"/><path d="M-4 84 C24 78 48 92 104 80" stroke-width="0.7"/><path d="M6 104 L104 6" stroke-width="1.6"/><path d="M-4 70 L40 -4" stroke-width="0.8"/><path d="M76 104 L104 68" stroke-width="0.8"/><circle cx="46" cy="47" r="19" stroke-width="0.9"/><path d="M40 -4 L46 28" stroke-width="0.6"/><path d="M84 30 L104 44" stroke-width="0.6"/><path d="M12 56 L28 60" stroke-width="0.6"/>`;
-  function buildMap() {
-    const el = document.createElement('div');
-    el.className = 'awmap';
-    const counts = new Map();
-    PHOTOS.forEach(p => { if (p.place && PLACES[p.place]) counts.set(p.place, (counts.get(p.place) || 0) + 1); });
-    const cities = [...counts].map(([name, n]) => ({ name, n, lat: PLACES[name][0], lon: PLACES[name][1] }));
-    let dots = '';
-    if (cities.length) {
-      // equirectangular, fitted into the square; distances from the centre
-      // are compressed (power 0.6) so the far towns do not crush the near ones
-      const lat0 = cities.reduce((a, c) => a + c.lat, 0) / cities.length;
-      const kx = Math.cos(lat0 * Math.PI / 180);
-      const xs = cities.map(c => c.lon * kx), ys = cities.map(c => -c.lat);
-      const cx = (Math.min(...xs) + Math.max(...xs)) / 2, cy = (Math.min(...ys) + Math.max(...ys)) / 2;
-      const span = Math.max(...xs.map(x => Math.abs(x - cx)), ...ys.map(y => Math.abs(y - cy))) || 1;
-      const soft = (v) => Math.sign(v) * Math.pow(Math.abs(v) / span, 0.6);
-      const M = 16, H = 50 - M;
-      cities.forEach((c, i) => { c.x = 50 + soft(xs[i] - cx) * H; c.y = 50 + soft(ys[i] - cy) * H; });
-      const maxN = Math.max(...cities.map(c => c.n));
-      dots = cities.map(c => {
-        const r = 1 + 3.5 * Math.sqrt(c.n / maxN);
-        return `<g class="city" data-place="${c.name}"><circle cx="${c.x.toFixed(2)}" cy="${c.y.toFixed(2)}" r="${r.toFixed(2)}"/>` +
-          `<text x="${(c.x + r + 1.4).toFixed(2)}" y="${(c.y + 1.1).toFixed(2)}">${c.name.toLowerCase()} ${c.n}</text></g>`;
-      }).join('');
-    }
-    el.innerHTML = `<div class="awphoto"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-      <defs><mask id="wallmap-streets"><rect width="100" height="100" fill="#fff"/>
-        <g fill="none" stroke="#000" stroke-width="1.3" stroke-linecap="round">${STREETS}</g></mask></defs>
-      <rect width="100" height="100" fill="#3a3a3a" mask="url(#wallmap-streets)"/>
-      <g class="towns">${dots}</g></svg></div>
-      <p class="subtitle">map</p>`;
-    return el;
-  }
-  const mapTile = buildMap();
-  document.body.appendChild(mapTile);
+  // ── The map: the MAP icon itself, grown ──
+  // No second map object: the little MAP square at the lower left grows to
+  // four times its size, its left and bottom edges staying put, so it
+  // unfolds towards the top right — and on it stands the plain list of the
+  // towns the archive knows, alphabetical, in the descriptions' small type.
+  // The prints shrink the same way (their top and right edges stay), with a
+  // wide margin between them and the map. Shown and hidden by the icon, its
+  // Tab station or the key m; the choice is kept in localStorage.
   const placeCursor = new Map();     // per town: the box last walked to
   function goToPlace(name) {
     const idx = [];
@@ -779,10 +738,6 @@ if (DECK) {
     showGoto();
     goNow();
   }
-  mapTile.addEventListener('click', (e) => {
-    const g = e.target.closest('.city');
-    if (g) goToPlace(g.dataset.place);
-  });
   function toggleMap(on) {
     const v = on === undefined ? !document.documentElement.classList.contains('map-on') : on;
     document.documentElement.classList.toggle('map-on', v);
@@ -877,7 +832,7 @@ if (DECK) {
     try { localStorage.setItem('wall', concrete ? 'concrete' : 'plaster'); } catch (e) {}
   }
   main.addEventListener('click', (e) => {
-    if (e.target.closest('.awbox') || e.target.closest('.awmap')) return;
+    if (e.target.closest('.awbox')) return;
     toggleWall();
   });
 
@@ -1009,17 +964,70 @@ if (DECK) {
   const mapgo = document.createElement('div');
   mapgo.className = 'mapgo';
   mapgo.title = 'map';
+  // Seen from above: a quarter of a town. Three of its streets happen to
+  // read as M, A and P — each a shape a plan really carries: a serpentine
+  // climbing in switchbacks, a triangular block with its connecting lane, a
+  // dead end ending in a turning loop. They run in the same weight as the
+  // other through roads and carry on into the network at both ends, so they
+  // are found rather than read. All of it is cut out of the dark square, so
+  // the wall shows through the streets.
   mapgo.innerHTML = `<svg viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
     <defs><mask id="mapgo-m"><rect width="44" height="44" fill="#fff"/>
-      <g fill="none" stroke="#000" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M-2 34 L46 30" stroke-width="0.9"/><path d="M30 -2 L34 46" stroke-width="0.7"/>
-        <text x="22" y="30" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-weight="700" font-size="24"
-          text-anchor="middle" textLength="40" lengthAdjust="spacingAndGlyphs" stroke-width="1.6"
-          transform="rotate(-24 22 22)">MAP</text>
+      <g fill="none" stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-width="0.5">
+        <path d="M-2 8.6 C12 10.4 28 6.4 46 9.4" stroke-width="0.9"/>
+        <path d="M-2 35.4 C12 36.6 30 34.6 46 35.4" stroke-width="0.9"/>
+        <path d="M-2 43.4 C11 40.2 24 45.4 46 41.6" stroke-width="1.5"/>
+        <path d="M4.4 -2 L3.4 46" stroke-width="0.75"/>
+        <path d="M39.6 -2 L40.6 46" stroke-width="0.75"/>
+        <path d="M-2 1.6 L46 0.4"/>
+        <path d="M-2 17.4 L4.2 17.6"/>
+        <path d="M-2 26.6 L4 26.8"/>
+        <path d="M40.2 14.6 L46 14.2"/>
+        <path d="M40.4 24.4 L46 24"/>
+        <path d="M40.4 30.6 L46 30.4"/>
+        <path d="M9.6 -2 L9.8 8.8"/>
+        <path d="M20.4 -2 L20.6 8.6"/>
+        <path d="M31.4 -2 L31.2 8.8"/>
+        <path d="M14.6 -2 L14.8 8.7"/>
+        <path d="M8.4 35.8 L8.2 42"/>
+        <path d="M16.6 35.6 L16.4 41.4"/>
+        <path d="M25.4 35.4 L25.2 40.6"/>
+        <path d="M33.4 35.2 L33.6 40.4"/>
+        <path d="M4 12.6 L44 12"/>
+        <path d="M4 31.4 L44 31"/>
+        <path d="M3.8 18.8 L40.4 18.2"/>
+        <path d="M3.8 28.2 L40.4 27.8"/>
+        <rect x="9.2" y="14.6" width="2.2" height="3" rx="0.3"/>
+        <rect x="12.8" y="14.6" width="2.4" height="3" rx="0.3"/>
+        <rect x="21.2" y="29.4" width="2.2" height="1.4" rx="0.3"/>
+        <rect x="30.6" y="14.8" width="3.2" height="2.6" rx="0.3"/>
+        <rect x="9" y="20" width="2.4" height="2.2" rx="0.3"/>
+        <rect x="17.4" y="20" width="2.2" height="2.2" rx="0.3"/>
+        <rect x="30.4" y="23.2" width="3" height="2.2" rx="0.3"/>
+        <rect x="10.4" y="37" width="5" height="3.2" rx="0.4"/>
+        <rect x="26.6" y="36.6" width="6" height="3" rx="0.4"/>
+        <circle cx="37.2" cy="27.6" r="1.6" stroke-width="0.6"/>
+        <path d="M35.6 27.6 L31 27.2"/>
+        <g stroke-width="0.9">
+          <path d="M8 35.6 L8 13 L12 21.4 L16 13 L16 35.6"/>
+          <path d="M18.4 35.5 L22.2 13 L26 35.4"/>
+          <path d="M19.6 24.6 L24.8 24.4" stroke-width="0.55"/>
+          <path d="M28.4 35.4 L28.4 13 C33.4 12.4 36 14.8 36 17.4 C36 20 33.4 21.6 28.4 20.8"/>
+        </g>
       </g></mask></defs>
     <rect width="44" height="44" fill="#3a3a3a" mask="url(#mapgo-m)"/></svg>`;
+  const towns = [...new Set(PHOTOS.map(p => p.place).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, 'en'));
+  const list = document.createElement('div');
+  list.className = 'towns';
+  list.innerHTML = towns.map(t => `<span data-place="${t}">${t.toLowerCase()}</span>`).join('');
+  mapgo.appendChild(list);
   document.body.appendChild(mapgo);
-  mapgo.addEventListener('click', () => toggleMap());
+  mapgo.addEventListener('click', (e) => {
+    const t = e.target.closest('[data-place]');
+    if (t) { goToPlace(t.dataset.place); return; }   // a town: go there, the map stays
+    toggleMap();
+  });
 
   const yearDrums = [...goto.querySelectorAll('.goto-year .strip')];
   const gotoImg = goto.querySelector('.goto-img img');
@@ -1210,7 +1218,7 @@ if (DECK) {
 
   // the plan comes along if it was up last time — laid out outside first
   // (the reflow), so it slides in as the gallery opens
-  try { if (localStorage.getItem('map') === 'on') { void mapTile.offsetWidth; toggleMap(true); } } catch (e) {}
+  try { if (localStorage.getItem('map') === 'on') { void mapgo.offsetWidth; toggleMap(true); } } catch (e) {}
 
   window.addEventListener('hashchange', () => {
     const n = targetN();
