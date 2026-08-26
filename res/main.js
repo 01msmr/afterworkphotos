@@ -1197,22 +1197,24 @@ if (DECK) {
   knobDrag(knobYear, turnYear);
   knobDrag(knobPrint, turnPrint);
 
-  // Tab walks four stations: the wall's lit print, the year knob, the
-  // print knob, the map — full circle. A focused knob shows the unit with
-  // a ring, arrows turn it, Enter commits; the map unfolds while it holds
-  // the station.
-  // The wall's own material had a fifth station; it is out of the round
-  // now (the lines marked "station 4" below), while the key b still
-  // switches plaster and concrete as it always did.
-  let station = 0;            // 0 print, 1 year knob, 2 print knob, 3 the map
+  // Tab walks three stations: the wall's lit print, the go-to knobs, the
+  // map — full circle. The two knobs share one station and the arrows tell
+  // them apart: up and down turn the year, left and right the print, the
+  // way the two axes lie on the unit. Enter commits the ride; the map
+  // unfolds while it holds the station.
+  // The wall's own material and the print knob each had a station of their
+  // own; both are out of the round now (the lines marked "station 4" and
+  // the old station 2 below), while the key b still switches plaster and
+  // concrete as it always did.
+  let station = 0;            // 0 print, 1 the knobs, 2 the map
   function applyStation() {
     knobYear.classList.toggle('kfocus', station === 1);
-    knobPrint.classList.toggle('kfocus', station === 2);
-    mapgo.classList.toggle('kfocus', station === 3);
-    if (station !== 3) clearTown();
-    goto.classList.toggle('kbd-open', station === 1 || station === 2);
+    knobPrint.classList.toggle('kfocus', station === 1);
+    mapgo.classList.toggle('kfocus', station === 2);
+    if (station !== 2) clearTown();
+    goto.classList.toggle('kbd-open', station === 1);
     // document.documentElement.classList.toggle('bg-focus', station === 4);   // station 4: the wall
-    if (station === 1 || station === 2) goto.classList.remove('quiet');
+    if (station === 1) goto.classList.remove('quiet');
     else goto.classList.add('quiet');
   }
   // clicking the print knob or the image commits at once, without leaving
@@ -1331,9 +1333,9 @@ if (DECK) {
     if (e.key === 'n' || e.key === 'N') { toggleNav(); return; }
     if (e.key === 'm' || e.key === 'M') {
       if (mode === 'mouse') { mode = 'kbd'; mouseHasMoved = false; document.body.classList.add('kbd-active'); }
-      station = station === 3 ? 0 : 3;
+      station = station === 2 ? 0 : 2;
       applyStation();
-      setMap(station === 3);
+      setMap(station === 2);
       return;
     }
 
@@ -1354,9 +1356,9 @@ if (DECK) {
     if (e.key === 'Tab') {
       e.preventDefault();
       if (mode === 'mouse') { mode = 'kbd'; mouseHasMoved = false; document.body.classList.add('kbd-active'); }
-      station = (station + (e.shiftKey ? 3 : 1)) % 4;
+      station = (station + (e.shiftKey ? 2 : 1)) % 3;
       applyStation();
-      setMap(station === 3);
+      setMap(station === 2);
       if (station === 0 && selected < 0) {
         const top = sections.find(s => s.getBoundingClientRect().right > 0);
         if (top) lightRow(top);
@@ -1364,7 +1366,7 @@ if (DECK) {
       return;
     }
 
-    if (enter && (station === 1 || station === 2)) {
+    if (enter && station === 1) {
       e.preventDefault();
       station = 0;
       applyStation();
@@ -1375,7 +1377,7 @@ if (DECK) {
     // station 4: the wall
     // if (enter && station === 4) { e.preventDefault(); toggleWall(); return; }
 
-    if (enter && station === 3) {
+    if (enter && station === 2) {
       e.preventDefault();
       // The plan is already up — the station holds it. Enter and Space go
       // to the town under the mark, or take hold of the first one.
@@ -1407,7 +1409,7 @@ if (DECK) {
 
     // if (station === 4) { toggleWall(); return; }   // station 4: the wall
 
-    if (station === 3) {
+    if (station === 2) {
       if (!document.documentElement.classList.contains('map-on')) return;
       // up and down walk the column, left and right change column — the
       // list is read in columns, so the arrows follow the reading
@@ -1418,9 +1420,12 @@ if (DECK) {
       return;
     }
 
-    if (station !== 0) {
+    if (station === 1) {
+      // the axes of the unit: the year knob answers to up and down, the
+      // print knob to left and right — down and right go back in time
+      const vertical = e.key === 'ArrowUp' || e.key === 'ArrowDown';
       const d = (e.key === 'ArrowDown' || e.key === 'ArrowRight') ? 1 : -1;
-      (station === 1 ? turnYear : turnPrint)(d);
+      (vertical ? turnYear : turnPrint)(d);
       return;
     }
 
