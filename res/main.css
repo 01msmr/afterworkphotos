@@ -507,12 +507,32 @@ html.map-on .towns {
 	border-radius: 3px;
 	background: var(--towns-mark);
 	color: var(--towns-paper);
+	/* the return sign sits low in its own line box: a pixel up puts the cap
+	   level with the count beside it */
+	position: relative;
+	top: -1px;
+	/* it stands a little off the wall, and goes down into that when struck */
+	box-shadow: 1.5px 1.5px 0 rgba(0, 0, 0, 0.3);
 }
 
+.towns .here .go.down {
+	animation: keypress 0.15s ease-out;
+}
+
+@keyframes keypress {
+	40% {
+		transform: translate(1.5px, 1.5px);
+		box-shadow: 0 0 0 rgba(0, 0, 0, 0.3);
+	}
+}
+
+/* lit, the opacity comes up quicker than it goes down — but the scale
+   keeps its own timing: naming only opacity here would drop transform
+   from the transition and the plan would snap open instead of unfolding */
 .mapgo:hover,
 .mapgo.kfocus {
 	opacity: 1;
-	transition: opacity 0.3s ease;
+	transition: opacity 0.3s ease, transform 0.6s cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
 body.kbd-active .mapgo:not(.kfocus) {

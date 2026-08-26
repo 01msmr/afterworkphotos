@@ -742,12 +742,13 @@ if (DECK) {
   // wide margin between them and the map. Shown and hidden by the icon, its
   // Tab station or the key m; the choice is kept in localStorage.
   const placeCursor = new Map();     // per town: the box last walked to
-  function goToPlace(name) {
+  // dir 1 walks the town's prints newest to oldest, -1 the other way
+  function goToPlace(name, dir = 1) {
     const idx = [];
     boxes.forEach((b, i) => { if (photoOfBox(i).place === name) idx.push(i); });
     if (!idx.length) return 0;
-    const last = placeCursor.has(name) ? idx.indexOf(placeCursor.get(name)) : -1;
-    const at = (last + 1) % idx.length;
+    const last = placeCursor.has(name) ? idx.indexOf(placeCursor.get(name)) : (dir > 0 ? -1 : 0);
+    const at = (last + dir + idx.length) % idx.length;
     goIdx = idx[at];
     placeCursor.set(name, goIdx);
     goTouched = true;
@@ -1066,6 +1067,15 @@ if (DECK) {
     if (townIdx >= 0) releaseTown(list.children[townIdx]);
     townIdx = -1;
   }
+  // the key goes down as the real one does: a couple of pixels along its
+  // own diagonal, into the little shadow it stands on
+  function pressKey(key) {
+    if (!key) return;
+    key.classList.remove('down');
+    void key.offsetWidth;                 // so a second press starts over
+    key.classList.add('down');
+    setTimeout(() => key.classList.remove('down'), 150);
+  }
   // how many names one column holds — asked of the list itself, since the
   // browser decides the column count from the width it is given
   function townRows() {
@@ -1188,14 +1198,14 @@ if (DECK) {
   // knob shows the unit with a ring, arrows turn it, Enter commits; the
   // focused wall shows a dark border just inside the screen, arrows or
   // Enter switch its material.
-  let station = 0;            // 0 print, 1 year knob, 2 print knob, 3 the wall, 4 the MAP button
+  let station = 0;            // 0 print, 1 year knob, 2 print knob, 3 the map, 4 the wall
   function applyStation() {
     knobYear.classList.toggle('kfocus', station === 1);
     knobPrint.classList.toggle('kfocus', station === 2);
-    mapgo.classList.toggle('kfocus', station === 4);
-    if (station !== 4) clearTown();
+    mapgo.classList.toggle('kfocus', station === 3);
+    if (station !== 3) clearTown();
     goto.classList.toggle('kbd-open', station === 1 || station === 2);
-    document.documentElement.classList.toggle('bg-focus', station === 3);
+    document.documentElement.classList.toggle('bg-focus', station === 4);
     if (station === 1 || station === 2) goto.classList.remove('quiet');
     else goto.classList.add('quiet');
   }
@@ -1315,9 +1325,9 @@ if (DECK) {
     if (e.key === 'n' || e.key === 'N') { toggleNav(); return; }
     if (e.key === 'm' || e.key === 'M') {
       if (mode === 'mouse') { mode = 'kbd'; mouseHasMoved = false; document.body.classList.add('kbd-active'); }
-      station = station === 4 ? 0 : 4;
+      station = station === 3 ? 0 : 3;
       applyStation();
-      setMap(station === 4);
+      setMap(station === 3);
       return;
     }
 
@@ -1340,7 +1350,7 @@ if (DECK) {
       if (mode === 'mouse') { mode = 'kbd'; mouseHasMoved = false; document.body.classList.add('kbd-active'); }
       station = (station + (e.shiftKey ? 4 : 1)) % 5;
       applyStation();
-      setMap(station === 4);
+      setMap(station === 3);
       if (station === 0 && selected < 0) {
         const top = sections.find(s => s.getBoundingClientRect().right > 0);
         if (top) lightRow(top);
@@ -1356,20 +1366,21 @@ if (DECK) {
       return;
     }
 
-    if (enter && station === 3) {
+    if (enter && station === 4) {
       e.preventDefault();
       toggleWall();
       return;
     }
 
-    if (enter && station === 4) {
+    if (enter && station === 3) {
       e.preventDefault();
       // The plan is already up — the station holds it. Enter and Space go
       // to the town under the mark, or take hold of the first one.
       if (townIdx < 0) { markTown(0); return; }
       const span = list.children[townIdx];
-      const at = goToPlace(span.dataset.place);
+      const at = goToPlace(span.dataset.place, e.shiftKey ? -1 : 1);
       if (at) span.querySelector('.n').textContent = at;
+      pressKey(span.querySelector('.go'));
       return;
     }
 
@@ -1391,9 +1402,9 @@ if (DECK) {
     if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return;
     e.preventDefault();
 
-    if (station === 3) { toggleWall(); return; }
+    if (station === 4) { toggleWall(); return; }
 
-    if (station === 4) {
+    if (station === 3) {
       if (!document.documentElement.classList.contains('map-on')) return;
       // up and down walk the column, left and right change column — the
       // list is read in columns, so the arrows follow the reading
