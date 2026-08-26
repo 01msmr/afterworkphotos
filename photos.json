@@ -1,5 +1,5 @@
 {
-  "count": 425,
+  "count": 427,
   "photos": [
     {"n": 1, "id": "awp-2009-06-12-01", "taken": "2009-06-12T18:37:36", "place": "Oderen", "desc": "orange railing", "file": "img/awp-2009-06-12-01.jpg", "thumb": "img/thumb/awp-2009-06-12-01.jpg", "video": null},
     {"n": 2, "id": "awp-2010-01-15-01", "taken": "2010-01-15T21:21:56", "place": null, "desc": "lamp on floor", "file": "img/awp-2010-01-15-01.jpg", "thumb": "img/thumb/awp-2010-01-15-01.jpg", "video": null},
@@ -425,7 +425,9 @@
     {"n": 422, "id": "awp-2026-05-26-01", "taken": "2026-05-26T16:53:16", "place": "Arnstein", "desc": "diagonal cable on wall", "file": "img/awp-2026-05-26-01.jpg", "thumb": "img/thumb/awp-2026-05-26-01.jpg", "video": null},
     {"n": 423, "id": "awp-2026-06-07-01", "taken": "2026-06-07T09:13:19", "place": "Gütersloh", "desc": "lined yellow card", "file": "img/awp-2026-06-07-01.jpg", "thumb": "img/thumb/awp-2026-06-07-01.jpg", "video": null},
     {"n": 424, "id": "awp-2026-06-19-01", "taken": "2026-06-19T16:05:22", "place": "Markdorf", "desc": "diagonal shadows on tiles", "file": "img/awp-2026-06-19-01.jpg", "thumb": "img/thumb/awp-2026-06-19-01.jpg", "video": null},
-    {"n": 425, "id": "awp-2026-07-29-01", "taken": "2026-07-29T21:30:28", "place": null, "desc": "ship funnels", "file": "img/awp-2026-07-29-01.jpg", "thumb": "img/thumb/awp-2026-07-29-01.jpg", "video": null}
+    {"n": 425, "id": "awp-2026-07-29-01", "taken": "2026-07-29T21:30:28", "place": null, "desc": "ship funnels", "file": "img/awp-2026-07-29-01.jpg", "thumb": "img/thumb/awp-2026-07-29-01.jpg", "video": null},
+    {"n": 426, "id": "awp-2026-08-26-01", "taken": "2026-08-26T20:07:11", "place": null, "desc": null, "file": "img/awp-2026-08-26-01.jpg", "thumb": "img/thumb/awp-2026-08-26-01.jpg", "video": "img/awp-2026-08-26-01.mp4"},
+    {"n": 427, "id": "awp-2026-08-26-02", "taken": "2026-08-26T20:08:27", "place": null, "desc": null, "file": "img/awp-2026-08-26-02.jpg", "thumb": "img/thumb/awp-2026-08-26-02.jpg", "video": "img/awp-2026-08-26-02.mp4"}
   ],
   "places": {
     "Alsheim": [49.77, 8.34],
