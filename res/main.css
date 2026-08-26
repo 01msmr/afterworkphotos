@@ -92,19 +92,33 @@ h1.title a:hover {
 }
 
 p.subtitle {
-	position: relative;
+	/* the two ends of the line share one baseline: the description at the
+	   left is smaller than the print's name at the right, and baseline
+	   alignment is what puts them on the same line rather than the same
+	   top edge */
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 1.5em;
 	text-align: right;
 	font-size: 110%;
 	color: black;
 	font-weight: bold;
 }
 
+p.subtitle .cap {
+	flex: none;
+}
+
 /* the description, left-aligned opposite the caption: the meta line's
    size, the caption's color — it dims with the caption */
 p.subtitle .desc {
-	position: absolute;
-	left: 0;
-	top: 0;
+	flex: 0 1 auto;
+	min-width: 0;
+	text-align: left;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 	font-weight: normal;
 	font-size: 80%;
 }

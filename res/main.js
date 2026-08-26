@@ -34,6 +34,10 @@ const metaOf = (p) => {
   if (p.taken) parts.push(p.taken.slice(0, 10));
   return parts.join(', ');
 };
+// The caption is a line with two ends: the description at the left, the
+// print's name at the right with the place and date under it. Both ends
+// stand on one baseline (the row is a flex line aligned on baselines), so
+// the small type sits with the large instead of hanging above it.
 // In the caption the place is its own span: on the wall it belongs to the
 // lit print — dimmed, only the date remains. The desc — a 1–3 word image
 // description from photos.json — sits left-aligned opposite the caption,
@@ -42,7 +46,7 @@ const subtitleHTML = (p) => {
   const date = p.taken ? p.taken.slice(0, 10) : '';
   const place = p.place ? `<span class="place">${p.place}${date ? ', ' : ''}</span>` : '';
   const desc = p.desc ? `<span class="desc">${p.desc}</span>` : '';
-  return `<p class="subtitle">${desc}${captionOf(p)}${place || date ? `<span class="meta">${place}${date}</span>` : ''}</p>`;
+  return `<p class="subtitle">${desc}<span class="cap">${captionOf(p)}${place || date ? `<span class="meta">${place}${date}</span>` : ''}</span></p>`;
 };
 
 /* ──────────────────────────────────────────────────────────
@@ -1194,18 +1198,20 @@ if (DECK) {
   knobDrag(knobPrint, turnPrint);
 
   // Tab walks four stations: the wall's lit print, the year knob, the
-  // print knob, the wall itself (its material) — full circle. A focused
-  // knob shows the unit with a ring, arrows turn it, Enter commits; the
-  // focused wall shows a dark border just inside the screen, arrows or
-  // Enter switch its material.
-  let station = 0;            // 0 print, 1 year knob, 2 print knob, 3 the map, 4 the wall
+  // print knob, the map — full circle. A focused knob shows the unit with
+  // a ring, arrows turn it, Enter commits; the map unfolds while it holds
+  // the station.
+  // The wall's own material had a fifth station; it is out of the round
+  // now (the lines marked "station 4" below), while the key b still
+  // switches plaster and concrete as it always did.
+  let station = 0;            // 0 print, 1 year knob, 2 print knob, 3 the map
   function applyStation() {
     knobYear.classList.toggle('kfocus', station === 1);
     knobPrint.classList.toggle('kfocus', station === 2);
     mapgo.classList.toggle('kfocus', station === 3);
     if (station !== 3) clearTown();
     goto.classList.toggle('kbd-open', station === 1 || station === 2);
-    document.documentElement.classList.toggle('bg-focus', station === 4);
+    // document.documentElement.classList.toggle('bg-focus', station === 4);   // station 4: the wall
     if (station === 1 || station === 2) goto.classList.remove('quiet');
     else goto.classList.add('quiet');
   }
@@ -1348,7 +1354,7 @@ if (DECK) {
     if (e.key === 'Tab') {
       e.preventDefault();
       if (mode === 'mouse') { mode = 'kbd'; mouseHasMoved = false; document.body.classList.add('kbd-active'); }
-      station = (station + (e.shiftKey ? 4 : 1)) % 5;
+      station = (station + (e.shiftKey ? 3 : 1)) % 4;
       applyStation();
       setMap(station === 3);
       if (station === 0 && selected < 0) {
@@ -1366,11 +1372,8 @@ if (DECK) {
       return;
     }
 
-    if (enter && station === 4) {
-      e.preventDefault();
-      toggleWall();
-      return;
-    }
+    // station 4: the wall
+    // if (enter && station === 4) { e.preventDefault(); toggleWall(); return; }
 
     if (enter && station === 3) {
       e.preventDefault();
@@ -1402,7 +1405,7 @@ if (DECK) {
     if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return;
     e.preventDefault();
 
-    if (station === 4) { toggleWall(); return; }
+    // if (station === 4) { toggleWall(); return; }   // station 4: the wall
 
     if (station === 3) {
       if (!document.documentElement.classList.contains('map-on')) return;
