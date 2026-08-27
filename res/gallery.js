@@ -383,6 +383,50 @@ function layout(items, W, D) {
 }
 
 // ---------------------------------------------------------------------------
+// Spots and their shadows
+//
+// A shadow map costs a texture unit in every shader, and WebGL gives
+// sixteen. A room with two dozen spots cannot have two dozen shadows. So
+// the spots per piece light only, and a pool of eight shadow-casting
+// spots stands in for the eight nearest the viewer: each frame the pool
+// takes those spots' places (their own light goes dark meanwhile), and
+// the frames around you throw shadows while the far ones simply glow.
+
+const SPOT = { colour: 0xfff1dc, power: 9, angle: 0.62, penumbra: 1.0 };
+const SHADOW_POOL = 8;
+
+const shadowSpots = new THREE.Group();
+shadowSpots.name = 'shadow-spots';
+for (let i = 0; i < SHADOW_POOL; i++) {
+	const s = new THREE.SpotLight(SPOT.colour, 0, 0, SPOT.angle, SPOT.penumbra, 2);
+	s.castShadow = true;
+	s.shadow.mapSize.set(512, 512);
+	s.shadow.bias = -0.0005;
+	s.shadow.radius = 4;
+	shadowSpots.add(s);
+}
+scene.add(shadowSpots);
+
+function stepShadows() {
+	const pieces = scene.getObjectByName('pieces');
+	if (!pieces) return;
+	const near = pieces.children
+		.map(p => ({ p, d: p.position.distanceToSquared(camera.position) }))
+		.sort((a, b) => a.d - b.d)
+		.slice(0, SHADOW_POOL)
+		.map(o => o.p);
+	for (const p of pieces.children) p.userData.spot.intensity = SPOT.power;
+	shadowSpots.children.forEach((s, i) => {
+		const p = near[i];
+		if (!p) { s.intensity = 0; return; }
+		s.position.copy(p.userData.spot.position);
+		s.target = p;
+		s.intensity = SPOT.power;
+		p.userData.spot.intensity = 0;
+	});
+}
+
+// ---------------------------------------------------------------------------
 // Rooms
 //
 // One room per year — unless the year does not fit the room even with the
@@ -447,9 +491,12 @@ function hangRoom(key) {
 	}
 	if (W !== state.settings.W) console.warn(`${key}: room grown to ${W} × ${D} to hang everything`);
 	if (!state.room || state.room.W !== W || state.room.D !== D) {
-		const old = scene.getObjectByName('room');
-		if (old) scene.remove(old);
+		for (const name of ['room', 'elevator']) {
+			const old = scene.getObjectByName(name);
+			if (old) scene.remove(old);
+		}
 		scene.add(buildRoom(W, D, H));
+		scene.add(elevator.build(W, D, H));
 		state.room = { W, D, H };
 	}
 
@@ -464,13 +511,12 @@ function hangRoom(key) {
 		// room from the piece, angled down at its centre. Soft, not harsh
 		// (Uli): a wide cone with the whole edge feathered, modest power, so
 		// a piece is lifted from its wall rather than picked out of the dark.
-		const spot = new THREE.SpotLight(0xfff1dc, 9, 0, 0.62, 1.0, 2);
+		// The spot itself throws no shadow: shadows come from the pool below,
+		// which stands in for the spots nearest the viewer.
+		const spot = new THREE.SpotLight(SPOT.colour, SPOT.power, 0, SPOT.angle, SPOT.penumbra, 2);
 		spot.position.set(x + Math.sin(yaw) * 1.0, H - 0.05, z + Math.cos(yaw) * 1.0);
 		spot.target = piece;
-		spot.castShadow = true;
-		spot.shadow.mapSize.set(512, 512);
-		spot.shadow.bias = -0.0005;
-		spot.shadow.radius = 4;
+		piece.userData.spot = spot;
 		spots.add(spot);
 	}
 
@@ -478,8 +524,222 @@ function hangRoom(key) {
 	state.year = room.year;
 	state.roomKey = key;
 	state.gap = lay.gap;
+	elevator.light(key);
 	return pieces;
 }
+
+// ---------------------------------------------------------------------------
+// The elevator
+//
+// A cabin in the room's +x, -z corner, ELEVATOR.size square, the room's
+// height. Its doors are on the west face, so you step out looking down
+// the long axis of the room. Inside, on the south wall beside the door,
+// the panel: two columns of round buttons, one per room, the newest at
+// the top, the year printed on each and a small "1/2" line where a year
+// has two rooms. The lit button is the room you stand in. A press closes
+// the doors, hangs the other room, and opens them again: one second.
+
+const DOOR = { w: 0.8, h: 2.1, thick: 0.03 };
+const CABIN_WALL = 0.08;
+const LINER = 0.02;                                        // the cabin's own skin on the room's two walls
+const BUTTON = { r: 0.022, rise: 0.008, pitch: 0.06 };    // radius, how far it stands proud, spacing
+
+// Brushed steel, not mirror: without an environment to reflect, a highly
+// metallic surface renders near black, so the cabin is a dull satin.
+const metal = new THREE.MeshStandardMaterial({ color: 0xa9a7a2, metalness: 0.35, roughness: 0.45 });
+const cabinInner = new THREE.MeshLambertMaterial({ color: 0xcfccc5 });
+const cabinFloor = new THREE.MeshLambertMaterial({ color: 0x5a5854 });
+const panelPlate = new THREE.MeshStandardMaterial({ color: 0xb5b2ac, metalness: 0.4, roughness: 0.5 });
+const lightPanel = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xfff6e8, emissiveIntensity: 1.6, roughness: 1 });
+
+// The face of a button: the year, and beneath it "1/2" for a split year.
+function buttonFace(room) {
+	const c = document.createElement('canvas');
+	c.width = c.height = 128;
+	const g = c.getContext('2d');
+	g.fillStyle = '#f2efe8';
+	g.beginPath(); g.arc(64, 64, 64, 0, Math.PI * 2); g.fill();
+	g.fillStyle = '#1b1b1b';
+	g.textAlign = 'center';
+	g.textBaseline = 'middle';
+	if (room.of === 1) {
+		g.font = '600 46px -apple-system, "Helvetica Neue", Arial, sans-serif';
+		g.fillText(room.year, 64, 66);
+	} else {
+		g.font = '600 40px -apple-system, "Helvetica Neue", Arial, sans-serif';
+		g.fillText(room.year, 64, 52);
+		g.font = '500 24px -apple-system, "Helvetica Neue", Arial, sans-serif';
+		g.fillText(`${room.part}/${room.of}`, 64, 92);
+	}
+	const t = new THREE.CanvasTexture(c);
+	t.colorSpace = THREE.SRGBColorSpace;
+	return t;
+}
+
+const elevator = {
+	group: null,
+	doors: null,        // [north panel, south panel]
+	buttons: [],
+	ride: null,         // { t0, key } while the doors are moving
+	origin: null,       // cabin's inner centre on the floor, world coords
+
+	build(W, D, H) {
+		const e = ELEVATOR.size;
+		const g = new THREE.Group();
+		g.name = 'elevator';
+		const x0 = W / 2 - e, z1 = -D / 2 + e;   // west face at x0, south face at z1
+		// the cabin's inside: between the west wall, the south wall, and the liners on north and east
+		const ix0 = x0 + CABIN_WALL, ix1 = W / 2 - LINER, iz0 = -D / 2 + LINER, iz1 = z1 - CABIN_WALL;
+		this.origin = new THREE.Vector3((ix0 + ix1) / 2, 0, (iz0 + iz1) / 2);
+
+		const box = (name, w, h, d, x, y, z, m) => {
+			const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
+			mesh.name = name; mesh.position.set(x, y, z);
+			mesh.castShadow = mesh.receiveShadow = true;
+			g.add(mesh); return mesh;
+		};
+
+		// The cabin is its own box: a closed lift shows nothing of the room.
+		box('cabin-s', e, H, CABIN_WALL, W / 2 - e / 2, H / 2, z1 - CABIN_WALL / 2, metal);        // south wall, panel inside
+		box('cabin-n', e, H, LINER, W / 2 - e / 2, H / 2, -D / 2 + LINER / 2, cabinInner);         // liner on the room's north wall
+		box('cabin-e', LINER, H, e, W / 2 - LINER / 2, H / 2, -D / 2 + e / 2, cabinInner);         // liner on the room's east wall
+		box('cabin-floor', e, 0.01, e, W / 2 - e / 2, 0.005, -D / 2 + e / 2, cabinFloor);
+		box('cabin-ceiling', e, 0.02, e, W / 2 - e / 2, H - 0.01, -D / 2 + e / 2, cabinInner);
+		// West face: two jambs and a lintel around the door opening.
+		const jamb = (e - DOOR.w) / 2;
+		box('jamb-n', CABIN_WALL, DOOR.h, jamb, x0 + CABIN_WALL / 2, DOOR.h / 2, -D / 2 + jamb / 2, metal);
+		box('jamb-s', CABIN_WALL, DOOR.h, jamb, x0 + CABIN_WALL / 2, DOOR.h / 2, z1 - jamb / 2, metal);
+		box('lintel', CABIN_WALL, H - DOOR.h, e, x0 + CABIN_WALL / 2, DOOR.h + (H - DOOR.h) / 2, -D / 2 + e / 2, metal);
+
+		// Two door panels behind the jambs, sliding apart along z: the north
+		// one into the room's north wall, the south one along the cabin's
+		// south wall. Closed, they meet at the opening's centre.
+		const zc = -D / 2 + e / 2;
+		const dx = x0 + CABIN_WALL + DOOR.thick / 2 + 0.005;
+		this.doors = [
+			box('door-n', DOOR.thick, DOOR.h, DOOR.w / 2, dx, DOOR.h / 2, zc - DOOR.w / 4, metal),
+			box('door-s', DOOR.thick, DOOR.h, DOOR.w / 2, dx, DOOR.h / 2, zc + DOOR.w / 4, metal),
+		];
+		for (const d of this.doors) d.userData.closedZ = d.position.z;
+
+		// Light in the cabin: a glowing panel in the ceiling and the lamp
+		// behind it that actually lights the walls and the buttons.
+		const panelLight = box('cabin-light', e * 0.5, 0.005, e * 0.5, this.origin.x, H - 0.025, this.origin.z, lightPanel);
+		panelLight.castShadow = false;
+		const lamp = new THREE.PointLight(0xfff4e6, 5, 3.5, 2);
+		lamp.name = 'cabin-lamp';
+		lamp.position.set(this.origin.x, H - 0.15, this.origin.z);
+		g.add(lamp);
+
+		// The panel on the south wall's inner face, beside the door: one
+		// column of buttons, the newest room at the top.
+		const n = rooms().length;
+		const plateW = 0.09, plateH = n * BUTTON.pitch + 0.04;
+		const px = ix0 + 0.10 + plateW / 2;
+		const py = 1.25;                                   // the column's middle, about chest height
+		const pz = iz1 - 0.004;
+		box('panel', plateW, plateH, 0.008, px, py, pz, panelPlate);
+
+		this.buttons = [];
+		const body = new THREE.CylinderGeometry(BUTTON.r, BUTTON.r, BUTTON.rise, 32);
+		body.rotateX(Math.PI / 2);                         // axis along z
+		const faceGeo = new THREE.CircleGeometry(BUTTON.r * 0.92, 32);
+		rooms().forEach((room, i) => {
+			const y = py + plateH / 2 - 0.02 - BUTTON.pitch * (i + 0.5);
+			const z = pz - 0.004 - BUTTON.rise / 2;
+			const b = new THREE.Mesh(body, metal);
+			b.name = `button-${room.key}`;
+			b.userData.key = room.key;
+			b.position.set(px, y, z);
+			g.add(b);
+			// The printed face: a flat disc on the button's front, turned to
+			// face into the cabin (-z) so the year reads upright.
+			const face = new THREE.Mesh(faceGeo, new THREE.MeshStandardMaterial({ map: buttonFace(room), emissive: 0xffffff, emissiveIntensity: 0, roughness: 0.6 }));
+			face.name = `face-${room.key}`;
+			face.userData.key = room.key;
+			face.position.set(px, y, z - BUTTON.rise / 2 - 0.0005);
+			face.rotation.y = Math.PI;
+			g.add(face);
+			b.userData.face = face;
+			this.buttons.push(b, face);                    // both press
+		});
+		this.group = g;
+		return g;
+	},
+
+	light(key) {
+		for (const b of this.buttons) {
+			if (!b.userData.face) continue;                 // faces are handled through their button
+			const m = b.userData.face.material;
+			const on = b.userData.key === key;
+			m.emissiveIntensity = on ? 0.5 : 0;
+			m.emissiveMap = on ? m.map : null;
+			m.needsUpdate = true;
+		}
+	},
+
+	// Doors: 0 closed, 1 open.
+	setDoors(open) {
+		const [n, s] = this.doors;
+		n.position.z = n.userData.closedZ - open * DOOR.w / 2;
+		s.position.z = s.userData.closedZ + open * DOOR.w / 2;
+	},
+
+	go(key) {
+		if (this.ride || key === state.roomKey) return;
+		this.ride = { key, t0: performance.now(), hung: false };
+		// into the cabin, facing the doors
+		walk.pos.set(this.origin.x, walk.pos.y, this.origin.z);
+		walk.yaw = Math.PI / 2; walk.pitch = 0;
+	},
+
+	// Called every frame. Half a second closing, the swap, half a second opening.
+	step(now) {
+		if (!this.ride) return;
+		const t = (now - this.ride.t0) / 1000;
+		if (t < 0.5) { this.setDoors(1 - t / 0.5); return; }
+		if (!this.ride.hung) {
+			const key = this.ride.key;
+			hangRoom(key);                         // may rebuild the room and this cabin
+			walk.pos.set(this.origin.x, walk.pos.y, this.origin.z);
+			this.setDoors(0);
+			this.ride.hung = true;
+			return;
+		}
+		if (t < 1.0) { this.setDoors((t - 0.5) / 0.5); return; }
+		this.setDoors(1);
+		this.ride = null;
+	},
+};
+
+// Picking a button: a ray from the pointer while it is free, from the
+// middle of the view while it is taken.
+const raycaster = new THREE.Raycaster();
+function pressAt(ndcX, ndcY) {
+	if (!elevator.buttons.length) return false;
+	raycaster.setFromCamera(new THREE.Vector2(ndcX, ndcY), camera);
+	const hit = raycaster.intersectObjects(elevator.buttons, false)[0];
+	if (!hit || hit.distance > 1.6) return false;
+	elevator.go(hit.object.userData.key);
+	return true;
+}
+
+// The bench's overlay: Y lists the floors.
+const floors = document.getElementById('floors');
+function renderFloors() {
+	floors.innerHTML = rooms().map(r =>
+		`<button data-key="${r.key}"${r.key === state.roomKey ? ' aria-current="true"' : ''}>${r.year}${r.of > 1 ? `<small>${r.part}/${r.of}</small>` : ''}</button>`).join('');
+}
+floors.addEventListener('click', e => {
+	const b = e.target.closest('button');
+	if (!b) return;
+	floors.hidden = true;
+	elevator.go(b.dataset.key);
+});
+addEventListener('keydown', e => {
+	if (e.code === 'KeyY') { floors.hidden = !floors.hidden; if (!floors.hidden) renderFloors(); }
+	if (e.code === 'Escape') floors.hidden = true;
+});
 
 // ---------------------------------------------------------------------------
 // Walking (the bench)
@@ -496,16 +756,22 @@ const LOOK_SPEED = 0.0022;      // radians per pixel
 const PITCH_MAX = Math.PI * 80 / 180;
 const WALL_KEEP = 0.3;
 
+const KNEEL = 0.9;              // eye height kneeling, for the low prints of a grid
+
 const walk = {
 	pos: camera.position,        // the same vector; there is one truth
 	yaw: 0, pitch: 0,
+	eye: EYE,                    // where the eye is heading: EYE or KNEEL
 	keys: new Set(),
 	lockedForTest: false,        // harness-only: pretend the pointer is taken
 	locked() { return this.lockedForTest || document.pointerLockElement === renderer.domElement; },
 };
 
-renderer.domElement.addEventListener('click', () => {
-	if (!walk.locked()) renderer.domElement.requestPointerLock();
+renderer.domElement.addEventListener('click', e => {
+	if (walk.locked()) { pressAt(0, 0); return; }
+	// a button under the pointer is pressed; anywhere else takes the pointer
+	if (pressAt((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1)) return;
+	renderer.domElement.requestPointerLock();
 });
 document.addEventListener('pointerlockchange', () => {
 	document.body.classList.toggle('locked', walk.locked());
@@ -522,7 +788,10 @@ const KEYS = {
 	KeyW: 'fwd', ArrowUp: 'fwd', KeyS: 'back', ArrowDown: 'back',
 	KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right',
 };
-addEventListener('keydown', e => { if (KEYS[e.code]) { walk.keys.add(KEYS[e.code]); e.preventDefault(); } });
+addEventListener('keydown', e => {
+	if (KEYS[e.code]) { walk.keys.add(KEYS[e.code]); e.preventDefault(); }
+	if (e.code === 'KeyV' && !e.repeat) walk.eye = walk.eye === EYE ? KNEEL : EYE;   // kneel / stand
+});
 addEventListener('keyup',   e => { if (KEYS[e.code]) walk.keys.delete(KEYS[e.code]); });
 addEventListener('blur',    () => walk.keys.clear());
 
@@ -552,7 +821,9 @@ function stepWalk(now) {
 		walk.pos.x = Math.max(-W / 2 + WALL_KEEP, Math.min(W / 2 - WALL_KEEP, walk.pos.x + dx));
 		walk.pos.z = Math.max(-D / 2 + WALL_KEEP, Math.min(D / 2 - WALL_KEEP, walk.pos.z + dz));
 	}
-	walk.pos.y = EYE;
+	// kneel or rise over a third of a second
+	walk.pos.y += (walk.eye - walk.pos.y) * Math.min(1, dt * 9);
+	if (Math.abs(walk.eye - walk.pos.y) < 0.002) walk.pos.y = walk.eye;
 	applyLook();
 }
 
@@ -566,18 +837,20 @@ fetch('photos.json', { cache: 'no-cache' })
 function init() {
 	hangRoom(rooms()[0].key);    // the newest room; builds the room around it
 
-	// Arrival: standing a little back from the middle, eye height, facing north.
-	const D = state.room.D;
-	walk.pos.set(0, EYE, D / 2 - 1.0);
-	walk.yaw = 0; walk.pitch = 0;
+	// Arrival: you have just stepped out of the elevator, facing down the room.
+	walk.pos.set(elevator.origin.x - ELEVATOR.size, EYE, elevator.origin.z);
+	walk.yaw = Math.PI / 2; walk.pitch = 0;
+	elevator.setDoors(1);
 	applyLook();
 }
 
 renderer.setAnimationLoop(now => {
+	elevator.step(now);
 	stepWalk(now);
+	stepShadows();
 	renderer.render(scene, camera);
 });
 
 // Test-harness handle only: the plan's browser checks read the scene graph
 // and camera through this. Nothing on the page uses it.
-window.G = { scene, camera, renderer, state, buildRoom, applyMode, makePiece, rooms, hangRoom, walk, stepWalk };
+window.G = { scene, camera, renderer, state, buildRoom, applyMode, makePiece, rooms, hangRoom, walk, stepWalk, stepShadows, elevator, pressAt };

@@ -32,3 +32,38 @@ html, body {
 }
 
 body.locked #hint { opacity: 0; }
+
+/* the floors: a column of years at the left, like the panel in the cabin */
+#floors {
+	position: fixed;
+	left: 24px;
+	top: 50%;
+	transform: translateY(-50%);
+	display: grid;
+	grid-template-columns: repeat(2, auto);
+	gap: 6px;
+	padding: 10px;
+	background: rgba(20, 20, 20, .8);
+	border-radius: 4px;
+}
+#floors[hidden] { display: none; }
+#floors button {
+	font: 600 14px/1 -apple-system, "Helvetica Neue", Arial, sans-serif;
+	font-variant-numeric: tabular-nums;
+	color: #1b1b1b;
+	background: #f2efe8;
+	border: 0;
+	border-radius: 50%;
+	width: 56px;
+	height: 56px;
+	cursor: pointer;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 2px;
+}
+#floors button small { font-size: 10px; font-weight: 500; }
+#floors button:hover { background: #fff; }
+#floors button[aria-current="true"] { box-shadow: 0 0 0 3px #f0c674, 0 0 14px #f0c674; }
+#floors button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
