@@ -1128,7 +1128,9 @@ if (DECK) {
     favAt = (at + list.length) % list.length;
     const i = boxes.findIndex(b => +b.dataset.n === list[favAt]);
     if (i >= 0) select(i);
-    drawFavs(favAt + 1);
+    // the number a fav wears counts the way the prints do — the oldest is
+    // 1 — while the walk itself still runs the wall's way, newest first
+    drawFavs(list.length - favAt);
   }
   function goFav(d) {
     const list = favWalk();
