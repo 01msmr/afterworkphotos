@@ -761,11 +761,26 @@ html.map-on .towns {
 }
 
 /* a kept print says so with a star before its description, at the left end
-   of the caption line. Only a kept one carries it — an unkept print holds
-   no space open for one. */
-html:not(.deck) .awbox.fav .desc::before {
-	content: '\2605\00a0';
+   of the caption line. The star has the count's motion: a slot of animated
+   width that is folded shut on an unkept print and opens — width and
+   opacity in one transition — when f keeps it, the description sliding
+   right by exactly the star's width; dropping folds it shut again. The
+   slot is an inline box on the caption's baseline (no overflow clipping,
+   which would move that baseline), the star anchored at its left edge. */
+html:not(.deck) .desc::before {
+	content: '\2605';
+	display: inline-block;
+	vertical-align: baseline;
 	font-size: 88%;
+	text-align: left;
+	white-space: nowrap;
+	width: 0;
+	opacity: 0;
+	transition: width 0.35s ease, opacity 0.35s ease;
+}
+
+html:not(.deck) .awbox.fav .desc::before {
+	width: 1.45em;
 	opacity: 0.6;
 }
 
@@ -1413,6 +1428,14 @@ html.deck {
 	/* The title stays a touch above the unlit prints: 6% on all devices */
 	h1.title {
 		opacity: 0.06;
+	}
+
+	/* On a phone the words are fitted (fitTitle) to their box — and the box
+	   is 58% of the sheet, centred, not the whole of it: fitted to the full
+	   width the title came out far larger than on any other device. */
+	&:not(.tablet) .titlebox {
+		width: 58%;
+		margin: 0 auto;
 	}
 
 	/* On a tablet the title is small rather than the sheet's width, its
