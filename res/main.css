@@ -32,6 +32,9 @@
 	/* the ground the list stands on — the key is cut out of the mark's ink
 	   in this, so an inverted list only has to redefine the three */
 	--towns-paper: #f2f1ee;
+	/* the size the title is set in, and the size the favs mark comes up to
+	   when it is wanted: the two ends of the line meet at eye level */
+	--title-type: 2.2rem;
 	--towns-w: min(490px, 34vw);
 	--app-height: 100vh;
 	/* overridden by JS with window.innerHeight */
@@ -119,11 +122,14 @@ html:not(.deck) .titlerow {
 	gap: 1.5em;
 }
 
-/* the words keep the box fitTitle fits them to — inside the row, where the
-   basis is a width; the h1 around it is a column and would read it as a
-   height */
+/* On the wall the title is simply set in --title-type and takes the width
+   it needs (fitTitle still fits it to the sheet on a touch device, where
+   the box is the paper's width). It may give way on a narrow window — it
+   is clipped, never scaled. */
 html:not(.deck) .titlerow > .titlebox {
-	flex: 0 0 min(92%, 340px);
+	flex: 0 1 auto;
+	min-width: 0;
+	font-size: var(--title-type);
 }
 
 html:not(.deck) .titlebox {
@@ -622,15 +628,21 @@ html.map-on .towns {
 }
 
 /* the same under the mouse and on its Tab station: the machinery answers
-   to both hands alike */
+   to both hands alike, and comes up to the title's own size */
 .favmark:hover,
 .favmark.kfocus {
-	font-size: 2.2rem;
+	font-size: var(--title-type);
 }
 
-/* while one walks them the count says which of how many, in a light hand */
+/* while one walks them the count says which of how many: the position in a
+   light hand, how many there are in the same weight as the name */
 .favmark .at {
 	font-weight: 300;
+}
+
+.favmark .at em {
+	font-style: normal;
+	font-weight: 700;
 }
 
 .favmark .at i {

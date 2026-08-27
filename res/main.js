@@ -1074,7 +1074,7 @@ if (DECK) {
   title.appendChild(titleRow);
   fitTitle();                    // the words are in their real box now
   function drawFavs(at) {
-    const count = at > 0 ? `${at}<i>/</i>${FAVS.size}` : `${FAVS.size}`;
+    const count = at > 0 ? `${at}<i>/</i><em>${FAVS.size}</em>` : `${FAVS.size}`;
     favMark.innerHTML = FAVS.size ? `<b>favs</b><span class="${at > 0 ? 'at' : ''}">${count}</span>` : '';
     favMark.classList.toggle('some', FAVS.size > 0);
     boxes.forEach(b => b.classList.toggle('fav', FAVS.has(+b.dataset.n)));
@@ -1098,13 +1098,29 @@ if (DECK) {
   // mark counts along while one steps.
   const favWalk = () => favList().reverse();
   let favAt = -1;
-  function goFav(d) {
+  function goFavTo(at) {
     const list = favWalk();
     if (!list.length) return;
-    favAt = favAt < 0 ? (d > 0 ? 0 : list.length - 1) : (favAt + d + list.length) % list.length;
+    favAt = (at + list.length) % list.length;
     const i = boxes.findIndex(b => +b.dataset.n === list[favAt]);
     if (i >= 0) select(i);
     drawFavs(favAt + 1);
+  }
+  function goFav(d) {
+    const list = favWalk();
+    if (!list.length) return;
+    goFavTo(favAt < 0 ? (d > 0 ? 0 : list.length - 1) : favAt + d);
+  }
+  // stepping in among them starts at the kept print nearest the one in
+  // view, so the walk carries on from where one stands
+  function nearestFav() {
+    const list = favWalk();
+    const box = boxes[selected >= 0 ? selected : goIdx];
+    const here = box ? +box.dataset.n : 0;
+    if (!here) return 0;
+    let best = 0, near = Infinity;
+    list.forEach((n, i) => { const d = Math.abs(n - here); if (d < near) { near = d; best = i; } });
+    return best;
   }
 
   // ── The guide: the keys of whatever is in hand ──
@@ -1342,8 +1358,9 @@ if (DECK) {
     knobPrint.classList.toggle('kfocus', station === 1);
     mapgo.classList.toggle('kfocus', station === 2);
     favMark.classList.toggle('kfocus', station === 3);
-    // arriving among them lights the newest at once; leaving lets go
-    if (station === 3 && favAt < 0) goFav(1);
+    // arriving among them lights the kept print nearest the one in view;
+    // leaving lets go
+    if (station === 3 && favAt < 0) goFavTo(nearestFav());
     if (station !== 3 && favAt >= 0) { favAt = -1; drawFavs(); }   // done walking
     if (station !== 2) clearTown();
     goto.classList.toggle('kbd-open', station === 1);
