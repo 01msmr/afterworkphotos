@@ -1091,7 +1091,14 @@ if (DECK) {
       favParts.pos.textContent = at > 0 ? at : '';
       // the slot is as wide as the figure standing in it, in figure widths:
       // going from 9 to 10 widens the slot instead of jumping
-      favParts.pos.style.width = at > 0 ? String(at).length + 'ch' : '0ch';
+      // A figure more is drawn the instant it is set, so the room for it has
+      // to be made quickly or the total looks late; a figure less leaves a
+      // gap that may close at its leisure. The two directions get their own
+      // pace (html.wider / the plain state).
+      const room = at > 0 ? String(at).length : 0;
+      favMark.classList.toggle('wider', room > (favParts.room || 0));
+      favParts.room = room;
+      favParts.pos.style.width = room + 'ch';
       favParts.total.textContent = FAVS.size;
     }
     favMark.classList.toggle('walking', at > 0);

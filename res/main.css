@@ -681,6 +681,15 @@ html.map-on .towns {
 	transition: width 0.35s ease, opacity 0.35s ease, font-size 0.3s ease;
 }
 
+/* making room runs ahead — most of the movement in the first third, so the
+   total keeps up with a figure that is already there. Giving room back
+   takes its time, since nothing is waiting on it. */
+.favmark.wider .pos,
+.favmark.wider .slash {
+	transition-duration: 0.22s, 0.35s;
+	transition-timing-function: cubic-bezier(0.15, 0.85, 0.3, 1), ease;
+}
+
 .favmark.walking .pos {
 	opacity: 1;
 }
