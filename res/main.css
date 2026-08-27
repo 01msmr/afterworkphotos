@@ -661,40 +661,33 @@ html.map-on .towns {
 	line-height: 1.15;
 }
 
+/* The position, one figure to a cell. A cell is a box exactly one figure
+   wide that is folded shut (width 0) until a figure stands in it; opening
+   and shutting is the only movement there is, and it is one transition on
+   one box — so counting from nine to ten glides, and nothing that was
+   already showing moves. Tabular figures, so every cell is the same width. */
 .favmark .pos {
-	font-style: normal;
+	display: inline-flex;
 	font-weight: 700;
-	/* the width is set in figure widths from the figure itself (main.js), so
-	   the slot opens, closes and widens rather than jumping. min-width: 0 is
-	   what makes that possible: a flex item is otherwise never narrower than
-	   its content, so the moment a second figure was set the slot leapt to
-	   its full width and the movement had nothing left to do. */
-	min-width: 0;
-	width: 0;
-	opacity: 0;
-	/* figures of one width, set to the right: the slot grows and shrinks at
-	   its left edge, so the figure stays where the eye left it */
 	font-variant-numeric: tabular-nums;
-	text-align: right;
-	/* nothing is clipped: the slot's width carries the figures and the total
-	   behind them along as it opens and widens, and the fading is what hides
-	   them while it is shut */
 	height: 1.4em;
 	line-height: 1.4;
 	white-space: nowrap;
-	transition: width 0.35s ease, opacity 0.35s ease, font-size 0.3s ease;
+	transition: font-size 0.3s ease;
 }
 
-/* making room runs ahead — most of the movement in the first third, so the
-   total keeps up with a figure that is already there. Giving room back
-   takes its time, since nothing is waiting on it. */
-.favmark.wider .pos,
-.favmark.wider .slash {
-	transition-duration: 0.22s, 0.35s;
-	transition-timing-function: cubic-bezier(0.15, 0.85, 0.3, 1), ease;
+.favmark .cell {
+	display: inline-block;
+	font-style: normal;
+	width: 0;
+	min-width: 0;
+	opacity: 0;
+	overflow: hidden;
+	transition: width 0.35s ease, opacity 0.35s ease;
 }
 
-.favmark.walking .pos {
+.favmark .cell.on {
+	width: 1ch;
 	opacity: 1;
 }
 

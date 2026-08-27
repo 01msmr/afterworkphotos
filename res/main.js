@@ -1084,22 +1084,30 @@ if (DECK) {
       favMark.innerHTML = '';
       favParts = null;
     } else {
+      // The position is set one figure to a cell, most significant first,
+      // every cell always there and each folded shut until it is needed.
+      // Counting from nine to ten does not change any element's text into
+      // something wider — it opens a cell that was shut, one clean width
+      // transition, and the stroke and the total ride along on it.
       if (!favParts) {
-        favMark.innerHTML = '<b>favs</b><span class="count"><i class="pos"></i><i class="slash">/</i><em></em></span>';
-        favParts = { pos: favMark.querySelector('.pos'), total: favMark.querySelector('em') };
+        favMark.innerHTML = '<b>favs</b><span class="count"><span class="pos"></span><i class="slash">/</i><em></em></span>';
+        favParts = { pos: favMark.querySelector('.pos'), total: favMark.querySelector('em'), cells: [] };
       }
-      favParts.pos.textContent = at > 0 ? at : '';
-      // the slot is as wide as the figure standing in it, in figure widths:
-      // going from 9 to 10 widens the slot instead of jumping
-      // A figure more is drawn the instant it is set, so the room for it has
-      // to be made quickly or the total looks late; a figure less leaves a
-      // gap that may close at its leisure. The two directions get their own
-      // pace (html.wider / the plain state).
-      const room = at > 0 ? String(at).length : 0;
-      favMark.classList.toggle('wider', room > (favParts.room || 0));
-      favParts.room = room;
-      favParts.pos.style.width = room + 'ch';
       favParts.total.textContent = FAVS.size;
+      const digits = at > 0 ? String(at) : '';
+      const need = Math.max(digits.length, String(FAVS.size).length);
+      while (favParts.cells.length < need) {
+        const c = document.createElement('i'); c.className = 'cell';
+        favParts.pos.appendChild(c); favParts.cells.push(c);
+      }
+      // cells fill from the right: the last cell is the ones, the one before
+      // it the tens — so nine to ten opens the cell in front, and nothing
+      // already showing has to move
+      favParts.cells.forEach((c, i) => {
+        const d = digits[digits.length - favParts.cells.length + i];
+        if (d !== undefined) { c.textContent = d; c.classList.add('on'); }
+        else c.classList.remove('on');
+      });
     }
     favMark.classList.toggle('walking', at > 0);
     favMark.classList.toggle('some', FAVS.size > 0);
