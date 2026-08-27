@@ -250,9 +250,9 @@ Expected: `count` ≥ 1 per piece of 2017 (31 photos → mix of 90s, 60s, grids)
 **Files:** Modify `res/gallery.js`
 
 **Interfaces:**
-- Produces: a cabin group `"elevator"` in the (+x, −z) corner, 1.2 × 1.2 m, doors facing the room; inside panel = one button per year (newest on top) with a thumbnail strip (first 8 thumbs of the year as small textures); clicking a button (raycast from the camera on `click` when not pointer-locked, or the DOM overlay `Y`) plays the door close/open (two sliding boxes, 1 s total) around `hangYear(year)`. The DOM overlay (`Y` key) lists years + strips as HTML for the desktop.
+- Produces: a cabin group `"elevator"` in the (+x, −z) corner, 1.2 × 1.2 m, doors facing the room; inside panel = **real lift buttons**: one round pressable button per year (newest on top), the year printed on its face (`CanvasTexture`), nothing else — no thumbnail strips, no knobs (Uli, 2026-08-28); clicking a button (raycast from the camera on `click` when not pointer-locked, or the DOM overlay `Y`) plays the door close/open (two sliding boxes, 1 s total) around `hangYear(year)`. The DOM overlay (`Y` key) is a plain list of years for the bench.
 
-- [ ] **Step 1: Implement** — cabin walls same material family as the room but brushed-metal front; buttons as small meshes with `userData.year`; raycaster on click; the year rooms build via `hangYear`; the current year's button emissive.
+- [ ] **Step 1: Implement** — cabin walls same material family as the room but brushed-metal front; buttons as short cylinders with `userData.year` and the year on a canvas texture; raycaster on click; the year rooms build via `hangYear`; the current year's button lit (emissive ring).
 
 - [ ] **Step 2: Check** — `G.state.year` changes after a simulated button click (`G.elevator.go('2016')` exposed for the harness); pieces group repopulates (different `count`); door animation completes ≤ 1.2 s (assert final door positions, not timing).
 
@@ -282,6 +282,6 @@ Expected: `count` ≥ 1 per piece of 2017 (31 photos → mix of 90s, 60s, grids)
 
 ## Phases 2–4
 
-Separate plan documents, written when Phase 1 stands: 2 — WebXR `immersive-vr` (Quest 3S), in-world switchboard + elevator knobs, teleport; 3 — `immersive-ar` + plane detection, real walls, elevator in the nearest real corner; 4 — polish (2000 px textures under `img/large/`, videos on approach, ingest-time classification).
+Separate plan documents, written when Phase 1 stands: 2 — WebXR `immersive-vr` (Quest 3S), in-world switchboard + pressing the elevator buttons by hand/controller, teleport; 3 — `immersive-ar` + plane detection, real walls, elevator in the nearest real corner; 4 — polish (2000 px textures under `img/large/`, videos on approach, ingest-time classification).
 
 Scope note (2026-08-28): the Quest 3 / 3S is the only device. The desktop walk built in Phase 1 is the development bench, not a product — no phone or tablet tier, no touch controls; the former "phone 3D" phase is dropped.
