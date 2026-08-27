@@ -12,7 +12,7 @@ import * as THREE from './vendor/three.module.js';
 const DEFAULTS = { W: 6, D: 4, H: 3, dark: false, frame: 'oak', mat: 'white', scale: 1, labels: true };
 
 // Settings come from the defaults, then what the switchboard saved last
-// time (localStorage 'galleryS'), then the URL — gallery.html?frame=black
+// time (localStorage 'galleryS'), then the URL — /gallery/?frame=black
 // &dark=1&mat=warm&scale=80&labels=0&W=8&D=5 — so a look can be shared.
 function loadSettings() {
 	const s = { ...DEFAULTS };
@@ -204,7 +204,7 @@ const textures = new THREE.TextureLoader();
 const textureCache = new Map();
 function photoTexture(p) {
 	if (!textureCache.has(p.n)) {
-		const t = textures.load(p.file);
+		const t = textures.load('/' + p.file);   // photos.json paths are relative to the site root
 		t.colorSpace = THREE.SRGBColorSpace;
 		t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
 		textureCache.set(p.n, t);
@@ -1053,7 +1053,7 @@ function stepWalk(now) {
 // ---------------------------------------------------------------------------
 // Boot
 
-fetch('photos.json', { cache: 'no-cache' })
+fetch('/photos.json', { cache: 'no-cache' })   // root-absolute: the page lives at /gallery/
 	.then(r => r.json())
 	.then(d => { state.photos = d.photos; init(); });
 

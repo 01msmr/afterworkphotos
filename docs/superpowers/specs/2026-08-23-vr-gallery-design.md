@@ -22,7 +22,7 @@ So "scan a small room" is only real on a Quest 3. That is the device this galler
 
 ## Approach (assumed — see questions)
 
-One new page, `gallery.html`, with its own `res/gallery.js` + `res/gallery.css`, built on **three.js** as a vendored ES module (`res/vendor/three.module.js` + `res/vendor/three.core.js`, ≈ 2 MB, gzip ≈ 500 KB; no build step, no CDN — the site is self-hosted and cached hard). three.js has the WebXR session handling, plane/mesh detection helpers, shadow maps and controller/hand input built in; A-Frame would be quicker to scaffold but adds a component framework on top of the same three.js for a page that has five kinds of object.
+One new page, `gallery/index.html`, with its own `res/gallery.js` + `res/gallery.css`, built on **three.js** as a vendored ES module (`res/vendor/three.module.js` + `res/vendor/three.core.js`, ≈ 2 MB, gzip ≈ 500 KB; no build step, no CDN — the site is self-hosted and cached hard). three.js has the WebXR session handling, plane/mesh detection helpers, shadow maps and controller/hand input built in; A-Frame would be quicker to scaffold but adds a component framework on top of the same three.js for a page that has five kinds of object.
 
 Two modes of the same page, both on the Quest 3 / 3S:
 
@@ -89,11 +89,11 @@ A wall panel left of the door, ≈ 40 × 30 cm, physical-looking toggles and a f
 | Movement (VR) | teleport / smooth | yes |
 | Videos | play on approach / still frame | later |
 
-Settings persist in `localStorage`; the URL carries them too (`gallery.html?frame=black&mode=dark`) so a look can be shared.
+Settings persist in `localStorage`; the URL carries them too (`gallery/?frame=black&mode=dark`) so a look can be shared.
 
 ## Files and interfaces
 
-- `gallery.html` — page shell, loads the module; reached by URL only for now.
+- `gallery/index.html` — page shell, loads the module; reached by URL only for now.
 - `res/gallery.js` — `Room` (synthetic or from planes), `Hang` (pieces along the walls, then centre rows; capacity from the perimeter), `Frame` (mesh factory: print + mat + frame + lines, three sizes), `Elevator` (corner cabin, year panel with overview strips, the room switch), `Switchboard` (panel + DOM mirror + settings model), `Walk` (headset input; mouse + keys on the bench), `Session` (WebXR feature negotiation: tries `immersive-ar` + `plane-detection`, then `immersive-vr`; without WebXR the page is the bench).
 - `scripts/classify.py` (or a step in `ingest.sh`) — the vision-model pass writing `hang` into `photos.json`; `docs/hang-reasons.txt` with one line per photo for review.
 - `res/vendor/three.module.js` and the WebXR plane helpers — vendored, version pinned in a comment.
@@ -112,9 +112,9 @@ Settings persist in `localStorage`; the URL carries them too (`gallery.html?fram
 ## Open questions (please answer before phase 1)
 
 1. **Devices** — *answered, then narrowed 2026-08-28*: the Quest 3 / 3S is the only device. Both headset modes (VR, real room) are developed and tested on it. No phone, no tablet, no Vision Pro; a desktop browser is the development bench only.
-2. **Dependency** — *answered*: vendored three.js, pinned, loaded only by `gallery.html`.
+2. **Dependency** — *answered*: vendored three.js, pinned, loaded only by `gallery/index.html`.
 3. **Rooms** — *answered*: one room per year; an elevator in a corner (not a door) switches years, with an overview strip per year on its panel; a full room hangs prints denser and then free in the middle of the room.
 4. **Grouping**: consecutive-day runs hang together (my assumption), or groups by month, or purely visual (alternate 1/2/3)?
 5. **Print size and grouping** — *answered*: 90 cm singles; smaller prints in grids of 6 or 9 for fun/simple photos, not always grouped. The single/group decision: **vision-model pass** (option 1 under *Curation*), for the existing photos once and for every new photo in the ingest workflow.
 6. **The elevator in the real room** — *answered*: the corner nearest where you stood when the session started, placed automatically.
-7. **Link** — *answered*: hidden, `gallery.html` by URL only until it is worth showing.
+7. **Link** — *answered*: hidden, `gallery/index.html` by URL only until it is worth showing.

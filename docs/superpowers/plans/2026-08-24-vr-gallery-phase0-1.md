@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Every photo carries a `hang` judgement (single or group), and `gallery.html` renders a walkable 3D white-cube year-room with framed prints, an elevator, and a settings panel — in a desktop browser as the development bench, no XR yet. The product is the Quest 3 / 3S (phases 2–3); nothing here targets a phone or tablet.
+**Goal:** Every photo carries a `hang` judgement (single or group), and `gallery/index.html` renders a walkable 3D white-cube year-room with framed prints, an elevator, and a settings panel — in a desktop browser as the development bench, no XR yet. The product is the Quest 3 / 3S (phases 2–3); nothing here targets a phone or tablet.
 
-**Architecture:** A separate page (`gallery.html` + `res/gallery.js` + `res/gallery.css`) built on a vendored three.js ES module; the main page is untouched except nothing (the link stays hidden). The gallery reads the same `photos.json`. One room exists at a time (a year); the elevator rebuilds it. Modules inside `gallery.js`: `Room`, `Frame`, `Hang`, `Elevator`, `Switchboard`, `Walk` — plain objects/functions in one file, split only if it grows past ~1200 lines.
+**Architecture:** A separate page (`gallery/index.html` + `res/gallery.js` + `res/gallery.css`) built on a vendored three.js ES module; the main page is untouched except nothing (the link stays hidden). The gallery reads the same `photos.json`. One room exists at a time (a year); the elevator rebuilds it. Modules inside `gallery.js`: `Room`, `Frame`, `Hang`, `Elevator`, `Switchboard`, `Walk` — plain objects/functions in one file, split only if it grows past ~1200 lines.
 
 **Tech Stack:** three.js (pinned, vendored, ES module), vanilla JS, CSS; Python `http.server` + Chrome (claude-in-chrome tools) as the test runner, as in `docs/superpowers/plans/2026-08-23-ipad-deck-and-scrubber.md`.
 
@@ -17,12 +17,12 @@
 - Print sizes (spec): singles 90 cm (architectural) and 60 cm (simple, ungrouped); grids of 6 (3×2) or 9 (3×3) of 40 cm prints, 8 cm between frames, formed only from runs of ≥ 6 group-candidates in date order.
 - Frame: 3 cm face, 4 cm deep; mat 6/4/3 cm (90/60/40); no glass. Room default 6 × 4 × 3 m. Eye height 1.6 m, frame centres at 1.5 m.
 - Gallery page reachable by URL only; no visible link from the main page.
-- Commit after every task; `?v=` versioning applies only to the main page — `gallery.html` references its assets with its own `?v=` from the start (`20260824a`).
+- Commit after every task; `?v=` versioning applies only to the main page — `gallery/index.html` references its assets with its own `?v=` from the start (`20260824a`).
 - The Claude API key for classification comes from the environment (`ANTHROPIC_API_KEY`); it is never committed. The model is `claude-sonnet-5`.
 
 ## Test harness
 
-As in the deck plan: `python3 -m http.server 8765` in the repo, a Chrome tab on `http://127.0.0.1:8765/gallery.html`, checks via `javascript_tool`. three.js scenes are asserted through the scene graph (`scene.getObjectByName`, counts, bounding boxes, camera pose) plus screenshots; WebGL renders fine in the MCP tab. Note the session's known pitfall: **background-tab throttling** pauses rAF — assert state, not animation timing, and take a screenshot first when timing matters.
+As in the deck plan: `python3 -m http.server 8765` in the repo, a Chrome tab on `http://127.0.0.1:8765/gallery/`, checks via `javascript_tool`. three.js scenes are asserted through the scene graph (`scene.getObjectByName`, counts, bounding boxes, camera pose) plus screenshots; WebGL renders fine in the MCP tab. Note the session's known pitfall: **background-tab throttling** pauses rAF — assert state, not animation timing, and take a screenshot first when timing matters.
 
 ---
 
@@ -115,10 +115,10 @@ git add scripts/classify.py photos.json docs/hang-reasons.txt && git commit -m "
 
 **Files:**
 - Create: `res/vendor/three.module.js` **and** `res/vendor/three.core.js` (three@0.180.0, MIT — since r165 `three.module.js` is a shim importing `./three.core.js`, so both are needed; record the version in a comment at the top of `gallery.js`)
-- Create: `gallery.html`, `res/gallery.js`, `res/gallery.css`
+- Create: `gallery/index.html`, `res/gallery.js`, `res/gallery.css`
 
 **Interfaces:**
-- Produces: `gallery.html` loads `res/gallery.js` as `type="module"`, which imports `* as THREE` from `./vendor/three.module.js` and exposes `window.G = { scene, camera, renderer, state }` **for the test harness only** (documented as such).
+- Produces: `gallery/index.html` loads `res/gallery.js` as `type="module"`, which imports `* as THREE` from `./vendor/three.module.js` and exposes `window.G = { scene, camera, renderer, state }` **for the test harness only** (documented as such).
 
 - [ ] **Step 1: Download and pin three.js** (ask Uli before downloading: file `three.module.js`, source `https://unpkg.com/three@0.180.0/build/three.module.js`, ~1.3 MB)
 
@@ -128,7 +128,7 @@ curl -sL -o res/vendor/three.module.js "https://unpkg.com/three@0.180.0/build/th
 
 - [ ] **Step 2: The shell**
 
-`gallery.html`: viewport meta, `<title>afterworkphotos — gallery</title>`, `<link rel="stylesheet" href="res/gallery.css?v=20260824a">`, an empty `<main id="stage">`, `<script type="module" src="res/gallery.js?v=20260824a"></script>`. `res/gallery.js` starts with:
+`gallery/index.html`: viewport meta, `<title>afterworkphotos — gallery</title>`, `<link rel="stylesheet" href="res/gallery.css?v=20260824a">`, an empty `<main id="stage">`, `<script type="module" src="res/gallery.js?v=20260824a"></script>`. `res/gallery.js` starts with:
 
 ```js
 // three.js 0.180.0, vendored (MIT) — res/vendor/three.module.js
@@ -158,13 +158,13 @@ window.G = { scene, camera, renderer, state };   // test harness handle
 
 - [ ] **Step 3: Check it boots**
 
-Browser: `http://127.0.0.1:8765/gallery.html` →
+Browser: `http://127.0.0.1:8765/gallery/` →
 ```js
 ({ three: !!window.G, rev: (await import('/res/vendor/three.module.js')).REVISION, photos: G.state.photos.length })
 ```
 Expected: `rev: "180"`, `photos: 208+`.
 
-- [ ] **Step 4: Commit** — `git add gallery.html res/gallery.js res/gallery.css res/vendor/three.module.js && git commit -m "gallery: page shell with vendored three.js"`
+- [ ] **Step 4: Commit** — `git add gallery/index.html res/gallery.js res/gallery.css res/vendor/three.module.js && git commit -m "gallery: page shell with vendored three.js"`
 
 ---
 
@@ -265,7 +265,7 @@ Expected: `count` ≥ 1 per piece of 2017 (31 photos → mix of 90s, 60s, grids)
 **Files:** Modify `res/gallery.js`, `res/gallery.css`
 
 **Interfaces:**
-- Produces: settings `{ dark, frame, mat, scale, labels, W, D, H }` with defaults from the spec; a DOM panel (small, top-left, toggled with `S`) mirroring the future in-world board: light/dark, frame colour, mat (white/warm/none), print scale (100 %/80 %), labels on/off, room size fields; persisted to `localStorage('galleryS')`; also read from URL params (`gallery.html?frame=black&dark=1`). Changing a setting re-applies materials or re-hangs (room size, scale).
+- Produces: settings `{ dark, frame, mat, scale, labels, W, D, H }` with defaults from the spec; a DOM panel (small, top-left, toggled with `S`) mirroring the future in-world board: light/dark, frame colour, mat (white/warm/none), print scale (100 %/80 %), labels on/off, room size fields; persisted to `localStorage('galleryS')`; also read from URL params (`gallery/?frame=black&dark=1`). Changing a setting re-applies materials or re-hangs (room size, scale).
 
 - [ ] **Step 1: Implement**; **Step 2: Check** — set `frame=black` via the panel: all frame materials' color changes (sample one mesh); reload: setting survives; `?dark=1` boots dark. **Step 3: Commit** — `"gallery: switchboard (DOM), settings persisted"`
 
