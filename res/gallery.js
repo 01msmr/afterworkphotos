@@ -704,20 +704,33 @@ const elevator = {
 		walk.yaw = Math.PI / 2; walk.pitch = 0;
 	},
 
-	// Called every frame. Half a second closing, the swap, half a second opening.
+	// Called every frame. Half a second closing; the swap behind closed
+	// doors; then the doors stay shut until every print of the new room has
+	// its picture and the shaders are built (Uli: no switching to be seen);
+	// half a second opening.
 	step(now) {
 		if (!this.ride) return;
-		const t = (now - this.ride.t0) / 1000;
+		const r = this.ride;
+		const t = (now - r.t0) / 1000;
 		if (t < 0.5) { this.setDoors(1 - t / 0.5); return; }
-		if (!this.ride.hung) {
-			const key = this.ride.key;
-			hangRoom(key);                         // may rebuild the room and this cabin
+		if (!r.hung) {
+			hangRoom(r.key);                       // may rebuild the room and this cabin
 			walk.pos.set(this.origin.x, walk.pos.y, this.origin.z);
 			this.setDoors(0);
-			this.ride.hung = true;
+			renderer.compile(scene, camera);
+			r.hung = true;
+			r.photos = roomByKey(r.key).specs.flatMap(sp => sp.photos);
 			return;
 		}
-		if (t < 1.0) { this.setDoors((t - 0.5) / 0.5); return; }
+		if (!r.ready) {
+			const loaded = r.photos.every(p => textureCache.get(p.n)?.image);
+			if (!loaded && t < 8) return;          // wait; but never lock a visitor in
+			r.ready = true;
+			r.tOpen = now;
+			return;
+		}
+		const o = (now - r.tOpen) / 500;
+		if (o < 1) { this.setDoors(o); return; }
 		this.setDoors(1);
 		this.ride = null;
 	},
