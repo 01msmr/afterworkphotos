@@ -11,7 +11,9 @@ import * as THREE from './vendor/three.module.js';
 
 const DEFAULTS = { W: 6, D: 4, H: 3, dark: false, frame: 'oak' };
 
-const state = { year: null, settings: { ...DEFAULTS }, photos: [] };
+// settings.W/D is the smallest room; room.W/D is the one standing, which a
+// crowded year may have grown (see hangYear).
+const state = { year: null, roomKey: null, settings: { ...DEFAULTS }, room: null, photos: [] };
 
 const EYE = 1.6;
 const HANG_Y = 1.5;   // every piece's centre, the gallery's line
@@ -236,6 +238,238 @@ function makePiece(spec) {
 }
 
 // ---------------------------------------------------------------------------
+// Hanging a year
+//
+// The pieces of a year, in date order: a run of six or more group photos
+// becomes grids of nine then six; what will not fill a grid hangs single at
+// 60; everything judged single hangs at 90. Same rule as the review page.
+
+function packRun(n) {
+	let best = { nine: 0, six: 0, covered: 0 };
+	for (let nine = Math.floor(n / 9); nine >= 0; nine--) {
+		const six = Math.floor((n - 9 * nine) / 6);
+		const covered = 9 * nine + 6 * six;
+		if (covered > best.covered) best = { nine, six, covered };
+	}
+	return best;
+}
+
+function piecesOf(photos) {
+	const specs = [];
+	let run = [];
+	const flush = () => {
+		if (!run.length) return;
+		const { nine, six } = packRun(run.length);
+		let i = 0;
+		for (const g of [...Array(nine).fill(9), ...Array(six).fill(6)]) {
+			specs.push({ photos: run.slice(i, i + g), size: 0.4, cols: 3, rows: g / 3 });
+			i += g;
+		}
+		for (; i < run.length; i++) specs.push({ photos: [run[i]], size: 0.6 });
+		run = [];
+	};
+	for (const p of photos) {
+		if (p.hang === 'group') { run.push(p); continue; }
+		flush();
+		specs.push({ photos: [p], size: 0.9 });
+	}
+	flush();
+	return specs;
+}
+
+// The elevator's corner is reserved: +x, -z, a 1.2 m square.
+const ELEVATOR = { size: 1.2 };
+const WALL_MARGIN = 0.6;    // from a wall's end or the elevator: the corners stay empty (Uli)
+const GAP = 1.2;            // gallery spacing between pieces
+const GAP_MIN = 0.1;        // how tight the walls go before the middle fills
+const OFF_WALL = 0.001;     // a hair off the plaster, so the frame's back does not z-fight
+
+// Each wall as a run the cursor walks along, clockwise from the elevator:
+// east (southward), south (westward), west (northward), north (eastward,
+// ending at the elevator). For a run: its start point, the unit direction
+// the cursor moves in, the yaw a piece faces the room with, and its length.
+function wallRuns(W, D) {
+	const e = ELEVATOR.size;
+	return [
+		{ name: 'e', start: [ W / 2, -D / 2 + e], dir: [0,  1], yaw: -Math.PI / 2, len: D - e },
+		{ name: 's', start: [ W / 2,  D / 2],     dir: [-1, 0], yaw:  Math.PI,     len: W },
+		{ name: 'w', start: [-W / 2,  D / 2],     dir: [0, -1], yaw:  Math.PI / 2, len: D },
+		{ name: 'n', start: [-W / 2, -D / 2],     dir: [1,  0], yaw:  0,           len: W - e },
+	];
+}
+
+// Lay pieces (with their widths) along the walls at a given gap; whatever
+// does not fit comes back for the middle of the room.
+function layWalls(pieces, W, D, gap) {
+	const placed = [];
+	let i = 0;
+	for (const run of wallRuns(W, D)) {
+		let cursor = WALL_MARGIN;
+		while (i < pieces.length) {
+			const w = pieces[i].w;
+			if (cursor + w > run.len - WALL_MARGIN) break;
+			const t = cursor + w / 2;
+			const x = run.start[0] + run.dir[0] * t;
+			const z = run.start[1] + run.dir[1] * t;
+			// step off the wall along the piece's facing direction
+			const nx = Math.sin(run.yaw), nz = Math.cos(run.yaw);
+			placed.push({ piece: pieces[i], x: x + nx * OFF_WALL, z: z + nz * OFF_WALL, yaw: run.yaw, wall: run.name });
+			cursor += w + gap;
+			i++;
+		}
+	}
+	return { placed, rest: pieces.slice(i) };
+}
+
+// The middle of the room: rows down the long axis, pieces back to back so
+// each slot shows a face to either side, walkways of WALKWAY between rows
+// and to the walls. A 4 m room takes one row; every further 1.5 m of
+// depth adds one.
+const WALKWAY = 1.5;
+function middleRows(D) {
+	const n = Math.max(1, Math.floor(D / WALKWAY) - 1);
+	return Array.from({ length: n }, (_, i) => (i - (n - 1) / 2) * WALKWAY);
+}
+
+function layMiddle(pieces, W, D, gap) {
+	const placed = [];
+	let i = 0;
+	for (const z of middleRows(D)) {
+		let cursor = WALL_MARGIN;
+		while (i < pieces.length) {
+			const a = pieces[i], b = pieces[i + 1];
+			const w = Math.max(a.w, b ? b.w : 0);
+			if (cursor + w > W - WALL_MARGIN) break;
+			const x = -W / 2 + cursor + w / 2;
+			placed.push({ piece: a, x, z: z + FRAME.depth / 2, yaw: 0, wall: 'mid' });        // faces +z (south)
+			if (b) placed.push({ piece: b, x, z: z - FRAME.depth / 2, yaw: Math.PI, wall: 'mid' });  // faces -z
+			cursor += w + gap;
+			i += 2;
+		}
+	}
+	return { placed, rest: pieces.slice(i) };
+}
+
+function yearOf(p) { return p.taken.slice(0, 4); }
+
+// A piece's overall width from its spec alone, so rooms can be planned
+// before a single mesh exists.
+function specWidth(spec) {
+	if (spec.photos.length === 1) return framedSize(spec.size);
+	return spec.cols * framedSize(spec.size) + (spec.cols - 1) * GRID_GAP;
+}
+
+// Lay pieces into a room of W × D: gallery spacing first; when the walls
+// run out, the spacing tightens; then the middle of the room takes the
+// rest. Returns the placements and whatever still did not fit.
+function layout(items, W, D) {
+	let gap = GAP, walls, middle;
+	for (;;) {
+		walls = layWalls(items, W, D, gap);
+		middle = layMiddle(walls.rest, W, D, gap);
+		if (!middle.rest.length || gap <= GAP_MIN) break;
+		gap = Math.max(GAP_MIN, gap - 0.1);
+	}
+	return { placed: [...walls.placed, ...middle.placed], rest: middle.rest, gap };
+}
+
+// ---------------------------------------------------------------------------
+// Rooms
+//
+// One room per year — unless the year does not fit the room even with the
+// spacing tightened and the middle full; then it splits into two rooms by
+// date, the later half hanging in the second (Uli, 2026-08-28). Each room
+// is a floor of the elevator: key "2018" or "2018-1" / "2018-2", the
+// newest room at the top. Planned from widths only; meshes come at hanging.
+
+let roomList = null;
+
+function rooms() {
+	if (roomList) return roomList;
+	const { W, D } = state.settings;
+	const byYear = new Map();
+	for (const p of state.photos) {
+		if (!byYear.has(yearOf(p))) byYear.set(yearOf(p), []);
+		byYear.get(yearOf(p)).push(p);
+	}
+	roomList = [];
+	for (const [year, photos] of byYear) {
+		const specs = piecesOf(photos).map(s => ({ ...s, w: specWidth(s) }));
+		if (!layout([...specs].reverse(), W, D).rest.length) {
+			roomList.push({ key: year, year, part: 0, of: 1, specs });
+			continue;
+		}
+		const half = Math.ceil(specs.length / 2);
+		roomList.push({ key: `${year}-1`, year, part: 1, of: 2, specs: specs.slice(0, half) });
+		roomList.push({ key: `${year}-2`, year, part: 2, of: 2, specs: specs.slice(half) });
+	}
+	// newest room first: by year, then the later part
+	roomList.sort((a, b) => b.year.localeCompare(a.year) || b.part - a.part);
+	return roomList;
+}
+
+function roomByKey(key) {
+	const r = rooms().find(r => r.key === key);
+	if (!r) throw new Error(`no room ${key}`);
+	return r;
+}
+
+function hangRoom(key) {
+	const room = roomByKey(key);
+	const H = state.settings.H;
+	for (const name of ['pieces', 'spots']) {
+		const old = scene.getObjectByName(name);
+		if (old) scene.remove(old);
+	}
+	const pieces = new THREE.Group(); pieces.name = 'pieces';
+	const spots  = new THREE.Group(); spots.name  = 'spots';
+
+	// newest first from the elevator
+	const items = [...room.specs].reverse();
+
+	// The settings' room is the room. Should half a year still not fit it
+	// (it does not happen with this collection), the room grows in steps
+	// of the same proportion rather than dropping a print — and says so.
+	let { W, D } = state.settings;
+	let lay = layout(items, W, D);
+	while (lay.rest.length && W < 40) {
+		W += 1.5; D += 1;
+		lay = layout(items, W, D);
+	}
+	if (W !== state.settings.W) console.warn(`${key}: room grown to ${W} × ${D} to hang everything`);
+	if (!state.room || state.room.W !== W || state.room.D !== D) {
+		const old = scene.getObjectByName('room');
+		if (old) scene.remove(old);
+		scene.add(buildRoom(W, D, H));
+		state.room = { W, D, H };
+	}
+
+	for (const { piece: spec, x, z, yaw, wall } of lay.placed) {
+		const piece = makePiece(spec);
+		piece.position.set(x, HANG_Y, z);
+		piece.rotation.y = yaw;
+		piece.userData.wall = wall;
+		pieces.add(piece);
+
+		// One spot per piece from the ceiling track, a metre out into the
+		// room from the piece, angled down at its centre.
+		const spot = new THREE.SpotLight(0xfff1dc, 18, 0, 0.5, 0.5, 2);
+		spot.position.set(x + Math.sin(yaw) * 1.0, H - 0.05, z + Math.cos(yaw) * 1.0);
+		spot.target = piece;
+		spot.castShadow = true;
+		spot.shadow.mapSize.set(512, 512);
+		spot.shadow.bias = -0.0005;
+		spots.add(spot);
+	}
+
+	scene.add(pieces, spots);
+	state.year = room.year;
+	state.roomKey = key;
+	state.gap = lay.gap;
+	return pieces;
+}
+
+// ---------------------------------------------------------------------------
 // Boot
 
 fetch('photos.json', { cache: 'no-cache' })
@@ -243,11 +477,11 @@ fetch('photos.json', { cache: 'no-cache' })
 	.then(d => { state.photos = d.photos; init(); });
 
 function init() {
-	const { W, D, H } = state.settings;
-	scene.add(buildRoom(W, D, H));
+	hangRoom(rooms()[0].key);    // the newest room; builds the room around it
 
 	// Arrival: standing a little back from the middle, eye height, facing north.
-	camera.position.set(0, EYE, 1.5);
+	const D = state.room.D;
+	camera.position.set(0, EYE, D / 2 - 1.0);
 	camera.lookAt(0, EYE, -D / 2);
 }
 
@@ -255,4 +489,4 @@ renderer.setAnimationLoop(() => renderer.render(scene, camera));
 
 // Test-harness handle only: the plan's browser checks read the scene graph
 // and camera through this. Nothing on the page uses it.
-window.G = { scene, camera, renderer, state, buildRoom, applyMode, makePiece };
+window.G = { scene, camera, renderer, state, buildRoom, applyMode, makePiece, rooms, hangRoom };
