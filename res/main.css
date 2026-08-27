@@ -627,7 +627,8 @@ html.map-on .towns {
 	/* the box is held at the size the grown type needs, so the row is not
 	   laid out again on every frame of the growing — only the letters are
 	   drawn anew, which is what makes the movement smooth */
-	width: 10rem;
+	width: 13rem;
+	overflow: visible;
 	will-change: font-size;
 	color: var(--towns-mark);
 	opacity: 0;
@@ -671,11 +672,11 @@ html.map-on .towns {
 	   its left edge, so the figure stays where the eye left it */
 	font-variant-numeric: tabular-nums;
 	text-align: right;
-	/* the fold is horizontal only, and the box is taller than its figures
-	   need — hiding the width must not cut their heads and feet off */
+	/* nothing is clipped: the slot's width carries the figures and the total
+	   behind them along as it opens and widens, and the fading is what hides
+	   them while it is shut */
 	height: 1.4em;
 	line-height: 1.4;
-	overflow: hidden;
 	white-space: nowrap;
 	transition: width 0.35s ease, opacity 0.35s ease, font-size 0.3s ease;
 }
