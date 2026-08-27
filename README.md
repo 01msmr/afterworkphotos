@@ -1,6 +1,6 @@
 # afterworkphotos
 
-[afterworkphoto.com](https://afterworkphoto.com) — one square photo a day, taken after work. A single static page, no build step, no framework. Photos arrive through `inbox/` and a GitHub workflow does the rest. The details are in [docs/details.md](docs/details.md).
+[afterworkphotos.com](https://afterworkphotos.com) — one square photo a day, taken after work. A single static page, no build step, no framework. Photos arrive through `inbox/` and a GitHub workflow does the rest. The details are in [docs/details.md](docs/details.md).
 
 ## What's in here
 
@@ -24,7 +24,7 @@ The site never shows file names; it numbers photos 1…N in date order.
 
 **Phone and iPad** — the photos are a pile of paper sheets, newest on top (held sideways, two per sheet). Swipe up to lift the top sheet off and see the one before it, swipe down to put it back; tapping the upper/lower half does the same. The right edge of the screen is the pile seen edge-on: touch it and drag to run through the years, slide the finger in from the edge for finer control (the label shows the neighbouring prints while the strip is too short for single-sheet hits), let go and the pile cuts to that sheet. Only seven sheets exist in the DOM at a time, so the size of the pile doesn't matter. Dark mode follows the system. Videos play only while on screen.
 
-**Deep links** — `afterworkphoto.com/#154` opens print 154, `#y2017` a year's newest; the address follows as you move.
+**Deep links** — `afterworkphotos.com/#154` opens print 154, `#y2017` a year's newest; the address follows as you move.
 
 ## Adding photos
 

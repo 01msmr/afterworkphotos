@@ -146,7 +146,7 @@ Push to `main`; the server (nginx) pulls automatically within seconds. The page 
 Check a deploy from anywhere:
 
 ```sh
-curl -s "https://afterworkphoto.com/photos.json?cb=$RANDOM" | python3 -c "import json,sys; print(json.load(sys.stdin)['count'])"
+curl -s "https://afterworkphotos.com/photos.json?cb=$RANDOM" | python3 -c "import json,sys; print(json.load(sys.stdin)['count'])"
 ```
 
 ## Local development
