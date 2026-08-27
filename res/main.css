@@ -3,6 +3,9 @@
 	/* the prints' side margin — the title shares it, so its right edge is
 	   the rightmost print's */
 	--side: 4%;
+	/* where the wall begins at the left — the prints' left edge, and with
+	   them the title's row. The map pushes it right when it is up. */
+	--wall-left: var(--side);
 	/* height a print leaves free for title above and caption below — the
 	   landscape print bound and the title's alignment share it */
 	--caption-room: 10rem;
@@ -92,7 +95,10 @@ h1.title:hover {
    words keep their own box (the one fitTitle fits them to) and their own
    dimness, so the mark beside them can have its own. */
 html:not(.deck) h1.title {
-	left: var(--side);
+	/* the mark at its left end stands flush with the left print, wherever
+	   the wall begins */
+	left: var(--wall-left);
+	transition: left 0.6s cubic-bezier(0.22, 0.61, 0.36, 1);
 	width: auto;
 	/* the line sits in the middle of the band above the prints, so it has
 	   as much air over it as under it — the band is --wall-top, the same
@@ -249,6 +255,7 @@ section {
 	justify-content: flex-start;
 	padding: 3% var(--side);
 	padding-top: var(--wall-top);
+	padding-left: var(--wall-left);
 	box-sizing: border-box;
 	/* room for the map opens and closes at the map's own pace and curve */
 	transition: padding-left 0.6s cubic-bezier(0.22, 0.61, 0.36, 1);
@@ -264,8 +271,8 @@ html.map-on {
 /* the map open: the prints give it the left of the screen and a wide
    margin, and shrink towards the top right — their top and right edges
    stay where they are */
-html.map-on section {
-	padding-left: calc(var(--side) + var(--map-grown) + 32px + var(--towns-w) + var(--gap) * 0.6);
+html.map-on {
+	--wall-left: calc(var(--side) + var(--map-grown) + 32px + var(--towns-w) + var(--gap) * 0.6);
 }
 
 /* A print keeps its column's width whether or not the row is full: the
