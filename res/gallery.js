@@ -9,11 +9,34 @@ import * as THREE from './vendor/three.module.js';
 // centre at 1.5 m. Light mode is the white cube; dark mode is the same room
 // at night, ambient almost off, the spots alone.
 
-const DEFAULTS = { W: 6, D: 4, H: 3, dark: false, frame: 'oak' };
+const DEFAULTS = { W: 6, D: 4, H: 3, dark: false, frame: 'oak', mat: 'white', scale: 1, labels: true };
+
+// Settings come from the defaults, then what the switchboard saved last
+// time (localStorage 'galleryS'), then the URL — gallery.html?frame=black
+// &dark=1&mat=warm&scale=80&labels=0&W=8&D=5 — so a look can be shared.
+function loadSettings() {
+	const s = { ...DEFAULTS };
+	try { Object.assign(s, JSON.parse(localStorage.getItem('galleryS')) || {}); } catch (e) {}
+	const q = new URLSearchParams(location.search);
+	for (const k of Object.keys(DEFAULTS)) {
+		if (!q.has(k)) continue;
+		const v = q.get(k);
+		if (k === 'dark' || k === 'labels') s[k] = v === '1' || v === 'true';
+		else if (k === 'scale') s[k] = Number(v) > 1 ? Number(v) / 100 : Number(v);
+		else if (k === 'W' || k === 'D' || k === 'H') s[k] = Number(v);
+		else s[k] = v;
+	}
+	if (!(s.frame in FRAME_COLOURS_KEYS)) s.frame = DEFAULTS.frame;
+	if (!['white', 'warm', 'none'].includes(s.mat)) s.mat = DEFAULTS.mat;
+	if (![1, 0.8].includes(s.scale)) s.scale = DEFAULTS.scale;
+	for (const k of ['W', 'D', 'H']) if (!(s[k] >= 2 && s[k] <= 40)) s[k] = DEFAULTS[k];
+	return s;
+}
+const FRAME_COLOURS_KEYS = { oak: 1, walnut: 1, black: 1, white: 1 };
 
 // settings.W/D is the smallest room; room.W/D is the one standing, which a
 // crowded year may have grown (see hangYear).
-const state = { year: null, roomKey: null, settings: { ...DEFAULTS }, room: null, photos: [] };
+const state = { year: null, roomKey: null, settings: loadSettings(), room: null, photos: [] };
 
 const EYE = 1.6;
 const HANG_Y = 1.5;   // every piece's centre, the gallery's line
@@ -158,6 +181,13 @@ function applyMode(dark) {
 const FRAME = { face: 0.03, depth: 0.04 };
 const MAT = { 0.9: 0.09, 0.6: 0.06, 0.4: 0.045 };     // mat width per nominal print size: the spec's 6/4/3 plus half (Uli)
 const PRINT_SCALE = 0.9;                               // the print inside is a little smaller than nominal, the mat takes the rest (Uli)
+const MAT_COLOURS = { white: 0xfaf9f6, warm: 0xf3ecdd, none: 0xfaf9f6 };
+
+// The mat's width for a nominal size under the current settings ('none'
+// runs the print to the frame), and the overall scale (100 % or 80 %, for
+// a small real room) that every dimension of a framed print follows.
+const matWidth = size => state.settings.mat === 'none' ? 0 : MAT[size];
+const sc = () => state.settings.scale;
 const GRID_GAP = 0.08;                                 // between frames in a grid
 
 const FRAME_COLOURS = { oak: 0xb08d57, walnut: 0x5b4633, black: 0x171717, white: 0xf4f2ee };
@@ -166,7 +196,7 @@ const FRAME_COLOURS = { oak: 0xb08d57, walnut: 0x5b4633, black: 0x171717, white:
 // the frame colour (task 1.6) recolours the shared material once.
 const materials = {
 	frame: new THREE.MeshStandardMaterial({ color: FRAME_COLOURS[state.settings.frame], roughness: 0.62, metalness: 0 }),
-	mat:   new THREE.MeshStandardMaterial({ color: 0xfaf9f6, roughness: 0.95 }),
+	mat:   new THREE.MeshStandardMaterial({ color: MAT_COLOURS[state.settings.mat], roughness: 0.95 }),
 	line:  new THREE.MeshPhysicalMaterial({ color: 0xffffff, transmission: 0.6, roughness: 0.1, thickness: 0.001 }),
 };
 
@@ -183,14 +213,15 @@ function photoTexture(p) {
 }
 
 // Outer edge of one framed print of a given print size.
-const framedSize = size => size + 2 * MAT[size] + 2 * FRAME.face;
+const framedSize = size => (size + 2 * matWidth(size) + 2 * FRAME.face) * sc();
 
 function makeFramedPrint(p, size) {
 	const g = new THREE.Group();
 	g.name = `print-${p.n}`;
-	const mat = MAT[size];
-	const inner = size + 2 * mat;               // the mat board's edge = frame's inner edge
-	const outer = inner + 2 * FRAME.face;
+	const k = sc();
+	const face = FRAME.face * k;
+	const inner = (size + 2 * matWidth(size)) * k;   // the mat board's edge = frame's inner edge
+	const outer = inner + 2 * face;
 
 	const board = new THREE.Mesh(new THREE.BoxGeometry(inner, inner, 0.006), materials.mat);
 	board.name = 'mat';
@@ -198,7 +229,7 @@ function makeFramedPrint(p, size) {
 	board.castShadow = true;
 	g.add(board);
 
-	const printed = size * PRINT_SCALE;
+	const printed = size * (state.settings.mat === 'none' ? 1 : PRINT_SCALE) * k;
 	const print = new THREE.Mesh(new THREE.PlaneGeometry(printed, printed),
 		new THREE.MeshBasicMaterial({ map: photoTexture(p) }));
 	print.name = 'photo';
@@ -217,11 +248,11 @@ function makeFramedPrint(p, size) {
 		m.receiveShadow = true;
 		g.add(m);
 	};
-	const half = inner / 2 + FRAME.face / 2;
-	bar('bar-top',    outer, FRAME.face, 0,  half);
-	bar('bar-bottom', outer, FRAME.face, 0, -half);
-	bar('bar-left',   FRAME.face, inner, -half, 0);
-	bar('bar-right',  FRAME.face, inner,  half, 0);
+	const half = inner / 2 + face / 2;
+	bar('bar-top',    outer, face, 0,  half);
+	bar('bar-bottom', outer, face, 0, -half);
+	bar('bar-left',   face, inner, -half, 0);
+	bar('bar-right',  face, inner,  half, 0);
 
 	g.userData = { n: p.n, w: outer, h: outer };
 	return g;
@@ -253,22 +284,49 @@ function makePiece(spec) {
 		({ w, h } = fp.userData);
 	} else {
 		const { cols, rows } = spec;
-		const cell = framedSize(size);
-		w = cols * cell + (cols - 1) * GRID_GAP;
-		h = rows * cell + (rows - 1) * GRID_GAP;
+		const cell = framedSize(size), gap = GRID_GAP * sc();
+		w = cols * cell + (cols - 1) * gap;
+		h = rows * cell + (rows - 1) * gap;
 		// Date order reads like the site: left to right, top row first.
 		photos.forEach((p, i) => {
 			const c = i % cols, r = Math.floor(i / cols);
 			const fp = makeFramedPrint(p, size);
-			fp.position.set(-w / 2 + cell / 2 + c * (cell + GRID_GAP),
-			                 h / 2 - cell / 2 - r * (cell + GRID_GAP), 0);
+			fp.position.set(-w / 2 + cell / 2 + c * (cell + gap),
+			                 h / 2 - cell / 2 - r * (cell + gap), 0);
 			piece.add(fp);
 		});
 	}
 
 	addLines(piece, w, h);
+	addLabel(piece, spec, w, h);
 	piece.userData = { n: photos[0].n, w, h };
 	return piece;
+}
+
+// A small card to the lower right of a piece: "afterworkphoto 154 · Aug
+// 2017"; a grid's card gives its range. Shown or not by the setting.
+const MONTHS = 'Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec'.split(' ');
+function labelText(photos) {
+	const a = photos[0], b = photos[photos.length - 1];
+	const when = `${MONTHS[Number(a.taken.slice(5, 7)) - 1]} ${a.taken.slice(0, 4)}`;
+	return photos.length === 1 ? `afterworkphoto ${a.n} \u00b7 ${when}` : `afterworkphotos ${a.n}\u2013${b.n} \u00b7 ${when}`;
+}
+function addLabel(piece, spec, w, h) {
+	const c = document.createElement('canvas');
+	c.width = 768; c.height = 160;
+	const g = c.getContext('2d');
+	g.fillStyle = '#fbfaf7'; g.fillRect(0, 0, c.width, c.height);
+	g.fillStyle = '#3a3835';
+	g.font = '500 44px -apple-system, "Helvetica Neue", Arial, sans-serif';
+	g.textBaseline = 'middle';
+	g.fillText(labelText(spec.photos), 40, c.height / 2 + 2);
+	const t = new THREE.CanvasTexture(c);
+	t.colorSpace = THREE.SRGBColorSpace;
+	const card = new THREE.Mesh(new THREE.PlaneGeometry(0.24, 0.05), new THREE.MeshLambertMaterial({ map: t }));
+	card.name = 'label';
+	card.position.set(w / 2 + 0.05 + 0.12, -h / 2 + 0.025, 0.002);
+	card.visible = state.settings.labels;
+	piece.add(card);
 }
 
 // ---------------------------------------------------------------------------
@@ -391,12 +449,14 @@ function yearOf(p) { return p.taken.slice(0, 4); }
 // before a single mesh exists.
 function specWidth(spec) {
 	if (spec.photos.length === 1) return framedSize(spec.size);
-	return spec.cols * framedSize(spec.size) + (spec.cols - 1) * GRID_GAP;
+	return spec.cols * framedSize(spec.size) + (spec.cols - 1) * GRID_GAP * sc();
 }
 
 // Lay pieces into a room of W × D: gallery spacing first; when the walls
 // run out, the spacing tightens; then the middle of the room takes the
 // rest. Returns the placements and whatever still did not fit.
+const GAP_MAX = 2.5;        // a sparse room spreads out this far, no further
+
 function layout(items, W, D) {
 	let gap = GAP, walls, middle;
 	for (;;) {
@@ -404,6 +464,16 @@ function layout(items, W, D) {
 		middle = layMiddle(walls.rest, W, D, gap);
 		if (!middle.rest.length || gap <= GAP_MIN) break;
 		gap = Math.max(GAP_MIN, gap - 0.1);
+	}
+	// A thin room uses the whole perimeter (Uli: no two lonely prints in a
+	// corner): while everything still fits on the walls, widen the spacing.
+	if (!walls.rest.length && gap === GAP) {
+		for (let g = GAP + 0.1; g <= GAP_MAX + 1e-9; g += 0.1) {
+			const w = layWalls(items, W, D, g);
+			if (w.rest.length) break;
+			walls = w; gap = g;
+		}
+		middle = { placed: [], rest: [] };
 	}
 	return { placed: [...walls.placed, ...middle.placed], rest: middle.rest, gap };
 }
@@ -470,18 +540,34 @@ function rooms() {
 		if (!byYear.has(yearOf(p))) byYear.set(yearOf(p), []);
 		byYear.get(yearOf(p)).push(p);
 	}
+	// Thin years (a handful of pieces) share a floor with their neighbours
+	// (Uli): consecutive years of at most THIN pieces merge into one room,
+	// keyed "2009_2014", named by its first and last year.
+	const THIN = 5;
+	const years = [...byYear.entries()].map(([year, photos]) => ({ year, photos, specs: piecesOf(photos).map(s => ({ ...s, w: specWidth(s) })) }));
+	const merged = [];
+	for (const y of years) {
+		const last = merged[merged.length - 1];
+		if (last && last.thin && y.specs.length <= THIN) {
+			last.years.push(y.year); last.specs.push(...y.specs);
+			continue;
+		}
+		merged.push({ years: [y.year], specs: y.specs, thin: y.specs.length <= THIN });
+	}
 	roomList = [];
-	for (const [year, photos] of byYear) {
-		const specs = piecesOf(photos).map(s => ({ ...s, w: specWidth(s) }));
-		const one = shapeOf(year);
+	for (const m of merged) {
+		const year = m.years[0], span = m.years.length > 1 ? `${m.years[0]}\u2013${m.years[m.years.length - 1]}` : year;
+		const specs = m.specs;
+		const one = shapeOf(m.years.join('_'));
 		if (!layout([...specs].reverse(), one.W, one.D).rest.length) {
-			roomList.push({ key: year, year, part: 0, of: 1, specs, shape: one, look: lookOf(year) });
+			const key = m.years.join('_');
+			roomList.push({ key, year, span, years: m.years, part: 0, of: 1, specs, shape: one, look: lookOf(key) });
 			continue;
 		}
 		const half = Math.ceil(specs.length / 2);
 		for (const [part, slice] of [[1, specs.slice(0, half)], [2, specs.slice(half)]]) {
 			const key = `${year}-${part}`;
-			roomList.push({ key, year, part, of: 2, specs: slice, shape: shapeOf(key), look: lookOf(key) });
+			roomList.push({ key, year, span, years: m.years, part, of: 2, specs: slice, shape: shapeOf(key), look: lookOf(key) });
 		}
 	}
 	// newest room first: by year, then the later part
@@ -591,7 +677,11 @@ function buttonFace(room) {
 	g.fillStyle = '#1b1b1b';
 	g.textAlign = 'center';
 	g.textBaseline = 'middle';
-	if (room.of === 1) {
+	if (room.years.length > 1) {
+		g.font = '600 34px -apple-system, "Helvetica Neue", Arial, sans-serif';
+		g.fillText(room.years[0], 64, 46);
+		g.fillText('\u2013' + room.years[room.years.length - 1].slice(2), 64, 84);
+	} else if (room.of === 1) {
 		g.font = '600 46px -apple-system, "Helvetica Neue", Arial, sans-serif';
 		g.fillText(room.year, 64, 66);
 	} else {
@@ -779,7 +869,7 @@ function pressAt(ndcX, ndcY) {
 const floors = document.getElementById('floors');
 function renderFloors() {
 	floors.innerHTML = rooms().map(r =>
-		`<button data-key="${r.key}"${r.key === state.roomKey ? ' aria-current="true"' : ''}>${r.year}${r.of > 1 ? `<small>${r.part}/${r.of}</small>` : ''}</button>`).join('');
+		`<button data-key="${r.key}"${r.key === state.roomKey ? ' aria-current="true"' : ''}>${r.years.length > 1 ? `${r.years[0]}<small>\u2013${r.years[r.years.length - 1]}</small>` : r.year}${r.of > 1 ? `<small>${r.part}/${r.of}</small>` : ''}</button>`).join('');
 }
 floors.addEventListener('click', e => {
 	const b = e.target.closest('button');
@@ -790,6 +880,80 @@ floors.addEventListener('click', e => {
 addEventListener('keydown', e => {
 	if (e.code === 'KeyY') { floors.hidden = !floors.hidden; if (!floors.hidden) renderFloors(); }
 	if (e.code === 'Escape') floors.hidden = true;
+});
+
+// ---------------------------------------------------------------------------
+// The switchboard
+//
+// The settings, and what each one does when it changes. Light and frame
+// and mat colour touch shared materials and are instant; mat 'none', the
+// scale and the room's size change what hangs and rehang. On the bench
+// the board is a small DOM panel, S toggles it; in VR (phase 2) it is a
+// panel on the wall beside the elevator with the same controls.
+
+function saveSettings() {
+	try { localStorage.setItem('galleryS', JSON.stringify(state.settings)); } catch (e) {}
+}
+
+function rehang() {
+	roomList = null;                         // sizes may have changed which years split
+	const wanted = state.roomKey;
+	const key = rooms().some(r => r.key === wanted) ? wanted : rooms().find(r => r.year === state.year)?.key || rooms()[0].key;
+	state.room = null;                       // force the room and the cabin to rebuild
+	hangRoom(key);
+	elevator.setDoors(1);
+}
+
+function setSetting(k, v) {
+	const s = state.settings;
+	if (s[k] === v) return;
+	s[k] = v;
+	saveSettings();
+	switch (k) {
+		case 'dark':   applyMode(v); break;
+		case 'frame':  materials.frame.color.setHex(FRAME_COLOURS[v]); break;
+		case 'labels': scene.traverse(o => { if (o.name === 'label') o.visible = v; }); break;
+		case 'mat':
+			materials.mat.color.setHex(MAT_COLOURS[v]);
+			rehang();                         // 'none' and back change the print's size
+			break;
+		default: rehang();                    // scale, W, D, H
+	}
+	renderBoard();
+}
+
+const board = document.getElementById('board');
+function renderBoard() {
+	const s = state.settings;
+	const opt = (name, values, labels = values) => values.map((v, i) =>
+		`<button data-k="${name}" data-v="${v}" aria-pressed="${String(s[name]) === String(v)}">${labels[i]}</button>`).join('');
+	board.innerHTML = `
+		<div class="row"><span>light</span>${opt('dark', [false, true], ['day', 'night'])}</div>
+		<div class="row"><span>frame</span>${opt('frame', ['oak', 'walnut', 'black', 'white'])}</div>
+		<div class="row"><span>mat</span>${opt('mat', ['white', 'warm', 'none'])}</div>
+		<div class="row"><span>scale</span>${opt('scale', [1, 0.8], ['100 %', '80 %'])}</div>
+		<div class="row"><span>labels</span>${opt('labels', [true, false], ['on', 'off'])}</div>
+		<div class="row"><span>room</span>
+			<label>W <input data-k="W" type="number" min="3" max="40" step="0.5" value="${s.W}"></label>
+			<label>D <input data-k="D" type="number" min="3" max="40" step="0.5" value="${s.D}"></label>
+			<label>H <input data-k="H" type="number" min="2.4" max="6" step="0.1" value="${s.H}"></label>
+		</div>`;
+}
+board.addEventListener('click', e => {
+	const b = e.target.closest('button[data-k]');
+	if (!b) return;
+	const k = b.dataset.k, raw = b.dataset.v;
+	const v = raw === 'true' ? true : raw === 'false' ? false : isNaN(Number(raw)) ? raw : Number(raw);
+	setSetting(k, v);
+});
+board.addEventListener('change', e => {
+	const i = e.target.closest('input[data-k]');
+	if (!i) return;
+	const v = Number(i.value);
+	if (v >= Number(i.min) && v <= Number(i.max)) setSetting(i.dataset.k, v);
+});
+addEventListener('keydown', e => {
+	if (e.code === 'KeyS' && !walk.locked()) { board.hidden = !board.hidden; if (!board.hidden) renderBoard(); }
 });
 
 // ---------------------------------------------------------------------------
@@ -904,4 +1068,4 @@ renderer.setAnimationLoop(now => {
 
 // Test-harness handle only: the plan's browser checks read the scene graph
 // and camera through this. Nothing on the page uses it.
-window.G = { scene, camera, renderer, state, buildRoom, applyMode, makePiece, rooms, hangRoom, walk, stepWalk, stepShadows, elevator, pressAt };
+window.G = { scene, camera, renderer, state, buildRoom, applyMode, makePiece, rooms, hangRoom, walk, stepWalk, stepShadows, elevator, pressAt, setSetting, materials };
