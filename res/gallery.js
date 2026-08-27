@@ -340,7 +340,11 @@ function addLabel(piece, spec, w, h) {
 	const cw = 0.24, ch = cw * c.height / c.width;
 	const card = new THREE.Mesh(new THREE.PlaneGeometry(cw, ch), new THREE.MeshLambertMaterial({ map: t }));
 	card.name = 'label';
-	card.position.set(w / 2 + 0.05 + cw / 2, -h / 2 + ch / 2, 0.002);
+	// Lower right of the piece where the wall has room; when the pieces
+	// hang closer than the card needs, below the frame instead (Uli), so
+	// no card runs into the next frame.
+	if (state.gap >= cw + 0.05 + 0.05) card.position.set(w / 2 + 0.05 + cw / 2, -h / 2 + ch / 2, 0.002);
+	else card.position.set(w / 2 - cw / 2, -h / 2 - 0.03 - ch / 2, 0.002);
 	card.visible = state.settings.labels;
 	piece.add(card);
 }
@@ -390,7 +394,7 @@ function piecesOf(photos) {
 const ELEVATOR = { size: 1.5 };
 const WALL_MARGIN = 0.6;    // from a wall's end or the elevator: the corners stay empty (Uli)
 const GAP = 1.2;            // gallery spacing between pieces
-const GAP_MIN = 0.1;        // how tight the walls go before the middle fills
+const GAP_MIN = 0.6;        // how tight the walls go before the middle fills — never crammed side by side (Uli)
 const OFF_WALL = 0.001;     // a hair off the plaster, so the frame's back does not z-fight
 
 // Each wall as a run the cursor walks along, clockwise from the elevator:
@@ -630,6 +634,7 @@ function hangRoom(key) {
 		state.room = { W, D, H, look: room.look.name };
 	}
 
+	state.gap = lay.gap;                           // the labels need it before the pieces exist
 	for (const { piece: spec, x, z, yaw, wall } of lay.placed) {
 		const piece = makePiece(spec);
 		piece.position.set(x, HANG_Y, z);
