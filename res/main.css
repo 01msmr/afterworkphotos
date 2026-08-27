@@ -673,8 +673,15 @@ html.map-on .towns {
 	position: relative;
 	font-weight: 700;
 	font-variant-numeric: tabular-nums;
-	height: 1.4em;
-	line-height: 1.4;
+	/* the slot is an inline box on the row's baseline and the number inside
+	   is a plain inline run set to its right edge — same font, same line,
+	   so its baseline is the slot's, which is the name's and the total's;
+	   only the slot's width is animated, and the number keeps its place by
+	   being flush right in it */
+	height: 1.2em;
+	line-height: 1.2;
+	vertical-align: baseline;
+	text-align: right;
 	width: 0;
 	min-width: 0;
 	white-space: nowrap;
@@ -686,13 +693,17 @@ html.map-on .towns {
 	opacity: 1;
 }
 
-/* the number hangs on the slot's right edge: the slot moves, the figures
-   stay put */
+/* the number is set flush right inside the slot, in the flow: it shares
+   the row's baseline outright, and the slot's left edge is what moves */
 .favmark .num {
-	position: absolute;
-	right: 0;
-	top: 0;
+	display: inline-block;
+	direction: ltr;
 	white-space: nowrap;
+}
+
+.favmark .pos {
+	direction: rtl;   /* the run is anchored at the right, so the width opens leftward */
+	overflow: visible;
 }
 
 /* The stroke belongs to the small figure behind it, and opens in the same
