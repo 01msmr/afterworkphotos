@@ -1279,20 +1279,27 @@ if (DECK) {
     armGoto();
   }
 
-  // One notch of a mouse wheel (deltaY ≈ 100, or a line/page delta) is one
-  // step; a trackpad sends many small deltas, which accumulate to steps
-  function knobWheel(knob, turn) {
-    let acc = 0;
+  // The wheel over the unit reads the same two axes the arrows do: turning
+  // it up and down is the year, sideways is the print — whichever knob the
+  // pointer happens to be on. One notch of a mouse wheel (a delta of 50 or
+  // more, or a line/page delta) is one step; a trackpad sends many small
+  // deltas, which accumulate to steps, each axis for itself.
+  function knobWheel(knob) {
+    const acc = { x: 0, y: 0 };
     knob.addEventListener('wheel', (e) => {
       e.preventDefault();
-      if (e.deltaMode !== 0 || Math.abs(e.deltaY) >= 50) { acc = 0; turn(Math.sign(e.deltaY)); return; }
-      acc += e.deltaY;
-      while (acc >= 24) { acc -= 24; turn(1); }
-      while (acc <= -24) { acc += 24; turn(-1); }
+      const sideways = Math.abs(e.deltaX) > Math.abs(e.deltaY);
+      const delta = sideways ? e.deltaX : e.deltaY;
+      const turn = sideways ? turnPrint : turnYear;
+      const axis = sideways ? 'x' : 'y';
+      if (e.deltaMode !== 0 || Math.abs(delta) >= 50) { acc[axis] = 0; turn(Math.sign(delta)); return; }
+      acc[axis] += delta;
+      while (acc[axis] >= 24) { acc[axis] -= 24; turn(1); }
+      while (acc[axis] <= -24) { acc[axis] += 24; turn(-1); }
     }, { passive: false });
   }
-  knobWheel(knobYear, turnYear);
-  knobWheel(knobPrint, turnPrint);
+  knobWheel(knobYear);
+  knobWheel(knobPrint);
 
   // Dragging a knob turns it too: press and pull up or down, ~14px per
   // step, the pointer captured so the pull may leave the knob. A real drag
