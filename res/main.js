@@ -1342,6 +1342,8 @@ if (DECK) {
     knobPrint.classList.toggle('kfocus', station === 1);
     mapgo.classList.toggle('kfocus', station === 2);
     favMark.classList.toggle('kfocus', station === 3);
+    // arriving among them lights the newest at once; leaving lets go
+    if (station === 3 && favAt < 0) goFav(1);
     if (station !== 3 && favAt >= 0) { favAt = -1; drawFavs(); }   // done walking
     if (station !== 2) clearTown();
     goto.classList.toggle('kbd-open', station === 1);
