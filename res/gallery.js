@@ -52,6 +52,14 @@ document.getElementById('stage').appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(66, 1, 0.05, 100);
+const rig = new THREE.Group();     // the body: on the bench at the origin, in VR the thing that walks
+rig.name = 'rig';
+rig.add(camera);
+scene.add(rig);
+renderer.xr.enabled = true;
+renderer.xr.setReferenceSpaceType('local-floor');
+const headPos = new THREE.Vector3();
+function head() { return camera.getWorldPosition(headPos); }   // where the eyes are, in the world
 
 function resize() {
 	renderer.setSize(innerWidth, innerHeight);
@@ -515,7 +523,7 @@ function stepShadows() {
 	const pieces = scene.getObjectByName('pieces');
 	if (!pieces) return;
 	const near = pieces.children
-		.map(p => ({ p, d: p.position.distanceToSquared(camera.position) }))
+		.map(p => ({ p, d: p.position.distanceToSquared(head()) }))
 		.sort((a, b) => a.d - b.d)
 		.slice(0, SHADOW_POOL)
 		.map(o => o.p);
@@ -824,9 +832,7 @@ const elevator = {
 	go(key) {
 		if (this.ride || key === state.roomKey) return;
 		this.ride = { key, t0: performance.now(), hung: false };
-		// into the cabin, facing the doors
-		walk.pos.set(this.origin.x, walk.pos.y, this.origin.z);
-		walk.yaw = Math.PI / 2; walk.pitch = 0;
+		placeBody(this.origin.x, this.origin.z, Math.PI / 2);   // into the cabin, facing the doors
 	},
 
 	// Called every frame. Half a second closing; the swap behind closed
@@ -840,7 +846,7 @@ const elevator = {
 		if (t < 0.5) { this.setDoors(1 - t / 0.5); return; }
 		if (!r.hung) {
 			hangRoom(r.key);                       // may rebuild the room and this cabin
-			walk.pos.set(this.origin.x, walk.pos.y, this.origin.z);
+			placeBody(this.origin.x, this.origin.z, Math.PI / 2);
 			this.setDoors(0);
 			renderer.compile(scene, camera);
 			r.hung = true;
@@ -867,8 +873,11 @@ const raycaster = new THREE.Raycaster();
 function pressAt(ndcX, ndcY) {
 	if (!elevator.buttons.length) return false;
 	raycaster.setFromCamera(new THREE.Vector2(ndcX, ndcY), camera);
-	const hit = raycaster.intersectObjects(elevator.buttons, false)[0];
-	if (!hit || hit.distance > 1.6) return false;
+	return pressAlong(raycaster, 1.6);
+}
+function pressAlong(rc, reach) {
+	const hit = rc.intersectObjects(elevator.buttons, false)[0];
+	if (!hit || hit.distance > reach) return false;
 	elevator.go(hit.object.userData.key);
 	return true;
 }
@@ -1026,11 +1035,34 @@ function applyLook() {
 	camera.rotateX(walk.pitch);
 }
 
+// Put the body at a spot on the floor, facing a yaw. On the bench that is
+// the camera; in VR the rig moves so that the head lands there.
+function placeBody(x, z, yaw) {
+	if (renderer.xr.isPresenting) {
+		rig.rotation.y = yaw;
+		rig.position.set(0, 0, 0);
+		rig.updateMatrixWorld(true);
+		const h = head();
+		rig.position.set(x - h.x, 0, z - h.z);
+	} else {
+		walk.pos.set(x, walk.pos.y, z);
+		walk.yaw = yaw; walk.pitch = 0;
+	}
+}
+
+function clampToRoom(v) {
+	const { W, D } = state.room || state.settings;
+	v.x = Math.max(-W / 2 + WALL_KEEP, Math.min(W / 2 - WALL_KEEP, v.x));
+	v.z = Math.max(-D / 2 + WALL_KEEP, Math.min(D / 2 - WALL_KEEP, v.z));
+	return v;
+}
+
 let lastT = performance.now();
 function stepWalk(now) {
 	// never more than a twentieth of a second, never backwards
 	const dt = Math.max(0, Math.min(0.05, (now - lastT) / 1000));
 	lastT = now;
+	if (renderer.xr.isPresenting) { stepXR(dt); return; }
 	const k = walk.keys;
 	let fwd = (k.has('fwd') ? 1 : 0) - (k.has('back') ? 1 : 0);
 	let side = (k.has('right') ? 1 : 0) - (k.has('left') ? 1 : 0);
@@ -1048,6 +1080,98 @@ function stepWalk(now) {
 	walk.pos.y += (walk.eye - walk.pos.y) * Math.min(1, dt * 9);
 	if (Math.abs(walk.eye - walk.pos.y) < 0.002) walk.pos.y = walk.eye;
 	applyLook();
+}
+
+// ---------------------------------------------------------------------------
+// VR (phase 2, first step)
+//
+// Where the browser says it can do immersive-vr — the Quest — a button
+// offers it. In the headset you stand where the bench's camera stood, at
+// real floor height; the left thumbstick walks, the right snap-turns; a
+// controller's trigger presses the lift button it points at. Nothing else
+// of the bench (mouse, keys, the DOM panels) applies in there.
+
+const vrButton = document.getElementById('vr');
+const SNAP = Math.PI / 6;           // a snap turn, 30 degrees
+const XR_SPEED = 1.4;               // m/s on the stick
+const controllers = [0, 1].map(i => {
+	const c = renderer.xr.getController(i);
+	c.userData.turned = false;
+	c.addEventListener('selectstart', () => {
+		const rc = new THREE.Raycaster();
+		const origin = c.getWorldPosition(new THREE.Vector3());
+		const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(c.getWorldQuaternion(new THREE.Quaternion()));
+		rc.set(origin, dir);
+		pressAlong(rc, 3);
+	});
+	// a thin ray so you see what you point at
+	const ray = new THREE.Line(
+		new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -1)]),
+		new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35 }));
+	ray.scale.z = 2;
+	c.add(ray);
+	rig.add(c);
+	return c;
+});
+
+async function offerVR() {
+	if (!navigator.xr || !vrButton) return;
+	let ok = false;
+	try { ok = await navigator.xr.isSessionSupported('immersive-vr'); } catch (e) {}
+	if (!ok) return;
+	vrButton.hidden = false;
+	vrButton.addEventListener('click', async () => {
+		try {
+			const session = await navigator.xr.requestSession('immersive-vr', { optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking'] });
+			session.addEventListener('end', () => { vrButton.hidden = false; document.body.classList.remove('xr'); rig.position.set(0, 0, 0); rig.rotation.set(0, 0, 0); });
+			await renderer.xr.setSession(session);
+			document.body.classList.add('xr');
+			vrButton.hidden = true;
+			// stand where the bench stood, facing the same way
+			const x = walk.pos.x, z = walk.pos.z, yaw = walk.yaw;
+			walk.pos.set(0, 0, 0); walk.pitch = 0; camera.rotation.set(0, 0, 0);
+			placeBody(x, z, yaw);
+		} catch (e) { console.warn('VR session refused', e); }
+	});
+}
+offerVR();
+
+const move = new THREE.Vector3();
+function stepXR(dt) {
+	const session = renderer.xr.getSession();
+	if (!session) return;
+	for (const src of session.inputSources) {
+		const g = src.gamepad;
+		if (!g || g.axes.length < 4) continue;
+		const x = g.axes[2], y = g.axes[3];      // the thumbstick on a Quest touch controller
+		if (src.handedness === 'left') {
+			if (Math.abs(x) < 0.15 && Math.abs(y) < 0.15) continue;
+			// walk where the head looks, on the floor
+			const q = camera.getWorldQuaternion(new THREE.Quaternion());
+			const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(q); fwd.y = 0; fwd.normalize();
+			const right = new THREE.Vector3(1, 0, 0).applyQuaternion(q); right.y = 0; right.normalize();
+			move.copy(fwd).multiplyScalar(-y).addScaledVector(right, x).multiplyScalar(XR_SPEED * dt);
+			const h = head();
+			const target = clampToRoom(new THREE.Vector3(h.x + move.x, 0, h.z + move.z));
+			rig.position.x += target.x - h.x;
+			rig.position.z += target.z - h.z;
+		} else if (src.handedness === 'right') {
+			// snap turn about the head, once per push of the stick
+			const c = controllers[1];
+			if (Math.abs(x) > 0.7) {
+				if (!c.userData.turned) {
+					c.userData.turned = true;
+					const h = head();
+					const a = x > 0 ? -SNAP : SNAP;
+					rig.rotation.y += a;
+					rig.updateMatrixWorld(true);
+					const h2 = head();
+					rig.position.x += h.x - h2.x;
+					rig.position.z += h.z - h2.z;
+				}
+			} else c.userData.turned = false;
+		}
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -1076,4 +1200,4 @@ renderer.setAnimationLoop(now => {
 
 // Test-harness handle only: the plan's browser checks read the scene graph
 // and camera through this. Nothing on the page uses it.
-window.G = { scene, camera, renderer, state, buildRoom, applyMode, makePiece, rooms, hangRoom, walk, stepWalk, stepShadows, elevator, pressAt, setSetting, materials };
+window.G = { scene, camera, renderer, state, buildRoom, applyMode, makePiece, rooms, hangRoom, walk, stepWalk, stepShadows, elevator, pressAt, setSetting, materials, rig, placeBody };
