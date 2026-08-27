@@ -303,28 +303,36 @@ function makePiece(spec) {
 	return piece;
 }
 
-// A small card to the lower right of a piece: "afterworkphoto 154 · Aug
-// 2017"; a grid's card gives its range. Shown or not by the setting.
+// A small card to the lower right of a piece, two or three lines: the
+// number and month, the description, the place (Uli). A grid's card gives
+// its range and the first print's words.
 const MONTHS = 'Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec'.split(' ');
-function labelText(photos) {
+function labelLines(photos) {
 	const a = photos[0], b = photos[photos.length - 1];
 	const when = `${MONTHS[Number(a.taken.slice(5, 7)) - 1]} ${a.taken.slice(0, 4)}`;
-	return photos.length === 1 ? `afterworkphoto ${a.n} \u00b7 ${when}` : `afterworkphotos ${a.n}\u2013${b.n} \u00b7 ${when}`;
+	const lines = [photos.length === 1 ? `afterworkphoto ${a.n} \u00b7 ${when}` : `afterworkphotos ${a.n}\u2013${b.n} \u00b7 ${when}`];
+	if (a.desc) lines.push(a.desc);
+	if (a.place) lines.push(a.place);
+	return lines;
 }
 function addLabel(piece, spec, w, h) {
+	const lines = labelLines(spec.photos);
 	const c = document.createElement('canvas');
-	c.width = 768; c.height = 160;
+	c.width = 768; c.height = 80 + 64 * lines.length;
 	const g = c.getContext('2d');
 	g.fillStyle = '#fbfaf7'; g.fillRect(0, 0, c.width, c.height);
-	g.fillStyle = '#3a3835';
-	g.font = '500 44px -apple-system, "Helvetica Neue", Arial, sans-serif';
 	g.textBaseline = 'middle';
-	g.fillText(labelText(spec.photos), 40, c.height / 2 + 2);
+	lines.forEach((line, i) => {
+		g.fillStyle = i === 0 ? '#3a3835' : '#6b6862';
+		g.font = `${i === 0 ? 500 : 400} ${i === 0 ? 40 : 36}px -apple-system, "Helvetica Neue", Arial, sans-serif`;
+		g.fillText(line, 40, 40 + 32 + 64 * i);
+	});
 	const t = new THREE.CanvasTexture(c);
 	t.colorSpace = THREE.SRGBColorSpace;
-	const card = new THREE.Mesh(new THREE.PlaneGeometry(0.24, 0.05), new THREE.MeshLambertMaterial({ map: t }));
+	const cw = 0.24, ch = cw * c.height / c.width;
+	const card = new THREE.Mesh(new THREE.PlaneGeometry(cw, ch), new THREE.MeshLambertMaterial({ map: t }));
 	card.name = 'label';
-	card.position.set(w / 2 + 0.05 + 0.12, -h / 2 + 0.025, 0.002);
+	card.position.set(w / 2 + 0.05 + cw / 2, -h / 2 + ch / 2, 0.002);
 	card.visible = state.settings.labels;
 	piece.add(card);
 }
