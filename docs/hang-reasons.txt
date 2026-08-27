@@ -1,6 +1,6 @@
 1	group	bright orange railing, close object detail
 2	single	lone lamp glowing, quiet atmospheric mood
-3	group	snow texture pattern on shingles
+3	single	flipped by hand (model said group: snow texture pattern on shingles)
 4	group	jumbled marquee letters, sign fragment
 5	group	abstract perforated panel texture
 6	single	monumental spiral parking ramp structure
@@ -8,37 +8,37 @@
 8	single	spatial field of repeated cubes
 9	single	sloping green meadow landscape view
 10	single	moon over dusky country street
-11	single	country road stretching into landscape
-12	group	stacked pizza boxes, simple object pile
-13	group	close-up dandelion clock detail
-14	single	wrapped hay bales in open field
-15	single	glowing sunlit apartment block facade
+11	group	flipped by hand (model said single: country road stretching into landscape)
+12	single	flipped by hand (model said group: stacked pizza boxes, simple object pile)
+13	single	flipped by hand (model said group: close-up dandelion clock detail)
+14	group	flipped by hand (model said single: wrapped hay bales in open field)
+15	group	flipped by hand (model said single: glowing sunlit apartment block facade)
 16	group	close graphic diagonal curb line
 17	group	small manhole patch, ground detail
-18	group	shadow of sign, graphic joke
-19	group	painted number twenty-one on pavers
+18	single	flipped by hand (model said group: shadow of sign, graphic joke)
+19	single	flipped by hand (model said group: painted number twenty-one on pavers)
 20	single	quiet tracks and ivy, spatial depth
 21	single	sweeping monumental honeycomb facade curve
-22	group	brass y-fitting, plumbing object detail
+22	single	flipped by hand (model said group: brass y-fitting, plumbing object detail)
 23	group	close ceiling light fixture grid
 24	group	round chair stand base detail
 25	group	graphic green and orange rail lines
-26	group	curved road marking over stripes
+26	single	flipped by hand (model said group: curved road marking over stripes)
 27	group	diagonal shadow lines on wall
 28	group	cast iron gully grate detail
 29	single	vast empty blue sky view
-30	group	green trolley wheels, fun find
-31	group	abstract brushed metal circle texture
+30	single	flipped by hand (model said group: green trolley wheels, fun find)
+31	single	flipped by hand (model said group: abstract brushed metal circle texture)
 32	group	close-up cream rose detail
-33	single	long shadows across street, atmosphere
+33	group	flipped by hand (model said single: long shadows across street, atmosphere)
 34	single	clouds drifting over green meadow
 35	group	crossing steel cables, graphic detail
 36	single	two dark bushes in quiet meadow
 37	group	close texture of stucco corner
 38	group	person's long shadow on sidewalk
 39	single	misty fields, quiet atmospheric depth
-40	group	close speed-limit arrow painted on road
-41	single	monumental building with golden slatted facade
+40	single	flipped by hand (model said group: close speed-limit arrow painted on road)
+41	group	flipped by hand (model said single: monumental building with golden slatted facade)
 42	single	bird over striking geometric facade
 43	group	playful shadow of lamppost on pavers
 44	single	foggy field, quiet atmospheric depth
@@ -48,14 +48,14 @@
 48	group	close texture of rippled snow
 49	group	close detail of mesh grate
 50	group	blue street name sign, simple object
-51	group	close texture of broken concrete
-52	group	close texture of sleet on grass
+51	single	flipped by hand (model said group: close texture of broken concrete)
+52	single	flipped by hand (model said group: close texture of sleet on grass)
 53	single	monumental gable facade with hazy sun
 54	group	close detail of drain cover
-55	group	close detail of cracked paint circle
-56	group	close graphic letters painted on asphalt
-57	group	dandelion with its own shadow
-58	group	close texture, light on stucco wall
+55	single	flipped by hand (model said group: close detail of cracked paint circle)
+56	single	flipped by hand (model said group: close graphic letters painted on asphalt)
+57	single	flipped by hand (model said group: dandelion with its own shadow)
+58	single	flipped by hand (model said group: close texture, light on stucco wall)
 59	group	close detail of dandelion seed head
 60	group	close graphic circle of round hay bale
 61	group	close detail of amber warning lamp
@@ -88,16 +88,16 @@
 88	single	gravel path receding through fields
 89	group	round lamp shadow on pavement
 90	single	turquoise boat afloat on water
-91	group	yellow hazard stripes, close pattern
+91	single	flipped by hand (model said group: yellow hazard stripes, close pattern)
 92	group	dust wipe marks, small texture
 93	single	quiet wet road beside green field
 94	group	gas valve cover, close detail
 95	group	cracked white road stripe patch
-96	group	bowl full of cigarette butts
+96	single	flipped by hand (model said group: bowl full of cigarette butts)
 97	group	green crossed dumbbells, playful object
 98	group	otto diamond sign, graphic find
-99	group	cobble ring around tree base
-100	group	round trimmed bush, simple object
+99	single	flipped by hand (model said group: cobble ring around tree base)
+100	single	flipped by hand (model said group: round trimmed bush, simple object)
 101	group	single dark berry on twig
 102	group	scribbled yield sign, small joke
 103	group	worn barrow wheel, close object
@@ -112,21 +112,21 @@
 112	group	spray-paint cross graphic incident
 113	group	painted number six find
 114	group	close-up keyboard keys
-115	group	square mosaic tile texture
+115	single	flipped by hand (model said group: square mosaic tile texture)
 116	single	quiet frosted winter field
 117	group	two round traffic signs
 118	single	blank gable wall, strong geometry
 119	group	dandelion close-up on asphalt
 120	single	quiet rainbow band, atmosphere
-121	group	wheelbarrow shadow graphic incident
+121	single	flipped by hand (model said group: wheelbarrow shadow graphic incident)
 122	group	shoe beside manhole, joke
-123	group	L-shaped pavement marking
+123	single	flipped by hand (model said group: L-shaped pavement marking)
 124	group	charred post top close-up
 125	group	rusty manhole cover close-up
 126	group	oxeye daisy close-up
 127	single	quiet train platform scene
 128	single	wide green fields, big view
-129	group	hoop and shadow incident
+129	single	flipped by hand (model said group: hoop and shadow incident)
 130	single	tunnel view through pipes
 131	single	express train platform, spatial
 132	group	plain asphalt repair strip
@@ -140,35 +140,35 @@
 140	group	plastic lid close-up
 141	group	coffee grounds texture
 142	group	white rose close-up
-143	group	slatted vent grate texture
+143	single	flipped by hand (model said group: slatted vent grate texture)
 144	group	orange site container object
-145	group	rusted manhole cover close detail
-146	group	asphalt oval shape close texture
+145	single	flipped by hand (model said group: rusted manhole cover close detail)
+146	single	flipped by hand (model said group: asphalt oval shape close texture)
 147	group	shadow over manhole close detail
 148	group	sumac leaf close botanical detail
 149	group	snowberry cluster close botanical detail
 150	group	espresso crema swirl close detail
 151	group	polished brass knob close object
 152	group	red maple leaf close detail
-153	group	lamp shadow on pavement small find
-154	group	grate pattern in snow close graphic
+153	single	flipped by hand (model said group: lamp shadow on pavement small find)
+154	single	flipped by hand (model said group: grate pattern in snow close graphic)
 155	group	hedge over stone wall texture
 156	group	snow texture close crop
 157	single	straight road recedes to horizon
 158	group	hooked road marking graphic incident
 159	group	road marking texture close crop
 160	group	cracked road marking close detail
-161	group	broken crosswalk bars close crop
+161	single	flipped by hand (model said group: broken crosswalk bars close crop)
 162	group	speaker woofer close object detail
 163	group	thin road lines graphic incident
 164	group	painted letters on pavers close
 165	group	snow filled paver joints texture
 166	group	road marking shapes close crop
 167	group	fuel filler flap close object
-168	group	stretched road marking close crop
+168	single	flipped by hand (model said group: stretched road marking close crop)
 169	single	sunlit building facade against storm sky
 170	single	path recedes through green field
-171	group	nine grid grates close pattern
+171	single	flipped by hand (model said group: nine grid grates close pattern)
 172	group	dandelion bloom close macro detail
 173	group	heart shaped fence shadow small find
 174	single	wide meadow with wildflowers
@@ -178,9 +178,9 @@
 178	group	small overpainted patch close crop
 179	single	dark canopy edge against clouds
 180	group	ribbed drain cover close detail
-181	group	white T mark, close asphalt detail
-182	group	small illuminated arrow sign
-183	group	painted stripe pattern on wall
+181	single	flipped by hand (model said group: white T mark, close asphalt detail)
+182	single	flipped by hand (model said group: small illuminated arrow sign)
+183	single	flipped by hand (model said group: painted stripe pattern on wall)
 184	single	cloud rising over distant woods
 185	group	close-up red rose bloom
 186	group	close-up sugared doughnut
@@ -192,15 +192,15 @@
 192	group	small keyhole and shadow
 193	group	close brass intercom panel
 194	group	studded paving slab texture
-195	single	monumental cloud bank in sky
+195	group	flipped by hand (model said single: monumental cloud bank in sky)
 196	group	red reflective band on pole
 197	single	quiet lone tree in field
 198	group	abstract diagonal light streaks
 199	single	curving road, spatial street view
 200	single	monumental zigzag concrete stair tower
-201	group	close-up "50" road marking
+201	single	flipped by hand (model said group: close-up "50" road marking)
 202	single	facade with three windows, shadows
-203	group	leaf shadow pattern on wall
+203	single	flipped by hand (model said group: leaf shadow pattern on wall)
 204	single	road marking with valley view beyond
 205	group	close diagonal rainbow stripe
 206	group	small white paint dot detail
