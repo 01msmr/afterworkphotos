@@ -1,0 +1,427 @@
+1	group	bright orange railing, close object detail
+2	single	lone lamp glowing, quiet atmospheric mood
+3	group	snow texture pattern on shingles
+4	group	jumbled marquee letters, sign fragment
+5	group	abstract perforated panel texture
+6	single	monumental spiral parking ramp structure
+7	group	quirky long-legged table, odd object
+8	single	spatial field of repeated cubes
+9	single	sloping green meadow landscape view
+10	single	moon over dusky country street
+11	single	country road stretching into landscape
+12	group	stacked pizza boxes, simple object pile
+13	group	close-up dandelion clock detail
+14	single	wrapped hay bales in open field
+15	single	glowing sunlit apartment block facade
+16	group	close graphic diagonal curb line
+17	group	small manhole patch, ground detail
+18	group	shadow of sign, graphic joke
+19	group	painted number twenty-one on pavers
+20	single	quiet tracks and ivy, spatial depth
+21	single	sweeping monumental honeycomb facade curve
+22	group	brass y-fitting, plumbing object detail
+23	group	close ceiling light fixture grid
+24	group	round chair stand base detail
+25	group	graphic green and orange rail lines
+26	group	curved road marking over stripes
+27	group	diagonal shadow lines on wall
+28	group	cast iron gully grate detail
+29	single	vast empty blue sky view
+30	group	green trolley wheels, fun find
+31	group	abstract brushed metal circle texture
+32	group	close-up cream rose detail
+33	single	long shadows across street, atmosphere
+34	single	clouds drifting over green meadow
+35	group	crossing steel cables, graphic detail
+36	single	two dark bushes in quiet meadow
+37	group	close texture of stucco corner
+38	group	person's long shadow on sidewalk
+39	single	misty fields, quiet atmospheric depth
+40	group	close speed-limit arrow painted on road
+41	single	monumental building with golden slatted facade
+42	single	bird over striking geometric facade
+43	group	playful shadow of lamppost on pavers
+44	single	foggy field, quiet atmospheric depth
+45	single	spatial row of repeating garages
+46	group	close detail of coupled train cars
+47	group	shadow and snow strip, close graphic
+48	group	close texture of rippled snow
+49	group	close detail of mesh grate
+50	group	blue street name sign, simple object
+51	group	close texture of broken concrete
+52	group	close texture of sleet on grass
+53	single	monumental gable facade with hazy sun
+54	group	close detail of drain cover
+55	group	close detail of cracked paint circle
+56	group	close graphic letters painted on asphalt
+57	group	dandelion with its own shadow
+58	group	close texture, light on stucco wall
+59	group	close detail of dandelion seed head
+60	group	close graphic circle of round hay bale
+61	group	close detail of amber warning lamp
+62	group	close detail of greased hydrant cap
+63	group	red and blue no-stopping sign
+64	group	close detail of copper rod bundle
+65	group	close blurred view of passing rails
+66	group	cables and key, small graphic joke
+67	group	graphic shadow of wrought iron
+68	single	spatial roadside scene, tree and flowers
+69	group	close texture of paving stone
+70	group	close view of dark garage door
+71	group	playful heart-shaped shadow on gravel
+72	group	toilet roll, small domestic joke
+73	group	manhole cover on asphalt, close detail
+74	group	round trimmed shrub, simple object
+75	group	weathered white garden chair detail
+76	single	quiet yellow wall and empty pavement
+77	group	weeds sprouting in paving joint
+78	group	fresh black asphalt patch shape
+79	group	small round valve cap, close find
+80	group	yellow spray mark, graphic incident
+81	single	pole shadow across path and lawn
+82	single	two orange-ringed manholes, road graphic
+83	group	single leaf on paving cross joint
+84	group	chalk survey mark on gravel
+85	group	ornate manhole cover, close detail
+86	group	single yellow dandelion flower
+87	single	bold speed 50 painted on road
+88	single	gravel path receding through fields
+89	group	round lamp shadow on pavement
+90	single	turquoise boat afloat on water
+91	group	yellow hazard stripes, close pattern
+92	group	dust wipe marks, small texture
+93	single	quiet wet road beside green field
+94	group	gas valve cover, close detail
+95	group	cracked white road stripe patch
+96	group	bowl full of cigarette butts
+97	group	green crossed dumbbells, playful object
+98	group	otto diamond sign, graphic find
+99	group	cobble ring around tree base
+100	group	round trimmed bush, simple object
+101	group	single dark berry on twig
+102	group	scribbled yield sign, small joke
+103	group	worn barrow wheel, close object
+104	group	cluster of white snowberries
+105	group	survey point marker, close detail
+106	group	dark hole in rusty iron
+107	group	studded black disc on post
+108	group	single autumn leaf on gravel
+109	group	close-up BMW badge object
+110	group	round drain grate close-up
+111	group	waffled manhole cover texture
+112	group	spray-paint cross graphic incident
+113	group	painted number six find
+114	group	close-up keyboard keys
+115	group	square mosaic tile texture
+116	single	quiet frosted winter field
+117	group	two round traffic signs
+118	single	blank gable wall, strong geometry
+119	group	dandelion close-up on asphalt
+120	single	quiet rainbow band, atmosphere
+121	group	wheelbarrow shadow graphic incident
+122	group	shoe beside manhole, joke
+123	group	L-shaped pavement marking
+124	group	charred post top close-up
+125	group	rusty manhole cover close-up
+126	group	oxeye daisy close-up
+127	single	quiet train platform scene
+128	single	wide green fields, big view
+129	group	hoop and shadow incident
+130	single	tunnel view through pipes
+131	single	express train platform, spatial
+132	group	plain asphalt repair strip
+133	group	white hydrangea close-up
+134	group	yellow yarrow close-up
+135	group	concrete manhole cover in grass
+136	group	survey point disc close-up
+137	group	activity rings graphic icon
+138	group	grid of nine chocolates
+139	group	hydrangea ball close-up
+140	group	plastic lid close-up
+141	group	coffee grounds texture
+142	group	white rose close-up
+143	group	slatted vent grate texture
+144	group	orange site container object
+145	group	rusted manhole cover close detail
+146	group	asphalt oval shape close texture
+147	group	shadow over manhole close detail
+148	group	sumac leaf close botanical detail
+149	group	snowberry cluster close botanical detail
+150	group	espresso crema swirl close detail
+151	group	polished brass knob close object
+152	group	red maple leaf close detail
+153	group	lamp shadow on pavement small find
+154	group	grate pattern in snow close graphic
+155	group	hedge over stone wall texture
+156	group	snow texture close crop
+157	single	straight road recedes to horizon
+158	group	hooked road marking graphic incident
+159	group	road marking texture close crop
+160	group	cracked road marking close detail
+161	group	broken crosswalk bars close crop
+162	group	speaker woofer close object detail
+163	group	thin road lines graphic incident
+164	group	painted letters on pavers close
+165	group	snow filled paver joints texture
+166	group	road marking shapes close crop
+167	group	fuel filler flap close object
+168	group	stretched road marking close crop
+169	single	sunlit building facade against storm sky
+170	single	path recedes through green field
+171	group	nine grid grates close pattern
+172	group	dandelion bloom close macro detail
+173	group	heart shaped fence shadow small find
+174	single	wide meadow with wildflowers
+175	group	red banded beetle close macro
+176	single	large curved plaster wall corner
+177	single	big cumulus cloud atmospheric sky
+178	group	small overpainted patch close crop
+179	single	dark canopy edge against clouds
+180	group	ribbed drain cover close detail
+181	group	white T mark, close asphalt detail
+182	group	small illuminated arrow sign
+183	group	painted stripe pattern on wall
+184	single	cloud rising over distant woods
+185	group	close-up red rose bloom
+186	group	close-up sugared doughnut
+187	group	repeating tile grid texture
+188	group	close concrete vent detail
+189	group	wire mesh over grass texture
+190	group	blurred close view of rails
+191	group	ribbed black panel objects
+192	group	small keyhole and shadow
+193	group	close brass intercom panel
+194	group	studded paving slab texture
+195	single	monumental cloud bank in sky
+196	group	red reflective band on pole
+197	single	quiet lone tree in field
+198	group	abstract diagonal light streaks
+199	single	curving road, spatial street view
+200	single	monumental zigzag concrete stair tower
+201	group	close-up "50" road marking
+202	single	facade with three windows, shadows
+203	group	leaf shadow pattern on wall
+204	single	road marking with valley view beyond
+205	group	close diagonal rainbow stripe
+206	group	small white paint dot detail
+207	group	close-up drink can top
+208	group	close-up wheel rim object
+209	group	round sign's shadow, graphic find
+210	group	wires crossing under rooflines
+211	group	close barrier tape stake object
+212	group	drainpipe and shadow, wall detail
+213	group	close view of rails in gravel
+214	group	oval manhole cover detail
+215	group	lantern and its long shadow
+216	group	manhole cover set into road
+217	single	forest road, spatial depth and autumn light
+218	group	close graphic road marking
+219	single	landscape view, atmospheric autumn light
+220	group	close texture of hexagonal paving
+221	group	grid of doorbells, playful find
+222	group	still life, can and crackers
+223	group	graphic shadow pattern on steps
+224	single	interior light grid, spatial depth
+225	group	graphic lamp shadow on wall
+226	group	close detail of carved chair
+227	group	close window light detail
+228	group	graphic shadow stripes on sink
+229	group	object detail, snow on table
+230	group	graphic red stripe on train
+231	group	close texture, cushion seam
+232	single	architectural facade, strong geometry
+233	group	close detail, drain grate
+234	group	single bush, bright find
+235	group	graphic shadow on garage door
+236	group	close detail, manhole cover
+237	group	object close-up, round speaker
+238	group	close-up flower detail
+239	group	texture pattern of roof tiles
+240	group	joke, eyes drawn on bin
+241	group	close curtain light detail
+242	single	quiet concrete structure in field
+243	group	graphic shadow silhouette on grass
+244	single	landscape, quiet gnarled tree
+245	group	close graphic color panes
+246	single	monumental vaulted ceiling
+247	single	architectural roof structure, strong geometry
+248	group	graphic colored window lights
+249	single	spatial parking deck interior
+250	single	spatial atmospheric subway platform
+251	single	architectural curved station roof
+252	group	folded metal object, graphic sculpture
+253	group	stacked colorful cable drums, close object find
+254	group	blue paint ring around bolt, small find
+255	group	graphic no-stopping road marking
+256	group	striped crosswalk with diagonal shadow, graphic
+257	group	sticker joke on pole
+258	group	painted speed numeral on ramp
+259	single	small cloud floats over dark firs, atmosphere
+260	group	house number and quirky shadow detail
+261	group	strawberry pastry close-up
+262	group	opened can lid texture
+263	single	railway tracks recede with strong geometry
+264	group	ornate rectangular drain grate detail
+265	single	dramatic diagonal light crossing full staircase
+266	group	cheesecake with bite on plate
+267	single	string lights glow quietly in dark garden
+268	group	ornate manhole cover pattern
+269	group	white platform edge stripe detail
+270	group	pink autumn leaf on asphalt
+271	single	repeating rounded balconies on facade, monumental
+272	group	double road line marking
+273	single	foggy road with headlights, moody atmosphere
+274	group	snow capping railing corner, close detail
+275	single	snow-laden fence recedes into woods
+276	group	apple slices arranged on cake
+277	group	single red rose bloom close-up
+278	single	faint bulb shadows on quiet blank wall
+279	single	curving road edge, spatial sweeping view
+280	group	blue suitcase and striped shoe, playful
+281	group	stacked pink insulation panels, texture
+282	group	ivy climbing a street tree trunk
+283	group	two light parallelograms on floor
+284	group	railing casts striped shadow pattern
+285	single	streetlamp silhouette against deep blue sky
+286	single	clouds drifting over rooftops, atmosphere
+287	single	light rays pierce foggy night trees
+288	single	quiet white interior stairwell, architectural
+289	single	orange tree with buildings, spatial scene
+290	single	foggy street with red tree, atmospheric
+291	group	heart-shaped stone, close find
+292	group	diagonal shadow on siding, graphic detail
+293	group	blue monster cupcake, fun object
+294	single	grid of glowing dots, striking abstract wall
+295	group	door handle shadow, close detail
+296	single	stone staircase, architectural interior
+297	single	two garage doors, graphic facade
+298	group	fence shadow on ground, close detail
+299	group	brick wall corner, texture
+300	group	teal sofa back, close object
+301	single	silo behind field, landscape structure
+302	group	red fire cabinet, found object
+303	single	road beside field, quiet landscape
+304	single	ivy-covered gable house, striking facade
+305	group	house number 72, small graphic detail
+306	group	glowing detour sign, night find
+307	group	radiating lamp shadow, close pattern
+308	single	hanging light rods, architectural installation
+309	group	white square lamp, minimal object
+310	single	sunlit meadow, landscape
+311	group	diagonal curb shadow line, close detail
+312	group	spiral stair shadow, abstract pattern
+313	group	carpet light rays, close pattern
+314	group	mosaic tile floor, texture
+315	group	flattened knitted sock, small find
+316	single	towering cloud over meadow, monumental sky
+317	single	building glowing red at night, atmosphere
+318	group	striped gate shadow, pattern
+319	group	scalloped shadow line, pattern
+320	group	sunlight pattern on tiles, close detail
+321	group	glowing glass panel, close light detail
+322	single	ventilation ducts, architectural structure
+323	group	wavy shadow stripes, pattern
+324	group	ribbed rubber mat, close texture
+325	group	diagonal light triangle on doormat, small find
+326	group	shadow stripes on brick, graphic detail
+327	group	EASY sign on pillar, playful find
+328	group	zigzag stair shadow, close detail
+329	group	yellow chevron paint marking, close detail
+330	group	ribbed curtain fold texture close-up
+331	group	crane fly on wall, small creature
+332	single	clouds drifting over rooftops, atmospheric view
+333	group	grid of round lights, repeating texture
+334	group	ornate manhole cover, close detail
+335	group	skip, wheelbarrow and bottles, found scene
+336	group	tangle of blue pipes, close texture
+337	single	dark brick building corner against sky
+338	single	curving tram tracks in cobblestone, strong geometry
+339	single	sunlit underpass stairs, architectural depth
+340	group	shadow bars across doormat, close detail
+341	group	cappuccino foam swirl, close object
+342	group	fan of light on floor mat
+343	group	blurred abstract shadow, close detail
+344	group	light circle on floor by staircase leg
+345	group	chalk drawing of a car, playful find
+346	group	manhole cap in streetlamp shadow
+347	group	star emblem shadow, small graphic joke
+348	group	crumpled silver bubble wrap, texture
+349	group	water bubbling from manhole, small scene
+350	group	grid residue pattern on steel, texture
+351	group	bent bollard on cobblestones, quirky object
+352	single	wave of ceiling lights, immersive architecture
+353	group	grooved walkway floor with curved shadow, texture
+354	single	glass balustrade on staircase, quiet geometry
+355	group	railing shadow stripes, close detail
+356	single	diagonal light streak on street at night
+357	single	spiral staircase on building facade, monumental
+358	group	stacked yellow wooden slats, object detail
+359	group	shadow on asphalt at night, close detail
+360	group	railing shadow at night, close detail
+361	group	diagonal shadow lines on wood
+362	group	sculptural vent covers, small find
+363	single	deep warehouse aisle interior
+364	group	light rays through glass, close detail
+365	group	red flag accent in workspace
+366	group	line of fallen pink petals
+367	single	road curve with chevron signs, forest
+368	group	close crop of wall color blocks
+369	group	orange logo letters on fence
+370	single	striped facade with red hydrant nook
+371	group	yellow gas pipe against wall
+372	group	row of yellow bollards, close find
+373	group	cluster of silver vent pipes
+374	group	small stack of paving stones
+375	group	close curved paving stone
+376	group	golden stool object
+377	group	convex traffic mirror object
+378	single	wet Venice alley, atmospheric depth
+379	single	blue boat on Venice canal
+380	single	gravel park path with figures
+381	group	plastered rectangle patch, abstract
+382	group	square grid grate on gravel
+383	group	yellow wrapped bracket object
+384	group	red tripod feet close-up
+385	group	round wall vents on brick
+386	group	stone letter slot detail
+387	group	vertical blinds, light strip
+388	single	narrow brick alley, deep perspective
+389	group	zigzag handrail object
+390	single	grand palazzo along canal
+391	group	gilded corner recess detail
+392	group	ivy patch graphic shape on wall
+393	group	glass block grid pattern
+394	group	water drops on wood
+395	group	table tennis net shadow pattern
+396	group	beaten egg white macro
+397	single	atmospheric glowing storm cloud, big sky
+398	single	lit scaffold tower against night sky
+399	group	graphic chair shadow on deck boards
+400	group	small rainbow refraction on floor
+401	group	painted number found on asphalt
+402	single	monumental canopy structure, strong geometry
+403	group	close texture of corrugated privacy screen
+404	single	symmetric wooden roof rafters, architectural
+405	group	zigzag railing shadow on steps
+406	single	curved corridor, spatial architectural interior
+407	single	curved wall and handrail, spatial interior
+408	group	small cube shadow cast on wall
+409	group	neon heart sign, small find
+410	group	spoon and its shadow, simple object
+411	group	shadow pattern on ornate carpet
+412	group	crowned face graffiti, graphic joke
+413	group	diagonal shadow cast on steps
+414	group	close texture of blue banded poles
+415	single	lit garage entrance ramp, spatial scene
+416	group	simple round plate, close object
+417	group	fern shadow cast on wall
+418	group	yellow garage sign with graffiti face
+419	group	shoes on tiled floor, close detail
+420	single	long shadow figure on receding street
+421	single	spatial street scene with red bike lane
+422	group	painted line on cobblestone, close detail
+423	single	wide monumental entrance stairs, architectural
+424	group	diagonal cable shadow on wall
+425	group	close texture of lined yellow board
+426	group	diagonal shadow pattern on tiled counter
+427	single	ship funnels against dusk sky, structure
