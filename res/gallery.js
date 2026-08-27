@@ -286,8 +286,9 @@ function piecesOf(photos) {
 	return specs;
 }
 
-// The elevator's corner is reserved: +x, -z, a 1.2 m square.
-const ELEVATOR = { size: 1.2 };
+// The elevator's corner is reserved: +x, -z, a 1.5 m square — room to stand
+// in and turn round (Uli: enough place inside).
+const ELEVATOR = { size: 1.5 };
 const WALL_MARGIN = 0.6;    // from a wall's end or the elevator: the corners stay empty (Uli)
 const GAP = 1.2;            // gallery spacing between pieces
 const GAP_MIN = 0.1;        // how tight the walls go before the middle fills
@@ -542,7 +543,8 @@ function hangRoom(key) {
 const DOOR = { w: 0.8, h: 2.1, thick: 0.03 };
 const CABIN_WALL = 0.08;
 const LINER = 0.02;                                        // the cabin's own skin on the room's two walls
-const BUTTON = { r: 0.022, rise: 0.008, pitch: 0.06 };    // radius, how far it stands proud, spacing
+const BUTTON = { r: 0.02, rise: 0.008, pitch: 0.05 };     // radius, how far it stands proud, spacing
+const PANEL = { low: 1.0, high: 1.6, tilt: 22 * Math.PI / 180, cols: 8 };   // between hand and eye, turned up toward the eye, side by side
 
 // Brushed steel, not mirror: without an environment to reflect, a highly
 // metallic surface renders near black, so the cabin is a dull satin.
@@ -631,37 +633,46 @@ const elevator = {
 		lamp.position.set(this.origin.x, H - 0.15, this.origin.z);
 		g.add(lamp);
 
-		// The panel on the south wall's inner face, beside the door: one
-		// column of buttons, the newest room at the top.
-		const n = rooms().length;
-		const plateW = 0.09, plateH = n * BUTTON.pitch + 0.04;
-		const px = ix0 + 0.10 + plateW / 2;
-		const py = 1.25;                                   // the column's middle, about chest height
-		const pz = iz1 - 0.004;
-		box('panel', plateW, plateH, 0.008, px, py, pz, panelPlate);
+		// The panel on the south wall's inner face, beside the door, between
+		// hand and eye height and tilted up toward the eye like a sloped desk
+		// (Uli): the buttons side by side in rows of eight, read row by row,
+		// the newest room top left, a split year's halves next to each other.
+		const n = rooms().length, cols = PANEL.cols, rows = Math.ceil(n / cols);
+		const plateW = cols * BUTTON.pitch + 0.03, plateH = rows * BUTTON.pitch + 0.03;
+		const panel = new THREE.Group();
+		panel.name = 'panel';
+		panel.position.set(ix0 + 0.10 + plateW / 2, (PANEL.low + PANEL.high) / 2, iz1 - 0.012);
+		panel.rotation.x = PANEL.tilt;                 // faces turn up toward the eye
+		g.add(panel);
+		const plate = new THREE.Mesh(new THREE.BoxGeometry(plateW, plateH, 0.024), panelPlate);
+		plate.name = 'plate';
+		plate.castShadow = plate.receiveShadow = true;
+		panel.add(plate);
 
 		this.buttons = [];
 		const body = new THREE.CylinderGeometry(BUTTON.r, BUTTON.r, BUTTON.rise, 32);
-		body.rotateX(Math.PI / 2);                         // axis along z
+		body.rotateX(Math.PI / 2);                     // axis along z
 		const faceGeo = new THREE.CircleGeometry(BUTTON.r * 0.92, 32);
 		rooms().forEach((room, i) => {
-			const y = py + plateH / 2 - 0.02 - BUTTON.pitch * (i + 0.5);
-			const z = pz - 0.004 - BUTTON.rise / 2;
+			const col = i % cols, row = Math.floor(i / cols);
+			const x = -plateW / 2 + 0.015 + BUTTON.pitch * (col + 0.5);
+			const y =  plateH / 2 - 0.015 - BUTTON.pitch * (row + 0.5);
+			const z = -0.012 - BUTTON.rise / 2;        // proud of the plate's front (-z)
 			const b = new THREE.Mesh(body, metal);
 			b.name = `button-${room.key}`;
 			b.userData.key = room.key;
-			b.position.set(px, y, z);
-			g.add(b);
+			b.position.set(x, y, z);
+			panel.add(b);
 			// The printed face: a flat disc on the button's front, turned to
 			// face into the cabin (-z) so the year reads upright.
 			const face = new THREE.Mesh(faceGeo, new THREE.MeshStandardMaterial({ map: buttonFace(room), emissive: 0xffffff, emissiveIntensity: 0, roughness: 0.6 }));
 			face.name = `face-${room.key}`;
 			face.userData.key = room.key;
-			face.position.set(px, y, z - BUTTON.rise / 2 - 0.0005);
+			face.position.set(x, y, z - BUTTON.rise / 2 - 0.0005);
 			face.rotation.y = Math.PI;
-			g.add(face);
+			panel.add(face);
 			b.userData.face = face;
-			this.buttons.push(b, face);                    // both press
+			this.buttons.push(b, face);                // both press
 		});
 		this.group = g;
 		return g;
