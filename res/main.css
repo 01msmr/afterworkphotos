@@ -615,7 +615,25 @@ html.map-on .towns {
 	color: var(--towns-mark);
 	opacity: 0;
 	cursor: none;
-	transition: opacity 0.6s ease;
+	/* it grows a little under the mouse, from its own left edge, so the
+	   line it stands in does not move */
+	transform-origin: left center;
+	transition: opacity 0.6s ease, transform 0.3s ease;
+}
+
+.favmark:hover {
+	transform: scale(2);
+}
+
+/* while one walks them the count says which of how many, in a light hand */
+.favmark .at {
+	font-weight: 300;
+}
+
+.favmark .at i {
+	font-style: normal;
+	opacity: 0.45;
+	padding: 0 0.05em;
 }
 
 .favmark.some {

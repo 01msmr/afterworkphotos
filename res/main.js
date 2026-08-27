@@ -1073,8 +1073,9 @@ if (DECK) {
   titleRow.appendChild(title.querySelector('.titlebox'));
   title.appendChild(titleRow);
   fitTitle();                    // the words are in their real box now
-  function drawFavs() {
-    favMark.innerHTML = FAVS.size ? `<b>favs</b><span>${FAVS.size}</span>` : '';
+  function drawFavs(at) {
+    const count = at > 0 ? `${at}<i>/</i>${FAVS.size}` : `${FAVS.size}`;
+    favMark.innerHTML = FAVS.size ? `<b>favs</b><span class="${at > 0 ? 'at' : ''}">${count}</span>` : '';
     favMark.classList.toggle('some', FAVS.size > 0);
     boxes.forEach(b => b.classList.toggle('fav', FAVS.has(+b.dataset.n)));
   }
@@ -1092,14 +1093,18 @@ if (DECK) {
     keepFavs();
   }
   favMark.addEventListener('click', () => { if (FAVS.size) goFav(0); });
-  // walking the starred prints: the wall goes to each as one steps
+  // Walking the starred prints, in the wall's own order: newest first,
+  // oldest last — the numbers run the other way, so the walk does too. The
+  // mark counts along while one steps.
+  const favWalk = () => favList().reverse();
   let favAt = -1;
   function goFav(d) {
-    const list = favList();
+    const list = favWalk();
     if (!list.length) return;
-    favAt = favAt < 0 ? 0 : (favAt + d + list.length) % list.length;
+    favAt = favAt < 0 ? (d > 0 ? 0 : list.length - 1) : (favAt + d + list.length) % list.length;
     const i = boxes.findIndex(b => +b.dataset.n === list[favAt]);
     if (i >= 0) select(i);
+    drawFavs(favAt + 1);
   }
 
   // ── The guide: the keys of whatever is in hand ──
@@ -1330,7 +1335,7 @@ if (DECK) {
     knobPrint.classList.toggle('kfocus', station === 1);
     mapgo.classList.toggle('kfocus', station === 2);
     favMark.classList.toggle('kfocus', station === 3);
-    if (station !== 3) favAt = -1;
+    if (station !== 3 && favAt >= 0) { favAt = -1; drawFavs(); }   // done walking
     if (station !== 2) clearTown();
     goto.classList.toggle('kbd-open', station === 1);
     // document.documentElement.classList.toggle('bg-focus', station === 4);   // station 4: the wall
