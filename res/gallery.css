@@ -1,0 +1,16 @@
+/* The gallery page is one full-bleed WebGL canvas. Everything that will
+   sit over it (the years overlay, the switchboard) is positioned on top
+   later; the page itself never scrolls. */
+
+html, body {
+	margin: 0;
+	height: 100%;
+	overflow: hidden;
+	background: #111;
+}
+
+#stage, canvas {
+	width: 100%;
+	height: 100%;
+	display: block;
+}
