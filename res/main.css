@@ -665,7 +665,11 @@ html.map-on .towns {
 	font-style: normal;
 	font-weight: 700;
 	/* the width is set in figure widths from the figure itself (main.js), so
-	   the slot opens, closes and widens rather than jumping */
+	   the slot opens, closes and widens rather than jumping. min-width: 0 is
+	   what makes that possible: a flex item is otherwise never narrower than
+	   its content, so the moment a second figure was set the slot leapt to
+	   its full width and the movement had nothing left to do. */
+	min-width: 0;
 	width: 0;
 	opacity: 0;
 	/* figures of one width, set to the right: the slot grows and shrinks at
@@ -702,6 +706,7 @@ html.map-on .towns {
 	font-weight: 300;
 	font-size: var(--favs-type);
 	line-height: 1.15;
+	min-width: 0;
 	width: 0;
 	opacity: 0;
 	text-align: center;
