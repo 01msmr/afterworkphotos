@@ -1085,7 +1085,7 @@ if (DECK) {
       favParts = null;
     } else {
       if (!favParts) {
-        favMark.innerHTML = '<b>favs</b><span class="count"><i class="pos"></i><em></em></span>';
+        favMark.innerHTML = '<b>favs</b><span class="count"><i class="pos"></i><i class="slash">/</i><em></em></span>';
         favParts = { pos: favMark.querySelector('.pos'), total: favMark.querySelector('em') };
       }
       favParts.pos.textContent = at > 0 ? at : '';

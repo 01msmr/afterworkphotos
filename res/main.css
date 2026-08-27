@@ -683,15 +683,26 @@ html.map-on .towns {
 
 .favmark.walking .pos {
 	opacity: 1;
-	margin-right: 0.06em;
 }
 
-/* while one walks, the stroke belongs to the small figure behind it */
-.favmark.walking em::before {
-	content: '/';
-	font-weight: 400;
+/* The stroke belongs to the small figure behind it, and opens in the same
+   movement as the figure in front: it has the count's width transition, so
+   the total is carried along by one motion rather than shoved by two. */
+.favmark .slash {
+	font-style: normal;
+	font-weight: 300;
+	font-size: var(--favs-type);
+	line-height: 1.15;
+	width: 0;
+	opacity: 0;
+	text-align: center;
+	white-space: nowrap;
+	transition: width 0.35s ease, opacity 0.35s ease;
+}
+
+.favmark.walking .slash {
+	width: 0.7ch;
 	opacity: 0.45;
-	padding-right: 0.06em;
 }
 
 .favmark .at i {
