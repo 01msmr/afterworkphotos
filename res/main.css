@@ -1416,6 +1416,29 @@ html.deck {
 		color: var(--title);
 	}
 
+	/* On a phone the wall's own arrangement: the print stands close under
+	   the top, and above it a band of fixed height — --title-band, the
+	   phone's --wall-top — holds the title in its middle with a little air
+	   over and under it, the words at the right with their right edge on
+	   the print's right edge. The sheet starts its print at the band's
+	   foot: the band is stated once and both read it, nothing is measured. */
+	&:not(.tablet) {
+		--title-band: 44px;
+	}
+
+	&:not(.tablet) h1.title {
+		height: var(--title-band);
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		text-align: right;
+	}
+
+	&:not(.tablet) section {
+		padding-top: calc(var(--title-band) - var(--inset));
+	}
+
 	h1.title a {
 		color: var(--title-link);
 	}
@@ -1435,7 +1458,7 @@ html.deck {
 	   width the title came out far larger than on any other device. */
 	&:not(.tablet) .titlebox {
 		width: 58%;
-		margin: 0 auto;
+		margin: 0 0 0 auto;
 	}
 
 	/* On a tablet the title is small rather than the sheet's width, its
