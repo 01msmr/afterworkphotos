@@ -1073,9 +1073,28 @@ if (DECK) {
   titleRow.appendChild(title.querySelector('.titlebox'));
   title.appendChild(titleRow);
   fitTitle();                    // the words are in their real box now
+  // The count is two pieces — where one stands among them, and how many
+  // there are. The first is folded away while one is not walking, so it
+  // opens and closes rather than appearing and vanishing. The
+  // pieces are built once and only their figures change: a fresh element
+  // has nothing to move from, and the fold would never be seen.
+  let favParts = null;
   function drawFavs(at) {
-    const count = at > 0 ? `${at}<i>/</i><em>${FAVS.size}</em>` : `${FAVS.size}`;
-    favMark.innerHTML = FAVS.size ? `<b>favs</b><span class="${at > 0 ? 'at' : ''}">${count}</span>` : '';
+    if (!FAVS.size) {
+      favMark.innerHTML = '';
+      favParts = null;
+    } else {
+      if (!favParts) {
+        favMark.innerHTML = '<b>favs</b><span class="count"><i class="pos"></i><em></em></span>';
+        favParts = { pos: favMark.querySelector('.pos'), total: favMark.querySelector('em') };
+      }
+      favParts.pos.textContent = at > 0 ? at : '';
+      // the slot is as wide as the figure standing in it, in figure widths:
+      // going from 9 to 10 widens the slot instead of jumping
+      favParts.pos.style.width = at > 0 ? String(at).length + 'ch' : '0ch';
+      favParts.total.textContent = FAVS.size;
+    }
+    favMark.classList.toggle('walking', at > 0);
     favMark.classList.toggle('some', FAVS.size > 0);
     boxes.forEach(b => b.classList.toggle('fav', FAVS.has(+b.dataset.n)));
   }

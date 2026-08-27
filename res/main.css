@@ -35,6 +35,9 @@
 	/* the size the title is set in, and the size the favs mark comes up to
 	   when it is wanted: the two ends of the line meet at eye level */
 	--title-type: 2.2rem;
+	/* the favs mark at rest — and the size the total keeps whatever the
+	   rest of the mark does */
+	--favs-type: 1.1rem;
 	--towns-w: min(490px, 34vw);
 	--app-height: 100vh;
 	/* overridden by JS with window.innerHeight */
@@ -619,8 +622,13 @@ html.map-on .towns {
 	align-items: baseline;
 	/* the type grows under the mouse, not the box: the line height is fixed,
 	   so the letters get bigger around a line that stays where it is */
-	font: 400 1.1rem/1.35rem "Helvetica Neue", Helvetica, Arial, sans-serif;
+	font: 400 var(--favs-type)/1.35rem "Helvetica Neue", Helvetica, Arial, sans-serif;
 	height: 1.35rem;
+	/* the box is held at the size the grown type needs, so the row is not
+	   laid out again on every frame of the growing — only the letters are
+	   drawn anew, which is what makes the movement smooth */
+	width: 10rem;
+	will-change: font-size;
 	color: var(--towns-mark);
 	opacity: 0;
 	cursor: none;
@@ -634,15 +642,55 @@ html.map-on .towns {
 	font-size: var(--title-type);
 }
 
-/* while one walks them the count says which of how many: the position in a
-   light hand, how many there are in the same weight as the name */
-.favmark .at {
-	font-weight: 300;
+/* How many there are is always there, in the name's own weight. Where one
+   stands among them, and the stroke between, are folded away until one
+   walks — they open and close instead of appearing and vanishing. */
+.favmark .count {
+	display: inline-flex;
+	align-items: baseline;
 }
 
-.favmark .at em {
+.favmark em {
+	font-style: normal;
+	font-weight: 300;
+	/* how many there are stays the size it is at rest, whether the mark is
+	   wanted or not: it is a fact about the collection, not a heading —
+	   and set light, so the figure one is standing on carries the weight */
+	font-size: var(--favs-type);
+	line-height: 1.15;
+}
+
+.favmark .pos {
 	font-style: normal;
 	font-weight: 700;
+	/* the width is set in figure widths from the figure itself (main.js), so
+	   the slot opens, closes and widens rather than jumping */
+	width: 0;
+	opacity: 0;
+	/* figures of one width, set to the right: the slot grows and shrinks at
+	   its left edge, so the figure stays where the eye left it */
+	font-variant-numeric: tabular-nums;
+	text-align: right;
+	/* the fold is horizontal only, and the box is taller than its figures
+	   need — hiding the width must not cut their heads and feet off */
+	height: 1.4em;
+	line-height: 1.4;
+	overflow: hidden;
+	white-space: nowrap;
+	transition: width 0.35s ease, opacity 0.35s ease, font-size 0.3s ease;
+}
+
+.favmark.walking .pos {
+	opacity: 1;
+	margin-right: 0.06em;
+}
+
+/* while one walks, the stroke belongs to the small figure behind it */
+.favmark.walking em::before {
+	content: '/';
+	font-weight: 400;
+	opacity: 0.45;
+	padding-right: 0.06em;
 }
 
 .favmark .at i {
