@@ -271,9 +271,10 @@ section {
 	height: var(--app-height);
 	display: flex;
 	align-items: flex-start;
-	justify-content: center;
-	gap: var(--gap);
+	/* the wall's prints start at the left (a lone print keeps its column);
+	   the phone's sheet centres its print — see the deck's own rule */
 	justify-content: flex-start;
+	gap: var(--gap);
 	padding: 3% var(--side);
 	padding-top: var(--wall-top);
 	padding-left: var(--wall-left);
@@ -808,9 +809,9 @@ html[data-per-row="3"] { --col: calc((100% - 2 * var(--gap)) / 3); }
 	align-items: center;
 	justify-content: center;
 	box-sizing: border-box;
-	font-size: 1em;
-	width: 1.5em;
-	height: 1.5em;
+	font-size: 0.7em;
+	width: 1.45em;
+	height: 1.45em;
 	padding: 0;
 	line-height: 1;
 	top: 0;
@@ -819,6 +820,17 @@ html[data-per-row="3"] { --col: calc((100% - 2 * var(--gap)) / 3); }
 	margin-right: 0.45em;
 	pointer-events: none;
 	user-select: none;
+}
+
+/* the cap says its key while the field is new, and after three seconds
+   steps back to half — the figures are what matters; it starts afresh
+   each time the field opens */
+.jumpbox.on .keycap {
+	animation: capdim 0.6s ease 3s forwards;
+}
+
+@keyframes capdim {
+	to { opacity: 0.5; }
 }
 
 /* the field looks like nothing but the figures in it, and stands on the
@@ -944,9 +956,11 @@ html[data-per-row="3"] { --col: calc((100% - 2 * var(--gap)) / 3); }
 	box-sizing: border-box;
 	/* the sign is big in its cap, and a cap of one sign — a letter, an
 	   arrow — is square; 0–9 is as wide as it needs to be */
-	font-size: 1em;
-	min-width: 1.5em;
-	height: 1.5em;
+	/* the cap is no taller than the type beside it: the sign at 0.7em, its
+	   box 1.45 of that — about one em of the line */
+	font-size: 0.7em;
+	min-width: 1.45em;
+	height: 1.45em;
 	padding: 0 0.4em;
 	line-height: 1;
 	top: 0;
@@ -1501,6 +1515,8 @@ html.deck {
 		bottom: var(--inset);
 		left: var(--inset);
 		height: auto;
+		/* the print stands in the middle of the sheet */
+		justify-content: center;
 		padding: 0;
 		padding-top: calc(2rem + var(--tp) * 2 + 12px);
 		/* keep the caption clear of the home indicator */
