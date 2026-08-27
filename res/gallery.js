@@ -47,20 +47,42 @@ resize();
 // Wall and ambient values are what applyMode() switches; the spots that
 // light each piece come later (task 1.3) and go in their own group.
 
-const COLOURS = {
-	wall:    { light: 0xf2f1ee, dark: 0x1b1b1b },
-	floor:   { light: 0xc9c6c0, dark: 0x2a2927 },
-	ceiling: { light: 0xffffff, dark: 0x141414 },
-};
+// Every room is its own (Uli: not the same room over and over): a look —
+// the wall's white, the floor — and a shape, chosen from the room's key
+// so a year always gets the same room. Dark mode keeps the differences
+// as tints of the dark.
+const LOOKS = [
+	{ name: 'warm white / concrete', wall: { light: 0xf2f1ee, dark: 0x1b1b1b }, floor: { light: 0xc9c6c0, dark: 0x2a2927 } },
+	{ name: 'cool white / pale oak',  wall: { light: 0xeff1f2, dark: 0x191b1d }, floor: { light: 0xd8c4a0, dark: 0x2e271d } },
+	{ name: 'greige / dark stone',    wall: { light: 0xe9e5dd, dark: 0x1e1c19 }, floor: { light: 0x7d7a74, dark: 0x1a1918 } },
+	{ name: 'pale grey / concrete',   wall: { light: 0xe4e4e2, dark: 0x171717 }, floor: { light: 0xb9b7b2, dark: 0x262524 } },
+];
+const CEILING = { light: 0xffffff, dark: 0x141414 };
+// Proportions relative to the settings' room: as set, wider and shallower, deeper and narrower.
+const SHAPES = [[1, 1], [1.2, 0.85], [0.85, 1.25]];
+
+function hashKey(key) {
+	let h = 7;
+	for (const c of key) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+	return h;
+}
+function lookOf(key)  { return LOOKS[hashKey(key) % LOOKS.length]; }
+function shapeOf(key) {
+	const [fw, fd] = SHAPES[(hashKey(key) >>> 3) % SHAPES.length];   // unsigned shift: a signed one can go negative
+	const r = v => Math.round(v * 2) / 2;                 // to the half metre
+	return { W: r(state.settings.W * fw), D: r(state.settings.D * fd) };
+}
 
 const AMBIENT = { light: 0.55, dark: 0.08 };
 const FILL    = { light: 0.5,  dark: 0.06 };
 
-function buildRoom(W, D, H) {
+function buildRoom(W, D, H, look = LOOKS[0]) {
 	const room = new THREE.Group();
 	room.name = 'room';
+	room.userData.look = look.name;
 
 	const mode = state.settings.dark ? 'dark' : 'light';
+	const COLOURS = { wall: look.wall, floor: look.floor, ceiling: CEILING };
 	const mat = key => new THREE.MeshLambertMaterial({ color: COLOURS[key][mode] });
 
 	// Each surface: a plane sized to its span, rotated to face the room's
@@ -72,6 +94,7 @@ function buildRoom(W, D, H) {
 		m.rotation.set(...rot);
 		m.receiveShadow = true;
 		m.userData.surface = key;
+		m.userData.colours = COLOURS[key];
 		room.add(m);
 	};
 
@@ -112,7 +135,7 @@ function applyMode(dark) {
 	const room = scene.getObjectByName('room');
 	if (!room) return;
 	room.traverse(o => {
-		if (o.isMesh && o.userData.surface) o.material.color.setHex(COLOURS[o.userData.surface][mode]);
+		if (o.isMesh && o.userData.colours) o.material.color.setHex(o.userData.colours[mode]);
 		if (o.isAmbientLight) o.intensity = AMBIENT[mode];
 		if (o.isHemisphereLight) o.intensity = FILL[mode];
 	});
@@ -133,7 +156,8 @@ function applyMode(dark) {
 // lines rise from the frame's top corners to the ceiling. No glass.
 
 const FRAME = { face: 0.03, depth: 0.04 };
-const MAT = { 0.9: 0.09, 0.6: 0.06, 0.4: 0.045 };     // mat width per print size: the spec's 6/4/3 plus half (Uli)
+const MAT = { 0.9: 0.09, 0.6: 0.06, 0.4: 0.045 };     // mat width per nominal print size: the spec's 6/4/3 plus half (Uli)
+const PRINT_SCALE = 0.9;                               // the print inside is a little smaller than nominal, the mat takes the rest (Uli)
 const GRID_GAP = 0.08;                                 // between frames in a grid
 
 const FRAME_COLOURS = { oak: 0xb08d57, walnut: 0x5b4633, black: 0x171717, white: 0xf4f2ee };
@@ -174,7 +198,8 @@ function makeFramedPrint(p, size) {
 	board.castShadow = true;
 	g.add(board);
 
-	const print = new THREE.Mesh(new THREE.PlaneGeometry(size, size),
+	const printed = size * PRINT_SCALE;
+	const print = new THREE.Mesh(new THREE.PlaneGeometry(printed, printed),
 		new THREE.MeshBasicMaterial({ map: photoTexture(p) }));
 	print.name = 'photo';
 	print.position.z = 0.006 + 0.002;
@@ -440,7 +465,6 @@ let roomList = null;
 
 function rooms() {
 	if (roomList) return roomList;
-	const { W, D } = state.settings;
 	const byYear = new Map();
 	for (const p of state.photos) {
 		if (!byYear.has(yearOf(p))) byYear.set(yearOf(p), []);
@@ -449,13 +473,16 @@ function rooms() {
 	roomList = [];
 	for (const [year, photos] of byYear) {
 		const specs = piecesOf(photos).map(s => ({ ...s, w: specWidth(s) }));
-		if (!layout([...specs].reverse(), W, D).rest.length) {
-			roomList.push({ key: year, year, part: 0, of: 1, specs });
+		const one = shapeOf(year);
+		if (!layout([...specs].reverse(), one.W, one.D).rest.length) {
+			roomList.push({ key: year, year, part: 0, of: 1, specs, shape: one, look: lookOf(year) });
 			continue;
 		}
 		const half = Math.ceil(specs.length / 2);
-		roomList.push({ key: `${year}-1`, year, part: 1, of: 2, specs: specs.slice(0, half) });
-		roomList.push({ key: `${year}-2`, year, part: 2, of: 2, specs: specs.slice(half) });
+		for (const [part, slice] of [[1, specs.slice(0, half)], [2, specs.slice(half)]]) {
+			const key = `${year}-${part}`;
+			roomList.push({ key, year, part, of: 2, specs: slice, shape: shapeOf(key), look: lookOf(key) });
+		}
 	}
 	// newest room first: by year, then the later part
 	roomList.sort((a, b) => b.year.localeCompare(a.year) || b.part - a.part);
@@ -484,21 +511,21 @@ function hangRoom(key) {
 	// The settings' room is the room. Should half a year still not fit it
 	// (it does not happen with this collection), the room grows in steps
 	// of the same proportion rather than dropping a print — and says so.
-	let { W, D } = state.settings;
+	let { W, D } = room.shape;
 	let lay = layout(items, W, D);
 	while (lay.rest.length && W < 40) {
 		W += 1.5; D += 1;
 		lay = layout(items, W, D);
 	}
-	if (W !== state.settings.W) console.warn(`${key}: room grown to ${W} × ${D} to hang everything`);
-	if (!state.room || state.room.W !== W || state.room.D !== D) {
+	if (W !== room.shape.W) console.warn(`${key}: room grown to ${W} × ${D} to hang everything`);
+	if (!state.room || state.room.W !== W || state.room.D !== D || state.room.look !== room.look.name) {
 		for (const name of ['room', 'elevator']) {
 			const old = scene.getObjectByName(name);
 			if (old) scene.remove(old);
 		}
-		scene.add(buildRoom(W, D, H));
+		scene.add(buildRoom(W, D, H, room.look));
 		scene.add(elevator.build(W, D, H));
-		state.room = { W, D, H };
+		state.room = { W, D, H, look: room.look.name };
 	}
 
 	for (const { piece: spec, x, z, yaw, wall } of lay.placed) {
