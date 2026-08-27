@@ -121,8 +121,17 @@ html:not(.deck) h1.title {
 html:not(.deck) .titlerow {
 	display: flex;
 	align-items: baseline;
-	justify-content: space-between;
-	gap: 1.5em;
+	/* no gap: the favs mark's box has its own slack, the title keeps the
+	   right end by its auto margin, and the jump field's width comes out
+	   exactly one column without a gap to account for */
+	gap: 0;
+	font-size: var(--title-type);
+}
+
+/* the name of the place keeps the right end for itself; whatever stands
+   between it and the favs mark keeps its own place */
+html:not(.deck) .titlerow > .titlebox {
+	margin-left: auto;
 }
 
 /* On the wall the title is simply set in --title-type and takes the width
@@ -759,20 +768,23 @@ html:not(.deck) .awbox.fav .desc::before {
 /* ── The jump window: the number one is typing after j, at the top right
    of the left print in the title's own size — the word before it says
    whether a print or a fav is asked for. There only while typing. ── */
+/* A column of the wall, as the prints and the title's row both see it:
+   the row runs from --wall-left to the right --side, and a column is its
+   share of that. Stated once, so the jump field can end where the left
+   print ends without measuring anything. */
+html[data-per-row="1"] { --col: 100%; }
+html[data-per-row="2"] { --col: calc((100% - var(--gap)) / 2); }
+html[data-per-row="3"] { --col: calc((100% - 2 * var(--gap)) / 3); }
+
 .jumpbox {
-	position: fixed;
-	top: var(--wall-top);
-	/* the left print's right edge: the wall's left edge plus one column */
-	left: calc(var(--wall-left) + (100vw - var(--wall-left) - var(--side) - var(--gap)) / 2);
-	transform: translate(-100%, 0);
-	margin-top: 0.5em;
-	padding-right: 0.6em;
-	display: flex;
-	gap: 0.45em;
-	align-items: baseline;
+	/* in the title's row, in the flow, so it stands on the row's baseline;
+	   wide enough that its right edge is the left print's right edge — the
+	   favs mark before it has a fixed width, the rest of the column is this */
+	flex: 0 0 calc(var(--col, 50%) - 13rem);
+	min-width: 0;
+	text-align: right;
 	font: 400 var(--title-type)/1.2 "Helvetica Neue", Helvetica, Arial, sans-serif;
 	color: var(--towns-mark);
-	z-index: 950;
 	opacity: 0;
 	pointer-events: none;
 	transition: opacity 0.2s ease;
@@ -780,17 +792,25 @@ html:not(.deck) .awbox.fav .desc::before {
 
 .jumpbox.on {
 	opacity: 1;
+	pointer-events: auto;
 }
 
-.jumpbox i {
-	font-style: normal;
-	opacity: 0.45;
-}
-
-.jumpbox b {
+/* the field looks like nothing but the figures in it, and stands on the
+   row's baseline like the words beside it */
+.jumpbox input {
+	width: 4ch;
+	margin: 0;
+	padding: 0;
+	border: 0;
+	outline: 0;
+	background: transparent;
+	font: inherit;
 	font-weight: 700;
 	font-variant-numeric: tabular-nums;
-	min-width: 1ch;
+	color: inherit;
+	caret-color: currentColor;
+	text-align: right;
+	vertical-align: baseline;
 }
 
 /* ── The guide: a line of keys at the foot of the wall. No mark calls it —

@@ -116,6 +116,11 @@ fetch('photos.json', { cache: 'no-cache' }).then(r => r.json()).then(data => {
 const title = document.querySelector('h1.title');
 
 function fitTitle() {
+  // On the wall the title is set in --title-type and takes the width it
+  // needs: there is nothing to fit, and fitting would only drive the h1's
+  // own size to the top of the search (the words never overflow a box that
+  // grows with them) — which every em in the row would then inherit.
+  if (!document.documentElement.classList.contains('deck')) { title.style.fontSize = ''; return; }
   const box = title.querySelector('.titlebox') || title;
   let lo = 1, hi = 200;
   while (hi - lo > 0.5) {
@@ -1502,27 +1507,65 @@ if (DECK) {
   // the mark's own count, which is where it will land.
   let jump = null;             // null, 'print' or 'favs'
   let favTyped = '', favTypedTimer = 0;
-  // The number takes shape in a small window at the top right of the left
-  // print — the title's own size, and there only while one is typing after
-  // j. It says which of the two it is asking for.
+  // The number is typed into a real input: after j it takes the focus, so
+  // the digits are the field's and never the browser's. The field stands in
+  // the title's own row, between the favs and the name of the place, so it
+  // shares that row's baseline outright; its right edge is the left print's
+  // right edge (the row's column width, from the same variables the prints
+  // use). It looks like nothing but the figures, and is there only while
+  // one is typing.
   const jumpBox = document.createElement('div');
   jumpBox.className = 'jumpbox';
-  jumpBox.innerHTML = '<i></i><b></b>';
-  document.body.appendChild(jumpBox);
-  const jumpWhat = jumpBox.querySelector('i'), jumpNum = jumpBox.querySelector('b');
+  jumpBox.innerHTML = '<input type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" spellcheck="false" aria-label="jump to number">';
+  const jumpNum = jumpBox.querySelector('input');
+  titleRow.insertBefore(jumpBox, titleRow.querySelector('.titlebox'));
   function showJump(what, digits) {
-    jumpWhat.textContent = what;
-    jumpNum.textContent = digits;
+    jumpNum.value = digits;
     jumpBox.classList.toggle('on', !!what);
+    if (what) {
+      jumpNum.focus();
+      jumpNum.setSelectionRange(digits.length, digits.length);
+    } else if (document.activeElement === jumpNum) {
+      jumpNum.blur();
+    }
   }
   function endJump() { jump = null; typed = ''; favTyped = ''; showJump(null, ''); }
+  // what is typed into the field is what the jump reads — the key handler
+  // below only ever sees j, Enter and Escape from here
+  jumpNum.addEventListener('input', () => {
+    const digits = jumpNum.value.replace(/[^0-9]/g, '').slice(-4);
+    jumpNum.value = digits;
+    clearTimeout(typedTimer); typedTimer = setTimeout(endJump, 4000);
+    if (jump === 'favs') {
+      favTyped = digits;
+      const k = parseInt(digits, 10);
+      if (k >= 1 && k <= FAVS.size) drawFavs(k);
+    } else {
+      typed = digits;
+      const n = parseInt(digits, 10);
+      if (n >= 1 && n <= PHOTOS.length) { goIdx = PHOTOS.length - n; goTouched = true; showGoto(); }
+    }
+  });
+  jumpNum.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault(); e.stopPropagation();
+      const k = parseInt(jumpNum.value, 10), what = jump;
+      endJump();
+      if (!(k >= 1)) return;
+      if (what === 'favs') goFavNumber(k); else if (k <= PHOTOS.length) { goIdx = PHOTOS.length - k; goTouched = true; showGoto(); goNow(); }
+    } else if (e.key === 'Escape') {
+      e.preventDefault(); e.stopPropagation(); endJump();
+    } else if (!/^[0-9]$|^Backspace$|^Delete$|^Arrow/.test(e.key)) {
+      e.preventDefault();               // the field takes figures only
+    } else {
+      e.stopPropagation();              // and keeps them from the wall
+    }
+  });
   function typeFavDigit(ch) {
-    clearTimeout(favTypedTimer);
-    favTyped = (favTyped + ch).slice(-4);
-    favTypedTimer = setTimeout(endJump, 2500);
-    showJump('fav', favTyped);
-    const k = parseInt(favTyped, 10);
-    if (k >= 1 && k <= FAVS.size) drawFavs(k);      // shown, not yet gone to
+    // a digit at the favs without j: open the field with it
+    jump = 'favs';
+    showJump('fav', ch);
+    jumpNum.dispatchEvent(new Event('input'));
   }
 
   // digits type a number into the date window; Enter goes at once
@@ -1578,10 +1621,11 @@ if (DECK) {
     }
 
     if (e.key === 'j' || e.key === 'J') {
+      e.preventDefault();
       jump = station === 3 ? 'favs' : 'print';
       typed = ''; favTyped = '';
       showJump(jump === 'favs' ? 'fav' : 'print', '');
-      clearTimeout(typedTimer); typedTimer = setTimeout(endJump, 2500);
+      clearTimeout(typedTimer); typedTimer = setTimeout(endJump, 4000);
       if (mode === 'mouse') { mode = 'kbd'; mouseHasMoved = false; document.body.classList.add('kbd-active'); }
       return;
     }
