@@ -78,7 +78,9 @@ h1.title {
 	text-align: right;
 	white-space: nowrap;
 	opacity: 0.06;
-	transition: opacity 0.9s ease-out;
+	/* the title lights in under a second and dims very slowly — the
+	   resting rule's transition is the one that runs on the way back */
+	transition: opacity 8s ease-out;
 	padding: var(--tp) 0;
 	margin: 0;
 	overflow: hidden;
@@ -146,10 +148,11 @@ html:not(.deck) .titlerow > .titlebox {
 
 html:not(.deck) .titlebox {
 	opacity: 0.06;
-	transition: opacity 0.9s ease-out;
+	transition: opacity 8s ease-out;   /* the slow dimming */
 }
 
 html:not(.deck) h1.title:hover .titlebox {
+	transition: opacity 0.9s ease-out;   /* the quick showing */
 	opacity: 1;
 }
 
@@ -1403,6 +1406,7 @@ html.deck {
 	}
 
 	h1.title.lit {
+		transition: opacity 0.9s ease-out;   /* lights quickly, dims slowly */
 		opacity: 1;
 	}
 
