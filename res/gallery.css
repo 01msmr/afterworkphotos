@@ -14,3 +14,21 @@ html, body {
 	height: 100%;
 	display: block;
 }
+
+#hint {
+	position: fixed;
+	left: 50%;
+	bottom: 24px;
+	transform: translateX(-50%);
+	margin: 0;
+	padding: 6px 12px;
+	font: 12px/1.4 -apple-system, "Helvetica Neue", Arial, sans-serif;
+	letter-spacing: .04em;
+	color: rgba(255, 255, 255, .85);
+	background: rgba(0, 0, 0, .35);
+	border-radius: 3px;
+	pointer-events: none;
+	transition: opacity .3s;
+}
+
+body.locked #hint { opacity: 0; }

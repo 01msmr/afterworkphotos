@@ -54,6 +54,7 @@ const COLOURS = {
 };
 
 const AMBIENT = { light: 0.55, dark: 0.08 };
+const FILL    = { light: 0.5,  dark: 0.06 };
 
 function buildRoom(W, D, H) {
 	const room = new THREE.Group();
@@ -85,6 +86,13 @@ function buildRoom(W, D, H) {
 	ambient.name = 'ambient';
 	room.add(ambient);
 
+	// Sky-and-ground fill: the ceiling's white bouncing down, the floor's
+	// grey bouncing up. Keeps every wall lit between the spots.
+	const fill = new THREE.HemisphereLight(0xfffaf2, 0x8c8880, FILL[mode]);
+	fill.name = 'fill';
+	fill.position.set(0, H, 0);
+	room.add(fill);
+
 	// A warm wash from above and slightly behind the viewer, so the walls
 	// have a base tone before any spot is on. Shadows come from the spots.
 	const wash = new THREE.DirectionalLight(0xfff2e0, 0.25);
@@ -106,6 +114,7 @@ function applyMode(dark) {
 	room.traverse(o => {
 		if (o.isMesh && o.userData.surface) o.material.color.setHex(COLOURS[o.userData.surface][mode]);
 		if (o.isAmbientLight) o.intensity = AMBIENT[mode];
+		if (o.isHemisphereLight) o.intensity = FILL[mode];
 	});
 }
 
@@ -124,7 +133,7 @@ function applyMode(dark) {
 // lines rise from the frame's top corners to the ceiling. No glass.
 
 const FRAME = { face: 0.03, depth: 0.04 };
-const MAT = { 0.9: 0.06, 0.6: 0.04, 0.4: 0.03 };      // mat width per print size
+const MAT = { 0.9: 0.09, 0.6: 0.06, 0.4: 0.045 };     // mat width per print size: the spec's 6/4/3 plus half (Uli)
 const GRID_GAP = 0.08;                                 // between frames in a grid
 
 const FRAME_COLOURS = { oak: 0xb08d57, walnut: 0x5b4633, black: 0x171717, white: 0xf4f2ee };
@@ -452,13 +461,16 @@ function hangRoom(key) {
 		pieces.add(piece);
 
 		// One spot per piece from the ceiling track, a metre out into the
-		// room from the piece, angled down at its centre.
-		const spot = new THREE.SpotLight(0xfff1dc, 18, 0, 0.5, 0.5, 2);
+		// room from the piece, angled down at its centre. Soft, not harsh
+		// (Uli): a wide cone with the whole edge feathered, modest power, so
+		// a piece is lifted from its wall rather than picked out of the dark.
+		const spot = new THREE.SpotLight(0xfff1dc, 9, 0, 0.62, 1.0, 2);
 		spot.position.set(x + Math.sin(yaw) * 1.0, H - 0.05, z + Math.cos(yaw) * 1.0);
 		spot.target = piece;
 		spot.castShadow = true;
 		spot.shadow.mapSize.set(512, 512);
 		spot.shadow.bias = -0.0005;
+		spot.shadow.radius = 4;
 		spots.add(spot);
 	}
 
@@ -467,6 +479,81 @@ function hangRoom(key) {
 	state.roomKey = key;
 	state.gap = lay.gap;
 	return pieces;
+}
+
+// ---------------------------------------------------------------------------
+// Walking (the bench)
+//
+// First person on the desktop: a click takes the pointer, the mouse turns
+// the head, W A S D or the arrows walk at eye height, Esc gives the pointer
+// back. The camera's yaw and pitch are kept here as numbers and applied
+// each frame, which keeps the horizon level (no roll creeping in). Clamped
+// to the room less WALL_KEEP, so you can lean close to a frame but not
+// through the plaster.
+
+const WALK_SPEED = 1.6;         // m/s, a gallery pace
+const LOOK_SPEED = 0.0022;      // radians per pixel
+const PITCH_MAX = Math.PI * 80 / 180;
+const WALL_KEEP = 0.3;
+
+const walk = {
+	pos: camera.position,        // the same vector; there is one truth
+	yaw: 0, pitch: 0,
+	keys: new Set(),
+	lockedForTest: false,        // harness-only: pretend the pointer is taken
+	locked() { return this.lockedForTest || document.pointerLockElement === renderer.domElement; },
+};
+
+renderer.domElement.addEventListener('click', () => {
+	if (!walk.locked()) renderer.domElement.requestPointerLock();
+});
+document.addEventListener('pointerlockchange', () => {
+	document.body.classList.toggle('locked', walk.locked());
+});
+
+addEventListener('mousemove', e => {
+	if (!walk.locked()) return;
+	walk.yaw   -= e.movementX * LOOK_SPEED;
+	walk.pitch -= e.movementY * LOOK_SPEED;
+	walk.pitch  = Math.max(-PITCH_MAX, Math.min(PITCH_MAX, walk.pitch));
+});
+
+const KEYS = {
+	KeyW: 'fwd', ArrowUp: 'fwd', KeyS: 'back', ArrowDown: 'back',
+	KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right',
+};
+addEventListener('keydown', e => { if (KEYS[e.code]) { walk.keys.add(KEYS[e.code]); e.preventDefault(); } });
+addEventListener('keyup',   e => { if (KEYS[e.code]) walk.keys.delete(KEYS[e.code]); });
+addEventListener('blur',    () => walk.keys.clear());
+
+// Set the camera from yaw and pitch: yaw about the world's up, then pitch
+// about the camera's own right. Yaw 0 looks north (-z).
+function applyLook() {
+	camera.rotation.set(0, 0, 0);
+	camera.rotateY(walk.yaw);
+	camera.rotateX(walk.pitch);
+}
+
+let lastT = performance.now();
+function stepWalk(now) {
+	// never more than a twentieth of a second, never backwards
+	const dt = Math.max(0, Math.min(0.05, (now - lastT) / 1000));
+	lastT = now;
+	const k = walk.keys;
+	let fwd = (k.has('fwd') ? 1 : 0) - (k.has('back') ? 1 : 0);
+	let side = (k.has('right') ? 1 : 0) - (k.has('left') ? 1 : 0);
+	if (fwd || side) {
+		const len = Math.hypot(fwd, side);
+		fwd /= len; side /= len;
+		// forward is where the yaw points on the floor; right is 90° clockwise
+		const dx = (-Math.sin(walk.yaw) * fwd + Math.cos(walk.yaw) * side) * WALK_SPEED * dt;
+		const dz = (-Math.cos(walk.yaw) * fwd - Math.sin(walk.yaw) * side) * WALK_SPEED * dt;
+		const { W, D } = state.room || state.settings;
+		walk.pos.x = Math.max(-W / 2 + WALL_KEEP, Math.min(W / 2 - WALL_KEEP, walk.pos.x + dx));
+		walk.pos.z = Math.max(-D / 2 + WALL_KEEP, Math.min(D / 2 - WALL_KEEP, walk.pos.z + dz));
+	}
+	walk.pos.y = EYE;
+	applyLook();
 }
 
 // ---------------------------------------------------------------------------
@@ -481,12 +568,16 @@ function init() {
 
 	// Arrival: standing a little back from the middle, eye height, facing north.
 	const D = state.room.D;
-	camera.position.set(0, EYE, D / 2 - 1.0);
-	camera.lookAt(0, EYE, -D / 2);
+	walk.pos.set(0, EYE, D / 2 - 1.0);
+	walk.yaw = 0; walk.pitch = 0;
+	applyLook();
 }
 
-renderer.setAnimationLoop(() => renderer.render(scene, camera));
+renderer.setAnimationLoop(now => {
+	stepWalk(now);
+	renderer.render(scene, camera);
+});
 
 // Test-harness handle only: the plan's browser checks read the scene graph
 // and camera through this. Nothing on the page uses it.
-window.G = { scene, camera, renderer, state, buildRoom, applyMode, makePiece, rooms, hangRoom };
+window.G = { scene, camera, renderer, state, buildRoom, applyMode, makePiece, rooms, hangRoom, walk, stepWalk };
