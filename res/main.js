@@ -1516,7 +1516,9 @@ if (DECK) {
   // one is typing.
   const jumpBox = document.createElement('div');
   jumpBox.className = 'jumpbox';
-  jumpBox.innerHTML = '<input type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" spellcheck="false" aria-label="jump to number">';
+  // the key that opened it stands before the figures, as a cap of the
+  // guide's kind; the cursor blinks in the field beside it
+  jumpBox.innerHTML = '<i class="keycap" aria-hidden="true">j</i><input type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" spellcheck="false" aria-label="jump to number">';
   const jumpNum = jumpBox.querySelector('input');
   titleRow.insertBefore(jumpBox, titleRow.querySelector('.titlebox'));
   function showJump(what, digits) {
