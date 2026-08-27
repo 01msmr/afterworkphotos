@@ -632,11 +632,13 @@ html.map-on .towns {
 	transition: opacity 0.3s ease;
 }
 
-/* a kept print says so at the end of its name */
-html:not(.deck) .awbox.fav .cap::after {
-	content: ' \2605';
-	font-size: 76%;
-	opacity: 0.55;
+/* a kept print says so with a star before its description, at the left end
+   of the caption line. Only a kept one carries it — an unkept print holds
+   no space open for one. */
+html:not(.deck) .awbox.fav .desc::before {
+	content: '\2605\00a0';
+	font-size: 88%;
+	opacity: 0.6;
 }
 
 /* ── The guide: a line of keys at the foot of the wall. No mark calls it —
