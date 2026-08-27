@@ -661,34 +661,38 @@ html.map-on .towns {
 	line-height: 1.15;
 }
 
-/* The position, one figure to a cell. A cell is a box exactly one figure
-   wide that is folded shut (width 0) until a figure stands in it; opening
-   and shutting is the only movement there is, and it is one transition on
-   one box — so counting from nine to ten glides, and nothing that was
-   already showing moves. Tabular figures, so every cell is the same width. */
+/* The position: one number in a slot of animated width. The slot is as
+   many figure widths wide as the number has figures (main.js) and moves
+   only when that changes — nine to ten opens it by one figure, ten to nine
+   closes it — in one transition, at its left edge. The number inside is
+   set to the right, so its figures keep their places through the move and
+   the number reads as one thing throughout. Tabular figures, so a figure
+   width is a figure width. */
 .favmark .pos {
-	display: inline-flex;
+	display: inline-block;
+	position: relative;
 	font-weight: 700;
 	font-variant-numeric: tabular-nums;
 	height: 1.4em;
 	line-height: 1.4;
-	white-space: nowrap;
-	transition: font-size 0.3s ease;
-}
-
-.favmark .cell {
-	display: inline-block;
-	font-style: normal;
 	width: 0;
 	min-width: 0;
+	white-space: nowrap;
 	opacity: 0;
-	overflow: hidden;
-	transition: width 0.35s ease, opacity 0.35s ease;
+	transition: width 0.35s ease, opacity 0.35s ease, font-size 0.3s ease;
 }
 
-.favmark .cell.on {
-	width: 1ch;
+.favmark.walking .pos {
 	opacity: 1;
+}
+
+/* the number hangs on the slot's right edge: the slot moves, the figures
+   stay put */
+.favmark .num {
+	position: absolute;
+	right: 0;
+	top: 0;
+	white-space: nowrap;
 }
 
 /* The stroke belongs to the small figure behind it, and opens in the same

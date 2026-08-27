@@ -1084,30 +1084,20 @@ if (DECK) {
       favMark.innerHTML = '';
       favParts = null;
     } else {
-      // The position is set one figure to a cell, most significant first,
-      // every cell always there and each folded shut until it is needed.
-      // Counting from nine to ten does not change any element's text into
-      // something wider — it opens a cell that was shut, one clean width
-      // transition, and the stroke and the total ride along on it.
+      // The position is one number and moves as one: a slot of animated
+      // width holds it whole, and when the number takes one figure more or
+      // less the slot opens or closes by exactly one figure — one width
+      // transition, and stroke and total ride along on it. The number is
+      // set to the right in the slot, so its figures keep their places
+      // while the slot moves at its left edge.
       if (!favParts) {
-        favMark.innerHTML = '<b>favs</b><span class="count"><span class="pos"></span><i class="slash">/</i><em></em></span>';
-        favParts = { pos: favMark.querySelector('.pos'), total: favMark.querySelector('em'), cells: [] };
+        favMark.innerHTML = '<b>favs</b><span class="count"><span class="pos"><span class="num"></span></span><i class="slash">/</i><em></em></span>';
+        favParts = { pos: favMark.querySelector('.pos'), num: favMark.querySelector('.num'), total: favMark.querySelector('em') };
       }
       favParts.total.textContent = FAVS.size;
       const digits = at > 0 ? String(at) : '';
-      const need = Math.max(digits.length, String(FAVS.size).length);
-      while (favParts.cells.length < need) {
-        const c = document.createElement('i'); c.className = 'cell';
-        favParts.pos.appendChild(c); favParts.cells.push(c);
-      }
-      // cells fill from the right: the last cell is the ones, the one before
-      // it the tens — so nine to ten opens the cell in front, and nothing
-      // already showing has to move
-      favParts.cells.forEach((c, i) => {
-        const d = digits[digits.length - favParts.cells.length + i];
-        if (d !== undefined) { c.textContent = d; c.classList.add('on'); }
-        else c.classList.remove('on');
-      });
+      favParts.num.textContent = digits;
+      favParts.pos.style.width = digits.length + 'ch';
     }
     favMark.classList.toggle('walking', at > 0);
     favMark.classList.toggle('some', FAVS.size > 0);
