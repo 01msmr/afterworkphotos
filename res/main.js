@@ -1137,6 +1137,13 @@ if (DECK) {
     if (!list.length) return;
     goFavTo(favAt < 0 ? (d > 0 ? 0 : list.length - 1) : favAt + d);
   }
+  // the fav wearing number k — 1 is the oldest — lives at the far end of
+  // the walk, which runs newest first
+  function goFavNumber(k) {
+    const list = favWalk();
+    if (!list.length) return;
+    goFavTo(list.length - Math.max(1, Math.min(k, list.length)));
+  }
   // stepping in among them starts at the kept print nearest the one in
   // view, so the walk carries on from where one stands
   function nearestFav() {
@@ -1160,10 +1167,10 @@ if (DECK) {
   // Each group says where it belongs before it says what it does, and
   // every key gets its own cap — two keys are two caps, as on the board.
   const HINTS = {
-    print: ['on the wall', [[['\u23ce'], 'next'], [['\u21e7', '\u23ce'], 'back'], [['0\u20139'], 'number'], [['f'], 'favorite']]],
+    print: ['on the wall', [[['\u23ce'], 'next'], [['\u21e7', '\u23ce'], 'back'], [['j', '0\u20139'], 'jump'], [['f'], 'favorite']]],
     knobs: ['at the knobs', [[['\u2191', '\u2193'], 'year'], [['\u2190', '\u2192'], 'print'], [['\u23ce'], 'go']]],
     map: ['on the map', [[['\u2190', '\u2191', '\u2193', '\u2192'], 'towns'], [['\u23ce'], 'visit'], [['\u21e7', '\u23ce'], 'back']]],
-    favs: ['at the favs', [[['\u2190', '\u2191', '\u2193', '\u2192'], 'walk'], [['\u23ce'], 'next'], [['f'], 'drop']]],
+    favs: ['at the favs', [[['\u2190', '\u2191', '\u2193', '\u2192'], 'walk'], [['\u23ce'], 'next'], [['j', '0\u20139'], 'jump'], [['f'], 'drop']]],
     keys: ['anywhere', [[['m'], 'map'], [['n'], 'knobs'], [['b'], 'wall']]]
   };
   const hints = document.createElement('div');
@@ -1489,12 +1496,42 @@ if (DECK) {
     goNow();
   });
 
+  // j asks for a number: the digits that follow name a print — or, at the
+  // favs, a fav — and Enter jumps. On the wall digits alone do the same
+  // (the date window shows them); at the favs the number takes shape in
+  // the mark's own count, which is where it will land.
+  let jump = null;             // null, 'print' or 'favs'
+  let favTyped = '', favTypedTimer = 0;
+  // The number takes shape in a small window at the top right of the left
+  // print — the title's own size, and there only while one is typing after
+  // j. It says which of the two it is asking for.
+  const jumpBox = document.createElement('div');
+  jumpBox.className = 'jumpbox';
+  jumpBox.innerHTML = '<i></i><b></b>';
+  document.body.appendChild(jumpBox);
+  const jumpWhat = jumpBox.querySelector('i'), jumpNum = jumpBox.querySelector('b');
+  function showJump(what, digits) {
+    jumpWhat.textContent = what;
+    jumpNum.textContent = digits;
+    jumpBox.classList.toggle('on', !!what);
+  }
+  function endJump() { jump = null; typed = ''; favTyped = ''; showJump(null, ''); }
+  function typeFavDigit(ch) {
+    clearTimeout(favTypedTimer);
+    favTyped = (favTyped + ch).slice(-4);
+    favTypedTimer = setTimeout(endJump, 2500);
+    showJump('fav', favTyped);
+    const k = parseInt(favTyped, 10);
+    if (k >= 1 && k <= FAVS.size) drawFavs(k);      // shown, not yet gone to
+  }
+
   // digits type a number into the date window; Enter goes at once
   let typed = '', typedTimer = 0;
   function typeDigit(ch) {
     clearTimeout(typedTimer);
     typed = (typed + ch).slice(-4);
-    typedTimer = setTimeout(() => { typed = ''; }, 1500);
+    typedTimer = setTimeout(endJump, 2500);
+    if (jump === 'print') showJump('print', typed);
     const n = parseInt(typed, 10);
     if (n < 1 || n > PHOTOS.length) return;
     goIdx = PHOTOS.length - n;
@@ -1508,6 +1545,7 @@ if (DECK) {
     if (station === 0) goto.classList.add('quiet');   // keyboard in use: the knobs stay dim even under the mouse
 
     if (e.key === 'Escape') {
+      endJump();
       station = 0;
       applyStation();
       setMap(false);
@@ -1539,16 +1577,37 @@ if (DECK) {
       return;
     }
 
-    if (/^[0-9]$/.test(e.key)) { typeDigit(e.key); return; }
+    if (e.key === 'j' || e.key === 'J') {
+      jump = station === 3 ? 'favs' : 'print';
+      typed = ''; favTyped = '';
+      showJump(jump === 'favs' ? 'fav' : 'print', '');
+      clearTimeout(typedTimer); typedTimer = setTimeout(endJump, 2500);
+      if (mode === 'mouse') { mode = 'kbd'; mouseHasMoved = false; document.body.classList.add('kbd-active'); }
+      return;
+    }
+
+    if (/^[0-9]$/.test(e.key)) {
+      if (jump === 'favs' || (station === 3 && jump !== 'print')) typeFavDigit(e.key);
+      else typeDigit(e.key);
+      return;
+    }
 
     if (e.key === 'PageDown') { e.preventDefault(); stepRow(e.shiftKey ? -1 : 1); return; }
     if (e.key === 'PageUp') { e.preventDefault(); stepRow(-1); return; }
     // Space is a second Enter (it does not page)
     const enter = e.key === 'Enter' || e.key === ' ';
 
+    if (enter && favTyped) {
+      e.preventDefault();
+      const k = parseInt(favTyped, 10);
+      endJump();
+      if (k >= 1) goFavNumber(k);
+      return;
+    }
+
     if (enter && typed) {
       e.preventDefault();
-      typed = '';
+      endJump();
       goNow();
       return;
     }

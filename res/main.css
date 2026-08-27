@@ -756,6 +756,43 @@ html:not(.deck) .awbox.fav .desc::before {
 	opacity: 0.6;
 }
 
+/* ── The jump window: the number one is typing after j, at the top right
+   of the left print in the title's own size — the word before it says
+   whether a print or a fav is asked for. There only while typing. ── */
+.jumpbox {
+	position: fixed;
+	top: var(--wall-top);
+	/* the left print's right edge: the wall's left edge plus one column */
+	left: calc(var(--wall-left) + (100vw - var(--wall-left) - var(--side) - var(--gap)) / 2);
+	transform: translate(-100%, 0);
+	margin-top: 0.5em;
+	padding-right: 0.6em;
+	display: flex;
+	gap: 0.45em;
+	align-items: baseline;
+	font: 400 var(--title-type)/1.2 "Helvetica Neue", Helvetica, Arial, sans-serif;
+	color: var(--towns-mark);
+	z-index: 950;
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 0.2s ease;
+}
+
+.jumpbox.on {
+	opacity: 1;
+}
+
+.jumpbox i {
+	font-style: normal;
+	opacity: 0.45;
+}
+
+.jumpbox b {
+	font-weight: 700;
+	font-variant-numeric: tabular-nums;
+	min-width: 1ch;
+}
+
 /* ── The guide: a line of keys at the foot of the wall. No mark calls it —
    the last stop of the Tab round does, and the key ?. ── */
 .hints {
