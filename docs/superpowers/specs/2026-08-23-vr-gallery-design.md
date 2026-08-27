@@ -2,6 +2,8 @@
 
 Date: 2026-08-23. Status: **questions answered, ready for review** — the decisions are recorded in the questions section at the end; everything still marked *assumed* is a default that can be flipped during review.
 
+**Scope decision (2026-08-28):** the gallery targets **real VR only — Meta Quest 3 / 3S**. No phone, no tablet, no drag-to-look 3D view for Apple or Android devices; those tiers are dropped from this document. The desktop browser view survives solely as the **development bench**: the room is built and checked there because a headset on every iteration is impractical, but it is not a product and gets no polish of its own.
+
 ## The idea
 
 A white-cube gallery you walk through: the afterworkphotos as big prints in wood frames with a white paper gap (mat) inside the frame, hanging from the ceiling on thin transparent lines, singly or in groups of two or three. **One room per year.** An **elevator** in a corner of the room takes you between the years: its panel lists the years as floors, each with an overview strip of that year's images. A switchboard beside the elevator sets light/dark mode, the frame colour and a few other things. Where the headset can see the real room, the gallery *is* that room — frames hang on its actual walls, the elevator stands in one of its real corners; elsewhere it is a synthetic room of a chosen size.
@@ -16,27 +18,28 @@ A white-cube gallery you walk through: the afterworkphotos as big prints in wood
 | Android Chrome (ARCore phones) | `immersive-ar` | `plane-detection` (floor and walls, rougher) |
 | desktop browsers | none — plain 3D view | no |
 
-So "scan a small room" is only real on a Quest 3 (and roughly on an Android phone). On everything Apple the room is synthetic, and on the iPhone there is no immersion at all — it is a 3D view you look around in by dragging.
+So "scan a small room" is only real on a Quest 3. That is the device this gallery is for; the rest of the table explains why nothing else is a target.
 
 ## Approach (assumed — see questions)
 
-One new page, `gallery.html`, with its own `res/gallery.js` + `res/gallery.css`, built on **three.js** as a vendored ES module (`res/vendor/three.module.js`, ≈ 650 KB gzip ≈ 170 KB; no build step, no CDN — the site is self-hosted and cached hard). three.js has the WebXR session handling, plane/mesh detection helpers, shadow maps and controller/hand input built in; A-Frame would be quicker to scaffold but adds a component framework on top of the same three.js for a page that has five kinds of object.
+One new page, `gallery.html`, with its own `res/gallery.js` + `res/gallery.css`, built on **three.js** as a vendored ES module (`res/vendor/three.module.js` + `res/vendor/three.core.js`, ≈ 2 MB, gzip ≈ 500 KB; no build step, no CDN — the site is self-hosted and cached hard). three.js has the WebXR session handling, plane/mesh detection helpers, shadow maps and controller/hand input built in; A-Frame would be quicker to scaffold but adds a component framework on top of the same three.js for a page that has five kinds of object.
 
-Three tiers of the same page, by capability:
+Two modes of the same page, both on the Quest 3 / 3S:
 
-1. **3D view** (all devices, always available): the synthetic white cube, mouse-look + WASD on the desktop, drag-to-look + tap-to-walk on the phone. This is the base everyone gets and what the iPhone gets.
-2. **VR** (Quest, Vision Pro): `immersive-vr`, the same synthetic room, teleport by controller/hand pinch, the switchboard as a real panel in the room.
-3. **AR / real room** (Quest 3, Android): `immersive-ar` with `plane-detection`: the real walls are used as the walls, the real ceiling height as the ceiling; the frames hang on them; the wall colour of light/dark mode becomes a tint overlay since the real wall shows through (passthrough).
+1. **VR** — `immersive-vr`, the synthetic white cube, teleport by controller/hand pinch, the switchboard as a real panel in the room.
+2. **AR / real room** — `immersive-ar` with `plane-detection`: the real walls are used as the walls, the real ceiling height as the ceiling; the frames hang on them; the wall colour of light/dark mode becomes a tint overlay since the real wall shows through (passthrough).
 
-Tier 3 is the "scan": the headset's own room setup already knows the walls — the page does not scan, it *asks* for the planes and builds the room from them (`XRPlane` objects with polygon + orientation). That is the "relatively small, not too complex" room: convex-ish, walls as planes; a room the headset can't describe as planes falls back to tier 2.
+Mode 2 is the "scan": the headset's own room setup already knows the walls — the page does not scan, it *asks* for the planes and builds the room from them (`XRPlane` objects with polygon + orientation). That is the "relatively small, not too complex" room: convex-ish, walls as planes; a room the headset can't describe as planes falls back to mode 1.
+
+**The desktop view is the bench, not a mode.** Opened in a desktop browser, the page shows the synthetic room with mouse-look + WASD so the room, frames, light and hanging can be built and checked without a headset. It is the test harness for phase 1 and stays available afterwards for the same reason; it is not designed for, not linked, and gets no touch controls. A phone or tablet opening the page gets nothing intended.
 
 ## The room
 
 Synthetic room: floor W × D, height H (assumed defaults 6 × 4 × 3 m, settable). Walls off-white (`#f2f1ee`) in light mode, dark grey (`#1b1b1b`) in dark mode; floor pale concrete; ceiling white with a track of spots. There is no entrance door: you arrive **by the elevator**, which stands in a corner (≈ 1.2 × 1.2 m, doors opening into the room); you step out of it facing the room. The **switchboard** is on the wall immediately beside the elevator at 1.3 m height.
 
-Real room (tier 3): walls from planes; the elevator is placed in the real corner nearest the viewer's start position (where the headset was when the session began) — assumed; a "put it here" gesture can move it to another corner.
+Real room (mode 2): walls from planes; the elevator is placed in the real corner nearest the viewer's start position (where the headset was when the session began) — assumed; a "put it here" gesture can move it to another corner.
 
-**The elevator.** Inside: the desktop's two go-to knobs, made physical — a year knob under four digit drums and a print knob under a number/date window, the print shown beside them; twisting them picks a year and a print, and the ride starts when you let go. Also a panel with one button per year (floors), newest at the top; beside each year a small overview strip of that year's images (thumbnails, in order) so you see what hangs there before you go. Press a year and the elevator **switches rooms**: the doors close and open again on that year's room (a short dip and the floor indicator counting — one second, no more). The current year's button is lit. Going back is pressing another floor. The overview strip is the "years divider": in the 3D view it is also reachable as a DOM overlay (press `Y`).
+**The elevator.** Inside: the desktop's two go-to knobs, made physical — a year knob under four digit drums and a print knob under a number/date window, the print shown beside them; twisting them picks a year and a print, and the ride starts when you let go. Also a panel with one button per year (floors), newest at the top; beside each year a small overview strip of that year's images (thumbnails, in order) so you see what hangs there before you go. Press a year and the elevator **switches rooms**: the doors close and open again on that year's room (a short dip and the floor indicator counting — one second, no more). The current year's button is lit. Going back is pressing another floor. The overview strip is the "years divider": on the bench it is also reachable as a DOM overlay (press `Y`).
 
 ## The frames
 
@@ -69,7 +72,7 @@ The rule wants a judgement per photo ("architectural / big view" → single, "fu
 
 ## The switchboard
 
-A wall panel left of the door, ≈ 40 × 30 cm, physical-looking toggles and a few dials; in VR you point/pinch, in the 3D view it's also mirrored as a small DOM panel (keyboard/mouse). Settings, with the ones I'd include now and the rest as candidates:
+A wall panel left of the door, ≈ 40 × 30 cm, physical-looking toggles and a few dials; in VR you point/pinch; on the bench it's mirrored as a small DOM panel (keyboard/mouse). Settings, with the ones I'd include now and the rest as candidates:
 
 | setting | values | in v1? |
 |---|---|---|
@@ -82,7 +85,7 @@ A wall panel left of the door, ≈ 40 × 30 cm, physical-looking toggles and a f
 | Order | newest first / oldest first / a year | later |
 | Room size (synthetic only) | W × D × H | yes (hidden in AR) |
 | Spot warmth | 3000 K / 4000 K | later |
-| Movement (3D/VR) | teleport / smooth | yes (VR) |
+| Movement (VR) | teleport / smooth | yes |
 | Videos | play on approach / still frame | later |
 
 Settings persist in `localStorage`; the URL carries them too (`gallery.html?frame=black&mode=dark`) so a look can be shared.
@@ -90,23 +93,24 @@ Settings persist in `localStorage`; the URL carries them too (`gallery.html?fram
 ## Files and interfaces
 
 - `gallery.html` — page shell, loads the module; reached by URL only for now.
-- `res/gallery.js` — `Room` (synthetic or from planes), `Hang` (pieces along the walls, then centre rows; capacity from the perimeter), `Frame` (mesh factory: print + mat + frame + lines, three sizes), `Elevator` (corner cabin, year panel with overview strips, the room switch), `Switchboard` (panel + DOM mirror + settings model), `Walk` (input per tier), `Session` (WebXR feature negotiation: tries `immersive-ar` + `plane-detection`, then `immersive-vr`, then plain 3D).
+- `res/gallery.js` — `Room` (synthetic or from planes), `Hang` (pieces along the walls, then centre rows; capacity from the perimeter), `Frame` (mesh factory: print + mat + frame + lines, three sizes), `Elevator` (corner cabin, year panel with overview strips, the room switch), `Switchboard` (panel + DOM mirror + settings model), `Walk` (headset input; mouse + keys on the bench), `Session` (WebXR feature negotiation: tries `immersive-ar` + `plane-detection`, then `immersive-vr`; without WebXR the page is the bench).
 - `scripts/classify.py` (or a step in `ingest.sh`) — the vision-model pass writing `hang` into `photos.json`; `docs/hang-reasons.txt` with one line per photo for review.
 - `res/vendor/three.module.js` and the WebXR plane helpers — vendored, version pinned in a comment.
 - `photos.json` gains `hang` per photo; the main page ignores it.
 
 ## Phases (each usable on its own)
 
-0. **Curation** — the classification pass; `hang` in `photos.json`; Uli reviews the reasons file.
-1. **3D white cube on desktop** — one year-room, singles and grids with mat and wood, spots and shadows, walk with mouse/keys, DOM switchboard, the elevator as a corner cabin whose panel switches the year. This is where the look gets decided.
-2. **Phone 3D** — touch look/walk; same page.
-3. **VR** — `immersive-vr` on the Quest 3S; in-room switchboard and elevator panel; teleport.
-4. **Real room** — `immersive-ar` + `plane-detection` on the Quest 3S; frames on real walls, centre rows down the real room; the elevator in the nearest real corner.
-5. **Polish** — labels, videos on approach, wood/mat textures, 2000 px textures, the ingest-time classification.
+0. **Curation** — the classification pass; `hang` in `photos.json`; Uli reviews the reasons file. *Done 2026-08-28 (branch `vr-view`).*
+1. **The white cube on the bench** — one year-room, singles and grids with mat and wood, spots and shadows, walk with mouse/keys, DOM switchboard, the elevator as a corner cabin whose panel switches the year. Built and checked in a desktop browser; this is where the look gets decided.
+2. **VR** — `immersive-vr` on the Quest 3S; in-room switchboard and elevator panel; teleport.
+3. **Real room** — `immersive-ar` + `plane-detection` on the Quest 3S; frames on real walls, centre rows down the real room; the elevator in the nearest real corner.
+4. **Polish** — labels, videos on approach, wood/mat textures, 2000 px textures, the ingest-time classification.
+
+*(A former phase 2, "Phone 3D" with touch controls, was dropped on 2026-08-28: the gallery is for the headset only.)*
 
 ## Open questions (please answer before phase 1)
 
-1. **Devices** — *answered*: a Quest 3S is available for testing, so all three tiers apply; the real-room tier is developed and tested on it. Apple devices get tier 1 (iPhone/iPad/Mac) — no Vision Pro.
+1. **Devices** — *answered, then narrowed 2026-08-28*: the Quest 3 / 3S is the only device. Both headset modes (VR, real room) are developed and tested on it. No phone, no tablet, no Vision Pro; a desktop browser is the development bench only.
 2. **Dependency** — *answered*: vendored three.js, pinned, loaded only by `gallery.html`.
 3. **Rooms** — *answered*: one room per year; an elevator in a corner (not a door) switches years, with an overview strip per year on its panel; a full room hangs prints denser and then free in the middle of the room.
 4. **Grouping**: consecutive-day runs hang together (my assumption), or groups by month, or purely visual (alternate 1/2/3)?

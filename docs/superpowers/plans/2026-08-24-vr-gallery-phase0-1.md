@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Every photo carries a `hang` judgement (single or group), and `gallery.html` renders a walkable 3D white-cube year-room with framed prints, an elevator, and a settings panel — on any desktop browser, no XR yet.
+**Goal:** Every photo carries a `hang` judgement (single or group), and `gallery.html` renders a walkable 3D white-cube year-room with framed prints, an elevator, and a settings panel — in a desktop browser as the development bench, no XR yet. The product is the Quest 3 / 3S (phases 2–3); nothing here targets a phone or tablet.
 
 **Architecture:** A separate page (`gallery.html` + `res/gallery.js` + `res/gallery.css`) built on a vendored three.js ES module; the main page is untouched except nothing (the link stays hidden). The gallery reads the same `photos.json`. One room exists at a time (a year); the elevator rebuilds it. Modules inside `gallery.js`: `Room`, `Frame`, `Hang`, `Elevator`, `Switchboard`, `Walk` — plain objects/functions in one file, split only if it grows past ~1200 lines.
 
@@ -114,7 +114,7 @@ git add scripts/classify.py photos.json docs/hang-reasons.txt && git commit -m "
 ### Task 0.2: Vendor three.js and the page shell
 
 **Files:**
-- Create: `res/vendor/three.module.js` (pinned build from npm, e.g. three@0.180.0 `build/three.module.js`, MIT — record the exact version in a comment at the top of `gallery.js`)
+- Create: `res/vendor/three.module.js` **and** `res/vendor/three.core.js` (three@0.180.0, MIT — since r165 `three.module.js` is a shim importing `./three.core.js`, so both are needed; record the version in a comment at the top of `gallery.js`)
 - Create: `gallery.html`, `res/gallery.js`, `res/gallery.css`
 
 **Interfaces:**
@@ -280,6 +280,8 @@ Expected: `count` ≥ 1 per piece of 2017 (31 photos → mix of 90s, 60s, grids)
 - [ ] **Step 3:** Document the gallery in `docs/details.md` (a section: what exists after phase 1, the harness handle `window.G`, the settings, the vendored three.js). Note in *Known issues*: phases 2–5 pending, their plans to be written on top of this code.
 - [ ] **Step 4:** Commit; push **only on Uli's word** (the page is reachable by URL once pushed).
 
-## Phases 2–5
+## Phases 2–4
 
-Separate plan documents, written when Phase 1 stands: 2 — phone 3D input; 3 — WebXR `immersive-vr` (Quest 3S), in-world switchboard + elevator knobs, teleport; 4 — `immersive-ar` + plane detection, real walls, elevator in the nearest real corner; 5 — polish (2000 px textures under `img/large/`, videos on approach, ingest-time classification).
+Separate plan documents, written when Phase 1 stands: 2 — WebXR `immersive-vr` (Quest 3S), in-world switchboard + elevator knobs, teleport; 3 — `immersive-ar` + plane detection, real walls, elevator in the nearest real corner; 4 — polish (2000 px textures under `img/large/`, videos on approach, ingest-time classification).
+
+Scope note (2026-08-28): the Quest 3 / 3S is the only device. The desktop walk built in Phase 1 is the development bench, not a product — no phone or tablet tier, no touch controls; the former "phone 3D" phase is dropped.
