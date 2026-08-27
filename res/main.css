@@ -76,8 +76,56 @@ h1.title {
 	z-index: 1000;
 }
 
+.titlebox {
+	display: block;
+	overflow: hidden;
+}
+
 h1.title:hover {
 	transition: opacity 0.9s ease-out;
+	opacity: 1;
+}
+
+/* On the wall the title is a line with two ends: what the visitor keeps at
+   the left, the name of the place at the right. They share the line, so
+   they share its baseline — nothing is computed and nothing measured. The
+   words keep their own box (the one fitTitle fits them to) and their own
+   dimness, so the mark beside them can have its own. */
+html:not(.deck) h1.title {
+	left: var(--side);
+	width: auto;
+	/* the line sits in the middle of the band above the prints, so it has
+	   as much air over it as under it — the band is --wall-top, the same
+	   variable the row of prints starts at */
+	height: var(--wall-top);
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	opacity: 1;
+	overflow: visible;
+}
+
+html:not(.deck) .titlerow {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 1.5em;
+}
+
+/* the words keep the box fitTitle fits them to — inside the row, where the
+   basis is a width; the h1 around it is a column and would read it as a
+   height */
+html:not(.deck) .titlerow > .titlebox {
+	flex: 0 0 min(92%, 340px);
+}
+
+html:not(.deck) .titlebox {
+	opacity: 0.06;
+	transition: opacity 0.9s ease-out;
+}
+
+html:not(.deck) h1.title:hover .titlebox {
 	opacity: 1;
 }
 
@@ -198,6 +246,7 @@ section {
 	align-items: flex-start;
 	justify-content: center;
 	gap: var(--gap);
+	justify-content: flex-start;
 	padding: 3% var(--side);
 	padding-top: var(--wall-top);
 	box-sizing: border-box;
@@ -217,7 +266,21 @@ html.map-on {
    stay where they are */
 html.map-on section {
 	padding-left: calc(var(--side) + var(--map-grown) + 32px + var(--towns-w) + var(--gap) * 0.6);
-	justify-content: flex-end;
+}
+
+/* A print keeps its column's width whether or not the row is full: the
+   oldest print is alone on the last screen, and it should hang the size of
+   all the others with the second place simply left empty. */
+html:not(.deck) .main[data-per-row="1"] div.awbox {
+	flex: 0 0 100%;
+}
+
+html:not(.deck) .main[data-per-row="2"] div.awbox {
+	flex: 0 0 calc((100% - var(--gap)) / 2);
+}
+
+html:not(.deck) .main[data-per-row="3"] div.awbox {
+	flex: 0 0 calc((100% - 2 * var(--gap)) / 3);
 }
 
 /* each screen is exactly one viewport wide (scoped off the deck: its
@@ -231,6 +294,7 @@ html:not(.deck) section {
    them (main.js sets data-per-row) — but never taller than the window */
 div.awbox {
 	flex: 1 1 0;
+	min-width: 0;
 	/* as tall as the window allows: the wall's top gap, the caption's two
 	   lines and the row's own padding are what a print leaves free */
 	max-width: calc(var(--app-height) - var(--wall-room));
@@ -536,11 +600,7 @@ html.map-on .towns {
    bold, the number behind it is not. Quiet like the rest of the machinery
    until the mouse is on it; nothing at all while nothing is kept. ── */
 .favmark {
-	position: fixed;
-	top: 0;
-	left: var(--side);
-	padding: var(--tp) 0;
-	z-index: 1000;
+	flex: none;
 	display: flex;
 	gap: 0.45em;
 	align-items: baseline;

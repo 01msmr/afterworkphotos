@@ -116,11 +116,12 @@ fetch('photos.json', { cache: 'no-cache' }).then(r => r.json()).then(data => {
 const title = document.querySelector('h1.title');
 
 function fitTitle() {
+  const box = title.querySelector('.titlebox') || title;
   let lo = 1, hi = 200;
   while (hi - lo > 0.5) {
     const mid = (lo + hi) / 2;
     title.style.fontSize = mid + 'px';
-    if (title.scrollWidth <= title.clientWidth) lo = mid;
+    if (box.scrollWidth <= box.clientWidth) lo = mid;
     else hi = mid;
   }
   title.style.fontSize = lo + 'px';
@@ -1064,7 +1065,14 @@ if (DECK) {
   hashFavs().forEach(n => FAVS.add(n));      // a bookmark brings its own along
   const favMark = document.createElement('div');
   favMark.className = 'favmark';
-  document.body.appendChild(favMark);
+  // the title's line is where it stands: one row, the mark at its left end
+  // and the name of the place at its right, sharing the row's baseline
+  const titleRow = document.createElement('div');
+  titleRow.className = 'titlerow';
+  titleRow.appendChild(favMark);
+  titleRow.appendChild(title.querySelector('.titlebox'));
+  title.appendChild(titleRow);
+  fitTitle();                    // the words are in their real box now
   function drawFavs() {
     favMark.innerHTML = FAVS.size ? `<b>favs</b><span>${FAVS.size}</span>` : '';
     favMark.classList.toggle('some', FAVS.size > 0);
@@ -1076,7 +1084,7 @@ if (DECK) {
     drawFavs();
   }
   function starPrint() {
-    const i = selected >= 0 ? selected : lastMouseIndex;
+    const i = station === 1 ? goIdx : selected >= 0 ? selected : lastMouseIndex;
     const box = boxes[i];
     if (!box) return;
     const n = +box.dataset.n;
@@ -1108,7 +1116,7 @@ if (DECK) {
     print: ['on the wall', [[['\u23ce'], 'next'], [['\u21e7', '\u23ce'], 'back'], [['0\u20139'], 'number'], [['f'], 'favorite']]],
     knobs: ['at the knobs', [[['\u2191', '\u2193'], 'year'], [['\u2190', '\u2192'], 'print'], [['\u23ce'], 'go']]],
     map: ['on the map', [[['\u2190', '\u2191', '\u2193', '\u2192'], 'towns'], [['\u23ce'], 'visit'], [['\u21e7', '\u23ce'], 'back']]],
-    favs: ['at the favs', [[['\u2190', '\u2191', '\u2193', '\u2192'], 'walk'], [['f'], 'drop']]],
+    favs: ['at the favs', [[['\u2190', '\u2191', '\u2193', '\u2192'], 'walk'], [['\u23ce'], 'next'], [['f'], 'drop']]],
     keys: ['anywhere', [[['m'], 'map'], [['n'], 'knobs'], [['b'], 'wall']]]
   };
   const hints = document.createElement('div');
@@ -1331,8 +1339,7 @@ if (DECK) {
     // the wall's own station shows the whole guide — twice a day, no more;
     // the knobs and the map show their group while the round is new
     if (station === 0) {
-      drawFavs();
-  if (guideLeft() > 0) { showHints(favGroups()); spendGuide(); }
+      if (guideLeft() > 0) { showHints(favGroups()); spendGuide(); }
       else showHints([]);
     } else if (station === 3) {
       showHints(['favs']);                    // its own stop always says its keys
@@ -1398,9 +1405,11 @@ if (DECK) {
   }, { passive: true });
   showGoto();
 
+  drawFavs();                 // whatever the address and the store brought along
+
   // arriving at the wall is arriving at the first station: the guide
   // greets whoever has not had it twice today
-  if (guideLeft() > 0) { showHints(['print', 'knobs', 'map', 'keys']); spendGuide(); }
+  if (guideLeft() > 0) { showHints(favGroups()); spendGuide(); }
 
   // a deep link opens on its print, instantly and lit
   const startN = targetN();
@@ -1511,6 +1520,13 @@ if (DECK) {
 
     // station 4: the wall
     // if (enter && station === 4) { e.preventDefault(); toggleWall(); return; }
+
+    // standing at the favs, every step stays among them
+    if (enter && station === 3) {
+      e.preventDefault();
+      goFav(e.shiftKey ? -1 : 1);
+      return;
+    }
 
     if (enter && station === 2) {
       e.preventDefault();
