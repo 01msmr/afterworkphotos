@@ -1900,11 +1900,13 @@ html.deck {
 		left: 0;
 		right: 0;
 		bottom: 100%;
-		margin-bottom: 3px;
 		opacity: 0.5;   /* context, behind the number; bold stays — the outline needs the weight */
 		text-align: center;
-		font: 700 24px/1 "Helvetica Neue", Helvetica, Arial, sans-serif;
-		letter-spacing: 0.08em;
+		/* four figures set to exactly the print's width, no spacing added:
+		   Helvetica Neue bold figures are 0.556 em, 4 × 0.556 × 32.4 = 72 */
+		font: 700 32.4px/1 "Helvetica Neue", Helvetica, Arial, sans-serif;
+		letter-spacing: 0;
+		margin-bottom: 2px;
 		color: var(--number);
 		-webkit-text-stroke: 1px var(--number-edge);
 		paint-order: stroke fill;

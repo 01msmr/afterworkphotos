@@ -531,12 +531,11 @@ if (DECK) {
   }
 
   // The card at the finger's height; the whole label kept on screen
-  // The label stands clear of the year marks (labelRight, set from the
-  // widest mark) — and clear of the thumb: a thumb pad is a good 50px
-  // wide, so the print's edge keeps THUMB px from the touch point,
-  // whichever of the two is further from the edge. On the strip the
-  // print is sticky beside the rail; in the finer gear it jumps GEAR_JUMP
-  // further in and grows a fifth — the gear made visible.
+  // The label stands clear of the rail (labelRight) and of the thumb on
+  // it: a thumb pad is a good 50px wide, so beside the rail the print
+  // keeps THUMB px from the strip. In the finer gear it jumps GEAR_JUMP
+  // further in and grows a fifth — the gear made visible. Both places
+  // are fixed; the print never follows the finger's x.
   const THUMB = 44, GEAR_JUMP = 90, STRIP_W = 28;   // the strip's width, as in the CSS
   function placeLabel(clientX, clientY, rate = 1) {
     const r = strip.getBoundingClientRect();
@@ -552,9 +551,10 @@ if (DECK) {
     // on the strip a fixed distance — the strip's width plus the thumb's
     // room — so the print stands still whatever the finger does on the
     // rail; in the finer gear it keeps clear of the finger wherever it is
-    const fromEdge = rate < 1
-      ? Math.max(labelRight + GEAR_JUMP, (side > 0 ? window.innerWidth - clientX : clientX) + THUMB)
-      : Math.max(labelRight, STRIP_W + THUMB);
+    // two places, both fixed: beside the rail, and GEAR_JUMP further in
+    // for the finer gear — the print jumps between them and never
+    // follows the finger's x
+    const fromEdge = rate < 1 ? labelRight + GEAR_JUMP : Math.max(labelRight, STRIP_W + THUMB);
     if (side > 0) { scrubLabel.style.left = 'auto'; scrubLabel.style.right = fromEdge + 'px'; }
     else { scrubLabel.style.right = 'auto'; scrubLabel.style.left = fromEdge + 'px'; }
   }
@@ -608,13 +608,12 @@ if (DECK) {
     restTimer = setTimeout(() => warmUp(photoAt(scrubIndex).file), 200);
   }
 
-  // A touch on the strip only arms it; it scrubs once the finger has been
-  // down for ARM_MS. A finger that lifts before that, or heads sideways
-  // off the strip (a swipe begun at the edge), was never a scrub — that is
-  // how the strip tells a stray touch from the real thing. The position is
-  // taken where the finger is when the time is up, so a hand that landed
-  // and moved a little starts from there.
-  const ARM_MS = 120, ARM_SIDEWAYS = 20;
+  // A touch on the strip only arms it; it scrubs once the finger has held
+  // still for ARM_MS. A finger that lifts before that, or moves (a swipe
+  // begun at the edge, a brush along it), was never a scrub — that is how
+  // the strip tells a stray touch from the real thing. Scrubbing begins
+  // where the finger rests when the time is up.
+  const ARM_MS = 200, ARM_MOVE = 8;
   let armTimer = 0, armX = 0, armY = 0, lastTouch = null;
 
   function engage() {
@@ -642,8 +641,8 @@ if (DECK) {
   el.addEventListener('touchmove', (e) => {
     lastTouch = e.touches[0];
     if (!scrubbing) {
-      // armed: a sideways move is a swipe, not a scrub
-      if (armTimer && Math.abs(lastTouch.clientX - armX) > ARM_SIDEWAYS) disarm();
+      // armed: a finger that moves before the time is up is not scrubbing
+      if (armTimer && Math.hypot(lastTouch.clientX - armX, lastTouch.clientY - armY) > ARM_MOVE) disarm();
       return;
     }
     e.preventDefault();
