@@ -202,46 +202,42 @@ const FRAME_COLOURS = { oak: 0xb08d57, walnut: 0x5b4633, black: 0x171717, white:
 
 // Materials are shared: one per frame colour, one mat, one line. Switching
 // the frame colour (task 1.6) recolours the shared material once.
-// Wood grain, drawn once: long streaks along the bar with a slight wobble
-// and now and then a darker line, in greys so the frame colour tints it.
-// The bars' UVs are in metres (ExtrudeGeometry), so the tile repeats
-// every quarter metre. A roughness map from the same grain lets the light
-// catch the ridges.
+// Wood grain, drawn once, in greys so the frame colour tints it: value
+// noise in several octaves across the bar, stretched along it with a slow
+// drift, so streaks of different widths run the length; low contrast (a
+// finished hardwood, not print); the same canvas as a faint bump so the
+// light catches the grain, and as roughness kept high — satin, not gloss.
+// The bars' UVs are in metres (ExtrudeGeometry): a tile every 30 cm.
 function woodTextures() {
-	const W = 256, H = 256;
+	const W = 512, H = 512;
 	const c = document.createElement('canvas'); c.width = W; c.height = H;
 	const g = c.getContext('2d');
 	const img = g.createImageData(W, H);
-	// smooth 1-D noise across the bar (x) with a slow wobble along it (y)
-	const rnd = n => { const a = []; for (let i = 0; i < n; i++) a.push(Math.random()); return a; };
-	const r1 = rnd(32), r2 = rnd(16), r3 = rnd(8);
-	const smooth = (arr, t) => { const n = arr.length, i = Math.floor(t * n) % n, j = (i + 1) % n, f = t * n - Math.floor(t * n); const u = f * f * (3 - 2 * f); return arr[i] * (1 - u) + arr[j] * u; };
+	const table = (n) => { const a = new Float32Array(n); for (let i = 0; i < n; i++) a[i] = Math.random(); return a; };
+	const oct = [table(24), table(64), table(160), table(400)];       // coarse to fine across the bar
+	const drift = table(12), mottle = table(48);
+	const val = (arr, t) => { const n = arr.length, x = ((t % 1) + 1) % 1 * n, i = Math.floor(x), f = x - i, u = f * f * (3 - 2 * f); return arr[i % n] * (1 - u) + arr[(i + 1) % n] * u; };
 	for (let y = 0; y < H; y++) {
-		const wob = 0.035 * Math.sin(y / H * Math.PI * 2 * 3) + 0.02 * smooth(r3, y / H);
+		const yy = y / H;
+		const d = (val(drift, yy) - 0.5) * 0.06 + (val(drift, yy * 3) - 0.5) * 0.015;   // the streaks wander a little
 		for (let x = 0; x < W; x++) {
-			const t = (x / W + wob + 1) % 1;
-			const grain = 0.55 * smooth(r1, t) + 0.3 * smooth(r2, t * 2 % 1) + 0.15 * Math.sin(t * Math.PI * 2 * 9);
-			const line = Math.pow(Math.max(0, Math.sin(t * Math.PI * 2 * 17 + smooth(r2, y / H) * 4)), 30) * 0.35;   // the odd dark line
-			let l = 0.78 + 0.22 * grain - line;
-			l = Math.max(0.55, Math.min(1, l));
+			const t = x / W + d;
+			let n = 0.45 * val(oct[0], t) + 0.28 * val(oct[1], t) + 0.17 * val(oct[2], t) + 0.10 * val(oct[3], t);
+			n += 0.12 * (val(mottle, t * 2 + yy * 0.7) - 0.5);                           // soft mottling, not stripes
+			const l = 0.86 + (n - 0.5) * 0.22;                                          // low contrast around a light mid
 			const i = (y * W + x) * 4;
-			img.data[i] = img.data[i + 1] = img.data[i + 2] = Math.round(l * 255); img.data[i + 3] = 255;
+			const v = Math.round(Math.max(0.6, Math.min(1, l)) * 255);
+			img.data[i] = img.data[i + 1] = img.data[i + 2] = v; img.data[i + 3] = 255;
 		}
 	}
 	g.putImageData(img, 0, 0);
-	const map = new THREE.CanvasTexture(c);
-	map.wrapS = map.wrapT = THREE.RepeatWrapping;
-	map.repeat.set(4, 4);
-	map.colorSpace = THREE.SRGBColorSpace;
-	const rough = new THREE.CanvasTexture(c);
-	rough.wrapS = rough.wrapT = THREE.RepeatWrapping;
-	rough.repeat.set(4, 4);
-	return { map, rough };
+	const make = (srgb) => { const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(3.3, 3.3); t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy()); if (srgb) t.colorSpace = THREE.SRGBColorSpace; return t; };
+	return { map: make(true), rough: make(false), bump: make(false) };
 }
 const wood = woodTextures();
 
 const materials = {
-	frame: new THREE.MeshStandardMaterial({ color: FRAME_COLOURS[state.settings.frame], map: wood.map, roughnessMap: wood.rough, roughness: 0.75, metalness: 0 }),
+	frame: new THREE.MeshStandardMaterial({ color: FRAME_COLOURS[state.settings.frame], map: wood.map, roughnessMap: wood.rough, roughness: 0.85, bumpMap: wood.bump, bumpScale: 0.0006, metalness: 0 }),
 	mat:   new THREE.MeshStandardMaterial({ color: MAT_COLOURS[state.settings.mat], roughness: 0.95 }),
 	line:  new THREE.MeshPhysicalMaterial({ color: 0xffffff, transmission: 0.6, roughness: 0.1, thickness: 0.001 }),
 };
@@ -742,6 +738,8 @@ function hangRoom(key) {
 const DOOR = { w: 0.7, h: 2.1, thick: 0.03 };            // 0.7 in a 1.5 m front: an open panel stays behind its jamb (Uli)
 const CABIN_WALL = 0.08;
 const DISPLAY = { w: 0.44, h: 0.11 };                      // the floor display above the door
+const DOOR_T = 1800;                                       // ms for the doors to open or close — the length of their sound
+const BELL_GAP = 800;                                      // ms between the bell and the doors
 const BUTTON = { r: 0.02, rise: 0.008, pitch: 0.05 };     // radius, how far it stands proud, spacing
 const PANEL = { low: 1.0, high: 1.6, tilt: 22 * Math.PI / 180, cols: 8 };   // between hand and eye, turned up toward the eye, side by side
 
@@ -1081,7 +1079,13 @@ const elevator = {
 	// A call: the button lights, the lift is heard coming for a few seconds
 	// (Uli: a humming while waiting outside), then the bell and the doors.
 	call() {
-		if (this.ride || this.doorAnim || this.coming || this.open === 1) return;
+		if (this.ride || this.coming || this.open === 1) return;
+		if (this.doorAnim) {                                  // closing: the lift is here, the doors come back
+			if (this.doorAnim.to === 1) return;
+			this.doorAnim = { from: this.open, to: 1, t0: performance.now(), dur: DOOR_T * (1 - this.open) };
+			lift.slide();
+			return;
+		}
 		this.coming = { t0: performance.now(), wait: 4500 };
 		lift.hum(this.coming.wait / 1000);
 		this.show(roomLabel(roomByKey(state.roomKey)), '\u25b2');
@@ -1090,15 +1094,16 @@ const elevator = {
 
 	stepIdle(now) {
 		if (this.coming) {
-			if (now - this.coming.t0 < this.coming.wait) return;
+			const c = this.coming;
+			if (now - c.t0 < c.wait) return;
+			if (!c.rang) { c.rang = true; c.t0 = now + BELL_GAP - c.wait; this.show(roomLabel(roomByKey(state.roomKey)), ''); lift.bell(); return; }
 			this.coming = null;
 			this.doorAnim = { from: 0, to: 1, t0: now };
-			this.show(roomLabel(roomByKey(state.roomKey)), '');
-			lift.bell(); lift.slide();
+			lift.slide();
 			return;
 		}
 		if (this.doorAnim) {
-			const a = this.doorAnim, f = Math.max(0, Math.min(1, (now - a.t0) / 500));
+			const a = this.doorAnim, f = Math.max(0, Math.min(1, (now - a.t0) / (a.dur || DOOR_T)));
 			this.open = a.from + (a.to - a.from) * f;
 			this.setDoors(this.open);
 			if (f >= 1) {
@@ -1122,7 +1127,7 @@ const elevator = {
 		if (key === state.roomKey) return;
 		if (this.ride && !this.ride.ready) return;         // travelling: no
 		let fromOpen = 1;
-		if (this.ride) fromOpen = Math.min(1, (performance.now() - this.ride.tOpen) / 500);   // caught while opening
+		if (this.ride) fromOpen = Math.max(0, Math.min(1, (performance.now() - this.ride.tOpen) / DOOR_T));   // caught while opening
 		else if (this.doorAnim || this.coming) fromOpen = this.open;
 		this.doorAnim = null; this.coming = null; this.open = 1; this.leftAt = null;
 		lift.slide();
@@ -1133,7 +1138,7 @@ const elevator = {
 		const path = list.slice(Math.min(from, to), Math.max(from, to) + 1);
 		if (to < from) path.reverse();
 		// the doors close from where they stand: back-date t0 by what is already shut
-		this.ride = { key, t0: performance.now() - (1 - fromOpen) * 500, hung: false, floors, up: to < from, path,
+		this.ride = { key, t0: performance.now() - (1 - fromOpen) * DOOR_T, hung: false, floors, up: to < from, path,
 		              travel: Math.max(6, Math.min(9, 2.5 + 0.35 * floors)) };   // long enough for the run to be heard before the stop
 		placeBody(this.origin.x, this.origin.z, Math.PI / 2);   // into the cabin, facing the doors
 	},
@@ -1147,7 +1152,8 @@ const elevator = {
 		if (!this.ride) { this.stepIdle(now); return; }
 		const r = this.ride;
 		const t = (now - r.t0) / 1000;
-		if (t < 0.5) { this.setDoors(1 - t / 0.5); return; }
+		const close = DOOR_T / 1000;
+		if (t < close) { this.setDoors(1 - t / close); return; }
 		if (!r.hung) {
 			lift.run(r.travel);
 			hangRoom(r.key);                       // may rebuild the room and this cabin
@@ -1158,7 +1164,7 @@ const elevator = {
 			r.photos = roomByKey(r.key).specs.flatMap(sp => sp.photos);
 			return;
 		}
-		const tt = t - 0.5;
+		const tt = t - close;
 		if (tt < r.travel) {
 			// the floor passed: the path's index by the fraction of the travel
 			const i = Math.min(r.path.length - 1, Math.floor(tt / r.travel * r.path.length));
@@ -1169,12 +1175,14 @@ const elevator = {
 			const loaded = r.photos.every(p => textureCache.get(p.n)?.image);
 			if (!loaded && t < 10) return;         // wait; but never lock a visitor in
 			r.ready = true;
-			r.tOpen = now;
+			r.tOpen = now + BELL_GAP;              // the bell first, the doors after a breath
 			this.show(roomLabel(roomByKey(r.key)), '');
-			lift.bell(); lift.slide();
+			lift.bell();
 			return;
 		}
-		const o = (now - r.tOpen) / 500;
+		if (now < r.tOpen) return;
+		if (!r.sliding) { r.sliding = true; lift.slide(); }
+		const o = (now - r.tOpen) / DOOR_T;
 		if (o < 1) { this.setDoors(o); return; }
 		this.setDoors(1);
 		this.open = 1; this.leftAt = null;
@@ -1468,8 +1476,41 @@ async function offerVR() {
 }
 offerVR();
 
+// Hands (Uli: by hand instead of the trigger, as an alternative): with
+// hand tracking on, the tip of an index finger touching a button, the
+// call button or a label presses it — one press per touch, then the
+// finger has to leave and come back.
+const hands = [0, 1].map(i => { const h = renderer.xr.getHand(i); h.userData.touching = null; rig.add(h); return h; });
+const TOUCH = 0.022;
+const tip = new THREE.Vector3();
+function stepHands() {
+	const pieces = scene.getObjectByName('pieces');
+	for (const h of hands) {
+		const j = h.joints && h.joints['index-finger-tip'];
+		if (!j || !j.visible) { h.userData.touching = null; continue; }
+		j.getWorldPosition(tip);
+		let hit = null;
+		for (const b of [...elevator.buttons, ...elevator.callButtons]) {
+			if (b.getWorldPosition(new THREE.Vector3()).distanceTo(tip) < TOUCH + BUTTON.r) { hit = b; break; }
+		}
+		if (!hit && pieces) pieces.traverse(o => {
+			if (hit || o.name !== 'label' || !o.visible) return;
+			const c = o.getWorldPosition(new THREE.Vector3());
+			const half = Math.max(o.geometry.parameters.width, o.geometry.parameters.height) * o.scale.x / 2;
+			if (c.distanceTo(tip) < half + TOUCH) hit = o;
+		});
+		if (hit && h.userData.touching !== hit) {
+			h.userData.touching = hit;
+			const rc = new THREE.Raycaster();
+			const dir = hit.getWorldPosition(new THREE.Vector3()).sub(tip).normalize();
+			rc.set(tip.clone().addScaledVector(dir, -0.05), dir);
+			pressAlong(rc, 0.3);
+		} else if (!hit) h.userData.touching = null;
+	}
+}
+
 // In VR you walk by feet (Uli); nothing moves the body but the elevator.
-function stepXR(dt) {}
+function stepXR(dt) { stepHands(); }
 
 // ---------------------------------------------------------------------------
 // Boot
