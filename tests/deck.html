@@ -149,7 +149,7 @@ async function run() {
 	say(hint.textContent === '← finer' && !hint.hidden, 'last gear: the same hint', hint.textContent);
 	S('touchmove', r.left - 150, r.top + r.height * 0.4);
 	await sleep(60);
-	say(hint.textContent === 'finer →', 'the arrow follows the finger: moving back right it points right', hint.textContent);
+	say(hint.textContent === 'coarser →', 'moving back towards the strip: coarser →', hint.textContent);
 	S('touchend', r.left - 200, r.top + r.height * 0.4);
 	await settled();
 	say(!mover(), 'the scrubber cut landed');

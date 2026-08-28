@@ -592,7 +592,9 @@ if (DECK) {
     // finger is moving — at rest, the way to a finer gear
     hint.hidden = !gearsOn || (rate === 1 && count === 1);
     if (clientX !== lastX) hintDir = clientX < lastX ? -1 : 1;
-    hint.textContent = hintDir < 0 ? '← finer' : 'finer →';
+    // towards the middle the gears get finer, back towards the strip coarser
+    const word = hintDir === -side ? 'finer' : 'coarser';
+    hint.textContent = hintDir < 0 ? '← ' + word : word + ' →';
     lastX = clientX;
     placeLabel(clientX, clientY);
     // the finger resting on a photo for a moment is enough to fetch it
