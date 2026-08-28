@@ -1877,17 +1877,10 @@ html.deck {
 	}
 
 	.scrub-hint {
-		font: 600 10px/1 "Helvetica Neue", Helvetica, Arial, sans-serif;
+		font: 600 11px/1 "Helvetica Neue", Helvetica, Arial, sans-serif;
 		letter-spacing: 0.03em;
 		color: var(--ink);
-		opacity: 0.6;
 		margin-top: 2px;
-	}
-
-	/* A gear in: the hint becomes a chip on paper, ink at full strength */
-	.scrub-hint.gear {
-		opacity: 1;
-		font-size: 11px;
 		padding: 3px 6px;
 		background: var(--paper);
 		border-radius: 4px;
