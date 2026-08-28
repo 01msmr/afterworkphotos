@@ -202,45 +202,72 @@ const FRAME_COLOURS = { oak: 0xb08d57, walnut: 0x5b4633, black: 0x171717, white:
 
 // Materials are shared: one per frame colour, one mat, one line. Switching
 // the frame colour (task 1.6) recolours the shared material once.
-// Wood grain, drawn once, in greys so the frame colour tints it: value
-// noise in several octaves across the bar, stretched along it with a slow
-// drift, so streaks of different widths run the length; low contrast (a
-// finished hardwood, not print); the same canvas as a faint bump so the
-// light catches the grain, and as roughness kept high — satin, not gloss.
-// The bars' UVs are in metres (ExtrudeGeometry): a tile every 30 cm.
-function woodTextures() {
-	const W = 512, H = 512;
-	const c = document.createElement('canvas'); c.width = W; c.height = H;
-	const g = c.getContext('2d');
-	const img = g.createImageData(W, H);
-	const table = (n) => { const a = new Float32Array(n); for (let i = 0; i < n; i++) a[i] = Math.random(); return a; };
-	const oct = [table(24), table(64), table(160), table(400)];       // coarse to fine across the bar
-	const drift = table(12), mottle = table(48);
-	const val = (arr, t) => { const n = arr.length, x = ((t % 1) + 1) % 1 * n, i = Math.floor(x), f = x - i, u = f * f * (3 - 2 * f); return arr[i % n] * (1 - u) + arr[(i + 1) % n] * u; };
-	for (let y = 0; y < H; y++) {
-		const yy = y / H;
-		const d = (val(drift, yy) - 0.5) * 0.06 + (val(drift, yy * 3) - 0.5) * 0.015;   // the streaks wander a little
-		for (let x = 0; x < W; x++) {
-			const t = x / W + d;
-			let n = 0.45 * val(oct[0], t) + 0.28 * val(oct[1], t) + 0.17 * val(oct[2], t) + 0.10 * val(oct[3], t);
-			n += 0.12 * (val(mottle, t * 2 + yy * 0.7) - 0.5);                           // soft mottling, not stripes
-			const l = 0.86 + (n - 0.5) * 0.22;                                          // low contrast around a light mid
-			const i = (y * W + x) * 4;
-			const v = Math.round(Math.max(0.6, Math.min(1, l)) * 255);
-			img.data[i] = img.data[i + 1] = img.data[i + 2] = v; img.data[i + 3] = 255;
-		}
-	}
-	g.putImageData(img, 0, 0);
-	const make = (srgb) => { const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(3.3, 3.3); t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy()); if (srgb) t.colorSpace = THREE.SRGBColorSpace; return t; };
-	return { map: make(true), rough: make(false), bump: make(false) };
+// Photographed textures (ambientCG, CC0 — res/textures/LICENSE.txt): a
+// light oak and a dark hardwood for the frames, a clean shiny steel for
+// the lift. Each is colour, roughness and normal; the metal has its
+// metalness too. The frame bars' UVs are in metres (ExtrudeGeometry), so
+// a tile every half metre; the cabin's boxes stretch one tile per face.
+const texLoader = new THREE.TextureLoader();
+function tex(file, srgb, repeat) {
+	const t = texLoader.load('/res/textures/' + file);
+	t.wrapS = t.wrapT = THREE.RepeatWrapping;
+	t.repeat.set(repeat, repeat);
+	t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+	if (srgb) t.colorSpace = THREE.SRGBColorSpace;
+	return t;
 }
-const wood = woodTextures();
+const WOOD = {
+	light: { map: tex('wood-light-color.jpg', true, 2), roughnessMap: tex('wood-light-rough.jpg', false, 2), normalMap: tex('wood-light-normal.jpg', false, 2) },
+	dark:  { map: tex('wood-dark-color.jpg', true, 2),  roughnessMap: tex('wood-dark-rough.jpg', false, 2),  normalMap: tex('wood-dark-normal.jpg', false, 2) },
+};
+// The frame colours as a wood and a tint over it: oak and walnut are the
+// woods themselves; black and white are the light wood stained.
+const FRAME_LOOKS = {
+	oak:    { wood: 'light', tint: 0xffffff },
+	walnut: { wood: 'dark',  tint: 0xffffff },
+	black:  { wood: 'light', tint: 0x2a2724 },
+	white:  { wood: 'light', tint: 0xf6f3ec },
+};
+function applyFrameLook(m, name) {
+	const look = FRAME_LOOKS[name] || FRAME_LOOKS.oak, w = WOOD[look.wood];
+	m.map = w.map; m.roughnessMap = w.roughnessMap; m.normalMap = w.normalMap;
+	m.color.setHex(look.tint);
+	m.needsUpdate = true;
+}
+
+// Something to reflect: a small gradient cube — bright ceiling, grey
+// walls, dark floor — run through PMREM as the scene's environment, so
+// the steel shines and the varnish on the wood catches a highlight.
+function makeEnvironment() {
+	const faces = [];
+	for (let i = 0; i < 6; i++) {
+		const c = document.createElement('canvas'); c.width = c.height = 32;
+		const g = c.getContext('2d');
+		const grad = g.createLinearGradient(0, 0, 0, 32);
+		if (i === 2)      { grad.addColorStop(0, '#ffffff'); grad.addColorStop(1, '#f4f2ee'); }   // +y: the lit ceiling
+		else if (i === 3) { grad.addColorStop(0, '#5a5854'); grad.addColorStop(1, '#3a3936'); }   // -y: the floor
+		else              { grad.addColorStop(0, '#f2f1ee'); grad.addColorStop(1, '#8c8a85'); }   // walls: light above, darker below
+		g.fillStyle = grad; g.fillRect(0, 0, 32, 32);
+		faces.push(c);
+	}
+	const cube = new THREE.CubeTexture(faces);
+	cube.colorSpace = THREE.SRGBColorSpace;
+	cube.needsUpdate = true;
+	const pmrem = new THREE.PMREMGenerator(renderer);
+	const env = pmrem.fromCubemap(cube).texture;
+	pmrem.dispose();
+	return env;
+}
+scene.environment = makeEnvironment();
+scene.environmentIntensity = 0.6;
 
 const materials = {
-	frame: new THREE.MeshStandardMaterial({ color: FRAME_COLOURS[state.settings.frame], map: wood.map, roughnessMap: wood.rough, roughness: 0.85, bumpMap: wood.bump, bumpScale: 0.0006, metalness: 0 }),
+	frame: new THREE.MeshStandardMaterial({ roughness: 1, metalness: 0, normalScale: new THREE.Vector2(0.6, 0.6), envMapIntensity: 0.5 }),
 	mat:   new THREE.MeshStandardMaterial({ color: MAT_COLOURS[state.settings.mat], roughness: 0.95 }),
 	line:  new THREE.MeshPhysicalMaterial({ color: 0xffffff, transmission: 0.6, roughness: 0.1, thickness: 0.001 }),
 };
+
+applyFrameLook(materials.frame, state.settings.frame);
 
 const textures = new THREE.TextureLoader();
 const textureCache = new Map();
@@ -745,7 +772,11 @@ const PANEL = { low: 1.0, high: 1.6, tilt: 22 * Math.PI / 180, cols: 8 };   // b
 
 // Brushed steel, not mirror: without an environment to reflect, a highly
 // metallic surface renders near black, so the cabin is a dull satin.
-const metal = new THREE.MeshStandardMaterial({ color: 0xa9a7a2, metalness: 0.35, roughness: 0.45 });
+const metal = new THREE.MeshStandardMaterial({
+	map: tex('metal-color.jpg', true, 1), roughnessMap: tex('metal-rough.jpg', false, 1), metalnessMap: tex('metal-metalness.jpg', false, 1),
+	normalMap: tex('metal-normal.jpg', false, 1), normalScale: new THREE.Vector2(0.5, 0.5),
+	metalness: 1, roughness: 1, envMapIntensity: 1.2,
+});
 const cabinInner = new THREE.MeshLambertMaterial({ color: 0xcfccc5 });
 const displayBack = new THREE.MeshStandardMaterial({ color: 0x0c0c0c, roughness: 0.4, metalness: 0.2 });
 const cabinFloor = new THREE.MeshLambertMaterial({ color: 0x5a5854 });
@@ -1271,7 +1302,7 @@ function setSetting(k, v) {
 	saveSettings();
 	switch (k) {
 		case 'dark':   applyMode(v); break;
-		case 'frame':  materials.frame.color.setHex(FRAME_COLOURS[v]); break;
+		case 'frame':  applyFrameLook(materials.frame, v); break;
 		case 'labels': scene.traverse(o => { if (o.name === 'label') o.visible = v; }); break;
 		case 'mat':
 			materials.mat.color.setHex(MAT_COLOURS[v]);
