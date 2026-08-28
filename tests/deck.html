@@ -145,7 +145,7 @@ async function run() {
 	const n = card.querySelector('b');
 	say(n && /^\d+$/.test(n.textContent) && w.getComputedStyle(n).webkitTextStrokeWidth === '2px', 'the number is on the print, outlined 2 px', n && n.textContent);
 	const yr = card.querySelector('.year');
-	say(yr && /^\d{4}$/.test(yr.textContent) && w.getComputedStyle(yr).webkitTextStrokeWidth === '2px' && yr.getBoundingClientRect().width === 72 && yr.getBoundingClientRect().bottom <= card.getBoundingClientRect().top, 'the year above the print, outlined, the print\'s width', yr && `${yr.textContent}, ${Math.round(card.getBoundingClientRect().top - yr.getBoundingClientRect().bottom)} px above`);
+	say(yr && /^\d{4}$/.test(yr.textContent) && w.getComputedStyle(yr).webkitTextStrokeWidth === '1px' && yr.getBoundingClientRect().width === 72 && yr.getBoundingClientRect().bottom <= card.getBoundingClientRect().top, 'the year above the print, outlined, the print\'s width', yr && `${yr.textContent}, ${Math.round(card.getBoundingClientRect().top - yr.getBoundingClientRect().bottom)} px above`);
 	say(strip.querySelectorAll('.scrub-div').length > 3 && !d.querySelector('.scrub-year'), 'year dividers in the rail, no chips beside it', `${strip.querySelectorAll('.scrub-div').length} dividers`);
 	say((r.left + 10) - label.getBoundingClientRect().right >= 44, 'the label keeps 44 px clear of the finger on the strip', `${Math.round((r.left + 10) - label.getBoundingClientRect().right)} px`);
 	const hint = d.querySelector('.scrub-hint');

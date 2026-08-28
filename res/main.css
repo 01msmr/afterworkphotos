@@ -1906,7 +1906,7 @@ html.deck {
 		font: 700 24px/1 "Helvetica Neue", Helvetica, Arial, sans-serif;
 		letter-spacing: 0.08em;
 		color: var(--number);
-		-webkit-text-stroke: 2px var(--number-edge);
+		-webkit-text-stroke: 1px var(--number-edge);
 		paint-order: stroke fill;
 	}
 
