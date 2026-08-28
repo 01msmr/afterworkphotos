@@ -421,23 +421,16 @@ if (DECK) {
   const strip = scrub.querySelector('.scrub-strip');
   const scrubLabel = document.createElement('div');
   scrubLabel.className = 'scrub-label';
+  // The label is one print — the one that lands on top when the finger
+  // lets go — with its number on it, and the gear hint under it
   scrubLabel.innerHTML = `
-    <div class="scrub-up"></div>
-    <div class="scrub-card"><div class="scrub-text"><b></b><span></span></div><img alt=""></div>
-    <div class="scrub-down"></div>
+    <div class="scrub-card"><img alt=""><b></b></div>
     <div class="scrub-hint">← finer</div>`;
-  const labelUp = scrubLabel.querySelector('.scrub-up');
-  const labelDown = scrubLabel.querySelector('.scrub-down');
   const labelCard = scrubLabel.querySelector('.scrub-card');
-  const labelN = scrubLabel.querySelector('.scrub-text b');
-  const labelMonth = scrubLabel.querySelector('.scrub-text span');
+  const labelN = scrubLabel.querySelector('.scrub-card b');
   const labelPrint = scrubLabel.querySelector('.scrub-card img');
   const hint = scrubLabel.querySelector('.scrub-hint');
   document.body.append(scrub, scrubLabel);
-
-  const monthYear = (p) => p.taken
-    ? new Date(p.taken).toLocaleString('en', { month: 'short', year: 'numeric' })
-    : 'undated';
 
   // year marks: the first sheet of each year, counted from the top. Years
   // with few sheets sit close together at the bottom; a mark that would
@@ -498,9 +491,9 @@ if (DECK) {
     idle(step);
   })();
 
-  // How many prints the label shows: one when a finger-width of strip is one
-  // photo or less, otherwise the neighbours too. px = strip pixels per photo
-  // at the current gear.
+  // Whether the strip resolves single photos: 1 when a finger-width of strip
+  // is one photo or less, more when it skips — then the finer gear is
+  // worth pointing at. px = strip pixels per photo at the current gear.
   function neighbourCount(px) { return px >= 6 ? 1 : px >= 2 ? 3 : 5; }
 
   // Never the wrong picture: an <img> keeps showing its old image until the
@@ -517,32 +510,18 @@ if (DECK) {
     }, { once: true });
   }
 
-  // The finger's photo as a card — number, month, print — with the
-  // neighbours floating above (newer) and below (older)
-  function renderLabel(index, count) {
+  // The finger's photo: its print, its number on it
+  function renderLabel(index) {
     const p = photoAt(index);
     labelN.textContent = p.n;
-    labelMonth.textContent = monthYear(p);
     setPrint(labelPrint, p);
-    const side = (count - 1) / 2;
-    const fill = (box, from, to) => {
-      const want = [];
-      for (let i = from; i <= to; i++) if (i >= 0 && i < N) want.push(i);
-      while (box.children.length > want.length) box.lastElementChild.remove();
-      // each neighbour on a white slip: the print at partial opacity over
-      // it comes out lighter, never see-through
-      while (box.children.length < want.length) { const slip = document.createElement('span'); slip.className = 'slip'; const im = document.createElement('img'); im.alt = ''; slip.appendChild(im); box.appendChild(slip); }
-      want.forEach((i, k) => setPrint(box.children[k].firstChild, photoAt(i)));
-    };
-    fill(labelUp, index - side, index - 1);
-    fill(labelDown, index + 1, index + side);
   }
 
   // The card at the finger's height; the whole label kept on screen
   function placeLabel(clientY) {
     const r = strip.getBoundingClientRect();
     const h = scrubLabel.offsetHeight;
-    const cardMid = labelUp.offsetHeight + labelCard.offsetHeight / 2;
+    const cardMid = labelCard.offsetHeight / 2;
     const top = Math.min(r.bottom - h, Math.max(r.top, clientY - cardMid));
     scrubLabel.style.top = top + 'px';
   }
@@ -575,7 +554,7 @@ if (DECK) {
     lastY = clientY;
     scrubIndex = Math.round(scrubPos);
     const count = neighbourCount(r.height / N / rate);
-    renderLabel(scrubIndex, count);
+    renderLabel(scrubIndex);
     // The gear, said plainly while one is in: ¼ or 1/16 — and the way to
     // the next finer one while there is one
     hint.hidden = !gearsOn || (rate === 1 && count === 1);
