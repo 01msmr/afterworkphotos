@@ -435,8 +435,8 @@ if (DECK) {
   // The label is one print — the one that lands on top when the finger
   // lets go — with its number on it, and the gear hint under it
   scrubLabel.innerHTML = `
-    <div class="scrub-card"><img alt=""><b></b><span class="year"></span></div>
-    <div class="scrub-hint"><span class="chev l">‹</span><span class="word">finer</span><span class="chev r">›</span></div>`;
+    <div class="scrub-card"><img alt=""><b></b><span class="year"></span><span class="chev l">‹</span><span class="chev r">›</span></div>
+    <div class="scrub-hint"><b></b> <span class="unit">phps</span></div>`;
   const labelCard = scrubLabel.querySelector('.scrub-card');
   const labelN = scrubLabel.querySelector('.scrub-card b');
   const labelYear = scrubLabel.querySelector('.scrub-card .year');
@@ -578,11 +578,10 @@ if (DECK) {
   }
 
   let restTimer = 0;
-  let lastX = 0, hintDir = -1;   // the finger's last x, and the way the hint's arrow points
+  const SPEED = { 1: 20, 0.25: 10, [1 / 16]: 5 };   // the label's phps per gear
 
   function scrubTo(clientX, clientY, first = false) {
     const r = strip.getBoundingClientRect();
-    if (first) { lastX = clientX; hintDir = -side; }   // towards the middle: finer
     const rate = gearRate(clientX);
     if (rate < 1) fineUsed = true;
     if (first || !fineUsed) {
@@ -596,15 +595,13 @@ if (DECK) {
     scrubIndex = Math.round(scrubPos);
     const count = neighbourCount(r.height / N / rate);
     renderLabel(scrubIndex);
-    // One hint, the same in every gear; its arrow points the way the
-    // finger is moving — at rest, the way to a finer gear
+    // The speed, in photos per second of a normal finger — 20 on the rail,
+    // 10 in the finer gear (5 in a third). Beside the print, at its
+    // height, a chevron on the side where the other gear lies: towards
+    // the middle on the rail, back towards the rail in the finer gear
     hint.hidden = !gearsOn || (rate === 1 && count === 1);
-    if (clientX !== lastX) hintDir = clientX < lastX ? -1 : 1;
-    // towards the middle the gears get finer, back towards the strip
-    // coarse; the word keeps its place, the chevron takes the finger's side
-    hint.querySelector('.word').textContent = hintDir === -side ? 'finer' : 'coarse';
-    hint.dataset.dir = hintDir < 0 ? 'l' : 'r';
-    lastX = clientX;
+    hint.querySelector('b').textContent = SPEED[rate] || Math.round(20 * rate * 2);
+    labelCard.dataset.next = ((rate === 1 ? -side : side) < 0) ? 'l' : 'r';
     placeLabel(clientX, clientY, rate);
     // the finger resting on a photo for a moment is enough to fetch it
     clearTimeout(restTimer);
