@@ -137,7 +137,7 @@ async function run() {
 		scrub.dispatchEvent(new w.TouchEvent(type, { touches: type === 'touchend' ? [] : [t], changedTouches: [t], bubbles: true, cancelable: true }));
 	};
 	S('touchstart', r.left + 10, r.top + r.height * 0.4);
-	await sleep(520);   // arms on touch, engages after 200 ms held still, the strip fades in
+	await sleep(460);   // arms on touch, engages after 150 ms, the strip fades in
 	const label = d.querySelector('.scrub-label'), card = d.querySelector('.scrub-card');
 	const stripOpacity = (sel) => w.getComputedStyle(d.querySelector(sel + ' .scrub-strip')).opacity;
 	say(stripOpacity('.scrub:not(.left)') === '1' && stripOpacity('.scrub.left') === '0', 'only the strip under the finger shows', `right ${stripOpacity('.scrub:not(.left)')}, left ${stripOpacity('.scrub.left')}`);
@@ -175,7 +175,7 @@ async function run() {
 	// 8b. the touch area is twice the rail: a hold 50 px from the edge scrubs
 	const t0b = top();
 	S('touchstart', w.innerWidth - 50, r.top + r.height * 0.5);
-	await sleep(320);
+	await sleep(260);
 	say(d.body.classList.contains('scrubbing') && scrub.getBoundingClientRect().width === 56, 'a hold 50 px from the edge scrubs (touch area 56 px, rail 28)', `${scrub.getBoundingClientRect().width}px`);
 	S('touchend', w.innerWidth - 50, r.top + r.height * 0.5);
 	await settled();
@@ -184,13 +184,14 @@ async function run() {
 	// 8c. a swipe begun inside the touch area is the deck's
 	const t0c = top();
 	S('touchstart', w.innerWidth - 45, 600);
-	for (let i = 1; i <= 6; i++) { await sleep(16); S('touchmove', w.innerWidth - 45, 600 - i * 40); }
+	for (let i = 1; i <= 5; i++) { await sleep(16); S('touchmove', w.innerWidth - 45, 600 - i * 40); }
+	S('touchend', w.innerWidth - 45, 400);
+	await sleep(40);
 	say(!!mover() && !d.body.classList.contains('scrubbing'), 'a swipe begun 45 px from the edge lifts the sheet, not the scrubber');
-	S('touchend', w.innerWidth - 45, 360);
 	await settled();
 	say(top() !== t0c, 'and lands', `${t0c} → ${top()}`);
 
-	// 9. false starts: the strip arms on touch and scrubs only after 200 ms held still
+	// 9. false starts: the strip arms on touch and scrubs only after 150 ms down
 	const t1 = top();
 	S('touchstart', r.left + 10, r.top + r.height * 0.6);
 	await sleep(60);
@@ -202,28 +203,27 @@ async function run() {
 	await sleep(40);
 	S('touchmove', r.left + 10, r.top + r.height * 0.6 + 12);
 	await sleep(40);
-	say(!d.body.classList.contains('scrubbing'), 'moving along the strip before the time is up does not engage');
-	await sleep(300);
-	say(!d.body.classList.contains('scrubbing'), 'and having moved, it does not engage later either (a swipe, not a scrub)');
+	say(!d.body.classList.contains('scrubbing'), 'moving along the strip before the time is up does not engage yet');
 	S('touchend', r.left + 10, r.top + r.height * 0.6 + 12);
-	await settled();   // handed to the deck as a tiny swipe, it settles back
-	say(!mover() && top() === t1, 'a brush along the strip cuts nothing (a tiny swipe, settled back)', `${t1} → ${top()}`);
-	S('touchstart', r.left + 10, r.top + r.height * 0.6);
+	await settled();   // lifted early and moved: replayed to the deck as a tiny swipe, it settles back
+	say(!mover() && top() === t1, 'a quick brush along the strip cuts nothing (a tiny swipe, settled back)', `${t1} → ${top()}`);
+	S('touchstart', r.left + 10, r.top + r.height * 0.4);
 	await sleep(40);
-	S('touchmove', r.left - 40, r.top + r.height * 0.6);
-	await sleep(220);
-	say(!d.body.classList.contains('scrubbing'), 'a finger that heads sideways off the strip is not a scrub');
-	S('touchend', r.left - 40, r.top + r.height * 0.6);
-	await sleep(300);
-	say(!mover() && top() === t1, 'and cuts nothing');
+	S('touchmove', r.left + 10, r.top + r.height * 0.5);
+	await sleep(200);
+	say(d.body.classList.contains('scrubbing'), 'a finger that moved but is still down at 150 ms scrubs, from where it is');
+	S('touchend', r.left + 10, r.top + r.height * 0.5);
+	await settled();
+	say(top() !== t1, 'and cuts', `${t1} → ${top()}`);
+	const t1b = top();
 	S('touchstart', r.left + 10, r.top + r.height * 0.2);
-	await sleep(320);
-	say(d.body.classList.contains('scrubbing'), 'a finger held still for 200 ms engages');
+	await sleep(260);
+	say(d.body.classList.contains('scrubbing'), 'a finger down for 150 ms engages');
 	S('touchmove', r.left + 10, r.top + r.height * 0.25);
 	await sleep(40);
 	S('touchend', r.left + 10, r.top + r.height * 0.25);
 	await settled();
-	say(!mover() && top() !== t1, 'and lets go into a cut', `${t1} → ${top()}`);
+	say(!mover() && top() !== t1b, 'and lets go into a cut', `${t1b} → ${top()}`);
 
 	// 10. the left strip: the same, mirrored
 	const ls = d.querySelector('.scrub.left'), lstrip = ls.querySelector('.scrub-strip'), lr = lstrip.getBoundingClientRect();
@@ -234,8 +234,8 @@ async function run() {
 	};
 	const t3 = top();
 	L('touchstart', lr.right - 4, lr.top + lr.height * 0.5);
-	await sleep(320);
-	say(d.body.classList.contains('scrubbing'), 'the left strip engages after 200 ms held still');
+	await sleep(260);
+	say(d.body.classList.contains('scrubbing'), 'the left strip engages after 150 ms');
 	await sleep(300);   // the strip's 0.25 s fade
 	say(stripOpacity('.scrub.left') === '1' && stripOpacity('.scrub:not(.left)') === '0', 'and only it shows', `left ${stripOpacity('.scrub.left')}, right ${stripOpacity('.scrub:not(.left)')}`);
 	const lb = label.getBoundingClientRect();
