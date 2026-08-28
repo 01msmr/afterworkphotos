@@ -435,23 +435,25 @@ if (DECK) {
   // The label is one print — the one that lands on top when the finger
   // lets go — with its number on it, and the gear hint under it
   scrubLabel.innerHTML = `
-    <div class="scrub-card"><img alt=""><b></b></div>
+    <div class="scrub-card"><img alt=""><b></b><span class="year"></span></div>
     <div class="scrub-hint"><span class="chev l">‹</span><span class="word">finer</span><span class="chev r">›</span></div>`;
   const labelCard = scrubLabel.querySelector('.scrub-card');
   const labelN = scrubLabel.querySelector('.scrub-card b');
+  const labelYear = scrubLabel.querySelector('.scrub-card .year');
   const labelPrint = scrubLabel.querySelector('.scrub-card img');
   const hint = scrubLabel.querySelector('.scrub-hint');
   document.body.append(...scrubs, scrubLabel);
-  let labelRight = 56;   // the label's least distance from the edge, set from the year marks
+  const labelRight = 56;   // the label's least distance from the edge
 
-  // year marks: the first sheet of each year, counted from the top. Years
-  // with few sheets sit close together at the bottom; a mark that would
-  // land within 18px of the previous one is left out.
+  // year dividers in the rail: a thick line where a year begins, counted
+  // from the top — the rail's own pattern is thin lines, one per sheet.
+  // Years with few sheets sit close together at the bottom; a divider
+  // that would land within 4px of the previous one is left out.
   function markYears() {
     scrubs.forEach(el => markYearsOn(el.querySelector('.scrub-strip')));
   }
   function markYearsOn(strip) {
-    strip.querySelectorAll('.scrub-year').forEach(m => m.remove());
+    strip.querySelectorAll('.scrub-div').forEach(m => m.remove());
     const h = strip.getBoundingClientRect().height || 1;
     let last = null, lastY = -Infinity;
     for (let i = 0; i < N; i++) {
@@ -460,18 +462,13 @@ if (DECK) {
       if (!year || year === last) continue;
       last = year;
       const f = N > 1 ? i / (N - 1) : 0;
-      if (f * h - lastY < 18) continue;
+      if (f * h - lastY < 4) continue;
       lastY = f * h;
       const mark = document.createElement('div');
-      mark.className = 'scrub-year';
+      mark.className = 'scrub-div';
       mark.style.top = (f * 100) + '%';
-      mark.textContent = year;
       strip.appendChild(mark);
     }
-    // the label stops short of the widest year mark, so no year is ever covered
-    let widest = 0;
-    strip.querySelectorAll('.scrub-year').forEach(m => { widest = Math.max(widest, m.getBoundingClientRect().width); });
-    labelRight = 16 + widest + 8;
   }
   markYears();
   window.addEventListener('resize', markYears);
@@ -525,10 +522,11 @@ if (DECK) {
     }, { once: true });
   }
 
-  // The finger's photo: its print, its number on it
+  // The finger's photo: its print, its number on it, its year across the top
   function renderLabel(index) {
     const p = photoAt(index);
     labelN.textContent = p.n;
+    labelYear.textContent = p.taken ? p.taken.slice(0, 4) : '';
     setPrint(labelPrint, p);
   }
 
