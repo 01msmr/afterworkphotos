@@ -1460,9 +1460,13 @@ html.deck {
 		background-color: var(--title-link);
 	}
 
-	/* The title stays a touch above the unlit prints: 6% on all devices */
+	/* The title stays a touch above the unlit prints: 6% on all devices.
+	   It lies on the pile, not over it: above the resting sheets (z ≤ 4)
+	   and under the one in the air (z 10), so a lifted sheet slides over
+	   the words and they show again printed on whichever sheet is on top. */
 	h1.title {
 		opacity: 0.06;
+		z-index: 5;
 	}
 
 	/* On a phone the words are fitted (fitTitle) to their box — and the box
@@ -1664,10 +1668,13 @@ html.deck {
 	}
 
 	/* The settle — a tap animates the whole travel, a released swipe the
-	   rest of it. Slow: a sheet of paper, not a UI panel. */
+	   rest of it. Slow by default: a sheet of paper, not a UI panel. The
+	   time is --settle, set on the sheet by main.js: 1.2 s from the
+	   scrubber and keys, 1 s from a tap, and after a swipe the time
+	   the finger's own speed would take for the rest of the way. */
 	section.mover.animating {
 		transition:
-			transform 1.2s cubic-bezier(0.4, 0, 0.2, 1),
+			transform var(--settle, 1.2s) cubic-bezier(0.4, 0, 0.2, 1),
 			top 0.3s ease, right 0.3s ease, bottom 0.3s ease, left 0.3s ease,
 			border-radius 0.3s ease, box-shadow 0.2s ease;
 	}
@@ -1829,14 +1836,23 @@ html.deck {
 		display: none;
 	}
 
+	/* A neighbour lies on a white slip, its print at 65% over it: lighter
+	   than the finger's own, and opaque — nothing of the desk shows through */
+	.scrub-up .slip,
+	.scrub-down .slip {
+		display: block;
+		background: #fff;
+		border-radius: 4px;
+		box-shadow: 0 0 0 1px var(--edge-dark);
+	}
+
 	.scrub-up img,
 	.scrub-down img {
 		width: 44px;
 		height: 44px;
 		border-radius: 4px;
 		display: block;
-		opacity: 0.7;
-		box-shadow: 0 0 0 1px var(--edge-dark);
+		opacity: 0.65;
 	}
 
 	.scrub-card {
@@ -1880,6 +1896,16 @@ html.deck {
 		color: var(--ink);
 		opacity: 0.6;
 		margin-top: 2px;
+	}
+
+	/* A gear in: the hint becomes a chip on paper, ink at full strength */
+	.scrub-hint.gear {
+		opacity: 1;
+		font-size: 11px;
+		padding: 3px 6px;
+		background: var(--paper);
+		border-radius: 4px;
+		box-shadow: var(--sheet-edge);
 	}
 
 	.scrub-hint[hidden] {
