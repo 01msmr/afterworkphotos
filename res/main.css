@@ -47,6 +47,9 @@
 	   leaves it there and a black band under the sheets. 100vh overflowed
 	   by exactly a status bar and so worked; lvh says what is meant. */
 	--app-height: 100vh;
+	/* the optical inset the words keep from the print's edges, above and
+	   below — with the size of the type: the wall's captions are 1.65× */
+	--text-inset: 1.5px;
 }
 
 @supports (height: 100lvh) {
@@ -81,11 +84,11 @@ body {
 	transition: opacity 0.9s ease;
 }
 
-/* Small, its right edge on the rightmost print's */
+/* Small, its right edge on the rightmost print's (the optical inset in) */
 h1.title {
 	position: fixed;
 	top: 0;
-	right: var(--side);
+	right: calc(var(--side) + var(--text-inset));
 	width: min(92%, 340px);
 	text-align: right;
 	white-space: nowrap;
@@ -184,6 +187,11 @@ p.subtitle {
 	   alignment is what puts them on the same line rather than the same
 	   top edge */
 	display: flex;
+	/* an optical inset, 1 px each side: flush with the print's edge the
+	   words read a touch wider than it (rounded corner, recess); the
+	   title above takes the same — --text-inset */
+	padding-left: var(--text-inset);
+	padding-right: var(--text-inset);
 	align-items: baseline;
 	justify-content: space-between;
 	gap: 1.5em;
@@ -1362,6 +1370,7 @@ html.deck {
 		--title-link: blue;
 		--title-link-bg: #dedede;
 		--divider: rgba(0, 0, 0, 0.12);
+		--text-inset: 1px;
 		/* the number on the scrubber's print, and its outline */
 		--number: #fff;
 		--number-edge: #333;
@@ -1424,8 +1433,8 @@ html.deck {
 	h1.title {
 		width: auto;
 		top: calc(env(safe-area-inset-top, 0px) + var(--top-gap));
-		left: calc(var(--side) + 3px);
-		right: calc(var(--side) + 3px);
+		left: calc(var(--side) + 3px + var(--text-inset));
+		right: calc(var(--side) + 3px + var(--text-inset));
 		text-align: center;
 		white-space: nowrap;
 		padding-top: 12px;
@@ -1484,6 +1493,10 @@ html.deck {
 
 	/* On a tablet the title is small rather than the sheet's width, its
 	   right edge on the right print's (the same --side margin) */
+	&.tablet {
+		--text-inset: 1.25px;
+	}
+
 	&.tablet h1.title {
 		width: min(92%, 340px);
 		left: auto;
@@ -1521,12 +1534,8 @@ html.deck {
 		opacity: 1;
 	}
 
-	/* an optical inset: flush with the print's edge the words read a touch
-	   wider than it (the print's corner is rounded and it sits in a recess) */
 	p.subtitle {
 		color: var(--ink);
-		padding-left: 1px;
-		padding-right: 1px;
 	}
 
 	/* Plain viewport container, as in the version whose bottom was right on
