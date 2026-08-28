@@ -615,6 +615,7 @@ if (DECK) {
   function engage() {
     armTimer = 0;
     scrubbing = true;
+    scrub.classList.add('active');
     document.body.classList.add('scrubbing');
     gearsOn = strip.getBoundingClientRect().height / N < GEAR_NEEDED_PX;
     fineUsed = false;
@@ -648,6 +649,7 @@ if (DECK) {
     disarm();
     if (!scrubbing) return;
     scrubbing = false;
+    scrub.classList.remove('active');
     document.body.classList.remove('scrubbing');
     const target = sheetOf(scrubIndex);
     if (target === current || mover) return;
@@ -656,7 +658,7 @@ if (DECK) {
     startMove(target > current ? 1 : -1, target);
     settle(true);
   }, { passive: true });
-  el.addEventListener('touchcancel', () => { disarm(); if (scrubbing) { scrubbing = false; document.body.classList.remove('scrubbing'); } }, { passive: true });
+  el.addEventListener('touchcancel', () => { disarm(); if (scrubbing) { scrubbing = false; scrub.classList.remove('active'); document.body.classList.remove('scrubbing'); } }, { passive: true });
   });
 
   // ── Tap zones ──

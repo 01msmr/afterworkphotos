@@ -1922,7 +1922,8 @@ html.deck {
 		display: none;
 	}
 
-	body.scrubbing .scrub-strip,
+	/* only the strip under the finger shows, never both */
+	body.scrubbing .scrub.active .scrub-strip,
 	body.scrubbing .scrub-label {
 		opacity: 1;
 	}
