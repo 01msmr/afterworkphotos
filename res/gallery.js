@@ -813,6 +813,7 @@ function hangRoom(key) {
 	scene.add(pieces);
 	pieces.updateMatrixWorld(true);
 	scene.add(bakeRoom(pieces));
+	if (wire) setWire(true);
 	const keep = new Set(); pieces.traverse(o => { if (o.name === 'photo') for (const [k, t] of textureCache) if (t === o.material.map) keep.add(k); });
 	freeTexturesExcept(keep);
 	state.year = room.year;
@@ -990,6 +991,28 @@ const lift = {
 };
 lift.fetchAll();
 
+// The switchplate's buttons: a label, and the state they show.
+const WOODS = ['maple', 'oak', 'walnut', 'black', 'white'];
+const SWITCHES = [
+	{ key: 'dark',   label: 'light',  value: () => state.settings.dark ? 'night' : 'day',  press: () => setSetting('dark', !state.settings.dark) },
+	{ key: 'frame',  label: 'wood',   value: () => state.settings.frame,                   press: () => setSetting('frame', WOODS[(WOODS.indexOf(state.settings.frame) + 1) % WOODS.length]) },
+	{ key: 'labels', label: 'labels', value: () => state.settings.labels ? 'on' : 'off',   press: () => setSetting('labels', !state.settings.labels) },
+	{ key: 'wire',   label: 'wire',   value: () => wire ? 'on' : 'off',                    press: () => setWire(!wire) },
+];
+function switchFace(sw) {
+	const c = document.createElement('canvas'); c.width = c.height = 128;
+	const g = c.getContext('2d');
+	g.fillStyle = '#f2efe8'; g.beginPath(); g.arc(64, 64, 64, 0, Math.PI * 2); g.fill();
+	g.fillStyle = '#6b6862'; g.textAlign = 'center'; g.textBaseline = 'middle';
+	g.font = '500 22px -apple-system, "Helvetica Neue", Arial, sans-serif'; g.fillText(sw.label, 64, 44);
+	g.fillStyle = '#1b1b1b';
+	g.font = '600 28px -apple-system, "Helvetica Neue", Arial, sans-serif'; g.fillText(sw.value(), 64, 80);
+	const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+function refreshSwitches() {
+	for (const f of elevator.switches) if (f.userData.sw) { f.material.map.dispose(); f.material.map = switchFace(f.userData.sw); f.material.needsUpdate = true; }
+}
+
 const elevator = {
 	group: null,
 	doors: null,        // [north panel, south panel]
@@ -998,6 +1021,7 @@ const elevator = {
 	ride: null,         // while the doors are moving or the cabin travels
 	origin: null,       // cabin's inner centre on the floor, world coords
 	callButtons: [],
+	switches: [],       // the switchplate's buttons, outside on the cabin's room-facing side
 	coming: null,       // { t0, wait } after a call, before the doors open
 	open: 1,            // where the doors stand when idle, 0..1
 	doorAnim: null,     // { from, to, t0 } an idle open or close
@@ -1064,6 +1088,25 @@ const elevator = {
 			g.add(cf);
 			cb.userData.face = cf;
 			this.callButtons.push(cb, cf);
+		}
+
+		// The switchplate (Uli): on the cabin's south face, the side you face
+		// stepping out — four buttons showing their state, pressed like the
+		// lift's: day/night, the wood, labels, wireframes.
+		this.switches = [];
+		{
+			const plateW = 4 * 0.07 + 0.03, plateH = 0.1;
+			const px = W / 2 - e / 2, py = 1.3, pz = z1 + 0.012;
+			const plate = box('switchplate', plateW, plateH, 0.024, px, py, pz, panelPlate);
+			const bodyGeo = new THREE.CylinderGeometry(BUTTON.r, BUTTON.r, BUTTON.rise, 12, 1, true); bodyGeo.rotateX(Math.PI / 2);   // axis along z
+			const faceGeo = new THREE.CircleGeometry(BUTTON.r * 0.92, 12);
+			SWITCHES.forEach((sw, i) => {
+				const x = px - plateW / 2 + 0.015 + 0.07 * (i + 0.5), z = pz + 0.012 + BUTTON.rise / 2;
+				const b = new THREE.Mesh(bodyGeo, metal); b.name = `switch-${sw.key}`; b.userData.action = sw.key; b.position.set(x, py, z); g.add(b);
+				const f = new THREE.Mesh(faceGeo, new THREE.MeshStandardMaterial({ map: switchFace(sw), roughness: 0.6 }));
+				f.name = `switch-face-${sw.key}`; f.userData.action = sw.key; f.userData.sw = sw; f.position.set(x, py, z + BUTTON.rise / 2 + 0.0005); g.add(f);
+				this.switches.push(b, f);
+			});
 		}
 
 		// Two door panels behind the jambs, sliding apart along z into the
@@ -1302,9 +1345,12 @@ function pressAt(ndcX, ndcY) {
 	return pressAlong(raycaster, 2.2);
 }
 function pressAlong(rc, reach) {
-	const hit = rc.intersectObjects([...elevator.buttons, ...elevator.callButtons], false)[0];
+	const hit = rc.intersectObjects([...elevator.buttons, ...elevator.callButtons, ...elevator.switches], false)[0];
 	if (hit && hit.distance <= reach) {
-		if (hit.object.userData.call) elevator.call(); else elevator.go(hit.object.userData.key);
+		const u = hit.object.userData;
+		if (u.action) { SWITCHES.find(sw => sw.key === u.action).press(); refreshSwitches(); }
+		else if (u.call) elevator.call();
+		else elevator.go(u.key);
 		return true;
 	}
 	// a label card: a press doubles it, the next press puts it back (Uli)
@@ -1383,6 +1429,7 @@ function setSetting(k, v) {
 		default: rehang();                    // scale, W, D, H
 	}
 	renderBoard();
+	refreshSwitches();
 }
 
 const board = document.getElementById('board');
@@ -1595,7 +1642,7 @@ function stepHands() {
 		if (!j || !j.visible) { h.userData.touching = null; continue; }
 		j.getWorldPosition(tip);
 		let hit = null;
-		for (const b of [...elevator.buttons, ...elevator.callButtons]) {
+		for (const b of [...elevator.buttons, ...elevator.callButtons, ...elevator.switches]) {
 			if (b.getWorldPosition(new THREE.Vector3()).distanceTo(tip) < TOUCH + BUTTON.r) { hit = b; break; }
 		}
 		if (!hit && pieces) pieces.traverse(o => {
@@ -1637,11 +1684,11 @@ function init() {
 // P: wireframes (Uli). ?stats=1: frame time on the cabin's display and in
 // the hint, so the headset can report its own frame rate.
 let wire = false;
-addEventListener('keydown', e => {
-	if (e.code !== 'KeyP' || e.repeat) return;
-	wire = !wire;
+function setWire(on) {
+	wire = on;
 	scene.traverse(o => { if (o.isMesh) for (const m of [].concat(o.material)) m.wireframe = wire; });
-});
+}
+addEventListener('keydown', e => { if (e.code === 'KeyP' && !e.repeat) { setWire(!wire); refreshSwitches(); } });
 const stats = new URLSearchParams(location.search).get('stats') === '1';
 let frames = 0, statsT = performance.now(), fpsText = '';
 function stepStats(now) {
