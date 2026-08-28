@@ -418,10 +418,18 @@ if (DECK) {
   // there opens it; dragging runs through the pile (top = newest) with the
   // finger's sheet shown as a small print and its number and month; years
   // are marked along the edge. Letting go cuts the deck to that sheet.
-  const scrub = document.createElement('div');
-  scrub.className = 'scrub';
-  scrub.innerHTML = '<div class="scrub-strip"></div>';
-  const strip = scrub.querySelector('.scrub-strip');
+  // Two strips, one at either edge — the same pile seen edge-on from the
+  // right or from the left, for whichever hand holds the phone. `scrub`
+  // and `strip` are the one in use; `side` is +1 at the right, -1 at the
+  // left, and mirrors the label and the gears.
+  const scrubs = [1, -1].map(side => {
+    const el = document.createElement('div');
+    el.className = 'scrub' + (side < 0 ? ' left' : '');
+    el.innerHTML = '<div class="scrub-strip"></div>';
+    el.dataset.side = side;
+    return el;
+  });
+  let scrub = scrubs[0], strip = scrub.querySelector('.scrub-strip'), side = 1;
   const scrubLabel = document.createElement('div');
   scrubLabel.className = 'scrub-label';
   // The label is one print — the one that lands on top when the finger
@@ -433,13 +441,16 @@ if (DECK) {
   const labelN = scrubLabel.querySelector('.scrub-card b');
   const labelPrint = scrubLabel.querySelector('.scrub-card img');
   const hint = scrubLabel.querySelector('.scrub-hint');
-  document.body.append(scrub, scrubLabel);
+  document.body.append(...scrubs, scrubLabel);
   let labelRight = 56;   // the label's least distance from the edge, set from the year marks
 
   // year marks: the first sheet of each year, counted from the top. Years
   // with few sheets sit close together at the bottom; a mark that would
   // land within 18px of the previous one is left out.
   function markYears() {
+    scrubs.forEach(el => markYearsOn(el.querySelector('.scrub-strip')));
+  }
+  function markYearsOn(strip) {
     strip.querySelectorAll('.scrub-year').forEach(m => m.remove());
     const h = strip.getBoundingClientRect().height || 1;
     let last = null, lastY = -Infinity;
@@ -534,7 +545,14 @@ if (DECK) {
     const cardMid = labelCard.offsetHeight / 2;
     const top = Math.min(r.bottom - h, Math.max(r.top, clientY - cardMid));
     scrubLabel.style.top = top + 'px';
-    scrubLabel.style.right = Math.max(labelRight, window.innerWidth - clientX + THUMB) + 'px';
+    scrubLabel.classList.toggle('left', side < 0);
+    if (side > 0) {
+      scrubLabel.style.left = 'auto';
+      scrubLabel.style.right = Math.max(labelRight, window.innerWidth - clientX + THUMB) + 'px';
+    } else {
+      scrubLabel.style.right = 'auto';
+      scrubLabel.style.left = Math.max(labelRight, clientX + THUMB) + 'px';
+    }
   }
 
   // Precision gear: when the strip gives less than GEAR_NEEDED_PX per photo,
@@ -545,7 +563,9 @@ if (DECK) {
   let gearsOn = false, fineUsed = false, lastY = 0;
   function gearRate(clientX) {
     if (!gearsOn) return 1;
-    const d = scrub.getBoundingClientRect().left - clientX;
+    // how far the finger has gone in from the strip, towards the middle
+    const r = scrub.getBoundingClientRect();
+    const d = side > 0 ? r.left - clientX : clientX - r.right;
     return d < 60 ? 1 : d < 160 ? 0.25 : 1 / 16;
   }
 
@@ -569,7 +589,8 @@ if (DECK) {
     // The gear, said plainly while one is in: ¼ or 1/16 — and the way to
     // the next finer one while there is one
     hint.hidden = !gearsOn || (rate === 1 && count === 1);
-    hint.textContent = rate === 1 ? '← finer' : rate === 0.25 ? '¼ speed · ← finer' : '1/16 speed';
+    const finer = side > 0 ? '← finer' : 'finer →';
+    hint.textContent = rate === 1 ? finer : rate === 0.25 ? '¼ speed · ' + finer : '1/16 speed';
     hint.classList.toggle('gear', rate < 1);
     placeLabel(clientX, clientY);
     // the finger resting on a photo for a moment is enough to fetch it
@@ -577,22 +598,49 @@ if (DECK) {
     restTimer = setTimeout(() => warmUp(photoAt(scrubIndex).file), 200);
   }
 
-  scrub.addEventListener('touchstart', (e) => {
-    if (animating) return;
+  // A touch on the strip only arms it; it scrubs once the finger has been
+  // down for ARM_MS. A finger that lifts before that, or heads sideways
+  // off the strip (a swipe begun at the edge), was never a scrub — that is
+  // how the strip tells a stray touch from the real thing. The position is
+  // taken where the finger is when the time is up, so a hand that landed
+  // and moved a little starts from there.
+  const ARM_MS = 120, ARM_SIDEWAYS = 20;
+  let armTimer = 0, armX = 0, armY = 0, lastTouch = null;
+
+  function engage() {
+    armTimer = 0;
     scrubbing = true;
     document.body.classList.add('scrubbing');
     gearsOn = strip.getBoundingClientRect().height / N < GEAR_NEEDED_PX;
     fineUsed = false;
-    scrubTo(e.touches[0].clientX, e.touches[0].clientY, true);
+    scrubTo(lastTouch.clientX, lastTouch.clientY, true);
+  }
+
+  function disarm() { clearTimeout(armTimer); armTimer = 0; }
+
+  scrubs.forEach(el => {
+  el.addEventListener('touchstart', (e) => {
+    if (animating || scrubbing) return;
+    scrub = el; strip = el.querySelector('.scrub-strip'); side = +el.dataset.side;
+    lastTouch = e.touches[0];
+    armX = lastTouch.clientX; armY = lastTouch.clientY;
+    disarm();
+    armTimer = setTimeout(engage, ARM_MS);
   }, { passive: true });
 
-  scrub.addEventListener('touchmove', (e) => {
-    if (!scrubbing) return;
+  el.addEventListener('touchmove', (e) => {
+    lastTouch = e.touches[0];
+    if (!scrubbing) {
+      // armed: a sideways move is a swipe, not a scrub
+      if (armTimer && Math.abs(lastTouch.clientX - armX) > ARM_SIDEWAYS) disarm();
+      return;
+    }
     e.preventDefault();
-    scrubTo(e.touches[0].clientX, e.touches[0].clientY);
+    scrubTo(lastTouch.clientX, lastTouch.clientY);
   }, { passive: false });
 
-  scrub.addEventListener('touchend', () => {
+  el.addEventListener('touchend', () => {
+    disarm();
     if (!scrubbing) return;
     scrubbing = false;
     document.body.classList.remove('scrubbing');
@@ -603,6 +651,8 @@ if (DECK) {
     startMove(target > current ? 1 : -1, target);
     settle(true);
   }, { passive: true });
+  el.addEventListener('touchcancel', () => { disarm(); if (scrubbing) { scrubbing = false; document.body.classList.remove('scrubbing'); } }, { passive: true });
+  });
 
   // ── Tap zones ──
   // Where the screen splits into "tap here to go on" and "tap here to go back".

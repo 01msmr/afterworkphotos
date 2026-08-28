@@ -1779,6 +1779,26 @@ html.deck {
 		touch-action: none;
 	}
 
+	/* the same at the left edge, mirrored */
+	.scrub.left {
+		right: auto;
+		left: 0;
+	}
+
+	.scrub.left .scrub-strip {
+		right: auto;
+		left: 4px;
+	}
+
+	.scrub.left .scrub-year {
+		right: auto;
+		left: 16px;
+	}
+
+	.scrub-label.left {
+		align-items: flex-start;
+	}
+
 	/* the edge itself: sheet after sheet, as a pattern; the years beside it */
 	.scrub-strip {
 		position: absolute;
@@ -1852,7 +1872,7 @@ html.deck {
 		font: 700 21px/1 "Helvetica Neue", Helvetica, Arial, sans-serif;
 		letter-spacing: -0.02em;
 		color: var(--number);
-		-webkit-text-stroke: 1px var(--number-edge);
+		-webkit-text-stroke: 2px var(--number-edge);   /* under the fill: 1 px shows outside */
 		paint-order: stroke fill;
 	}
 
