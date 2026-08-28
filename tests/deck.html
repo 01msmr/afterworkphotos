@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>deck checks</title>
+<style>
+	body { margin: 0; background: #151412; color: #e8e4dc; font: 13px/1.5 ui-monospace, Menlo, monospace; display: flex; gap: 24px; padding: 16px; }
+	iframe { border: 0; width: 390px; height: 844px; flex: none; background: #000; }
+	#out { white-space: pre-wrap; flex: 1; }
+	.ok { color: #7fd48a; } .fail { color: #f08a7a; } .warn { color: #d8c27a; }
+	h1 { font-size: 13px; margin: 0 0 8px; }
+</style>
+</head>
+<body>
+<iframe id="f" src="../index.html?touch=1&tablet=0#427"></iframe>
+<div><h1>deck checks — the page at 390×844, the phone's deck, driven by synthetic touches</h1><div id="out">loading…</div></div>
+<script>
+/* One page, no runner: open it from the local server (tests/deck.html) in a
+   Chrome window that is actually on screen — an occluded tab paints no
+   frames and every transition stalls, which the first check reports.
+   Each check is a line: ok / FAIL with what was seen. Add a check when a
+   deck behaviour changes; the expectations are the documented ones in
+   docs/details.md. */
+const out = document.getElementById('out');
+const lines = [];
+let fails = 0;
+function say(ok, name, seen) {
+	lines.push(`<span class="${ok ? 'ok' : 'fail'}">${ok ? 'ok  ' : 'FAIL'}</span> ${name}${seen !== undefined ? '  <span class="warn">' + seen + '</span>' : ''}`);
+	if (!ok) fails++;
+	out.innerHTML = lines.join('\n');
+}
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+const f = document.getElementById('f');
+f.addEventListener('load', () => run().catch(e => say(false, 'harness threw', e.message)));
+
+async function run() {
+	const w = f.contentWindow, d = w.document;
+	await sleep(1500);
+	const main = d.querySelector('.main');
+	const top = () => d.querySelector('section.current .awbox').dataset.n;
+	const mover = () => d.querySelector('section.mover');
+	const T = (type, x, y) => {
+		const t = new w.Touch({ identifier: 1, target: main, clientX: x, clientY: y });
+		main.dispatchEvent(new w.TouchEvent(type, { touches: type === 'touchend' ? [] : [t], changedTouches: [t], bubbles: true, cancelable: true }));
+	};
+	const swipe = async (from, to, steps = 5, ms = 16) => {
+		T('touchstart', 200, from);
+		for (let i = 1; i <= steps; i++) { await sleep(ms); T('touchmove', 200, from + (to - from) * i / steps); }
+	};
+	const tap = async (y) => { T('touchstart', 200, y); await sleep(60); T('touchend', 200, y); };
+	const Y = (m) => new w.DOMMatrixReadOnly(w.getComputedStyle(m).transform).m42;
+
+	// 0. the tab paints — otherwise nothing below can settle
+	let frames = 0; const stop = performance.now() + 300;
+	await new Promise(r => { const g = () => { frames++; if (performance.now() < stop) w.requestAnimationFrame(g); else r(); }; w.requestAnimationFrame(g); setTimeout(r, 600); });
+	say(frames > 5, 'the tab paints (rAF runs)', `${frames} frames in 300 ms — if 0, bring this window to the front and reload`);
+
+	// 1. viewport: the sheet reaches the glass, from CSS, not from JS
+	const appH = w.getComputedStyle(d.documentElement).getPropertyValue('--app-height').trim();
+	say(appH === '100lvh', '--app-height is 100lvh (never dvh, never measured)', appH);
+	say(!d.documentElement.style.getPropertyValue('--app-height'), 'no inline --app-height set by JS');
+	const cur = d.querySelector('section.current').getBoundingClientRect();
+	say(Math.abs(cur.bottom - (w.innerHeight - 3)) < 1, 'top sheet ends 3 px above the bottom', `bottom ${cur.bottom} of ${w.innerHeight}`);
+	say(Math.abs(d.querySelector('.main').getBoundingClientRect().height - w.innerHeight) < 1, '.main is the viewport height');
+
+	// 2. the title lies on the pile: above the resting sheets, under the mover
+	say(w.getComputedStyle(d.querySelector('h1.title')).zIndex === '5', 'title z-index 5');
+
+	// 3. put back (swipe down): paper at once, shadow by position, lands
+	const start = top();
+	await swipe(300, 312, 1);
+	let m = mover();
+	say(!!m && m.getBoundingClientRect().bottom > 5 && m.getBoundingClientRect().bottom < 20, 'after 12 px of swipe-down the sheet is already on screen', m && `bottom ${Math.round(m.getBoundingClientRect().bottom)}`);
+	await swipe(312, 360, 2);
+	const shade60 = parseFloat(m.style.getPropertyValue('--shade-in'));
+	say(shade60 > 0.3 && shade60 < 0.9, 'shadow rises with the entry (--shade-in at ~60 px)', shade60);
+	say(w.getComputedStyle(m).transitionProperty.indexOf('box-shadow') === -1, 'the mover does not transition its shadow');
+	await swipe(360, 450, 3);
+	T('touchend', 200, 450);
+	await sleep(40);
+	const settleFlick = parseFloat(m.style.getPropertyValue('--settle'));
+	say(settleFlick >= 0.25 && settleFlick < 1.2, 'a flick settles faster than the paper pace', `${settleFlick}s`);
+	await sleep(settleFlick * 1000 + 400);
+	say(!mover(), 'the put-back landed');
+	say(top() !== start, 'the pile shows the sheet before (wrapping past the newest)', `${start} → ${top()}`);
+	say(!d.querySelector('section[style*="settle"]') && !d.querySelector('section[style*="shade-in"]'), 'inline --settle / --shade-in cleared after landing');
+
+	// 4. lift off (swipe up): lands on the next older
+	const before = top();
+	await swipe(600, 450);
+	m = mover();
+	say(!!m && !m.style.getPropertyValue('--shade-in'), 'lifting off, the shadow is full (no --shade-in)');
+	T('touchend', 200, 450);
+	await sleep(parseFloat(m.style.getPropertyValue('--settle')) * 1000 + 400);
+	say(!mover() && top() === start, 'the lift landed back on the sheet it came from', `${before} → ${top()}`);
+
+	// 5. a slow push keeps the paper's own pace
+	await swipe(600, 300, 20, 45);
+	m = mover();
+	await sleep(200);   // the finger rests before letting go
+	T('touchend', 200, 300);
+	await sleep(40);
+	say(parseFloat(m.style.getPropertyValue('--settle')) === 1.2, 'a finger that stopped before letting go gets 1.2 s', m.style.getPropertyValue('--settle'));
+	await sleep(1700);
+
+	// 6. taps: 1 s, and a touch in the last 15 % of a settle is taken
+	const t0 = top();
+	await tap(150);
+	m = mover();
+	say(!!m && m.style.getPropertyValue('--settle') === '1s', 'a tap settles in 1 s', m && m.style.getPropertyValue('--settle'));
+	await sleep(250);
+	await tap(150);
+	say(mover() === m, 'a tap at 30 % of a settle is ignored');
+	await sleep(600);
+	await tap(150);
+	await sleep(60);
+	say(mover() && mover() !== m, 'a tap at ~90 % lands the move and starts the next');
+	await sleep(1300);
+	say(top() !== t0 && !mover(), 'two taps forward landed', `${t0} → ${top()}`);
+
+	// 7. the tap divider is set
+	const div = w.getComputedStyle(d.documentElement).getPropertyValue('--divider-y').trim();
+	say(/px$/.test(div) && parseFloat(div) > 100, 'the tap divider is placed', div);
+
+	// 8. the scrubber: one numbered print, clear of the thumb, the gears named
+	const scrub = d.querySelector('.scrub'), strip = d.querySelector('.scrub-strip');
+	const r = strip.getBoundingClientRect();
+	const S = (type, x, y) => {
+		const t = new w.Touch({ identifier: 2, target: scrub, clientX: x, clientY: y });
+		scrub.dispatchEvent(new w.TouchEvent(type, { touches: type === 'touchend' ? [] : [t], changedTouches: [t], bubbles: true, cancelable: true }));
+	};
+	S('touchstart', r.left + 10, r.top + r.height * 0.4);
+	await sleep(200);
+	const label = d.querySelector('.scrub-label'), card = d.querySelector('.scrub-card');
+	say(card.querySelectorAll('img').length === 1 && !d.querySelector('.scrub-up') && !d.querySelector('.scrub-down'), 'the label is one print, no neighbours');
+	const n = card.querySelector('b');
+	say(n && /^\d+$/.test(n.textContent) && w.getComputedStyle(n).webkitTextStrokeWidth === '1px', 'the number is on the print, outlined 1 px', n && n.textContent);
+	say((r.left + 10) - label.getBoundingClientRect().right >= 44, 'the label keeps 44 px clear of the finger on the strip', `${Math.round((r.left + 10) - label.getBoundingClientRect().right)} px`);
+	const hint = d.querySelector('.scrub-hint');
+	say(hint.textContent === '← finer' && !hint.classList.contains('gear'), 'on the strip the hint says ← finer');
+	S('touchmove', r.left - 100, r.top + r.height * 0.4);
+	await sleep(100);
+	say(hint.textContent.startsWith('¼') && hint.classList.contains('gear'), 'first gear: ¼ speed, as a chip', hint.textContent);
+	say((r.left - 100) - label.getBoundingClientRect().right >= 44, 'in a gear the label follows the finger, 44 px clear');
+	S('touchmove', r.left - 200, r.top + r.height * 0.4);
+	await sleep(100);
+	say(hint.textContent.startsWith('1/16'), 'last gear: 1/16 speed', hint.textContent);
+	S('touchend', r.left - 200, r.top + r.height * 0.4);
+	await sleep(1800);
+	say(!mover(), 'the scrubber cut landed');
+
+	lines.push('', fails ? `<span class="fail">${fails} failed</span>` : '<span class="ok">all passed</span>');
+	out.innerHTML = lines.join('\n');
+	document.title = (fails ? `${fails} FAIL — ` : 'ok — ') + 'deck checks';
+}
+</script>
+</body>
+</html>

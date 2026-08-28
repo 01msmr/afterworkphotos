@@ -14,6 +14,8 @@
 | `manifest.json` | web app manifest — makes the home screen icon an app |
 | `gallery/`, `res/gallery.*` | the VR gallery (Meta Quest), branch `vr-view` |
 | `docs/` | details, design specs and plans |
+| `tests/deck.html` | the deck's checks, in the browser |
+| `CLAUDE.md` | rules for working on the code |
 
 The site never shows file names: photos are numbered 1…N in date order.
 
@@ -39,7 +41,7 @@ Local:
 python3 -m http.server 8765 --bind 0.0.0.0     # open http://<LAN IP>:8765 on the phone
 ```
 
-On a desktop browser `?touch=1` (and `?tablet=1`) force the deck. The page must be served — it fetches `photos.json`.
+On a desktop browser `?touch=1` (and `?tablet=1`) force the deck. The page must be served — it fetches `photos.json`. **`tests/deck.html`** checks the deck at phone size with synthetic touches (open it from the server, window on screen); `CLAUDE.md` has the working rules.
 
 ## iOS, learned the hard way
 
