@@ -1901,6 +1901,7 @@ html.deck {
 		right: 0;
 		bottom: 100%;
 		margin-bottom: 3px;
+		opacity: 0.7;   /* context, behind the number */
 		text-align: center;
 		font: 700 24px/1 "Helvetica Neue", Helvetica, Arial, sans-serif;
 		letter-spacing: 0.08em;
