@@ -1155,7 +1155,8 @@ const elevator = {
 		};
 		display('display-in',  x0 + t + 0.015, Math.PI / 2);     // inside, on the door wall, facing +x into the cabin
 		display('display-out', x0 - 0.015, -Math.PI / 2);        // outside, above the architrave, facing the room
-		this.show(state.roomKey ? roomLabel(roomByKey(state.roomKey)) : '', '');
+		const cur = rooms().find(r => r.key === state.roomKey);   // may be gone after a re-plan
+		this.show(cur ? roomLabel(cur) : '', '');
 
 		// Light in the cabin: a glowing panel in the ceiling and the lamp
 		// behind it that actually lights the walls and the buttons.
@@ -1636,11 +1637,17 @@ async function offerVR() {
 	let ok = false;
 	try { ok = await navigator.xr.isSessionSupported('immersive-vr'); } catch (e) {}
 	if (!ok) return;
+	state.xrMode = 'immersive-vr';                       // no AR (Uli)
 	vrButton.hidden = false;
 	vrButton.addEventListener('click', async () => {
 		try {
-			const session = await navigator.xr.requestSession('immersive-vr', { optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking', 'plane-detection'] });
-			session.addEventListener('end', () => { vrButton.hidden = false; document.body.classList.remove('xr'); rig.position.set(0, 0, 0); rig.rotation.set(0, 0, 0); if (state.real) { state.real = null; world.position.set(0, 0, 0); world.rotation.set(0, 0, 0); state.settings.H = loadSettings().H; roomList = null; state.room = null; hangRoom(rooms()[0].key); } });
+			// The room is set up at entry (Uli): the Guardian boundary gives the
+			// rectangle, the wall you look at becomes the north wall. Planes are
+			// still asked for, should a browser ever hand them over in VR.
+			const session = await navigator.xr.requestSession(state.xrMode, { requiredFeatures: ['local-floor'], optionalFeatures: ['bounded-floor', 'hand-tracking', 'plane-detection', 'mesh-detection'] });
+			state.sessionT0 = performance.now();
+			try { state.bounded = await session.requestReferenceSpace('bounded-floor'); } catch (e) { state.bounded = null; }
+			session.addEventListener('end', () => { vrButton.hidden = false; document.body.classList.remove('xr'); rig.position.set(0, 0, 0); rig.rotation.set(0, 0, 0); state.lookSet = false; if (state.real) { state.real = null; world.position.set(0, 0, 0); world.rotation.set(0, 0, 0); state.settings.H = loadSettings().H; roomList = null; state.room = null; hangRoom(rooms()[0].key); } });
 			await renderer.xr.setSession(session);
 			renderer.xr.setFoveation(1);                 // the edges of the view at lower resolution: free on the Quest
 			scene.traverse(o => { if (o.isDirectionalLight && o.castShadow) { o.shadow.mapSize.set(1024, 1024); o.shadow.map?.dispose(); o.shadow.map = null; } });
@@ -1741,11 +1748,38 @@ function stepStats(now) {
 // is re-planned for this one room. Done once per session, when the
 // floor and at least two walls have been seen.
 
+let planesShown = 0;
 function stepPlanes(frame) {
-	if (state.real || !frame.detectedPlanes) return;
+	if (state.real) return;
 	const ref = renderer.xr.getReferenceSpace();
 	const walls = [], floors = [], ceilings = [];
-	for (const plane of frame.detectedPlanes) {
+	const planes = frame.detectedPlanes ? [...frame.detectedPlanes] : null;
+	// say what is arriving on the lift's display, once a second, until the room snaps
+	const now = performance.now();
+	if (now - planesShown > 1000 && elevator.displays.length && !elevator.ride) {
+		planesShown = now;
+		elevator.show(planes ? `${planes.length} planes` : 'no planes api', '');
+	}
+	// no planes: the Guardian's boundary gives the rectangle — at once, from
+	// where you stand and look (Uli: look straight at the middle of a wall)
+	if ((!planes || !planes.length) && state.bounded && state.bounded.boundsGeometry && now - state.sessionT0 > 300) {
+		const pts = state.bounded.boundsGeometry.map(q => new THREE.Vector3(q.x, 0, q.z));
+		if (pts.length >= 3) { fitRoom(pts, [], [], 0, 'bounds'); return; }
+	}
+	if (!planes || !planes.length) {
+		if (!state.bounded && now - state.sessionT0 > 300 && !state.lookSet) {
+			// no boundary either: turn the room to the look, its north wall 1.5 m ahead
+			state.lookSet = true;
+			const look = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.getWorldQuaternion(new THREE.Quaternion())); look.y = 0; look.normalize();
+			const yaw = Math.atan2(-look.x, -look.z);
+			const h = head(), D = state.room ? state.room.D : state.settings.D;
+			world.rotation.y = yaw;
+			world.position.set(h.x + look.x * (1.5 - D / 2), 0, h.z + look.z * (1.5 - D / 2));
+			if (elevator.displays.length) elevator.show('turned to you', '');
+		}
+		return;
+	}
+	for (const plane of planes) {
 		const pose = frame.getPose(plane.planeSpace, ref);
 		if (!pose) continue;
 		const m = new THREE.Matrix4().fromArray(pose.transform.matrix);
@@ -1758,39 +1792,55 @@ function stepPlanes(frame) {
 		else if (label === 'floor' || plane.orientation === 'horizontal') floors.push(entry);
 	}
 	if (!floors.length || walls.length < 2) return;
-
-	// the walls' direction: each wall's normal, folded into a quarter turn, weighted by length
-	let sx = 0, sy = 0;
-	for (const w of walls) {
-		const a = Math.atan2(w.normal.x, w.normal.z);
-		let len = 0; for (let i = 0; i < w.pts.length; i++) len += w.pts[i].distanceTo(w.pts[(i + 1) % w.pts.length]);
-		sx += Math.cos(4 * a) * len; sy += Math.sin(4 * a) * len;
-	}
-	const theta = Math.atan2(sy, sx) / 4;
-
-	// the floor's rectangle in that frame
 	const floor = floors.reduce((a, b) => a.pts.length >= b.pts.length ? a : b);
+	fitRoom(floor.pts, walls, ceilings, floor.pts.reduce((y, p) => y + p.y, 0) / floor.pts.length, 'planes');
+}
+
+// Fit the room to a floor polygon: the direction from the walls' normals
+// when there are walls, else from the polygon's longest edge; the
+// rectangle in that direction; the height from the ceiling or the walls.
+function fitRoom(floorPts, walls, ceilings, floorY, source) {
+	let theta;
+	if (walls.length) {
+		// each wall's normal, folded into a quarter turn, weighted by length
+		let sx = 0, sy = 0;
+		for (const w of walls) {
+			const a = Math.atan2(w.normal.x, w.normal.z);
+			let len = 0; for (let i = 0; i < w.pts.length; i++) len += w.pts[i].distanceTo(w.pts[(i + 1) % w.pts.length]);
+			sx += Math.cos(4 * a) * len; sy += Math.sin(4 * a) * len;
+		}
+		theta = Math.atan2(sy, sx) / 4;
+	} else {
+		let best = 0, bestLen = 0;
+		for (let i = 0; i < floorPts.length; i++) {
+			const a = floorPts[i], b = floorPts[(i + 1) % floorPts.length], len = a.distanceTo(b);
+			if (len > bestLen) { bestLen = len; best = Math.atan2(b.x - a.x, b.z - a.z); }
+		}
+		theta = best;
+	}
 	const rot = new THREE.Matrix4().makeRotationY(-theta);
-	let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity, floorY = 0;
-	for (const p of floor.pts) { const q = p.clone().applyMatrix4(rot); minX = Math.min(minX, q.x); maxX = Math.max(maxX, q.x); minZ = Math.min(minZ, q.z); maxZ = Math.max(maxZ, q.z); floorY += p.y / floor.pts.length; }
+	let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+	for (const p of floorPts) { const q = p.clone().applyMatrix4(rot); minX = Math.min(minX, q.x); maxX = Math.max(maxX, q.x); minZ = Math.min(minZ, q.z); maxZ = Math.max(maxZ, q.z); }
 	let W = maxX - minX, D = maxZ - minZ;
 	if (W < 1.5 || D < 1.5) return;
 	const centreLocal = new THREE.Vector3((minX + maxX) / 2, 0, (minZ + maxZ) / 2);
 	const centre = centreLocal.applyMatrix4(new THREE.Matrix4().makeRotationY(theta));
 	const H = ceilings.length ? Math.max(2.2, ceilings[0].pts[0].y - floorY) : Math.max(2.2, Math.min(3.2, walls.reduce((h, w) => Math.max(h, ...w.pts.map(p => p.y)), 0) - floorY || 2.6));
 
-	// the lift's corner: of the four turns that keep the walls on the walls,
-	// the one whose (+x, -z) corner is nearest you
-	const h = head(); let best = null;
+	// of the four turns that keep the walls on the walls, the one whose
+	// north wall is the wall you are looking at (the lift then stands in
+	// the corner to your front right)
+	const look = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.getWorldQuaternion(new THREE.Quaternion())); look.y = 0; look.normalize();
+	let best = null;
 	for (let k = 0; k < 4; k++) {
 		const yaw = theta + k * Math.PI / 2, odd = k % 2 === 1;
 		const w = odd ? D : W, d = odd ? W : D;
-		const corner = new THREE.Vector3(w / 2, 0, -d / 2).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw).add(centre);
-		const dist = Math.hypot(corner.x - h.x, corner.z - h.z);
-		if (!best || dist < best.dist) best = { yaw, W: w, D: d, dist };
+		const north = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+		const dot = north.dot(look);
+		if (!best || dot > best.dot) best = { yaw, W: w, D: d, dot };
 	}
-	state.real = { W: Math.round(best.W * 20) / 20, D: Math.round(best.D * 20) / 20, H: Math.round(H * 20) / 20, yaw: best.yaw, centre, walls: walls.length };
-	console.info(`real room ${state.real.W} × ${state.real.D} × ${state.real.H}, ${walls.length} walls, turned ${(best.yaw * 180 / Math.PI).toFixed(0)}°`);
+	state.real = { W: Math.round(best.W * 20) / 20, D: Math.round(best.D * 20) / 20, H: Math.round(H * 20) / 20, yaw: best.yaw, centre, walls: walls.length, source };
+	console.info(`real room ${state.real.W} × ${state.real.D} × ${state.real.H} from ${source}, ${walls.length} walls, turned ${(best.yaw * 180 / Math.PI).toFixed(0)}°`);
 
 	world.position.set(centre.x, floorY, centre.z);
 	world.rotation.y = best.yaw;
@@ -1800,7 +1850,7 @@ function stepPlanes(frame) {
 	const key = rooms().some(r => r.key === state.roomKey) ? state.roomKey : (rooms().find(r => r.year === state.year) || rooms()[0]).key;
 	hangRoom(key);
 	elevator.setDoors(1); elevator.open = 1;
-	if (elevator.displays.length) elevator.show(`${state.real.W} × ${state.real.D}`, '');
+	if (elevator.displays.length) elevator.show(`${state.real.W} × ${state.real.D} ${source === 'planes' ? 'walls' : 'boundary'}`, '');
 }
 
 renderer.setAnimationLoop((now, frame) => {
