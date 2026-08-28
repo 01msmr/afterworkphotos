@@ -104,8 +104,8 @@ function shapeOf(key) {
 	return { W: r(state.settings.W * fw), D: r(state.settings.D * fd) };
 }
 
-const AMBIENT = { light: 0.55, dark: 0.08 };
-const FILL    = { light: 0.5,  dark: 0.06 };
+const AMBIENT = { light: 0.6,  dark: 0.08 };
+const FILL    = { light: 0.65, dark: 0.06 };
 
 function buildRoom(W, D, H, look = LOOKS[0]) {
 	const room = new THREE.Group();
@@ -186,7 +186,7 @@ function applyMode(dark) {
 // around the mat's edge, 3 cm face and 4 cm deep, mitred by overlap. Two
 // lines rise from the frame's top corners to the ceiling. No glass.
 
-const FRAME = { face: 0.03, depth: 0.04 };
+const FRAME = { face: 0.03, depth: 0.04, chamfer: 0.0015 };   // a 1.5 mm chamfer on the long edges (Uli)
 const MAT = { 0.9: 0.09, 0.6: 0.06, 0.4: 0.045 };     // mat width per nominal print size: the spec's 6/4/3 plus half (Uli)
 const PRINT_SCALE = 0.9;                               // the print inside is a little smaller than nominal, the mat takes the rest (Uli)
 const MAT_COLOURS = { white: 0xfaf9f6, warm: 0xf3ecdd, none: 0xfaf9f6 };
@@ -202,8 +202,46 @@ const FRAME_COLOURS = { oak: 0xb08d57, walnut: 0x5b4633, black: 0x171717, white:
 
 // Materials are shared: one per frame colour, one mat, one line. Switching
 // the frame colour (task 1.6) recolours the shared material once.
+// Wood grain, drawn once: long streaks along the bar with a slight wobble
+// and now and then a darker line, in greys so the frame colour tints it.
+// The bars' UVs are in metres (ExtrudeGeometry), so the tile repeats
+// every quarter metre. A roughness map from the same grain lets the light
+// catch the ridges.
+function woodTextures() {
+	const W = 256, H = 256;
+	const c = document.createElement('canvas'); c.width = W; c.height = H;
+	const g = c.getContext('2d');
+	const img = g.createImageData(W, H);
+	// smooth 1-D noise across the bar (x) with a slow wobble along it (y)
+	const rnd = n => { const a = []; for (let i = 0; i < n; i++) a.push(Math.random()); return a; };
+	const r1 = rnd(32), r2 = rnd(16), r3 = rnd(8);
+	const smooth = (arr, t) => { const n = arr.length, i = Math.floor(t * n) % n, j = (i + 1) % n, f = t * n - Math.floor(t * n); const u = f * f * (3 - 2 * f); return arr[i] * (1 - u) + arr[j] * u; };
+	for (let y = 0; y < H; y++) {
+		const wob = 0.035 * Math.sin(y / H * Math.PI * 2 * 3) + 0.02 * smooth(r3, y / H);
+		for (let x = 0; x < W; x++) {
+			const t = (x / W + wob + 1) % 1;
+			const grain = 0.55 * smooth(r1, t) + 0.3 * smooth(r2, t * 2 % 1) + 0.15 * Math.sin(t * Math.PI * 2 * 9);
+			const line = Math.pow(Math.max(0, Math.sin(t * Math.PI * 2 * 17 + smooth(r2, y / H) * 4)), 30) * 0.35;   // the odd dark line
+			let l = 0.78 + 0.22 * grain - line;
+			l = Math.max(0.55, Math.min(1, l));
+			const i = (y * W + x) * 4;
+			img.data[i] = img.data[i + 1] = img.data[i + 2] = Math.round(l * 255); img.data[i + 3] = 255;
+		}
+	}
+	g.putImageData(img, 0, 0);
+	const map = new THREE.CanvasTexture(c);
+	map.wrapS = map.wrapT = THREE.RepeatWrapping;
+	map.repeat.set(4, 4);
+	map.colorSpace = THREE.SRGBColorSpace;
+	const rough = new THREE.CanvasTexture(c);
+	rough.wrapS = rough.wrapT = THREE.RepeatWrapping;
+	rough.repeat.set(4, 4);
+	return { map, rough };
+}
+const wood = woodTextures();
+
 const materials = {
-	frame: new THREE.MeshStandardMaterial({ color: FRAME_COLOURS[state.settings.frame], roughness: 0.62, metalness: 0 }),
+	frame: new THREE.MeshStandardMaterial({ color: FRAME_COLOURS[state.settings.frame], map: wood.map, roughnessMap: wood.rough, roughness: 0.75, metalness: 0 }),
 	mat:   new THREE.MeshStandardMaterial({ color: MAT_COLOURS[state.settings.mat], roughness: 0.95 }),
 	line:  new THREE.MeshPhysicalMaterial({ color: 0xffffff, transmission: 0.6, roughness: 0.1, thickness: 0.001 }),
 };
@@ -222,6 +260,29 @@ function photoTexture(p) {
 
 // Outer edge of one framed print of a given print size.
 const framedSize = size => (size + 2 * matWidth(size) + 2 * FRAME.face) * sc();
+
+// A frame bar: its cross-section (face across, depth into the room) with
+// the four corners cut by the chamfer, extruded along its length. The
+// ends are plain — they hide in the mitre. Cached per length and face.
+const barCache = new Map();
+function barGeometry(length, face, depth, horizontal) {
+	const key = `${length.toFixed(4)}|${face.toFixed(4)}|${depth.toFixed(4)}|${horizontal}`;
+	if (barCache.has(key)) return barCache.get(key);
+	const c = Math.min(FRAME.chamfer, face / 3), fw = face / 2, dh = depth / 2;
+	const shape = new THREE.Shape([
+		[-fw + c, -dh], [fw - c, -dh], [fw, -dh + c], [fw, dh - c],
+		[fw - c, dh], [-fw + c, dh], [-fw, dh - c], [-fw, -dh + c],
+	].map(([u, v]) => new THREE.Vector2(u, v)));
+	const g = new THREE.ExtrudeGeometry(shape, { depth: length, bevelEnabled: false, curveSegments: 1 });
+	g.translate(0, 0, -length / 2);
+	// extruded along z: turn so the length runs along x (a horizontal bar,
+	// face along y, depth along z) or along y (a vertical one)
+	g.applyMatrix4(new THREE.Matrix4().set(0, 0, 1, 0,  1, 0, 0, 0,  0, 1, 0, 0,  0, 0, 0, 1));   // (u,v,w) -> (w,u,v)
+	if (!horizontal) g.rotateZ(Math.PI / 2);
+	g.computeVertexNormals();
+	barCache.set(key, g);
+	return g;
+}
 
 function makeFramedPrint(p, size) {
 	const g = new THREE.Group();
@@ -247,11 +308,12 @@ function makeFramedPrint(p, size) {
 	// Four bars around the board. Horizontal bars run the full outer width;
 	// vertical bars fill between them — the overlap reads as a mitre from
 	// any angle the viewer can take. Bars sit flush with the wall at z=0
-	// and come 4 cm into the room.
+	// and come 4 cm into the room. Their long edges carry the chamfer.
 	const bar = (name, w, h, x, y) => {
-		const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, FRAME.depth), materials.frame);
+		const horizontal = w > h;
+		const m = new THREE.Mesh(barGeometry(horizontal ? w : h, horizontal ? h : w, FRAME.depth * k, horizontal), materials.frame);
 		m.name = name;
-		m.position.set(x, y, FRAME.depth / 2);
+		m.position.set(x, y, FRAME.depth * k / 2);
 		m.castShadow = true;
 		m.receiveShadow = true;
 		g.add(m);
@@ -343,8 +405,10 @@ function addLabel(piece, spec, w, h) {
 	// Lower right of the piece where the wall has room; when the pieces
 	// hang closer than the card needs, below the frame instead (Uli), so
 	// no card runs into the next frame.
-	if (state.gap >= cw + 0.05 + 0.05) card.position.set(w / 2 + 0.05 + cw / 2, -h / 2 + ch / 2, 0.002);
+	const below = state.gap < cw + 0.05 + 0.05;
+	if (!below) card.position.set(w / 2 + 0.05 + cw / 2, -h / 2 + ch / 2, 0.002);
 	else card.position.set(w / 2 - cw / 2, -h / 2 - 0.03 - ch / 2, 0.002);
+	card.userData = { x0: card.position.x, y0: card.position.y, below };
 	card.visible = state.settings.labels;
 	piece.add(card);
 }
@@ -508,7 +572,7 @@ function layout(items, W, D) {
 // takes those spots' places (their own light goes dark meanwhile), and
 // the frames around you throw shadows while the far ones simply glow.
 
-const SPOT = { colour: 0xfff1dc, power: 9, angle: 0.62, penumbra: 1.0 };
+const SPOT = { colour: 0xfff1dc, power: 4, angle: 0.7, penumbra: 1.0 };   // reduced (Uli): a lift, not a beam
 const SHADOW_POOL = 8;
 
 const shadowSpots = new THREE.Group();
@@ -1050,8 +1114,16 @@ const elevator = {
 		if (now - this.leftAt > 7000) { this.doorAnim = { from: 1, to: 0, t0: now }; lift.slide(); }
 	},
 
+	// Ride again or leave — both stay possible (Uli): after arriving the
+	// doors stay open while you stand in the cabin; a press starts the
+	// next ride even while they are still opening (they reverse from
+	// where they are), and walking out lets them close behind you.
 	go(key) {
-		if (this.ride || key === state.roomKey) return;
+		if (key === state.roomKey) return;
+		if (this.ride && !this.ride.ready) return;         // travelling: no
+		let fromOpen = 1;
+		if (this.ride) fromOpen = Math.min(1, (performance.now() - this.ride.tOpen) / 500);   // caught while opening
+		else if (this.doorAnim || this.coming) fromOpen = this.open;
 		this.doorAnim = null; this.coming = null; this.open = 1; this.leftAt = null;
 		lift.slide();
 		const list = rooms();
@@ -1060,7 +1132,8 @@ const elevator = {
 		// the list runs newest first, so a smaller index is a higher floor
 		const path = list.slice(Math.min(from, to), Math.max(from, to) + 1);
 		if (to < from) path.reverse();
-		this.ride = { key, t0: performance.now(), hung: false, floors, up: to < from, path,
+		// the doors close from where they stand: back-date t0 by what is already shut
+		this.ride = { key, t0: performance.now() - (1 - fromOpen) * 500, hung: false, floors, up: to < from, path,
 		              travel: Math.max(6, Math.min(9, 2.5 + 0.35 * floors)) };   // long enough for the run to be heard before the stop
 		placeBody(this.origin.x, this.origin.z, Math.PI / 2);   // into the cabin, facing the doors
 	},
@@ -1119,9 +1192,29 @@ function pressAt(ndcX, ndcY) {
 }
 function pressAlong(rc, reach) {
 	const hit = rc.intersectObjects([...elevator.buttons, ...elevator.callButtons], false)[0];
-	if (!hit || hit.distance > reach) return false;
-	if (hit.object.userData.call) elevator.call(); else elevator.go(hit.object.userData.key);
-	return true;
+	if (hit && hit.distance <= reach) {
+		if (hit.object.userData.call) elevator.call(); else elevator.go(hit.object.userData.key);
+		return true;
+	}
+	// a label card: a press doubles it, the next press puts it back (Uli)
+	const pieces = scene.getObjectByName('pieces');
+	if (pieces) {
+		const labels = [];
+		pieces.traverse(o => { if (o.name === 'label' && o.visible) labels.push(o); });
+		const l = rc.intersectObjects(labels, false)[0];
+		if (l && l.distance <= 4) {
+			const card = l.object, big = card.scale.x > 1.5;
+			// grow from the card's top-right corner, which sits by the frame, so it
+			// stays where it is and spreads down and out
+			const w = card.geometry.parameters.width, h = card.geometry.parameters.height;
+			const k = big ? 1 : 2;
+			card.scale.set(k, k, 1);
+			card.position.x = card.userData.x0 + (k - 1) * w / 2 * (card.userData.below ? -1 : 1);
+			card.position.y = card.userData.y0 - (k - 1) * h / 2;
+			return true;
+		}
+	}
+	return false;
 }
 
 // The bench's overlay: Y lists the floors.
