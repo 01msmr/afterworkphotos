@@ -1661,15 +1661,21 @@ html.deck {
 		visibility: visible;
 		z-index: 10;
 		will-change: transform;
-		transition: box-shadow 0.2s ease;
+		/* The long shadow's strength is --shade-in, 0…1, set by main.js from
+		   the sheet's position: a sheet coming down from above the screen
+		   enters as paper and its shadow rises with the first 100 px of its
+		   entry — by movement, not by time. Lifting off it is 1 throughout. */
+		--shade-in: 1;
+		/* no shadow transition here: the shadow follows the position */
+		transition: top 0.3s ease, right 0.3s ease, bottom 0.3s ease, left 0.3s ease, border-radius 0.3s ease;
 		box-shadow:
 			inset 1px 1px 0 var(--edge-light),
 			inset -1px -1px 0 rgba(var(--shade), 0.08),
 			0 0 0 1px var(--edge-dark),
-			0 2px 4px rgba(var(--shade), 0.35),
-			0 16px 36px rgba(var(--shade), 0.45),
-			0 48px 110px rgba(var(--shade), 0.55),
-			0 90px 180px rgba(var(--shade), 0.5);
+			0 2px 4px rgba(var(--shade), calc(0.35 * var(--shade-in))),
+			0 16px 36px rgba(var(--shade), calc(0.45 * var(--shade-in))),
+			0 48px 110px rgba(var(--shade), calc(0.55 * var(--shade-in))),
+			0 90px 180px rgba(var(--shade), calc(0.5 * var(--shade-in)));
 	}
 
 	/* The settle — a tap animates the whole travel, a released swipe the
@@ -1681,12 +1687,7 @@ html.deck {
 		transition:
 			transform var(--settle, 1.2s) cubic-bezier(0.4, 0, 0.2, 1),
 			top 0.3s ease, right 0.3s ease, bottom 0.3s ease, left 0.3s ease,
-			border-radius 0.3s ease, box-shadow 0.2s ease;
-	}
-
-	/* still above the screen: paper edge only, no long throw yet */
-	section.mover.entering {
-		box-shadow: var(--sheet-edge);
+			border-radius 0.3s ease;
 	}
 
 	/* The tap divider, printed on every sheet at the same screen height
