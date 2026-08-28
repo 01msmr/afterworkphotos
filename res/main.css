@@ -1362,6 +1362,9 @@ html.deck {
 		--title-link: blue;
 		--title-link-bg: #dedede;
 		--divider: rgba(0, 0, 0, 0.12);
+		/* the number on the scrubber's print, and its outline */
+		--number: #fff;
+		--number-edge: #333;
 		/* lit bevel on the top/left edge, and the sheet's dark thickness */
 		--edge-light: rgba(255, 255, 255, 0.55);
 		--edge-dark: rgba(0, 0, 0, 0.22);
@@ -1397,6 +1400,8 @@ html.deck {
 			--title-link: #9db8ff;
 			--title-link-bg: #2b2927;
 			--divider: rgba(255, 255, 255, 0.16);
+			--number: #1a1a1a;
+			--number-edge: #ddd;
 			--edge-light: rgba(255, 255, 255, 0.14);
 			--edge-dark: rgba(0, 0, 0, 0.7);
 			--shade: 0, 0, 0;
@@ -1823,71 +1828,31 @@ html.deck {
 		white-space: nowrap;
 	}
 
-	.scrub-up,
-	.scrub-down {
-		display: flex;
-		flex-direction: column;
-		align-items: flex-end;
-		gap: 4px;
-	}
-
-	.scrub-up:empty,
-	.scrub-down:empty {
-		display: none;
-	}
-
-	/* A neighbour lies on a white slip, its print at 65% over it: lighter
-	   than the finger's own, and opaque — nothing of the desk shows through */
-	.scrub-up .slip,
-	.scrub-down .slip {
-		display: block;
-		background: #fff;
-		border-radius: 4px;
-		box-shadow: 0 0 0 1px var(--edge-dark);
-	}
-
-	.scrub-up img,
-	.scrub-down img {
-		width: 44px;
-		height: 44px;
-		border-radius: 4px;
-		display: block;
-		opacity: 0.65;
-	}
-
+	/* One print, 72px, with its number on it: bottom left, a little past
+	   the middle, white with a thin dark outline — inverted in dark mode —
+	   so it reads on any picture without a plate under it */
 	.scrub-card {
-		display: flex;
-		align-items: center;
-		gap: 10px;
-		padding: 4px 4px 4px 12px;
-		background: var(--paper);
-		border-radius: 6px;
-		box-shadow: var(--sheet-edge), 0 12px 28px rgba(var(--shade), 0.4);
-	}
-
-	.scrub-text {
-		display: flex;
-		flex-direction: column;
-		align-items: flex-end;
-	}
-
-	.scrub-text b {
-		font-size: 110%;
-	}
-
-	.scrub-text span {
-		font-weight: 500;
-		font-size: 11px;
-		margin-top: 3px;
-		opacity: 0.8;
+		position: relative;
+		border-radius: 5px;
+		box-shadow: 0 0 0 1px var(--edge-dark), 0 12px 28px rgba(var(--shade), 0.45);
 	}
 
 	.scrub-card img {
-		width: 56px;
-		height: 56px;
-		border-radius: 4px;
+		width: 72px;
+		height: 72px;
+		border-radius: 5px;
 		display: block;
-		box-shadow: 0 0 0 1px var(--edge-dark);
+	}
+
+	.scrub-card b {
+		position: absolute;
+		left: 3px;
+		bottom: 2px;
+		font: 700 21px/1 "Helvetica Neue", Helvetica, Arial, sans-serif;
+		letter-spacing: -0.02em;
+		color: var(--number);
+		-webkit-text-stroke: 1px var(--number-edge);
+		paint-order: stroke fill;
 	}
 
 	.scrub-hint {
