@@ -535,23 +535,26 @@ if (DECK) {
   // The card at the finger's height; the whole label kept on screen
   // The label stands clear of the year marks (labelRight, set from the
   // widest mark) — and clear of the thumb: a thumb pad is a good 50px
-  // wide, so the print's right edge keeps THUMB px left of the touch
-  // point, whichever of the two is further from the edge. The thumb
-  // covers nothing then, in a fine gear as much as on the strip.
-  const THUMB = 44;
-  function placeLabel(clientX, clientY) {
+  // wide, so the print's edge keeps THUMB px from the touch point,
+  // whichever of the two is further from the edge. On the strip the
+  // print is sticky beside the rail; in the finer gear it jumps GEAR_JUMP
+  // further in and grows a fifth — the gear made visible.
+  const THUMB = 44, GEAR_JUMP = 90;
+  function placeLabel(clientX, clientY, rate = 1) {
     const r = strip.getBoundingClientRect();
     const h = scrubLabel.offsetHeight;
     const cardMid = labelCard.offsetHeight / 2;
     const top = Math.min(r.bottom - h, Math.max(r.top, clientY - cardMid));
     scrubLabel.style.top = top + 'px';
     scrubLabel.classList.toggle('left', side < 0);
+    scrubLabel.classList.toggle('fine', rate < 1);
+    const edge = labelRight + (rate < 1 ? GEAR_JUMP : 0);
     if (side > 0) {
       scrubLabel.style.left = 'auto';
-      scrubLabel.style.right = Math.max(labelRight, window.innerWidth - clientX + THUMB) + 'px';
+      scrubLabel.style.right = Math.max(edge, window.innerWidth - clientX + THUMB) + 'px';
     } else {
       scrubLabel.style.right = 'auto';
-      scrubLabel.style.left = Math.max(labelRight, clientX + THUMB) + 'px';
+      scrubLabel.style.left = Math.max(edge, clientX + THUMB) + 'px';
     }
   }
 
@@ -566,7 +569,11 @@ if (DECK) {
     // how far the finger has gone in from the strip, towards the middle
     const r = scrub.getBoundingClientRect();
     const d = side > 0 ? r.left - clientX : clientX - r.right;
-    return d < 60 ? 1 : d < 160 ? 0.25 : 1 / 16;
+    // two gears: the strip, and ¼ from 60 px in. A third (1/16 from
+    // 160 px) is not needed while single sheets are reachable in ¼ —
+    // 4 · stripHeight / N ≥ 3 px, to ≈ 900 photos on an iPhone:
+    // return d < 60 ? 1 : d < 160 ? 0.25 : 1 / 16;
+    return d < 60 ? 1 : 0.25;
   }
 
   let restTimer = 0;
@@ -597,7 +604,7 @@ if (DECK) {
     hint.querySelector('.word').textContent = hintDir === -side ? 'finer' : 'coarse';
     hint.dataset.dir = hintDir < 0 ? 'l' : 'r';
     lastX = clientX;
-    placeLabel(clientX, clientY);
+    placeLabel(clientX, clientY, rate);
     // the finger resting on a photo for a moment is enough to fetch it
     clearTimeout(restTimer);
     restTimer = setTimeout(() => warmUp(photoAt(scrubIndex).file), 200);
