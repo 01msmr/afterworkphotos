@@ -435,13 +435,11 @@ if (DECK) {
   // The label is one print — the one that lands on top when the finger
   // lets go — with its number on it, and the gear hint under it
   scrubLabel.innerHTML = `
-    <div class="scrub-card"><img alt=""><b></b><span class="year"></span><span class="chev l">‹</span><span class="chev r">›</span></div>
-    <div class="scrub-hint"><b></b> <span class="unit">phps</span></div>`;
+    <div class="scrub-card"><img alt=""><b></b><span class="year"></span></div>`;
   const labelCard = scrubLabel.querySelector('.scrub-card');
   const labelN = scrubLabel.querySelector('.scrub-card b');
   const labelYear = scrubLabel.querySelector('.scrub-card .year');
   const labelPrint = scrubLabel.querySelector('.scrub-card img');
-  const hint = scrubLabel.querySelector('.scrub-hint');
   document.body.append(...scrubs, scrubLabel);
   const labelRight = 56;   // the label's least distance from the edge
 
@@ -578,7 +576,6 @@ if (DECK) {
   }
 
   let restTimer = 0;
-  const SPEED = { 1: 20, 0.25: 10, [1 / 16]: 5 };   // the label's phps per gear
 
   function scrubTo(clientX, clientY, first = false) {
     const r = strip.getBoundingClientRect();
@@ -593,15 +590,7 @@ if (DECK) {
     }
     lastY = clientY;
     scrubIndex = Math.round(scrubPos);
-    const count = neighbourCount(r.height / N / rate);
     renderLabel(scrubIndex);
-    // The speed, in photos per second of a normal finger — 20 on the rail,
-    // 10 in the finer gear (5 in a third). Beside the print, at its
-    // height, a chevron on the side where the other gear lies: towards
-    // the middle on the rail, back towards the rail in the finer gear
-    hint.hidden = !gearsOn || (rate === 1 && count === 1);
-    hint.querySelector('b').textContent = SPEED[rate] || Math.round(20 * rate * 2);
-    labelCard.dataset.next = ((rate === 1 ? -side : side) < 0) ? 'l' : 'r';
     placeLabel(clientX, clientY, rate);
     // the finger resting on a photo for a moment is enough to fetch it
     clearTimeout(restTimer);
