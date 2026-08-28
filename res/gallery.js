@@ -660,6 +660,7 @@ function hangRoom(key) {
 	state.roomKey = key;
 	state.gap = lay.gap;
 	elevator.light(key);
+	if (!elevator.ride) elevator.show(roomLabel(room), '');
 	return pieces;
 }
 
@@ -674,9 +675,9 @@ function hangRoom(key) {
 // has two rooms. The lit button is the room you stand in. A press closes
 // the doors, hangs the other room, and opens them again: one second.
 
-const DOOR = { w: 0.8, h: 2.1, thick: 0.03 };
+const DOOR = { w: 0.7, h: 2.1, thick: 0.03 };            // 0.7 in a 1.5 m front: an open panel stays behind its jamb (Uli)
 const CABIN_WALL = 0.08;
-const LINER = 0.02;                                        // the cabin's own skin on the room's two walls
+const DISPLAY = { w: 0.44, h: 0.11 };                      // the floor display above the door
 const BUTTON = { r: 0.02, rise: 0.008, pitch: 0.05 };     // radius, how far it stands proud, spacing
 const PANEL = { low: 1.0, high: 1.6, tilt: 22 * Math.PI / 180, cols: 8 };   // between hand and eye, turned up toward the eye, side by side
 
@@ -684,6 +685,7 @@ const PANEL = { low: 1.0, high: 1.6, tilt: 22 * Math.PI / 180, cols: 8 };   // b
 // metallic surface renders near black, so the cabin is a dull satin.
 const metal = new THREE.MeshStandardMaterial({ color: 0xa9a7a2, metalness: 0.35, roughness: 0.45 });
 const cabinInner = new THREE.MeshLambertMaterial({ color: 0xcfccc5 });
+const displayBack = new THREE.MeshStandardMaterial({ color: 0x0c0c0c, roughness: 0.4, metalness: 0.2 });
 const cabinFloor = new THREE.MeshLambertMaterial({ color: 0x5a5854 });
 const panelPlate = new THREE.MeshStandardMaterial({ color: 0xb5b2ac, metalness: 0.4, roughness: 0.5 });
 const lightPanel = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xfff6e8, emissiveIntensity: 1.6, roughness: 1 });
@@ -716,20 +718,118 @@ function buttonFace(room) {
 	return t;
 }
 
+// The floor display: the room you are on; during a ride, each floor
+// passed, with the direction. Drawn on a canvas, shown inside and out.
+function drawDisplay(ctx, text, arrow) {
+	const c = ctx.canvas;
+	ctx.fillStyle = '#0a0a0a'; ctx.fillRect(0, 0, c.width, c.height);
+	ctx.fillStyle = '#ffb347';
+	ctx.textBaseline = 'middle';
+	ctx.font = '600 84px "Helvetica Neue", Arial, sans-serif';
+	ctx.textAlign = 'center';
+	ctx.fillText(text, c.width / 2 + (arrow ? 24 : 0), c.height / 2 + 4);
+	if (arrow) {
+		ctx.font = '600 60px "Helvetica Neue", Arial, sans-serif';
+		ctx.textAlign = 'left';
+		ctx.fillText(arrow, 28, c.height / 2 + 4);
+	}
+}
+function roomLabel(room) {
+	if (room.years.length > 1) return room.span;
+	return room.of > 1 ? `${room.year} · ${room.part}/${room.of}` : room.year;
+}
+
+// The sound of the lift: Uli's recordings in res/sound/. ride.mp3 has a
+// start and run (0.6–8.4 s), the stop (8.4–11.7 s) and the doors opening
+// (13.3–15.3 s); a ride plays the start and as much run as it needs, then
+// the stop; every door movement plays the door segment. bell.mp3, when
+// there is one, rings on arrival; until then the arrival in call.mp3
+// (15.4–18.6 s) stands in. The audio context has to be born of a press,
+// so it is made on the first ride; the files are fetched at load and
+// decoded then.
+const SOUND = {
+	ride:  { file: '/res/sound/ride.mp3', run: [0.6, 8.4], stop: [8.4, 11.7], door: [13.3, 15.3] },
+	bell:  { file: '/res/sound/bell.mp3' },
+	call:  { file: '/res/sound/call.mp3', bell: [15.4, 18.6] },
+};
+const STOP_LEN = SOUND.ride.stop[1] - SOUND.ride.stop[0];
+
+const lift = {
+	ctx: null, master: null, raw: {}, buf: {},
+	fetchAll() {
+		for (const [k, v] of Object.entries(SOUND)) {
+			fetch(v.file).then(r => r.ok ? r.arrayBuffer() : null).then(b => { if (b) this.raw[k] = b; }).catch(() => {});
+		}
+	},
+	ready() {
+		if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); this.decode(); return true; }
+		try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return false; }
+		this.master = this.ctx.createGain(); this.master.gain.value = 0.9; this.master.connect(this.ctx.destination);
+		this.decode();
+		return true;
+	},
+	decode() {
+		for (const k of Object.keys(this.raw)) {
+			if (this.buf[k] || this.buf[k] === false) continue;
+			this.buf[k] = false;                              // decoding
+			this.ctx.decodeAudioData(this.raw[k].slice(0)).then(b => { this.buf[k] = b; }).catch(() => { delete this.buf[k]; });
+		}
+	},
+	// play buffer `k` from `from` for `dur` seconds at time `at`, faded in and out
+	play(k, from, dur, at = null, gain = 1, fadeIn = 0.05, fadeOut = 0.12) {
+		const b = this.buf[k];
+		if (!b) return null;
+		const ctx = this.ctx, t = at ?? ctx.currentTime;
+		const src = ctx.createBufferSource(); src.buffer = b;
+		const g = ctx.createGain();
+		g.gain.setValueAtTime(0.0001, t);
+		g.gain.exponentialRampToValueAtTime(gain, t + fadeIn);
+		g.gain.setValueAtTime(gain, t + dur - fadeOut);
+		g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+		src.connect(g); g.connect(this.master);
+		src.start(t, from, dur + 0.02);
+		return src;
+	},
+	// a ride of `seconds`: the start and the run for what is left after the stop, then the stop
+	run(seconds) {
+		if (!this.ready()) return;
+		const R = SOUND.ride, t = this.ctx.currentTime;
+		const runLen = Math.max(0.4, Math.min(seconds - STOP_LEN, R.run[1] - R.run[0]));
+		this.play('ride', R.run[0], runLen, t, 1, 0.03, 0.15);
+		this.play('ride', R.stop[0], STOP_LEN, t + runLen - 0.1, 1, 0.1, 0.2);
+	},
+	slide() {
+		if (!this.ready()) return;
+		const R = SOUND.ride;
+		this.play('ride', R.door[0], R.door[1] - R.door[0], null, 0.9, 0.03, 0.15);
+	},
+	bell() {
+		if (!this.ready()) return;
+		if (this.buf.bell) this.play('bell', 0, this.buf.bell.duration, null, 1, 0.01, 0.1);
+		else { const C = SOUND.call; this.play('call', C.bell[0], C.bell[1] - C.bell[0], null, 0.9, 0.05, 0.3); }
+	},
+};
+lift.fetchAll();
+
 const elevator = {
 	group: null,
 	doors: null,        // [north panel, south panel]
 	buttons: [],
-	ride: null,         // { t0, key } while the doors are moving
+	displays: [],       // { tex, ctx } inside and outside
+	ride: null,         // while the doors are moving or the cabin travels
 	origin: null,       // cabin's inner centre on the floor, world coords
+	callButtons: [],
+	open: 1,            // where the doors stand when idle, 0..1
+	doorAnim: null,     // { from, to, t0 } an idle open or close
+	leftAt: null,       // when the body last stepped out, for the doors to close behind
 
 	build(W, D, H) {
-		const e = ELEVATOR.size;
+		const e = ELEVATOR.size, t = CABIN_WALL;
 		const g = new THREE.Group();
 		g.name = 'elevator';
 		const x0 = W / 2 - e, z1 = -D / 2 + e;   // west face at x0, south face at z1
-		// the cabin's inside: between the west wall, the south wall, and the liners on north and east
-		const ix0 = x0 + CABIN_WALL, ix1 = W / 2 - LINER, iz0 = -D / 2 + LINER, iz1 = z1 - CABIN_WALL;
+		// the cabin's inside, between its own four walls
+		const ix0 = x0 + t, ix1 = W / 2 - t, iz0 = -D / 2 + t, iz1 = z1 - t;
 		this.origin = new THREE.Vector3((ix0 + ix1) / 2, 0, (iz0 + iz1) / 2);
 
 		const box = (name, w, h, d, x, y, z, m) => {
@@ -739,28 +839,80 @@ const elevator = {
 			g.add(mesh); return mesh;
 		};
 
-		// The cabin is its own box: a closed lift shows nothing of the room.
-		box('cabin-s', e, H, CABIN_WALL, W / 2 - e / 2, H / 2, z1 - CABIN_WALL / 2, metal);        // south wall, panel inside
-		box('cabin-n', e, H, LINER, W / 2 - e / 2, H / 2, -D / 2 + LINER / 2, cabinInner);         // liner on the room's north wall
-		box('cabin-e', LINER, H, e, W / 2 - LINER / 2, H / 2, -D / 2 + e / 2, cabinInner);         // liner on the room's east wall
+		// A cabin all round (Uli): its own four walls, floor and ceiling, steel
+		// outside, satin inside — not the room's plaster on two sides.
+		box('cabin-s', e, H, t, W / 2 - e / 2, H / 2, z1 - t / 2, metal);
+		box('cabin-n', e, H, t, W / 2 - e / 2, H / 2, -D / 2 + t / 2, metal);
+		box('cabin-e', t, H, e, W / 2 - t / 2, H / 2, -D / 2 + e / 2, metal);
 		box('cabin-floor', e, 0.01, e, W / 2 - e / 2, 0.005, -D / 2 + e / 2, cabinFloor);
 		box('cabin-ceiling', e, 0.02, e, W / 2 - e / 2, H - 0.01, -D / 2 + e / 2, cabinInner);
-		// West face: two jambs and a lintel around the door opening.
-		const jamb = (e - DOOR.w) / 2;
-		box('jamb-n', CABIN_WALL, DOOR.h, jamb, x0 + CABIN_WALL / 2, DOOR.h / 2, -D / 2 + jamb / 2, metal);
-		box('jamb-s', CABIN_WALL, DOOR.h, jamb, x0 + CABIN_WALL / 2, DOOR.h / 2, z1 - jamb / 2, metal);
-		box('lintel', CABIN_WALL, H - DOOR.h, e, x0 + CABIN_WALL / 2, DOOR.h + (H - DOOR.h) / 2, -D / 2 + e / 2, metal);
+		// Inner skins so the inside reads as a cabin, not raw steel.
+		box('skin-s', e - 2 * t, H - 0.04, 0.01, W / 2 - e / 2, H / 2, iz1 - 0.005, cabinInner);
+		box('skin-n', e - 2 * t, H - 0.04, 0.01, W / 2 - e / 2, H / 2, iz0 + 0.005, cabinInner);
+		box('skin-e', 0.01, H - 0.04, e - 2 * t, ix1 - 0.005, H / 2, -D / 2 + e / 2, cabinInner);
 
-		// Two door panels behind the jambs, sliding apart along z: the north
-		// one into the room's north wall, the south one along the cabin's
-		// south wall. Closed, they meet at the opening's centre.
-		const zc = -D / 2 + e / 2;
-		const dx = x0 + CABIN_WALL + DOOR.thick / 2 + 0.005;
+		// West face: two jambs and a lintel around the door opening, and an
+		// architrave standing proud of the face round the door outside.
+		const jamb = (e - DOOR.w) / 2;
+		box('jamb-n', t, DOOR.h, jamb, x0 + t / 2, DOOR.h / 2, -D / 2 + jamb / 2, metal);
+		box('jamb-s', t, DOOR.h, jamb, x0 + t / 2, DOOR.h / 2, z1 - jamb / 2, metal);
+		box('lintel', t, H - DOOR.h, e, x0 + t / 2, DOOR.h + (H - DOOR.h) / 2, -D / 2 + e / 2, metal);
+		const zc = -D / 2 + e / 2, arch = 0.07, proud = 0.03;
+		box('arch-n', proud, DOOR.h + arch, arch, x0 - proud / 2, (DOOR.h + arch) / 2, zc - DOOR.w / 2 - arch / 2, metal);
+		box('arch-s', proud, DOOR.h + arch, arch, x0 - proud / 2, (DOOR.h + arch) / 2, zc + DOOR.w / 2 + arch / 2, metal);
+		box('arch-top', proud, arch, DOOR.w + 2 * arch, x0 - proud / 2, DOOR.h + arch / 2, zc, metal);
+
+		// The call button outside, on the south side of the door at hand height.
+		this.callButtons = [];
+		{
+			const c = document.createElement('canvas'); c.width = c.height = 128;
+			const g2 = c.getContext('2d');
+			g2.fillStyle = '#f2efe8'; g2.beginPath(); g2.arc(64, 64, 64, 0, Math.PI * 2); g2.fill();
+			g2.fillStyle = '#1b1b1b';
+			g2.beginPath(); g2.moveTo(64, 30); g2.lineTo(92, 62); g2.lineTo(36, 62); g2.closePath(); g2.fill();
+			g2.beginPath(); g2.moveTo(64, 98); g2.lineTo(92, 66); g2.lineTo(36, 66); g2.closePath(); g2.fill();
+			const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+			const bodyGeo = new THREE.CylinderGeometry(BUTTON.r, BUTTON.r, BUTTON.rise, 32); bodyGeo.rotateZ(Math.PI / 2);   // axis along x
+			const cb = new THREE.Mesh(bodyGeo, metal);
+			cb.name = 'call'; cb.userData.call = true;
+			cb.position.set(x0 - proud - BUTTON.rise / 2, 1.1, zc + DOOR.w / 2 + arch + 0.09);
+			g.add(cb);
+			const cf = new THREE.Mesh(new THREE.CircleGeometry(BUTTON.r * 0.92, 32), new THREE.MeshStandardMaterial({ map: tex, emissive: 0xffffff, emissiveIntensity: 0, roughness: 0.6 }));
+			cf.name = 'call-face'; cf.userData.call = true;
+			cf.position.set(cb.position.x - BUTTON.rise / 2 - 0.0005, 1.1, cb.position.z);
+			cf.rotation.y = -Math.PI / 2;                    // faces -x, the room
+			g.add(cf);
+			cb.userData.face = cf;
+			this.callButtons.push(cb, cf);
+		}
+
+		// Two door panels behind the jambs, sliding apart along z into the
+		// cabin's own walls' thickness; closed, they meet at the centre.
+		const dx = x0 + t + DOOR.thick / 2 + 0.005;
 		this.doors = [
 			box('door-n', DOOR.thick, DOOR.h, DOOR.w / 2, dx, DOOR.h / 2, zc - DOOR.w / 4, metal),
 			box('door-s', DOOR.thick, DOOR.h, DOOR.w / 2, dx, DOOR.h / 2, zc + DOOR.w / 4, metal),
 		];
 		for (const d of this.doors) d.userData.closedZ = d.position.z;
+
+		// Floor displays above the door, one facing into the cabin, one out.
+		this.displays = [];
+		const display = (name, x, ry) => {
+			const c = document.createElement('canvas'); c.width = 512; c.height = 128;
+			const ctx = c.getContext('2d');
+			const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+			const back = box(name + '-back', 0.02, DISPLAY.h + 0.03, DISPLAY.w + 0.03, x, DOOR.h + 0.16, zc, displayBack);
+			back.castShadow = false;
+			const face = new THREE.Mesh(new THREE.PlaneGeometry(DISPLAY.w, DISPLAY.h), new THREE.MeshBasicMaterial({ map: tex }));
+			face.name = name;
+			face.position.set(x + (ry > 0 ? 0.011 : -0.011), DOOR.h + 0.16, zc);
+			face.rotation.y = ry;
+			g.add(face);
+			this.displays.push({ tex, ctx });
+		};
+		display('display-in',  x0 + t + 0.015, Math.PI / 2);     // inside, on the door wall, facing +x into the cabin
+		display('display-out', x0 - 0.015, -Math.PI / 2);        // outside, above the architrave, facing the room
+		this.show(state.roomKey ? roomLabel(roomByKey(state.roomKey)) : '', '');
 
 		// Light in the cabin: a glowing panel in the ceiling and the lamp
 		// behind it that actually lights the walls and the buttons.
@@ -779,7 +931,7 @@ const elevator = {
 		const plateW = cols * BUTTON.pitch + 0.03, plateH = rows * BUTTON.pitch + 0.03;
 		const panel = new THREE.Group();
 		panel.name = 'panel';
-		panel.position.set(ix0 + 0.10 + plateW / 2, (PANEL.low + PANEL.high) / 2, iz1 - 0.012);
+		panel.position.set(ix0 + 0.10 + plateW / 2, (PANEL.low + PANEL.high) / 2, iz1 - 0.022);
 		panel.rotation.x = PANEL.tilt;                 // faces turn up toward the eye
 		g.add(panel);
 		const plate = new THREE.Mesh(new THREE.BoxGeometry(plateW, plateH, 0.024), panelPlate);
@@ -816,6 +968,10 @@ const elevator = {
 		return g;
 	},
 
+	show(text, arrow) {
+		for (const d of this.displays) { drawDisplay(d.ctx, text, arrow); d.tex.needsUpdate = true; }
+	},
+
 	light(key) {
 		for (const b of this.buttons) {
 			if (!b.userData.face) continue;                 // faces are handled through their button
@@ -834,22 +990,67 @@ const elevator = {
 		s.position.z = s.userData.closedZ + open * DOOR.w / 2;
 	},
 
+	// Is the body in the cabin?
+	inside() {
+		if (!this.origin) return true;
+		const h = head(), e = ELEVATOR.size / 2 + 0.1;
+		return Math.abs(h.x - this.origin.x) < e && Math.abs(h.z - this.origin.z) < e;
+	},
+
+	// The doors on their own: a call opens them; they close some seconds
+	// after you have walked out.
+	call() {
+		if (this.ride || this.doorAnim || this.open === 1) return;
+		this.doorAnim = { from: 0, to: 1, t0: performance.now() };
+		lift.slide(); lift.bell();
+		this.callButtons[1].material.emissiveIntensity = 0.5; this.callButtons[1].material.emissiveMap = this.callButtons[1].material.map; this.callButtons[1].material.needsUpdate = true;
+	},
+
+	stepIdle(now) {
+		if (this.doorAnim) {
+			const a = this.doorAnim, f = Math.max(0, Math.min(1, (now - a.t0) / 500));
+			this.open = a.from + (a.to - a.from) * f;
+			this.setDoors(this.open);
+			if (f >= 1) {
+				this.doorAnim = null;
+				if (a.to === 1) this.leftAt = now;     // opened on a call: time to walk in starts now
+				const m = this.callButtons[1].material; m.emissiveIntensity = 0; m.emissiveMap = null; m.needsUpdate = true;
+			}
+			return;
+		}
+		if (this.inside()) { this.leftAt = null; return; }
+		if (this.open < 1) return;
+		if (this.leftAt === null) { this.leftAt = now; return; }
+		if (now - this.leftAt > 7000) { this.doorAnim = { from: 1, to: 0, t0: now }; lift.slide(); }
+	},
+
 	go(key) {
 		if (this.ride || key === state.roomKey) return;
-		this.ride = { key, t0: performance.now(), hung: false };
+		this.doorAnim = null; this.open = 1; this.leftAt = null;
+		lift.slide();
+		const list = rooms();
+		const from = list.findIndex(r => r.key === state.roomKey), to = list.findIndex(r => r.key === key);
+		const floors = Math.abs(to - from);
+		// the list runs newest first, so a smaller index is a higher floor
+		const path = list.slice(Math.min(from, to), Math.max(from, to) + 1);
+		if (to < from) path.reverse();
+		this.ride = { key, t0: performance.now(), hung: false, floors, up: to < from, path,
+		              travel: Math.max(STOP_LEN + 0.4, Math.min(7, 1.2 + 0.3 * floors)) };
 		placeBody(this.origin.x, this.origin.z, Math.PI / 2);   // into the cabin, facing the doors
 	},
 
-	// Called every frame. Half a second closing; the swap behind closed
-	// doors; then the doors stay shut until every print of the new room has
-	// its picture and the shaders are built (Uli: no switching to be seen);
-	// half a second opening.
+	// Called every frame. Half a second closing; then the cabin travels —
+	// the display counting the floors, the motor sounding, longer for
+	// more floors — and the other room is hung meanwhile; the doors stay
+	// shut until that room's pictures are in (Uli: no switching to be
+	// seen); then the bell, and half a second opening.
 	step(now) {
-		if (!this.ride) return;
+		if (!this.ride) { this.stepIdle(now); return; }
 		const r = this.ride;
 		const t = (now - r.t0) / 1000;
 		if (t < 0.5) { this.setDoors(1 - t / 0.5); return; }
 		if (!r.hung) {
+			lift.run(r.travel);
 			hangRoom(r.key);                       // may rebuild the room and this cabin
 			placeBody(this.origin.x, this.origin.z, Math.PI / 2);
 			this.setDoors(0);
@@ -858,16 +1059,26 @@ const elevator = {
 			r.photos = roomByKey(r.key).specs.flatMap(sp => sp.photos);
 			return;
 		}
+		const tt = t - 0.5;
+		if (tt < r.travel) {
+			// the floor passed: the path's index by the fraction of the travel
+			const i = Math.min(r.path.length - 1, Math.floor(tt / r.travel * r.path.length));
+			this.show(roomLabel(r.path[i]), r.up ? '▲' : '▼');
+			return;
+		}
 		if (!r.ready) {
 			const loaded = r.photos.every(p => textureCache.get(p.n)?.image);
-			if (!loaded && t < 8) return;          // wait; but never lock a visitor in
+			if (!loaded && t < 10) return;         // wait; but never lock a visitor in
 			r.ready = true;
 			r.tOpen = now;
+			this.show(roomLabel(roomByKey(r.key)), '');
+			lift.bell(); lift.slide();
 			return;
 		}
 		const o = (now - r.tOpen) / 500;
 		if (o < 1) { this.setDoors(o); return; }
 		this.setDoors(1);
+		this.open = 1; this.leftAt = null;
 		this.ride = null;
 	},
 };
@@ -878,12 +1089,12 @@ const raycaster = new THREE.Raycaster();
 function pressAt(ndcX, ndcY) {
 	if (!elevator.buttons.length) return false;
 	raycaster.setFromCamera(new THREE.Vector2(ndcX, ndcY), camera);
-	return pressAlong(raycaster, 1.6);
+	return pressAlong(raycaster, 2.2);
 }
 function pressAlong(rc, reach) {
-	const hit = rc.intersectObjects(elevator.buttons, false)[0];
+	const hit = rc.intersectObjects([...elevator.buttons, ...elevator.callButtons], false)[0];
 	if (!hit || hit.distance > reach) return false;
-	elevator.go(hit.object.userData.key);
+	if (hit.object.userData.call) elevator.call(); else elevator.go(hit.object.userData.key);
 	return true;
 }
 
@@ -1092,16 +1303,13 @@ function stepWalk(now) {
 //
 // Where the browser says it can do immersive-vr — the Quest — a button
 // offers it. In the headset you stand where the bench's camera stood, at
-// real floor height; the left thumbstick walks, the right snap-turns; a
-// controller's trigger presses the lift button it points at. Nothing else
-// of the bench (mouse, keys, the DOM panels) applies in there.
+// real floor height, and walk by feet; a controller's trigger presses the
+// lift button it points at — either hand. Nothing else of the bench
+// (mouse, keys, the DOM panels) applies in there.
 
 const vrButton = document.getElementById('vr');
-const SNAP = Math.PI / 6;           // a snap turn, 30 degrees
-const XR_SPEED = 1.4;               // m/s on the stick
 const controllers = [0, 1].map(i => {
 	const c = renderer.xr.getController(i);
-	c.userData.turned = false;
 	c.addEventListener('selectstart', () => {
 		const rc = new THREE.Raycaster();
 		const origin = c.getWorldPosition(new THREE.Vector3());
@@ -1141,43 +1349,8 @@ async function offerVR() {
 }
 offerVR();
 
-const move = new THREE.Vector3();
-function stepXR(dt) {
-	const session = renderer.xr.getSession();
-	if (!session) return;
-	for (const src of session.inputSources) {
-		const g = src.gamepad;
-		if (!g || g.axes.length < 4) continue;
-		const x = g.axes[2], y = g.axes[3];      // the thumbstick on a Quest touch controller
-		if (src.handedness === 'left') {
-			if (Math.abs(x) < 0.15 && Math.abs(y) < 0.15) continue;
-			// walk where the head looks, on the floor
-			const q = camera.getWorldQuaternion(new THREE.Quaternion());
-			const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(q); fwd.y = 0; fwd.normalize();
-			const right = new THREE.Vector3(1, 0, 0).applyQuaternion(q); right.y = 0; right.normalize();
-			move.copy(fwd).multiplyScalar(-y).addScaledVector(right, x).multiplyScalar(XR_SPEED * dt);
-			const h = head();
-			const target = clampToRoom(new THREE.Vector3(h.x + move.x, 0, h.z + move.z));
-			rig.position.x += target.x - h.x;
-			rig.position.z += target.z - h.z;
-		} else if (src.handedness === 'right') {
-			// snap turn about the head, once per push of the stick
-			const c = controllers[1];
-			if (Math.abs(x) > 0.7) {
-				if (!c.userData.turned) {
-					c.userData.turned = true;
-					const h = head();
-					const a = x > 0 ? -SNAP : SNAP;
-					rig.rotation.y += a;
-					rig.updateMatrixWorld(true);
-					const h2 = head();
-					rig.position.x += h.x - h2.x;
-					rig.position.z += h.z - h2.z;
-				}
-			} else c.userData.turned = false;
-		}
-	}
-}
+// In VR you walk by feet (Uli); nothing moves the body but the elevator.
+function stepXR(dt) {}
 
 // ---------------------------------------------------------------------------
 // Boot
@@ -1205,4 +1378,4 @@ renderer.setAnimationLoop(now => {
 
 // Test-harness handle only: the plan's browser checks read the scene graph
 // and camera through this. Nothing on the page uses it.
-window.G = { scene, camera, renderer, state, buildRoom, applyMode, makePiece, rooms, hangRoom, walk, stepWalk, stepShadows, elevator, pressAt, setSetting, materials, rig, placeBody };
+window.G = { scene, camera, renderer, state, buildRoom, applyMode, makePiece, rooms, hangRoom, walk, stepWalk, stepShadows, elevator, pressAt, setSetting, materials, rig, placeBody, lift };
