@@ -536,7 +536,7 @@ if (DECK) {
   // keeps THUMB px from the strip. In the finer gear it jumps GEAR_JUMP
   // further in and grows a fifth — the gear made visible. Both places
   // are fixed; the print never follows the finger's x.
-  const THUMB = 44, GEAR_JUMP = 90, STRIP_W = 28;   // the strip's width, as in the CSS
+  const THUMB = 44, GEAR_JUMP = 63, STRIP_W = 28;   // the strip's width, as in the CSS
   function placeLabel(clientX, clientY, rate = 1) {
     const r = strip.getBoundingClientRect();
     const h = scrubLabel.offsetHeight;
