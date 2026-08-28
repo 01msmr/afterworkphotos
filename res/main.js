@@ -331,12 +331,15 @@ if (DECK) {
     updateReveal();
   }
 
-  // Animate the rest of the way — through (commit) or back home (cancel)
-  function settle(commit) {
+  // Animate the rest of the way — through (commit) or back home (cancel),
+  // in `seconds` (default: the CSS's 1.2 s)
+  const SETTLE = 1.2;
+  function settle(commit, seconds = SETTLE) {
     committed = commit;
     animating = true;
     // Flush the current position first, otherwise there is nothing to animate from
     void mover.offsetHeight;
+    mover.style.setProperty('--settle', seconds + 's');
     mover.classList.add('animating');
     mover.style.transform = `translateY(${commit ? awayY() : homeY()}px)`;
     requestAnimationFrame(trackReveal);
@@ -352,6 +355,7 @@ if (DECK) {
     if (committed) current = landing;
     mover.classList.remove('mover', 'animating', 'entering');
     mover.style.transform = '';
+    mover.style.removeProperty('--settle');
     under.classList.remove('under', 'revealed');
     layout();
     mover = under = null;
@@ -373,8 +377,10 @@ if (DECK) {
     settle(true);
   });
 
-  function goForward() { if (!mover) { startMove(1); settle(true); } }
-  function goBackward() { if (!mover) { startMove(-1); settle(true); } }
+  // A tap goes quicker than the paper's own pace: a second flat
+  const TAP_SETTLE = 1;
+  function goForward(seconds) { if (!mover) { startMove(1); settle(true, seconds); } }
+  function goBackward(seconds) { if (!mover) { startMove(-1); settle(true, seconds); } }
 
   // Turning the iPad changes K: the deck is rebuilt with the same photo on
   // top. Only a handful of sheets exist, so this is cheap.
@@ -523,8 +529,10 @@ if (DECK) {
       const want = [];
       for (let i = from; i <= to; i++) if (i >= 0 && i < N) want.push(i);
       while (box.children.length > want.length) box.lastElementChild.remove();
-      while (box.children.length < want.length) { const im = document.createElement('img'); im.alt = ''; box.appendChild(im); }
-      want.forEach((i, k) => setPrint(box.children[k], photoAt(i)));
+      // each neighbour on a white slip: the print at partial opacity over
+      // it comes out lighter, never see-through
+      while (box.children.length < want.length) { const slip = document.createElement('span'); slip.className = 'slip'; const im = document.createElement('img'); im.alt = ''; slip.appendChild(im); box.appendChild(slip); }
+      want.forEach((i, k) => setPrint(box.children[k].firstChild, photoAt(i)));
     };
     fill(labelUp, index - side, index - 1);
     fill(labelDown, index + 1, index + side);
@@ -568,7 +576,11 @@ if (DECK) {
     scrubIndex = Math.round(scrubPos);
     const count = neighbourCount(r.height / N / rate);
     renderLabel(scrubIndex, count);
-    hint.hidden = !(gearsOn && rate === 1 && count > 1);
+    // The gear, said plainly while one is in: ¼ or 1/16 — and the way to
+    // the next finer one while there is one
+    hint.hidden = !gearsOn || (rate === 1 && count === 1);
+    hint.textContent = rate === 1 ? '← finer' : rate === 0.25 ? '¼ speed · ← finer' : '1/16 speed';
+    hint.classList.toggle('gear', rate < 1);
     placeLabel(clientY);
     // the finger resting on a photo for a moment is enough to fetch it
     clearTimeout(restTimer);
@@ -633,6 +645,20 @@ if (DECK) {
   // ── Touch: drag + tap ──
   let touchStartX = 0, touchStartY = 0, touchStartTime = 0;
   let dragging = false;
+  // The finger's last positions, to read its speed at the moment it lets go
+  const samples = [];
+  function sample(y) {
+    const now = performance.now();
+    samples.push({ y, t: now });
+    while (samples.length > 1 && now - samples[0].t > 100) samples.shift();
+  }
+  // px/ms over the last ~100 ms, 0 if the finger had stopped
+  function releaseVelocity(y) {
+    const now = performance.now();
+    const past = samples.find(s => now - s.t <= 100) || samples[0];
+    if (!past || now - past.t < 8) return 0;
+    return Math.abs(y - past.y) / (now - past.t);
+  }
 
   main.addEventListener('touchstart', (e) => {
     if (animating) return;
@@ -640,6 +666,8 @@ if (DECK) {
     touchStartY = e.touches[0].clientY;
     touchStartTime = Date.now();
     dragging = false;
+    samples.length = 0;
+    sample(touchStartY);
   }, { passive: true });
 
   main.addEventListener('touchmove', (e) => {
@@ -663,6 +691,7 @@ if (DECK) {
     }
     if (!mover) startMove(wanted);
     dragTo(dy);
+    sample(e.touches[0].clientY);
   }, { passive: false });
 
   main.addEventListener('touchend', (e) => {
@@ -676,7 +705,15 @@ if (DECK) {
       const absDy = Math.abs(dy);
       const velocity = absDy / Math.max(1, elapsed);
       const progress = absDy / travel;
-      settle(progress > 0.2 || velocity > 0.4);
+      const commit = progress > 0.2 || velocity > 0.4;
+      // The sheet goes on at the speed the finger let it go: the rest of
+      // the way at the finger's last speed — a flick lands fast, a slow
+      // push slowly — between a quarter second and the paper's own pace
+      const v = releaseVelocity(e.changedTouches[0].clientY);
+      const y = moverY();
+      const left = commit ? Math.abs(awayY() - y) : Math.abs(homeY() - y);
+      const seconds = v > 0 ? Math.min(SETTLE, Math.max(0.25, left / v / 1000)) : SETTLE;
+      settle(commit, seconds);
       return;
     }
 
@@ -686,8 +723,8 @@ if (DECK) {
     if (dividerY === null) computeDivider();
     if (dividerY === null) return;
 
-    if (e.changedTouches[0].clientY > dividerY) goBackward();
-    else goForward();
+    if (e.changedTouches[0].clientY > dividerY) goBackward(TAP_SETTLE);
+    else goForward(TAP_SETTLE);
   }, { passive: true });
 
 } else {
