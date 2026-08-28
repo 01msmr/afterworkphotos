@@ -131,7 +131,7 @@ A second page, reached by URL only, that hangs the photos as framed prints in a 
 
 ## Known issues / to check
 
-- **Gallery sounds** are Uli's recordings in `res/sound/`: `ride.mp3` (start/run, stop, doors — segments in `SOUND` in `gallery.js`), `call.mp3` (its arrival stands in as the bell), `motor.mp3` (unused for now). A real bell goes in as `res/sound/bell.mp3` and is picked up without code changes.
+- **Gallery sounds** are Uli's recordings in `res/sound/`: `ride.mp3` (start/run, stop, doors — segments in `SOUND` in `gallery.js`), `call.mp3` (the hum of the lift coming after a call), `motor.mp3` (unused for now). `bell.mp3` rings on arrival.
 - **Gallery**: nothing stops you walking through the middle rows or the cabin walls on the bench (VR teleport makes this moot). Half of 2016, 2018 and 2024 still exceed a 6 × 4 room and grow it to 7.5 × 5 (logged). Videos hang as their still; the LED panel is phase 4. The ingest workflow does not yet classify a new photo (`scripts/classify.py` is still owed; needs an API key).
 
 - **Fixed: a wrong picture for a moment after a scrubber cut down the pile** (to an older, smaller number; cutting up was fine). The sheet being uncovered carried only `.under`, which never set `visibility` — so it stayed hidden like any resting sheet, and the pile's own next sheet showed through for the whole lift until the landing snapped it into place. Cuts of one or two sheets looked right only because the target happened to be `.next`/`.next2`. `section.under` is now `visibility: visible` (commit `eaef3ee`). Reproduced and verified on the desktop at phone width with synthetic touch events on the scrubber, sampling each sheet's computed visibility and z-index during the move.

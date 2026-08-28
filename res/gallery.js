@@ -750,7 +750,7 @@ function roomLabel(room) {
 const SOUND = {
 	ride:  { file: '/res/sound/ride.mp3', run: [0.6, 8.4], stop: [8.4, 11.7], door: [13.3, 15.3] },
 	bell:  { file: '/res/sound/bell.mp3' },
-	call:  { file: '/res/sound/call.mp3', bell: [15.4, 18.6] },
+	call:  { file: '/res/sound/call.mp3', hum: [1.0, 6.0] },        // the lift coming, heard from outside
 };
 const STOP_LEN = SOUND.ride.stop[1] - SOUND.ride.stop[0];
 
@@ -804,9 +804,14 @@ const lift = {
 		this.play('ride', R.door[0], R.door[1] - R.door[0], null, 0.9, 0.03, 0.15);
 	},
 	bell() {
+		if (!this.ready() || !this.buf.bell) return;
+		this.play('bell', 0, this.buf.bell.duration, null, 1, 0.01, 0.1);
+	},
+	// the hum of the lift coming, for `seconds`, while you wait outside
+	hum(seconds) {
 		if (!this.ready()) return;
-		if (this.buf.bell) this.play('bell', 0, this.buf.bell.duration, null, 1, 0.01, 0.1);
-		else { const C = SOUND.call; this.play('call', C.bell[0], C.bell[1] - C.bell[0], null, 0.9, 0.05, 0.3); }
+		const C = SOUND.call;
+		this.play('call', C.hum[0], Math.min(seconds, C.hum[1] - C.hum[0]), null, 0.8, 0.3, 0.6);
 	},
 };
 lift.fetchAll();
@@ -819,6 +824,7 @@ const elevator = {
 	ride: null,         // while the doors are moving or the cabin travels
 	origin: null,       // cabin's inner centre on the floor, world coords
 	callButtons: [],
+	coming: null,       // { t0, wait } after a call, before the doors open
 	open: 1,            // where the doors stand when idle, 0..1
 	doorAnim: null,     // { from, to, t0 } an idle open or close
 	leftAt: null,       // when the body last stepped out, for the doors to close behind
@@ -999,14 +1005,25 @@ const elevator = {
 
 	// The doors on their own: a call opens them; they close some seconds
 	// after you have walked out.
+	// A call: the button lights, the lift is heard coming for a few seconds
+	// (Uli: a humming while waiting outside), then the bell and the doors.
 	call() {
-		if (this.ride || this.doorAnim || this.open === 1) return;
-		this.doorAnim = { from: 0, to: 1, t0: performance.now() };
-		lift.slide(); lift.bell();
+		if (this.ride || this.doorAnim || this.coming || this.open === 1) return;
+		this.coming = { t0: performance.now(), wait: 4500 };
+		lift.hum(this.coming.wait / 1000);
+		this.show(roomLabel(roomByKey(state.roomKey)), '\u25b2');
 		this.callButtons[1].material.emissiveIntensity = 0.5; this.callButtons[1].material.emissiveMap = this.callButtons[1].material.map; this.callButtons[1].material.needsUpdate = true;
 	},
 
 	stepIdle(now) {
+		if (this.coming) {
+			if (now - this.coming.t0 < this.coming.wait) return;
+			this.coming = null;
+			this.doorAnim = { from: 0, to: 1, t0: now };
+			this.show(roomLabel(roomByKey(state.roomKey)), '');
+			lift.bell(); lift.slide();
+			return;
+		}
 		if (this.doorAnim) {
 			const a = this.doorAnim, f = Math.max(0, Math.min(1, (now - a.t0) / 500));
 			this.open = a.from + (a.to - a.from) * f;
@@ -1026,7 +1043,7 @@ const elevator = {
 
 	go(key) {
 		if (this.ride || key === state.roomKey) return;
-		this.doorAnim = null; this.open = 1; this.leftAt = null;
+		this.doorAnim = null; this.coming = null; this.open = 1; this.leftAt = null;
 		lift.slide();
 		const list = rooms();
 		const from = list.findIndex(r => r.key === state.roomKey), to = list.findIndex(r => r.key === key);
