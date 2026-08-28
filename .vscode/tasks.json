@@ -1,0 +1,26 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Serve (8765)",
+			"type": "shell",
+			"command": "python3 -m http.server 8765 --bind 0.0.0.0",
+			"isBackground": true,
+			"problemMatcher": [],
+			"presentation": { "reveal": "silent", "panel": "dedicated" }
+		},
+		{
+			"label": "Deck checks",
+			"type": "shell",
+			"command": "open http://127.0.0.1:8765/tests/deck.html",
+			"dependsOn": "Serve (8765)",
+			"problemMatcher": []
+		},
+		{
+			"label": "Deployed photo count",
+			"type": "shell",
+			"command": "curl -s \"https://afterworkphotos.com/photos.json?cb=$RANDOM\" | python3 -c \"import json,sys; print(json.load(sys.stdin)['count'])\"",
+			"problemMatcher": []
+		}
+	]
+}
