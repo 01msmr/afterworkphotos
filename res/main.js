@@ -608,21 +608,14 @@ if (DECK) {
     restTimer = setTimeout(() => warmUp(photoAt(scrubIndex).file), 200);
   }
 
-  // A touch on the strip only arms it; it scrubs once the finger has held
-  // still for ARM_MS. A finger that lifts before that, or moves (a swipe
-  // begun at the edge, a brush along it), was never a scrub — that is how
-  // the strip tells a stray touch from the real thing. Scrubbing begins
-  // where the finger rests when the time is up.
-  const ARM_MS = 200, ARM_MOVE = 8;
-  let armTimer = 0, armX = 0, armY = 0, lastTouch = null;
-  // A touch that moves before the time is up is a swipe: it is handed to
-  // the deck (the touch area reaches 28 px inside the rail, where swipes
-  // begin too) — the same events, re-sent on .main from where it landed
-  let handoff = false;
-  function forward(type, x, y) {
-    const t = new Touch({ identifier: 9, target: main, clientX: x, clientY: y });
-    main.dispatchEvent(new TouchEvent(type, { touches: type === 'touchend' ? [] : [t], changedTouches: [t], bubbles: true, cancelable: true }));
-  }
+  // A touch on the strip only arms it; it scrubs once the finger has been
+  // down for ARM_MS, from wherever it is then — no movement limit. A
+  // finger that lifts before that was never a scrub: if it moved, it was
+  // a swipe (the touch area reaches 28 px inside the rail, where swipes
+  // begin too) and is replayed to the deck — the same events, re-sent on
+  // .main — so nothing near the edge is lost.
+  const ARM_MS = 150;
+  let armTimer = 0, armX = 0, armY = 0, armT = 0, lastTouch = null;
 
   function engage() {
     armTimer = 0;
@@ -640,32 +633,36 @@ if (DECK) {
   el.addEventListener('touchstart', (e) => {
     if (animating || scrubbing) return;
     scrub = el; strip = el.querySelector('.scrub-strip'); side = +el.dataset.side;
-    handoff = false;
     lastTouch = e.touches[0];
-    armX = lastTouch.clientX; armY = lastTouch.clientY;
+    armX = lastTouch.clientX; armY = lastTouch.clientY; armT = Date.now();
     disarm();
     armTimer = setTimeout(engage, ARM_MS);
   }, { passive: true });
 
   el.addEventListener('touchmove', (e) => {
     lastTouch = e.touches[0];
-    if (!scrubbing) {
-      // armed: a finger that moves before the time is up is not scrubbing — it swipes
-      if (armTimer && Math.hypot(lastTouch.clientX - armX, lastTouch.clientY - armY) > ARM_MOVE) {
-        disarm();
-        handoff = true;
-        forward('touchstart', armX, armY);
-      }
-      if (handoff) { e.preventDefault(); forward('touchmove', lastTouch.clientX, lastTouch.clientY); }
-      return;
-    }
+    if (!scrubbing) { if (armTimer) e.preventDefault(); return; }
     e.preventDefault();
     scrubTo(lastTouch.clientX, lastTouch.clientY);
   }, { passive: false });
 
   el.addEventListener('touchend', (e) => {
+    const armed = !!armTimer;
     disarm();
-    if (handoff) { handoff = false; const t = e.changedTouches[0]; forward('touchend', t.clientX, t.clientY); return; }
+    if (armed && !scrubbing) {
+      // Lifted before the time was up: if it moved, it was a swipe — the
+      // deck's own move, judged by the same two rules a swipe is (how far
+      // it came, how fast it left), so a brush does nothing and a flick
+      // turns the pile
+      const t = e.changedTouches[0];
+      const dy = t.clientY - armY;
+      if (Math.abs(dy) > 10 && !mover) {
+        startMove(dy < 0 ? 1 : -1);
+        const elapsed = Math.max(1, Date.now() - armT);
+        settle(Math.abs(dy) / travel > 0.2 || Math.abs(dy) / elapsed > 0.4);
+      }
+      return;
+    }
     if (!scrubbing) return;
     scrubbing = false;
     scrub.classList.remove('active');
@@ -677,7 +674,7 @@ if (DECK) {
     startMove(target > current ? 1 : -1, target);
     settle(true);
   }, { passive: true });
-  el.addEventListener('touchcancel', () => { disarm(); handoff = false; if (scrubbing) { scrubbing = false; scrub.classList.remove('active'); document.body.classList.remove('scrubbing'); } }, { passive: true });
+  el.addEventListener('touchcancel', () => { disarm(); if (scrubbing) { scrubbing = false; scrub.classList.remove('active'); document.body.classList.remove('scrubbing'); } }, { passive: true });
   });
 
   // ── Tap zones ──
