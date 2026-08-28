@@ -1,5 +1,6 @@
 Textures from ambientCG (https://ambientcg.com), CC0 1.0 (public domain).
 wood-light-*  Wood049    natural oak      https://ambientcg.com/a/Wood049
+wood-maple-*  Wood050    pale maple       https://ambientcg.com/a/Wood050
 wood-dark-*   Wood051    dark hardwood    https://ambientcg.com/a/Wood051
 metal-*       Metal049A  clean silver     https://ambientcg.com/a/Metal049A
 1K JPG sets: Color, Roughness, NormalGL (+ Metalness for the metal).

@@ -9,7 +9,7 @@ import * as THREE from './vendor/three.module.js';
 // centre at 1.5 m. Light mode is the white cube; dark mode is the same room
 // at night, ambient almost off, the spots alone.
 
-const DEFAULTS = { W: 6, D: 4, H: 3, dark: false, frame: 'oak', mat: 'white', scale: 1, labels: true };
+const DEFAULTS = { W: 6, D: 4, H: 3, dark: false, frame: 'maple', mat: 'white', scale: 1, labels: true };
 
 // Settings come from the defaults, then what the switchboard saved last
 // time (localStorage 'galleryS'), then the URL — /gallery/?frame=black
@@ -32,7 +32,7 @@ function loadSettings() {
 	for (const k of ['W', 'D', 'H']) if (!(s[k] >= 2 && s[k] <= 40)) s[k] = DEFAULTS[k];
 	return s;
 }
-const FRAME_COLOURS_KEYS = { oak: 1, walnut: 1, black: 1, white: 1 };
+const FRAME_COLOURS_KEYS = { maple: 1, oak: 1, walnut: 1, black: 1, white: 1 };
 
 // settings.W/D is the smallest room; room.W/D is the one standing, which a
 // crowded year may have grown (see hangYear).
@@ -208,21 +208,22 @@ const FRAME_COLOURS = { oak: 0xb08d57, walnut: 0x5b4633, black: 0x171717, white:
 // metalness too. The frame bars' UVs are in metres (ExtrudeGeometry), so
 // a tile every half metre; the cabin's boxes stretch one tile per face.
 const texLoader = new THREE.TextureLoader();
-function tex(file, srgb, repeat) {
+function tex(file, srgb, repeat, turn = 0) {
 	const t = texLoader.load('/res/textures/' + file);
 	t.wrapS = t.wrapT = THREE.RepeatWrapping;
 	t.repeat.set(repeat, repeat);
+	if (turn) { t.center.set(0.5, 0.5); t.rotation = turn; }   // the grain along the bar (Uli)
 	t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
 	if (srgb) t.colorSpace = THREE.SRGBColorSpace;
 	return t;
 }
-const WOOD = {
-	light: { map: tex('wood-light-color.jpg', true, 2), roughnessMap: tex('wood-light-rough.jpg', false, 2), normalMap: tex('wood-light-normal.jpg', false, 2) },
-	dark:  { map: tex('wood-dark-color.jpg', true, 2),  roughnessMap: tex('wood-dark-rough.jpg', false, 2),  normalMap: tex('wood-dark-normal.jpg', false, 2) },
-};
+const Q = Math.PI / 2;
+const woodSet = n => ({ map: tex(`wood-${n}-color.jpg`, true, 2, Q), roughnessMap: tex(`wood-${n}-rough.jpg`, false, 2, Q), normalMap: tex(`wood-${n}-normal.jpg`, false, 2, Q) });
+const WOOD = { maple: woodSet('maple'), light: woodSet('light'), dark: woodSet('dark') };
 // The frame colours as a wood and a tint over it: oak and walnut are the
 // woods themselves; black and white are the light wood stained.
 const FRAME_LOOKS = {
+	maple:  { wood: 'maple', tint: 0xffffff },
 	oak:    { wood: 'light', tint: 0xffffff },
 	walnut: { wood: 'dark',  tint: 0xffffff },
 	black:  { wood: 'light', tint: 0x2a2724 },
@@ -325,8 +326,15 @@ function makeFramedPrint(p, size) {
 	const print = new THREE.Mesh(new THREE.PlaneGeometry(printed, printed),
 		new THREE.MeshBasicMaterial({ map: photoTexture(p) }));
 	print.name = 'photo';
-	print.position.z = 0.006 + 0.002;
+	print.position.z = 0.006 + 0.001;                // a millimetre proud of the mat (Uli)
 	g.add(print);
+	// the shadow that millimetre throws: a faint dark rim just behind the
+	// print, a hair larger and pushed down and to the right
+	const rim = new THREE.Mesh(new THREE.PlaneGeometry(printed + 0.003, printed + 0.003),
+		new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.28, depthWrite: false }));
+	rim.name = 'photo-shadow';
+	rim.position.set(0.0008, -0.0008, 0.006 + 0.0004);
+	g.add(rim);
 
 	// Four bars around the board. Horizontal bars run the full outer width;
 	// vertical bars fill between them — the overlap reads as a mitre from
@@ -1320,7 +1328,7 @@ function renderBoard() {
 		`<button data-k="${name}" data-v="${v}" aria-pressed="${String(s[name]) === String(v)}">${labels[i]}</button>`).join('');
 	board.innerHTML = `
 		<div class="row"><span>light</span>${opt('dark', [false, true], ['day', 'night'])}</div>
-		<div class="row"><span>frame</span>${opt('frame', ['oak', 'walnut', 'black', 'white'])}</div>
+		<div class="row"><span>frame</span>${opt('frame', ['maple', 'oak', 'walnut', 'black', 'white'])}</div>
 		<div class="row"><span>mat</span>${opt('mat', ['white', 'warm', 'none'])}</div>
 		<div class="row"><span>scale</span>${opt('scale', [1, 0.8], ['100 %', '80 %'])}</div>
 		<div class="row"><span>labels</span>${opt('labels', [true, false], ['on', 'off'])}</div>
