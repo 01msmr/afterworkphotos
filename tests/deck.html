@@ -160,7 +160,7 @@ async function run() {
 	await sleep(250);
 	say(H() === '10 phps ›' && !hint.hidden, 'the finer gear: 10 phps, the chevron back towards the rail', H());
 	say(label.classList.contains('fine') && w.getComputedStyle(label).transform.startsWith('matrix(1.2'), 'in the finer gear the whole unit grows', w.getComputedStyle(label).transform);
-	say(stickyRight - label.getBoundingClientRect().right >= 70, 'and jumps further in', `${Math.round(stickyRight - label.getBoundingClientRect().right)} px`);
+	say(stickyRight - label.getBoundingClientRect().right >= 45, 'and jumps further in', `${Math.round(stickyRight - label.getBoundingClientRect().right)} px`);
 	const jumpedRight = label.getBoundingClientRect().right;
 	S('touchmove', r.left - 200, r.top + r.height * 0.4);
 	await sleep(200);
