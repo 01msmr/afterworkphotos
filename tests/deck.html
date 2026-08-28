@@ -149,6 +149,9 @@ async function run() {
 	const H = () => (hint.dataset.dir === 'l' ? '‹ ' : '') + hint.querySelector('.word').textContent + (hint.dataset.dir === 'r' ? ' ›' : '');
 	say(H() === '‹ finer', 'on the strip the hint says ‹ finer', H());
 	const stickyRight = label.getBoundingClientRect().right;
+	S('touchmove', r.left + 2, r.top + r.height * 0.42);
+	await sleep(60);
+	say(label.getBoundingClientRect().right === stickyRight, 'on the strip the print is sticky: the finger wandering on the rail does not move it', `${stickyRight} → ${label.getBoundingClientRect().right}`);
 	say(w.getComputedStyle(hint).backgroundColor === 'rgb(0, 0, 0)' && w.getComputedStyle(hint).color === 'rgb(255, 255, 255)' && hint.getBoundingClientRect().width === 72, 'the gear label is white on black, the print\'s width', `${hint.getBoundingClientRect().width}px`);
 	S('touchmove', r.left - 100, r.top + r.height * 0.4);
 	await sleep(250);
