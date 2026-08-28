@@ -756,19 +756,28 @@ const STOP_LEN = SOUND.ride.stop[1] - SOUND.ride.stop[0];
 
 const lift = {
 	ctx: null, master: null, raw: {}, buf: {},
+	// Fetch and decode at load: a context made before any press starts
+	// suspended but decodes fine, so the first ride has its sound ready.
 	fetchAll() {
+		this.open();
 		for (const [k, v] of Object.entries(SOUND)) {
-			fetch(v.file).then(r => r.ok ? r.arrayBuffer() : null).then(b => { if (b) this.raw[k] = b; }).catch(() => {});
+			fetch(v.file).then(r => r.ok ? r.arrayBuffer() : null).then(b => { if (b) { this.raw[k] = b; this.decode(); } }).catch(() => {});
 		}
 	},
-	ready() {
-		if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); this.decode(); return true; }
+	open() {
+		if (this.ctx) return true;
 		try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return false; }
 		this.master = this.ctx.createGain(); this.master.gain.value = 0.9; this.master.connect(this.ctx.destination);
+		return true;
+	},
+	ready() {
+		if (!this.open()) return false;
+		if (this.ctx.state === 'suspended') this.ctx.resume();
 		this.decode();
 		return true;
 	},
 	decode() {
+		if (!this.ctx) return;
 		for (const k of Object.keys(this.raw)) {
 			if (this.buf[k] || this.buf[k] === false) continue;
 			this.buf[k] = false;                              // decoding
@@ -1052,7 +1061,7 @@ const elevator = {
 		const path = list.slice(Math.min(from, to), Math.max(from, to) + 1);
 		if (to < from) path.reverse();
 		this.ride = { key, t0: performance.now(), hung: false, floors, up: to < from, path,
-		              travel: Math.max(STOP_LEN + 0.4, Math.min(7, 1.2 + 0.3 * floors)) };
+		              travel: Math.max(6, Math.min(9, 2.5 + 0.35 * floors)) };   // long enough for the run to be heard before the stop
 		placeBody(this.origin.x, this.origin.z, Math.PI / 2);   // into the cabin, facing the doors
 	},
 
