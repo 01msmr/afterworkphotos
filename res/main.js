@@ -431,6 +431,7 @@ if (DECK) {
   const labelPrint = scrubLabel.querySelector('.scrub-card img');
   const hint = scrubLabel.querySelector('.scrub-hint');
   document.body.append(scrub, scrubLabel);
+  let labelRight = 56;   // the label's least distance from the edge, set from the year marks
 
   // year marks: the first sheet of each year, counted from the top. Years
   // with few sheets sit close together at the bottom; a mark that would
@@ -456,7 +457,7 @@ if (DECK) {
     // the label stops short of the widest year mark, so no year is ever covered
     let widest = 0;
     strip.querySelectorAll('.scrub-year').forEach(m => { widest = Math.max(widest, m.getBoundingClientRect().width); });
-    scrubLabel.style.right = (16 + widest + 8) + 'px';
+    labelRight = 16 + widest + 8;
   }
   markYears();
   window.addEventListener('resize', markYears);
@@ -518,12 +519,19 @@ if (DECK) {
   }
 
   // The card at the finger's height; the whole label kept on screen
-  function placeLabel(clientY) {
+  // The label stands clear of the year marks (labelRight, set from the
+  // widest mark) — and clear of the thumb: a thumb pad is a good 50px
+  // wide, so the print's right edge keeps THUMB px left of the touch
+  // point, whichever of the two is further from the edge. The thumb
+  // covers nothing then, in a fine gear as much as on the strip.
+  const THUMB = 44;
+  function placeLabel(clientX, clientY) {
     const r = strip.getBoundingClientRect();
     const h = scrubLabel.offsetHeight;
     const cardMid = labelCard.offsetHeight / 2;
     const top = Math.min(r.bottom - h, Math.max(r.top, clientY - cardMid));
     scrubLabel.style.top = top + 'px';
+    scrubLabel.style.right = Math.max(labelRight, window.innerWidth - clientX + THUMB) + 'px';
   }
 
   // Precision gear: when the strip gives less than GEAR_NEEDED_PX per photo,
@@ -560,7 +568,7 @@ if (DECK) {
     hint.hidden = !gearsOn || (rate === 1 && count === 1);
     hint.textContent = rate === 1 ? '← finer' : rate === 0.25 ? '¼ speed · ← finer' : '1/16 speed';
     hint.classList.toggle('gear', rate < 1);
-    placeLabel(clientY);
+    placeLabel(clientX, clientY);
     // the finger resting on a photo for a moment is enough to fetch it
     clearTimeout(restTimer);
     restTimer = setTimeout(() => warmUp(photoAt(scrubIndex).file), 200);
