@@ -1796,14 +1796,14 @@ html.deck {
 	}
 
 	/* ── Edge scrubber ── the pile seen edge-on, along the right edge */
-	/* the touch area is twice the visual: 56 px from the edge answer, the
-	   rail itself stays 28 px in the outer half */
+	/* the touch area is three times the visual: 84 px in from either edge
+	   answer, the rail itself is drawn in the outer 28 */
 	.scrub {
 		position: fixed;
 		top: calc(env(safe-area-inset-top, 0px) + var(--top-gap));
 		right: 0;
 		bottom: 0;
-		width: 56px;
+		width: 84px;
 		z-index: 600;
 		touch-action: none;
 	}
