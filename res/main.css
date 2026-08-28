@@ -1882,17 +1882,7 @@ html.deck {
 	.scrub-card {
 		position: relative;
 		border-radius: 5px;
-		transform-origin: right center;
-		transition: transform 0.15s ease;
 		box-shadow: 0 0 0 1px var(--edge-dark), 0 12px 28px rgba(var(--shade), 0.45);
-	}
-
-	.scrub-label.left .scrub-card {
-		transform-origin: left center;
-	}
-
-	.scrub-label.fine .scrub-card {
-		transform: scale(1.2);
 	}
 
 	.scrub-card img {
@@ -1931,9 +1921,19 @@ html.deck {
 		border-radius: 4px;
 	}
 
-	/* room for the grown print above it */
-	.scrub-label.fine .scrub-hint {
-		margin-top: 12px;
+	/* the finer gear: the whole unit — print and label — a fifth larger,
+	   growing from its rail-side edge */
+	.scrub-label {
+		transform-origin: right center;
+		transition: opacity 0.2s ease, transform 0.15s ease;
+	}
+
+	.scrub-label.left {
+		transform-origin: left center;
+	}
+
+	.scrub-label.fine {
+		transform: scale(1.2);
 	}
 
 	.scrub-hint .word {
