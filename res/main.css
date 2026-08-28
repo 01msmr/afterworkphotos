@@ -1521,8 +1521,12 @@ html.deck {
 		opacity: 1;
 	}
 
+	/* an optical inset: flush with the print's edge the words read a touch
+	   wider than it (the print's corner is rounded and it sits in a recess) */
 	p.subtitle {
 		color: var(--ink);
+		padding-left: 1px;
+		padding-right: 1px;
 	}
 
 	/* Plain viewport container, as in the version whose bottom was right on
