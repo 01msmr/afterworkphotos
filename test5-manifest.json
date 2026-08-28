@@ -1,0 +1,18 @@
+{
+	"id": "/test5.html",
+	"name": "awp test5",
+	"short_name": "awp test5",
+	"start_url": "/test5.html",
+	"scope": "/test5.html",
+	"display": "standalone",
+	"background_color": "#000000",
+	"theme_color": "#dedede",
+	"icons": [
+		{
+			"src": "/apple-touch-icon.png",
+			"sizes": "152x152",
+			"type": "image/png",
+			"purpose": "any"
+		}
+	]
+}
