@@ -65,6 +65,11 @@ async function run() {
 	say(Math.abs(cur.bottom - (w.innerHeight - 3)) < 1, 'top sheet ends 3 px above the bottom', `bottom ${cur.bottom} of ${w.innerHeight}`);
 	say(Math.abs(d.querySelector('.main').getBoundingClientRect().height - w.innerHeight) < 1, '.main is the viewport height');
 
+	// 1b. the words keep their x on a flat sheet and on an inset one
+	const capOf = (sel) => d.querySelector(sel + ' .subtitle .cap').getBoundingClientRect();
+	const cx = capOf('section.current'), nx = capOf('section.next');
+	say(Math.abs(cx.right - nx.right) < 0.5 && Math.abs(cx.left - nx.left) < 0.5, 'captions stand at the same x on the top sheet (inset) and the flat one beneath', `${cx.right.toFixed(1)} vs ${nx.right.toFixed(1)}`);
+
 	// 2. the title lies on the pile: above the resting sheets, under the mover
 	say(w.getComputedStyle(d.querySelector('h1.title')).zIndex === '5', 'title z-index 5');
 
@@ -139,17 +144,18 @@ async function run() {
 	say(n && /^\d+$/.test(n.textContent) && w.getComputedStyle(n).webkitTextStrokeWidth === '2px', 'the number is on the print, outlined 2 px', n && n.textContent);
 	say((r.left + 10) - label.getBoundingClientRect().right >= 44, 'the label keeps 44 px clear of the finger on the strip', `${Math.round((r.left + 10) - label.getBoundingClientRect().right)} px`);
 	const hint = d.querySelector('.scrub-hint');
-	say(hint.textContent === '← finer', 'on the strip the hint says ← finer');
+	const H = () => (hint.dataset.dir === 'l' ? '‹ ' : '') + hint.querySelector('.word').textContent + (hint.dataset.dir === 'r' ? ' ›' : '');
+	say(H() === '‹ finer', 'on the strip the hint says ‹ finer', H());
 	S('touchmove', r.left - 100, r.top + r.height * 0.4);
 	await sleep(100);
-	say(hint.textContent === '← finer' && !hint.hidden, 'first gear: the same hint', hint.textContent);
+	say(H() === '‹ finer' && !hint.hidden, 'first gear: the same hint', H());
 	say((r.left - 100) - label.getBoundingClientRect().right >= 44, 'in a gear the label follows the finger, 44 px clear');
 	S('touchmove', r.left - 200, r.top + r.height * 0.4);
 	await sleep(100);
-	say(hint.textContent === '← finer' && !hint.hidden, 'last gear: the same hint', hint.textContent);
+	say(H() === '‹ finer' && !hint.hidden, 'last gear: the same hint', H());
 	S('touchmove', r.left - 150, r.top + r.height * 0.4);
 	await sleep(60);
-	say(hint.textContent === 'coarser →', 'moving back towards the strip: coarser →', hint.textContent);
+	say(H() === 'coarse ›', 'moving back towards the strip: coarse ›', H());
 	S('touchend', r.left - 200, r.top + r.height * 0.4);
 	await settled();
 	say(!mover(), 'the scrubber cut landed');
@@ -200,10 +206,10 @@ async function run() {
 	say(d.body.classList.contains('scrubbing'), 'the left strip engages after 120 ms');
 	const lb = label.getBoundingClientRect();
 	say(lb.left - (lr.right - 4) >= 44 && label.classList.contains('left'), 'the label stands to the right of the finger, 44 px clear', `${Math.round(lb.left - (lr.right - 4))} px`);
-	say(hint.textContent === 'finer →', 'the hint points right', hint.textContent);
+	say(H() === 'finer ›', 'the hint points right', H());
 	L('touchmove', lr.right + 100, lr.top + lr.height * 0.5);
 	await sleep(100);
-	say(hint.textContent === 'finer →' && !hint.hidden, 'sliding right: the arrow points right', hint.textContent);
+	say(H() === 'finer ›' && !hint.hidden, 'sliding right: the chevron points right', H());
 	L('touchend', lr.right + 100, lr.top + lr.height * 0.5);
 	await settled();
 	say(!mover() && top() !== t3, 'letting go cuts', `${t3} → ${top()}`);

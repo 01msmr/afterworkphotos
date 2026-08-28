@@ -436,7 +436,7 @@ if (DECK) {
   // lets go — with its number on it, and the gear hint under it
   scrubLabel.innerHTML = `
     <div class="scrub-card"><img alt=""><b></b></div>
-    <div class="scrub-hint">← finer</div>`;
+    <div class="scrub-hint"><span class="chev l">‹</span><span class="word">finer</span><span class="chev r">›</span></div>`;
   const labelCard = scrubLabel.querySelector('.scrub-card');
   const labelN = scrubLabel.querySelector('.scrub-card b');
   const labelPrint = scrubLabel.querySelector('.scrub-card img');
@@ -592,9 +592,10 @@ if (DECK) {
     // finger is moving — at rest, the way to a finer gear
     hint.hidden = !gearsOn || (rate === 1 && count === 1);
     if (clientX !== lastX) hintDir = clientX < lastX ? -1 : 1;
-    // towards the middle the gears get finer, back towards the strip coarser
-    const word = hintDir === -side ? 'finer' : 'coarser';
-    hint.textContent = hintDir < 0 ? '← ' + word : word + ' →';
+    // towards the middle the gears get finer, back towards the strip
+    // coarse; the word keeps its place, the chevron takes the finger's side
+    hint.querySelector('.word').textContent = hintDir === -side ? 'finer' : 'coarse';
+    hint.dataset.dir = hintDir < 0 ? 'l' : 'r';
     lastX = clientX;
     placeLabel(clientX, clientY);
     // the finger resting on a photo for a moment is enough to fetch it

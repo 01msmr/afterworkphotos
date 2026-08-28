@@ -1585,6 +1585,13 @@ html.deck {
 		/* the print stands in the middle of the sheet */
 		justify-content: center;
 		padding: 0;
+		/* The content keeps its place while the sheet changes size: a flat
+		   sheet (--inset 0) pads by the 3 px the inset sheet is narrower by,
+		   so prints and captions stand at the same x on every sheet — the
+		   paper edge moves, the words do not (the top does the same with
+		   --title-band below). */
+		padding-left: calc(3px - var(--inset));
+		padding-right: calc(3px - var(--inset));
 		padding-top: calc(2rem + var(--tp) * 2 + 12px);
 		/* keep the caption clear of the home indicator */
 		padding-bottom: env(safe-area-inset-bottom, 0px);
@@ -1604,6 +1611,7 @@ html.deck {
 		z-index: 0;
 		transition:
 			top 0.3s ease, right 0.3s ease, bottom 0.3s ease, left 0.3s ease,
+			padding-left 0.3s ease, padding-right 0.3s ease,
 			border-radius 0.3s ease, box-shadow 0.3s ease;
 	}
 
@@ -1667,7 +1675,7 @@ html.deck {
 		   entry — by movement, not by time. Lifting off it is 1 throughout. */
 		--shade-in: 1;
 		/* no shadow transition here: the shadow follows the position */
-		transition: top 0.3s ease, right 0.3s ease, bottom 0.3s ease, left 0.3s ease, border-radius 0.3s ease;
+		transition: top 0.3s ease, right 0.3s ease, bottom 0.3s ease, left 0.3s ease, padding-left 0.3s ease, padding-right 0.3s ease, border-radius 0.3s ease;
 		box-shadow:
 			inset 1px 1px 0 var(--edge-light),
 			inset -1px -1px 0 rgba(var(--shade), 0.08),
@@ -1687,6 +1695,7 @@ html.deck {
 		transition:
 			transform var(--settle, 1.2s) cubic-bezier(0.4, 0, 0.2, 1),
 			top 0.3s ease, right 0.3s ease, bottom 0.3s ease, left 0.3s ease,
+			padding-left 0.3s ease, padding-right 0.3s ease,
 			border-radius 0.3s ease;
 	}
 
@@ -1885,6 +1894,28 @@ html.deck {
 		background: var(--paper);
 		border-radius: 4px;
 		box-shadow: var(--sheet-edge);
+	}
+
+	/* the word stays where it is; a chevron shows on the finger's side, the
+	   other side keeps its room so nothing shifts */
+	.scrub-hint {
+		display: flex;
+		gap: 4px;
+	}
+
+	.scrub-hint .word {
+		min-width: 5.2ch;
+		text-align: center;
+	}
+
+	.scrub-hint .chev {
+		visibility: hidden;
+		width: 0.6ch;
+	}
+
+	.scrub-hint[data-dir="l"] .chev.l,
+	.scrub-hint[data-dir="r"] .chev.r {
+		visibility: visible;
 	}
 
 	.scrub-hint[hidden] {
