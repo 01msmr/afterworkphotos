@@ -39,8 +39,18 @@
 	   rest of the mark does */
 	--favs-type: 1.1rem;
 	--towns-w: min(490px, 34vw);
+	/* The viewport's live height — dvh follows Safari's toolbar and, in the
+	   home screen app, the late correction iOS makes at launch: the view
+	   starts one status bar short (797 on a 390×844 phone) and grows to the
+	   glass ~100 ms later. Never measure this from JS: a value read at load
+	   pins the short one, and the black band under the sheets stays. */
 	--app-height: 100vh;
-	/* overridden by JS with window.innerHeight */
+}
+
+@supports (height: 100dvh) {
+	:root {
+		--app-height: 100dvh;
+	}
 }
 
 html,

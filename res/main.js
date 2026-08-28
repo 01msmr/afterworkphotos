@@ -132,16 +132,11 @@ function fitTitle() {
   title.style.fontSize = lo + 'px';
 }
 
-/* ──────────────────────────────────────────────────────────
-   Reliable viewport height
-   On iOS Safari / PWA the CSS 100vh ≠ window.innerHeight.
-   We set a CSS custom property from JS and update on resize.
-   ────────────────────────────────────────────────────────── */
-function setAppHeight() {
-  document.documentElement.style.setProperty('--app-height', window.innerHeight + 'px');
-}
-setAppHeight();
-window.addEventListener('resize', setAppHeight);
+/* The viewport height is --app-height in the CSS (100dvh) — it is not
+   measured here. On the iPhone 17e the home screen app launches its view
+   one status bar short and grows it ~100 ms later; a height read at load
+   froze the short one into the page and the sheets ended above the glass
+   (2026-08-28, found with test.html–test6.html). */
 
 /* ============================================================
    MOBILE: Card stack
@@ -632,6 +627,8 @@ if (DECK) {
   topMedia.addEventListener(topMedia.tagName === 'VIDEO' ? 'loadeddata' : 'load', setDivider);
   window.addEventListener('load', setDivider);
   window.addEventListener('resize', setDivider);
+  // iOS's late launch correction (see --app-height) fires only this one
+  if (window.visualViewport) visualViewport.addEventListener('resize', setDivider);
 
   // ── Touch: drag + tap ──
   let touchStartX = 0, touchStartY = 0, touchStartTime = 0;
