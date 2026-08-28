@@ -570,9 +570,11 @@ if (DECK) {
   }
 
   let restTimer = 0;
+  let lastX = 0, hintDir = -1;   // the finger's last x, and the way the hint's arrow points
 
   function scrubTo(clientX, clientY, first = false) {
     const r = strip.getBoundingClientRect();
+    if (first) { lastX = clientX; hintDir = -side; }   // towards the middle: finer
     const rate = gearRate(clientX);
     if (rate < 1) fineUsed = true;
     if (first || !fineUsed) {
@@ -586,12 +588,12 @@ if (DECK) {
     scrubIndex = Math.round(scrubPos);
     const count = neighbourCount(r.height / N / rate);
     renderLabel(scrubIndex);
-    // The gear, said plainly while one is in: ¼ or 1/16 — and the way to
-    // the next finer one while there is one
+    // One hint, the same in every gear; its arrow points the way the
+    // finger is moving — at rest, the way to a finer gear
     hint.hidden = !gearsOn || (rate === 1 && count === 1);
-    const finer = side > 0 ? '← finer' : 'finer →';
-    hint.textContent = rate === 1 ? finer : rate === 0.25 ? '¼ speed · ' + finer : '1/16 speed';
-    hint.classList.toggle('gear', rate < 1);
+    if (clientX !== lastX) hintDir = clientX < lastX ? -1 : 1;
+    hint.textContent = hintDir < 0 ? '← finer' : 'finer →';
+    lastX = clientX;
     placeLabel(clientX, clientY);
     // the finger resting on a photo for a moment is enough to fetch it
     clearTimeout(restTimer);
