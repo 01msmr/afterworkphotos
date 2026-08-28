@@ -36,7 +36,7 @@ const FRAME_COLOURS_KEYS = { maple: 1, oak: 1, walnut: 1, black: 1, white: 1 };
 
 // settings.W/D is the smallest room; room.W/D is the one standing, which a
 // crowded year may have grown (see hangYear).
-const state = { year: null, roomKey: null, settings: loadSettings(), room: null, photos: [] };
+const state = { year: null, roomKey: null, settings: loadSettings(), room: null, real: null, photos: [] };
 
 const EYE = 1.6;
 const HANG_Y = 1.5;   // every piece's centre, the gallery's line
@@ -52,6 +52,12 @@ document.getElementById('stage').appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(66, 1, 0.05, 100);
+// Everything built — room, pieces, lift — lives in `world`; the rig
+// (the body) does not. A real room (phase 3) moves and turns `world` so
+// its walls land on the real ones, while the body stays where it is.
+const world = new THREE.Group();
+world.name = 'world';
+scene.add(world);
 const rig = new THREE.Group();     // the body: on the bench at the origin, in VR the thing that walks
 rig.name = 'rig';
 rig.add(camera);
@@ -99,6 +105,7 @@ function hashKey(key) {
 }
 function lookOf(key)  { return LOOKS[hashKey(key) % LOOKS.length]; }
 function shapeOf(key) {
+	if (state.real) return { W: state.real.W, D: state.real.D };     // a real room is the room, for every year
 	const [fw, fd] = SHAPES[(hashKey(key) >>> 3) % SHAPES.length];   // unsigned shift: a signed one can go negative
 	const r = v => Math.round(v * 2) / 2;                 // to the half metre
 	return { W: r(state.settings.W * fw), D: r(state.settings.D * fd) };
@@ -477,10 +484,12 @@ function weld(meshes, material, name) {
 		m.updateWorldMatrix(true, false);
 		const g = m.geometry.index ? m.geometry.toNonIndexed() : m.geometry;
 		const P = g.attributes.position, N = g.attributes.normal, U = g.attributes.uv;
-		_nm.getNormalMatrix(m.matrixWorld);
+		// into world's own frame, not the scene's: the welded mesh is a child of world
+		const rel = new THREE.Matrix4().copy(world.matrixWorld).invert().multiply(m.matrixWorld);
+		_nm.getNormalMatrix(rel);
 		const v = new THREE.Vector3(), n = new THREE.Vector3();
 		for (let i = 0; i < P.count; i++) {
-			v.fromBufferAttribute(P, i).applyMatrix4(m.matrixWorld); pos.push(v.x, v.y, v.z);
+			v.fromBufferAttribute(P, i).applyMatrix4(rel); pos.push(v.x, v.y, v.z);
 			if (N) { n.fromBufferAttribute(N, i).applyMatrix3(_nm).normalize(); nor.push(n.x, n.y, n.z); }
 			if (U) uv.push(U.getX(i), U.getY(i));
 		}
@@ -752,10 +761,20 @@ function rooms() {
 			roomList.push({ key, year, span, years: m.years, part: 0, of: 1, specs, shape: one, look: lookOf(key) });
 			continue;
 		}
-		const half = Math.ceil(specs.length / 2);
-		for (const [part, slice] of [[1, specs.slice(0, half)], [2, specs.slice(half)]]) {
-			const key = `${year}-${part}`;
-			roomList.push({ key, year, span, years: m.years, part, of: 2, specs: slice, shape: shapeOf(key), look: lookOf(key) });
+		// as many rooms as it takes: two, or more in a small real room
+		let parts = 2;
+		for (; parts <= 8; parts++) {
+			const per = Math.ceil(specs.length / parts);
+			const fits = Array.from({ length: parts }, (_, i) => specs.slice(i * per, (i + 1) * per))
+				.every((slice, i) => !layout([...slice].reverse(), shapeOf(`${year}-${i + 1}`).W, shapeOf(`${year}-${i + 1}`).D).rest.length);
+			if (fits || !state.real) break;                   // a synthetic room may still grow; a real one must fit
+		}
+		parts = Math.min(parts, 8);
+		const per = Math.ceil(specs.length / parts);
+		for (let i = 0; i < parts; i++) {
+			const part = i + 1, key = `${year}-${part}`, slice = specs.slice(i * per, (i + 1) * per);
+			if (!slice.length) continue;
+			roomList.push({ key, year, span, years: m.years, part, of: parts, specs: slice, shape: shapeOf(key), look: lookOf(key) });
 		}
 	}
 	// newest room first: by year, then the later part
@@ -774,7 +793,7 @@ function hangRoom(key) {
 	const H = state.settings.H;
 	for (const name of ['pieces', 'baked']) {
 		const old = scene.getObjectByName(name);
-		if (old) { old.traverse(o => { if (o.isMesh && o.parent === old) o.geometry.dispose(); }); scene.remove(old); }
+		if (old) { old.traverse(o => { if (o.isMesh && o.parent === old) o.geometry.dispose(); }); old.parent.remove(old); }
 	}
 	const pieces = new THREE.Group(); pieces.name = 'pieces';
 
@@ -786,18 +805,19 @@ function hangRoom(key) {
 	// of the same proportion rather than dropping a print — and says so.
 	let { W, D } = room.shape;
 	let lay = layout(items, W, D);
-	while (lay.rest.length && W < 40) {
+	while (lay.rest.length && W < 40 && !state.real) {      // real walls do not grow
 		W += 1.5; D += 1;
 		lay = layout(items, W, D);
 	}
 	if (W !== room.shape.W) console.warn(`${key}: room grown to ${W} × ${D} to hang everything`);
+	if (lay.rest.length) console.warn(`${key}: ${lay.rest.length} pieces do not fit the real room`);
 	if (!state.room || state.room.W !== W || state.room.D !== D || state.room.look !== room.look.name) {
 		for (const name of ['room', 'elevator']) {
 			const old = scene.getObjectByName(name);
-			if (old) scene.remove(old);
+			if (old) old.parent.remove(old);
 		}
-		scene.add(buildRoom(W, D, H, room.look));
-		scene.add(elevator.build(W, D, H));
+		world.add(buildRoom(W, D, H, room.look));
+		world.add(elevator.build(W, D, H));
 		state.room = { W, D, H, look: room.look.name };
 	}
 
@@ -810,9 +830,9 @@ function hangRoom(key) {
 		pieces.add(piece);
 	}
 
-	scene.add(pieces);
-	pieces.updateMatrixWorld(true);
-	scene.add(bakeRoom(pieces));
+	world.add(pieces);
+	world.updateMatrixWorld(true);
+	world.add(bakeRoom(pieces));
 	if (wire) setWire(true);
 	const keep = new Set(); pieces.traverse(o => { if (o.name === 'photo') for (const [k, t] of textureCache) if (t === o.material.map) keep.add(k); });
 	freeTexturesExcept(keep);
@@ -1096,7 +1116,7 @@ const elevator = {
 		this.switches = [];
 		{
 			const plateW = 4 * 0.07 + 0.03, plateH = 0.1;
-			const px = W / 2 - e / 2, py = 1.3, pz = z1 + 0.012;
+			const px = W / 2 - e / 2, py = 1.5, pz = z1 + 0.012;   // just under eye height (Uli: higher)
 			const plate = box('switchplate', plateW, plateH, 0.024, px, py, pz, panelPlate);
 			const bodyGeo = new THREE.CylinderGeometry(BUTTON.r, BUTTON.r, BUTTON.rise, 12, 1, true); bodyGeo.rotateX(Math.PI / 2);   // axis along z
 			const faceGeo = new THREE.CircleGeometry(BUTTON.r * 0.92, 12);
@@ -1206,6 +1226,11 @@ const elevator = {
 		}
 	},
 
+	placeInCabin() {
+		const o = this.originWorld();
+		placeBody(o.x, o.z, Math.PI / 2 + world.rotation.y);
+	},
+
 	// Doors: 0 closed, 1 open.
 	setDoors(open) {
 		const [n, s] = this.doors;
@@ -1214,9 +1239,11 @@ const elevator = {
 	},
 
 	// Is the body in the cabin?
+	// The cabin's centre in the scene (world may be turned to the real room).
+	originWorld() { return world.localToWorld(this.origin.clone()); },
 	inside() {
 		if (!this.origin) return true;
-		const h = head(), e = ELEVATOR.size / 2 + 0.1;
+		const h = world.worldToLocal(head().clone()), e = ELEVATOR.size / 2 + 0.1;
 		return Math.abs(h.x - this.origin.x) < e && Math.abs(h.z - this.origin.z) < e;
 	},
 
@@ -1286,7 +1313,7 @@ const elevator = {
 		// the doors close from where they stand: back-date t0 by what is already shut
 		this.ride = { key, t0: performance.now() - (1 - fromOpen) * DOOR_T, hung: false, floors, up: to < from, path,
 		              travel: Math.max(6, Math.min(9, 2.5 + 0.35 * floors)) };   // long enough for the run to be heard before the stop
-		placeBody(this.origin.x, this.origin.z, Math.PI / 2);   // into the cabin, facing the doors
+		this.placeInCabin();                                     // into the cabin, facing the doors
 	},
 
 	// Called every frame. Half a second closing; then the cabin travels —
@@ -1303,7 +1330,7 @@ const elevator = {
 		if (!r.hung) {
 			lift.run(r.travel);
 			hangRoom(r.key);                       // may rebuild the room and this cabin
-			placeBody(this.origin.x, this.origin.z, Math.PI / 2);
+			this.placeInCabin();
 			this.setDoors(0);
 			renderer.compile(scene, camera);
 			r.hung = true;
@@ -1612,8 +1639,8 @@ async function offerVR() {
 	vrButton.hidden = false;
 	vrButton.addEventListener('click', async () => {
 		try {
-			const session = await navigator.xr.requestSession('immersive-vr', { optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking'] });
-			session.addEventListener('end', () => { vrButton.hidden = false; document.body.classList.remove('xr'); rig.position.set(0, 0, 0); rig.rotation.set(0, 0, 0); });
+			const session = await navigator.xr.requestSession('immersive-vr', { optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking', 'plane-detection'] });
+			session.addEventListener('end', () => { vrButton.hidden = false; document.body.classList.remove('xr'); rig.position.set(0, 0, 0); rig.rotation.set(0, 0, 0); if (state.real) { state.real = null; world.position.set(0, 0, 0); world.rotation.set(0, 0, 0); state.settings.H = loadSettings().H; roomList = null; state.room = null; hangRoom(rooms()[0].key); } });
 			await renderer.xr.setSession(session);
 			renderer.xr.setFoveation(1);                 // the edges of the view at lower resolution: free on the Quest
 			scene.traverse(o => { if (o.isDirectionalLight && o.castShadow) { o.shadow.mapSize.set(1024, 1024); o.shadow.map?.dispose(); o.shadow.map = null; } });
@@ -1675,7 +1702,8 @@ function init() {
 	hangRoom(rooms()[0].key);    // the newest room; builds the room around it
 
 	// Arrival: you have just stepped out of the elevator, facing down the room.
-	walk.pos.set(elevator.origin.x - ELEVATOR.size, EYE, elevator.origin.z);
+	const o = elevator.originWorld();
+	walk.pos.set(o.x - ELEVATOR.size, EYE, o.z);
 	walk.yaw = Math.PI / 2; walk.pitch = 0;
 	elevator.setDoors(1);
 	applyLook();
@@ -1701,7 +1729,82 @@ function stepStats(now) {
 	if (elevator.displays.length && !elevator.ride && !elevator.coming) elevator.show(`${fps} fps`, '');
 }
 
-renderer.setAnimationLoop(now => {
+// ---------------------------------------------------------------------------
+// The real room (phase 3)
+//
+// With plane-detection the headset hands over the planes of the room it
+// scanned in Space Setup: the floor, the walls, the ceiling, as polygons
+// with a pose and a label. From them: the walls' dominant direction, the
+// floor's rectangle in that direction, the ceiling's height. The room is
+// rebuilt to that rectangle, `world` is moved and turned onto it, and
+// the lift takes the real corner nearest to where you stand. Every year
+// is re-planned for this one room. Done once per session, when the
+// floor and at least two walls have been seen.
+
+function stepPlanes(frame) {
+	if (state.real || !frame.detectedPlanes) return;
+	const ref = renderer.xr.getReferenceSpace();
+	const walls = [], floors = [], ceilings = [];
+	for (const plane of frame.detectedPlanes) {
+		const pose = frame.getPose(plane.planeSpace, ref);
+		if (!pose) continue;
+		const m = new THREE.Matrix4().fromArray(pose.transform.matrix);
+		const pts = plane.polygon.map(q => new THREE.Vector3(q.x, q.y, q.z).applyMatrix4(m));
+		const label = plane.semanticLabel || '';
+		const normal = new THREE.Vector3(0, 1, 0).transformDirection(m);
+		const entry = { pts, normal, label };
+		if (plane.orientation === 'vertical' || label === 'wall') walls.push(entry);
+		else if (label === 'ceiling' || (plane.orientation === 'horizontal' && pts[0].y > 1.5)) ceilings.push(entry);
+		else if (label === 'floor' || plane.orientation === 'horizontal') floors.push(entry);
+	}
+	if (!floors.length || walls.length < 2) return;
+
+	// the walls' direction: each wall's normal, folded into a quarter turn, weighted by length
+	let sx = 0, sy = 0;
+	for (const w of walls) {
+		const a = Math.atan2(w.normal.x, w.normal.z);
+		let len = 0; for (let i = 0; i < w.pts.length; i++) len += w.pts[i].distanceTo(w.pts[(i + 1) % w.pts.length]);
+		sx += Math.cos(4 * a) * len; sy += Math.sin(4 * a) * len;
+	}
+	const theta = Math.atan2(sy, sx) / 4;
+
+	// the floor's rectangle in that frame
+	const floor = floors.reduce((a, b) => a.pts.length >= b.pts.length ? a : b);
+	const rot = new THREE.Matrix4().makeRotationY(-theta);
+	let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity, floorY = 0;
+	for (const p of floor.pts) { const q = p.clone().applyMatrix4(rot); minX = Math.min(minX, q.x); maxX = Math.max(maxX, q.x); minZ = Math.min(minZ, q.z); maxZ = Math.max(maxZ, q.z); floorY += p.y / floor.pts.length; }
+	let W = maxX - minX, D = maxZ - minZ;
+	if (W < 1.5 || D < 1.5) return;
+	const centreLocal = new THREE.Vector3((minX + maxX) / 2, 0, (minZ + maxZ) / 2);
+	const centre = centreLocal.applyMatrix4(new THREE.Matrix4().makeRotationY(theta));
+	const H = ceilings.length ? Math.max(2.2, ceilings[0].pts[0].y - floorY) : Math.max(2.2, Math.min(3.2, walls.reduce((h, w) => Math.max(h, ...w.pts.map(p => p.y)), 0) - floorY || 2.6));
+
+	// the lift's corner: of the four turns that keep the walls on the walls,
+	// the one whose (+x, -z) corner is nearest you
+	const h = head(); let best = null;
+	for (let k = 0; k < 4; k++) {
+		const yaw = theta + k * Math.PI / 2, odd = k % 2 === 1;
+		const w = odd ? D : W, d = odd ? W : D;
+		const corner = new THREE.Vector3(w / 2, 0, -d / 2).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw).add(centre);
+		const dist = Math.hypot(corner.x - h.x, corner.z - h.z);
+		if (!best || dist < best.dist) best = { yaw, W: w, D: d, dist };
+	}
+	state.real = { W: Math.round(best.W * 20) / 20, D: Math.round(best.D * 20) / 20, H: Math.round(H * 20) / 20, yaw: best.yaw, centre, walls: walls.length };
+	console.info(`real room ${state.real.W} × ${state.real.D} × ${state.real.H}, ${walls.length} walls, turned ${(best.yaw * 180 / Math.PI).toFixed(0)}°`);
+
+	world.position.set(centre.x, floorY, centre.z);
+	world.rotation.y = best.yaw;
+	state.settings.H = state.real.H;                    // for this session: the lines, the cabin
+	roomList = null;                                     // every year re-planned for this room
+	state.room = null;                                   // the room and cabin rebuilt
+	const key = rooms().some(r => r.key === state.roomKey) ? state.roomKey : (rooms().find(r => r.year === state.year) || rooms()[0]).key;
+	hangRoom(key);
+	elevator.setDoors(1); elevator.open = 1;
+	if (elevator.displays.length) elevator.show(`${state.real.W} × ${state.real.D}`, '');
+}
+
+renderer.setAnimationLoop((now, frame) => {
+	if (frame) stepPlanes(frame);
 	elevator.step(now);
 	stepWalk(now);
 	renderer.render(scene, camera);
@@ -1710,4 +1813,4 @@ renderer.setAnimationLoop(now => {
 
 // Test-harness handle only: the plan's browser checks read the scene graph
 // and camera through this. Nothing on the page uses it.
-window.G = { scene, camera, renderer, state, buildRoom, applyMode, makePiece, rooms, hangRoom, walk, stepWalk, elevator, pressAt, setSetting, materials, rig, placeBody, lift };
+window.G = { scene, camera, renderer, state, buildRoom, applyMode, makePiece, rooms, hangRoom, walk, stepWalk, elevator, pressAt, setSetting, materials, rig, world, placeBody, lift, stepPlanes };
