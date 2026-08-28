@@ -1925,27 +1925,7 @@ html.deck {
 		paint-order: stroke fill;
 	}
 
-	/* The gear label: under the print, its width, inverted — white on
-	   black in light mode, black on white in dark. The word keeps its place; a chevron shows on
-	   the finger's side, the other side keeps its room so nothing shifts. */
-	.scrub-hint {
-		display: flex;
-		justify-content: center;
-		gap: 4px;
-		width: 72px;
-		box-sizing: border-box;
-		margin-top: 4px;
-		padding: 4px 0;
-		white-space: nowrap;
-		font: 600 11px/1 "Helvetica Neue", Helvetica, Arial, sans-serif;
-		letter-spacing: 0.03em;
-		color: var(--hint-ink);
-		background: var(--hint-bg);
-		border-radius: 4px;
-	}
-
-	/* the finer gear: the whole unit — print and label — a fifth larger,
-	   growing from its rail-side edge */
+	/* the finer gear: the print a fifth larger, growing from its rail-side edge */
 	.scrub-label {
 		transform-origin: right center;
 		transition: opacity 0.2s ease, transform 0.15s ease;
@@ -1959,40 +1939,6 @@ html.deck {
 		transform: scale(1.2);
 	}
 
-	.scrub-hint b {
-		font-weight: 700;
-	}
-
-	.scrub-hint .unit {
-		font-weight: 300;
-	}
-
-	/* the chevron beside the print, at its height, on the side where the
-	   other gear is reached — bold, in the number's own treatment */
-	.scrub-card .chev {
-		position: absolute;
-		top: 50%;
-		transform: translateY(-50%);
-		visibility: hidden;
-		font: 700 26px/1 "Helvetica Neue", Helvetica, Arial, sans-serif;
-		color: var(--number);
-		-webkit-text-stroke: 2px var(--number-edge);
-		paint-order: stroke fill;
-	}
-
-	.scrub-card .chev.l { right: 100%; margin-right: 4px; }
-	.scrub-card .chev.r { left: 100%; margin-left: 4px; }
-
-	.scrub-card[data-next="l"] .chev.l,
-	.scrub-card[data-next="r"] .chev.r {
-		visibility: visible;
-	}
-
-	.scrub-hint[hidden] {
-		display: none;
-	}
-
-	/* only the strip under the finger shows, never both */
 	body.scrubbing .scrub.active .scrub-strip,
 	body.scrubbing .scrub-label {
 		opacity: 1;
