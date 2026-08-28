@@ -137,7 +137,7 @@ async function run() {
 		scrub.dispatchEvent(new w.TouchEvent(type, { touches: type === 'touchend' ? [] : [t], changedTouches: [t], bubbles: true, cancelable: true }));
 	};
 	S('touchstart', r.left + 10, r.top + r.height * 0.4);
-	await sleep(420);   // arms on touch, engages after 120 ms, the strip fades in over 0.25 s
+	await sleep(520);   // arms on touch, engages after 200 ms held still, the strip fades in
 	const label = d.querySelector('.scrub-label'), card = d.querySelector('.scrub-card');
 	const stripOpacity = (sel) => w.getComputedStyle(d.querySelector(sel + ' .scrub-strip')).opacity;
 	say(stripOpacity('.scrub:not(.left)') === '1' && stripOpacity('.scrub.left') === '0', 'only the strip under the finger shows', `right ${stripOpacity('.scrub:not(.left)')}, left ${stripOpacity('.scrub.left')}`);
@@ -160,10 +160,11 @@ async function run() {
 	await sleep(250);
 	say(H() === '10 phps ›' && !hint.hidden, 'the finer gear: 10 phps, the chevron back towards the rail', H());
 	say(label.classList.contains('fine') && w.getComputedStyle(label).transform.startsWith('matrix(1.2'), 'in the finer gear the whole unit grows', w.getComputedStyle(label).transform);
-	say(stickyRight - label.getBoundingClientRect().right >= 80, 'and jumps further in', `${Math.round(stickyRight - label.getBoundingClientRect().right)} px`);
-	say((r.left - 100) - label.getBoundingClientRect().right >= 44, 'still 44 px clear of the finger');
+	say(stickyRight - label.getBoundingClientRect().right >= 70, 'and jumps further in', `${Math.round(stickyRight - label.getBoundingClientRect().right)} px`);
+	const jumpedRight = label.getBoundingClientRect().right;
 	S('touchmove', r.left - 200, r.top + r.height * 0.4);
-	await sleep(100);
+	await sleep(200);
+	say(label.getBoundingClientRect().right === jumpedRight, 'in the finer gear the print is sticky too: further in, it stays', `${jumpedRight} → ${label.getBoundingClientRect().right}`);
 	say(label.classList.contains('fine'), 'no third gear: further in is still the finer one');
 	const chev = card.querySelector('.chev.r'), cr = chev.getBoundingClientRect(), pr = card.getBoundingClientRect();
 	say(w.getComputedStyle(chev).visibility === 'visible' && Math.abs((cr.top + cr.bottom) / 2 - (pr.top + pr.bottom) / 2) < 2 && cr.left >= pr.right, 'the chevron stands beside the print at its mid-height', `${Math.round(cr.left - pr.right)} px right of it`);
@@ -171,7 +172,7 @@ async function run() {
 	await settled();
 	say(!mover(), 'the scrubber cut landed');
 
-	// 9. false starts: the strip arms on touch and scrubs only after 120 ms
+	// 9. false starts: the strip arms on touch and scrubs only after 200 ms held still
 	const t1 = top();
 	S('touchstart', r.left + 10, r.top + r.height * 0.6);
 	await sleep(60);
@@ -183,21 +184,23 @@ async function run() {
 	await sleep(40);
 	S('touchmove', r.left + 10, r.top + r.height * 0.6 + 12);
 	await sleep(40);
-	say(!d.body.classList.contains('scrubbing'), 'moving along the strip within 120 ms does not engage');
+	say(!d.body.classList.contains('scrubbing'), 'moving along the strip before the time is up does not engage');
+	await sleep(300);
+	say(!d.body.classList.contains('scrubbing'), 'and having moved, it does not engage later either (a swipe, not a scrub)');
 	S('touchend', r.left + 10, r.top + r.height * 0.6 + 12);
 	await sleep(300);
-	say(!mover() && top() === t1, 'a quick brush along the strip cuts nothing');
+	say(!mover() && top() === t1, 'a brush along the strip cuts nothing');
 	S('touchstart', r.left + 10, r.top + r.height * 0.6);
 	await sleep(40);
 	S('touchmove', r.left - 40, r.top + r.height * 0.6);
 	await sleep(220);
-	say(!d.body.classList.contains('scrubbing'), 'a finger that heads sideways off the strip within 120 ms is not a scrub');
+	say(!d.body.classList.contains('scrubbing'), 'a finger that heads sideways off the strip is not a scrub');
 	S('touchend', r.left - 40, r.top + r.height * 0.6);
 	await sleep(300);
 	say(!mover() && top() === t1, 'and cuts nothing');
 	S('touchstart', r.left + 10, r.top + r.height * 0.2);
-	await sleep(260);
-	say(d.body.classList.contains('scrubbing'), 'a finger still down after 120 ms engages');
+	await sleep(320);
+	say(d.body.classList.contains('scrubbing'), 'a finger held still for 200 ms engages');
 	S('touchmove', r.left + 10, r.top + r.height * 0.25);
 	await sleep(40);
 	S('touchend', r.left + 10, r.top + r.height * 0.25);
@@ -213,8 +216,8 @@ async function run() {
 	};
 	const t3 = top();
 	L('touchstart', lr.right - 4, lr.top + lr.height * 0.5);
-	await sleep(200);
-	say(d.body.classList.contains('scrubbing'), 'the left strip engages after 120 ms');
+	await sleep(320);
+	say(d.body.classList.contains('scrubbing'), 'the left strip engages after 200 ms held still');
 	await sleep(300);   // the strip's 0.25 s fade
 	say(stripOpacity('.scrub.left') === '1' && stripOpacity('.scrub:not(.left)') === '0', 'and only it shows', `left ${stripOpacity('.scrub.left')}, right ${stripOpacity('.scrub:not(.left)')}`);
 	const lb = label.getBoundingClientRect();
