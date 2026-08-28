@@ -216,18 +216,18 @@ const FRAME_COLOURS = { oak: 0xb08d57, walnut: 0x5b4633, black: 0x171717, white:
 // metalness too. The frame bars' UVs are in metres (ExtrudeGeometry), so
 // a tile every half metre; the cabin's boxes stretch one tile per face.
 const texLoader = new THREE.TextureLoader();
-function tex(file, srgb, repeat, turn = 0, along = repeat) {
+function tex(file, srgb, repeat, along = repeat) {
 	const t = texLoader.load('/res/textures/' + file);
 	t.wrapS = t.wrapT = THREE.RepeatWrapping;
-	t.repeat.set(repeat, along);                              // across the bar, along it (v runs the length)
-	if (turn) { t.center.set(0.5, 0.5); t.rotation = turn; }   // the grain along the bar (Uli)
+	// the bars' u runs their length and the images' grain runs their x, so
+	// no turn: grain along the bar (Uli), stretched by `along`
+	t.repeat.set(along, repeat);
 	t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
 	if (srgb) t.colorSpace = THREE.SRGBColorSpace;
 	return t;
 }
-const Q = Math.PI / 2;
 // stretched one and a half times along the bar, so the grain runs calmer (Uli)
-const woodSet = n => ({ map: tex(`wood-${n}-color.jpg`, true, 2, Q, 2 / 1.5), roughnessMap: tex(`wood-${n}-rough.jpg`, false, 2, Q, 2 / 1.5), normalMap: tex(`wood-${n}-normal.jpg`, false, 2, Q, 2 / 1.5) });
+const woodSet = n => ({ map: tex(`wood-${n}-color.jpg`, true, 2, 2 / 1.5), roughnessMap: tex(`wood-${n}-rough.jpg`, false, 2, 2 / 1.5), normalMap: tex(`wood-${n}-normal.jpg`, false, 2, 2 / 1.5) });
 const WOOD = { maple: woodSet('maple'), light: woodSet('light'), dark: woodSet('dark') };
 // The frame colours as a wood and a tint over it: oak and walnut are the
 // woods themselves; black and white are the light wood stained.
