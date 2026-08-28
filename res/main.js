@@ -219,12 +219,13 @@ if (DECK) {
     [375, 812, 3, 44],      // 12/13 mini (X, XS, 11 Pro share this size at 39)
     [414, 896, 2, 42],      // XR, 11
     [414, 896, 3, 39],      // XS Max, 11 Pro Max
-    [390, 844, 3, 47],      // 12, 12 Pro, 13, 13 Pro, 14, 16e
+    [390, 844, 3, 47],      // 12, 12 Pro, 13, 13 Pro, 14, 16e, 17e
     [428, 926, 3, 53],      // 12 Pro Max, 13 Pro Max, 14 Plus
     [393, 852, 3, 55],      // 14 Pro, 15, 15 Pro, 16
     [430, 932, 3, 55],      // 14 Pro Max, 15 Plus, 15 Pro Max, 16 Plus
-    [402, 874, 3, 62],      // 16 Pro
-    [440, 956, 3, 62]       // 16 Pro Max
+    [402, 874, 3, 62],      // 16 Pro, 17, 17 Pro
+    [420, 912, 3, 62],      // Air
+    [440, 956, 3, 62]       // 16 Pro Max, 17 Pro Max
   ];
 
   (function applyScreenRadius() {
