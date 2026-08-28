@@ -43,6 +43,7 @@ Local: `python3 -m http.server 8765 --bind 0.0.0.0` and open the LAN address on 
 - The manifest with `display: standalone` is what makes the home screen icon launch as an app; test installs from the real HTTPS domain.
 - Keep the sheets `position: fixed` on the viewport; inside a transformed container iOS gets their height wrong.
 - The status bar (its text colour, the blur under it) cannot be controlled from a web page.
+- The home screen app **launches its view one status bar short** (797 on a 390×844 phone) and grows it to the glass ~100 ms later — on a first launch always, on later ones only when there is no snapshot. Never read the viewport height from JS at load: it pins the short one and leaves a black band under the sheets (seen on the iPhone 17e, and on the 16's first launch). `--app-height` is `100dvh` in the CSS; iOS's correction fires only `visualViewport` `resize`, not `window` `resize`. `test.html`…`test6.html` are the pages this was found with.
 
 ## Open
 
