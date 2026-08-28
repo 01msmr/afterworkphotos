@@ -275,6 +275,7 @@ if (DECK) {
   // back. Normally the neighbour; the scrubber lands anywhere — then the
   // top sheet lifts off straight onto an older target, or a newer target
   // comes down straight onto the top sheet, as if the pile were cut there.
+  const SHADE_IN = 100;   // px of entry over which the incoming sheet's shadow rises
   function startMove(direction, target) {
     dir = direction;
     landing = target === undefined ? wrap(current + dir) : target;
@@ -287,16 +288,16 @@ if (DECK) {
     }
     under.classList.add('under');
     mover.classList.add('mover');
-    // A sheet pulled down from above the screen enters paper first: until
-    // its bottom edge is on screen it wears only the flat sheet edge, the
-    // long lifted shadow fades in (0.2s) once the edge has entered
-    if (dir < 0) mover.classList.add('entering');
-    // Measured in place: the sheet's bottom edge plus the shadow it casts
-    // below itself, so nothing of it is left showing once it is "away"
+    // Measured in place. Lifting off, the sheet travels its own height plus
+    // the shadow it casts below itself, so nothing of it is left showing
+    // once it is "away". Coming back it starts with its bottom edge just
+    // above the screen — paper from the first pixel of the swipe, the long
+    // shadow rising with its entry (--shade-in); starting it a
+    // shadow's length higher would spend 220 px of the swipe on nothing.
     mover.style.transform = '';
     const bottom = mover.getBoundingClientRect().bottom;
     moverBottom = bottom;
-    travel = bottom + 220;   // the lifted shadow reaches ~180px below the sheet
+    travel = dir > 0 ? bottom + 220 : bottom + 2;   // the lifted shadow reaches ~180px below the sheet
     // The sheet beneath shows its edges only once the mover's bottom edge is
     // 30% of the way up the screen — and loses them again on the way back down
     revealAt = bottom * 0.3;
@@ -312,8 +313,9 @@ if (DECK) {
     if (!mover) return;
     const y = moverY();
     under.classList.toggle('revealed', -y >= revealAt);
-    // the incoming sheet's bottom edge has entered: the lifted shadow may come
-    if (dir < 0 && y > -moverBottom + 1) mover.classList.remove('entering');
+    // A sheet coming down enters as paper: its long shadow rises with the
+    // first SHADE_IN px of its entry, by its position, not by time
+    if (dir < 0) mover.style.setProperty('--shade-in', Math.min(1, Math.max(0, (y + moverBottom) / SHADE_IN)));
   }
 
   // During an animated settle the position lives in CSS, so poll it per frame
@@ -353,9 +355,10 @@ if (DECK) {
     if (!mover) return;
     clearTimeout(finishTimer);
     if (committed) current = landing;
-    mover.classList.remove('mover', 'animating', 'entering');
+    mover.classList.remove('mover', 'animating');
     mover.style.transform = '';
     mover.style.removeProperty('--settle');
+    mover.style.removeProperty('--shade-in');
     under.classList.remove('under', 'revealed');
     layout();
     mover = under = null;
@@ -647,8 +650,21 @@ if (DECK) {
     return Math.abs(y - past.y) / (now - past.t);
   }
 
+  // A finger that comes down while a sheet is still settling: in the last
+  // 15% of its way the move is landed at once and the new gesture taken —
+  // one is never held up by a swipe made early. Earlier than that the
+  // touch is ignored, as before.
+  const EARLY = 0.15;
+  function landIfNearlyThere() {
+    if (!animating || !mover) return false;
+    const target = committed ? awayY() : homeY();
+    if (Math.abs(target - moverY()) > EARLY * travel) return false;
+    finish();
+    return true;
+  }
+
   main.addEventListener('touchstart', (e) => {
-    if (animating) return;
+    if (animating && !landIfNearlyThere()) return;
     touchStartX = e.touches[0].clientX;
     touchStartY = e.touches[0].clientY;
     touchStartTime = Date.now();
