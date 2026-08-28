@@ -47,7 +47,7 @@ const HANG_Y = 1.5;   // every piece's centre, the gallery's line
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.type = THREE.PCFShadowMap;      // plain PCF: the soft filter costs too much on the headset
 document.getElementById('stage').appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
@@ -147,13 +147,20 @@ function buildRoom(W, D, H, look = LOOKS[0]) {
 	fill.position.set(0, H, 0);
 	room.add(fill);
 
-	// A warm wash from above and slightly behind the viewer, so the walls
-	// have a base tone before any spot is on. Shadows come from the spots.
-	const wash = new THREE.DirectionalLight(0xfff2e0, 0.25);
-	wash.name = 'wash';
-	wash.position.set(0, H, D / 4);
-	wash.target.position.set(0, 0, -D / 4);
-	room.add(wash, wash.target);
+	// The one light that casts: a warm directional from high in the
+	// middle of the room, a little forward, so every frame throws a short
+	// shadow down its wall. One shadow map for the whole room (Quest: 1024).
+	const sun = new THREE.DirectionalLight(0xfff2e0, mode === 'dark' ? 0.9 : 1.1);
+	sun.name = 'sun';
+	sun.position.set(0.6, H + 2, 0.4);
+	sun.target.position.set(0, 0, 0);
+	sun.castShadow = true;
+	const half = Math.max(W, D) / 2 + 0.5;
+	Object.assign(sun.shadow.camera, { left: -half, right: half, top: half, bottom: -half, near: 0.5, far: H + 6 });
+	sun.shadow.mapSize.set(renderer.xr.isPresenting ? 1024 : 2048, renderer.xr.isPresenting ? 1024 : 2048);
+	sun.shadow.bias = -0.0006;
+	sun.shadow.normalBias = 0.01;
+	room.add(sun, sun.target);
 
 	return room;
 }
@@ -169,6 +176,7 @@ function applyMode(dark) {
 		if (o.isMesh && o.userData.colours) o.material.color.setHex(o.userData.colours[mode]);
 		if (o.isAmbientLight) o.intensity = AMBIENT[mode];
 		if (o.isHemisphereLight) o.intensity = FILL[mode];
+		if (o.isDirectionalLight) o.intensity = dark ? 0.9 : 1.1;
 	});
 }
 
@@ -263,48 +271,93 @@ function makeEnvironment() {
 scene.environment = makeEnvironment();
 scene.environmentIntensity = 0.6;
 
+// The warm pool a spot would throw on the wall around a piece, as a
+// decal: one radial gradient, additive, no lighting cost. Lets the
+// room read "lit per piece" with four lights in the whole scene.
+function poolTexture() {
+	const c = document.createElement('canvas'); c.width = c.height = 128;
+	const g = c.getContext('2d');
+	const grad = g.createRadialGradient(64, 56, 4, 64, 64, 64);
+	grad.addColorStop(0, 'rgba(255,238,210,0.55)');
+	grad.addColorStop(0.55, 'rgba(255,238,210,0.18)');
+	grad.addColorStop(1, 'rgba(255,238,210,0)');
+	g.fillStyle = grad; g.fillRect(0, 0, 128, 128);
+	const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+const poolMaterial = new THREE.MeshBasicMaterial({ map: poolTexture(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
+
 const materials = {
 	frame: new THREE.MeshStandardMaterial({ roughness: 1, metalness: 0, normalScale: new THREE.Vector2(0.6, 0.6), envMapIntensity: 0.5 }),
-	mat:   new THREE.MeshStandardMaterial({ color: MAT_COLOURS[state.settings.mat], roughness: 0.95 }),
-	line:  new THREE.MeshPhysicalMaterial({ color: 0xffffff, transmission: 0.6, roughness: 0.1, thickness: 0.001 }),
+	mat:   new THREE.MeshLambertMaterial({ color: MAT_COLOURS[state.settings.mat] }),
+	rim:   new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.28, depthWrite: false }),
+	line:  new THREE.MeshBasicMaterial({ color: 0xe8e4dc, transparent: true, opacity: 0.55, side: THREE.DoubleSide }),
 };
 
 applyFrameLook(materials.frame, state.settings.frame);
 
 const textures = new THREE.TextureLoader();
 const textureCache = new Map();
-function photoTexture(p) {
-	if (!textureCache.has(p.n)) {
-		const t = textures.load('/' + p.file);   // photos.json paths are relative to the site root
+// A print's texture at the size its print needs: the 1000 px file for a
+// 90 or 60, shrunk to 512 px on a canvas for a 40 in a grid (a quarter
+// of the memory). The texture's image stays empty until loaded, which
+// is what the lift waits for. Textures of a room you have left are freed.
+const PHOTO_PX = { 0.9: 1000, 0.6: 1000, 0.4: 512 };
+function photoTexture(p, size) {
+	const px = PHOTO_PX[size] || 1000;
+	const key = `${p.n}@${px}`;
+	if (!textureCache.has(key)) {
+		const t = new THREE.Texture();
 		t.colorSpace = THREE.SRGBColorSpace;
-		t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
-		textureCache.set(p.n, t);
+		t.anisotropy = renderer.xr.isPresenting ? 2 : 4;
+		const img = new Image();
+		img.onload = () => {
+			if (px >= img.width) { t.image = img; }
+			else {
+				const c = document.createElement('canvas'); c.width = c.height = px;
+				c.getContext('2d').drawImage(img, 0, 0, px, px);
+				t.image = c;
+			}
+			t.needsUpdate = true;
+		};
+		img.src = '/' + p.file;                  // photos.json paths are relative to the site root
+		textureCache.set(key, t);
 	}
-	return textureCache.get(p.n);
+	return textureCache.get(key);
+}
+function freeTexturesExcept(keep) {
+	for (const [key, t] of textureCache) if (!keep.has(key)) { t.dispose(); textureCache.delete(key); }
 }
 
 // Outer edge of one framed print of a given print size.
 const framedSize = size => (size + 2 * matWidth(size) + 2 * FRAME.face) * sc();
 
-// A frame bar: its cross-section (face across, depth into the room) with
-// the four corners cut by the chamfer, extruded along its length. The
-// ends are plain — they hide in the mitre. Cached per length and face.
+// A frame bar, only the faces that can be seen: front, its two chamfers,
+// the two sides. The back lies on the wall, the ends hide in the mitre —
+// left out. Ten triangles a bar. Built by hand along x (a horizontal
+// bar: face across y, depth along z), turned for a vertical one.
 const barCache = new Map();
 function barGeometry(length, face, depth, horizontal) {
 	const key = `${length.toFixed(4)}|${face.toFixed(4)}|${depth.toFixed(4)}|${horizontal}`;
 	if (barCache.has(key)) return barCache.get(key);
-	const c = Math.min(FRAME.chamfer, face / 3), fw = face / 2, dh = depth / 2;
-	const shape = new THREE.Shape([
-		[-fw + c, -dh], [fw - c, -dh], [fw, -dh + c], [fw, dh - c],
-		[fw - c, dh], [-fw + c, dh], [-fw, dh - c], [-fw, -dh + c],
-	].map(([u, v]) => new THREE.Vector2(u, v)));
-	const g = new THREE.ExtrudeGeometry(shape, { depth: length, bevelEnabled: false, curveSegments: 1 });
-	g.translate(0, 0, -length / 2);
-	// extruded along z: turn so the length runs along x (a horizontal bar,
-	// face along y, depth along z) or along y (a vertical one)
-	g.applyMatrix4(new THREE.Matrix4().set(0, 0, 1, 0,  1, 0, 0, 0,  0, 1, 0, 0,  0, 0, 0, 1));   // (u,v,w) -> (w,u,v)
+	const c = Math.min(FRAME.chamfer, face / 3), fw = face / 2, L = length / 2;
+	// the profile from one side round the front to the other, (y, z)
+	const prof = [[-fw, 0], [-fw, depth - c], [-fw + c, depth], [fw - c, depth], [fw, depth - c], [fw, 0]];
+	const pos = [], nor = [], uv = [];
+	let v = 0;
+	for (let i = 0; i < prof.length - 1; i++) {
+		const [y0, z0] = prof[i], [y1, z1] = prof[i + 1];
+		const len = Math.hypot(y1 - y0, z1 - z0);
+		// outward normal of this face: the profile runs anticlockwise seen from +x, so rotate the edge direction
+		const nx = 0, ny = (z1 - z0) / len, nz = -(y1 - y0) / len;
+		const quad = [[-L, y0, z0, 0, v], [L, y0, z0, length, v], [L, y1, z1, length, v + len], [-L, y1, z1, 0, v + len]];
+		for (const t of [[0, 1, 2], [0, 2, 3]]) for (const k of t) { const q = quad[k]; pos.push(q[0], q[1], q[2]); nor.push(nx, ny, nz); uv.push(q[3], q[4]); }
+		v += len;
+	}
+	const g = new THREE.BufferGeometry();
+	g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+	g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+	g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
 	if (!horizontal) g.rotateZ(Math.PI / 2);
-	g.computeVertexNormals();
 	barCache.set(key, g);
 	return g;
 }
@@ -317,22 +370,21 @@ function makeFramedPrint(p, size) {
 	const inner = (size + 2 * matWidth(size)) * k;   // the mat board's edge = frame's inner edge
 	const outer = inner + 2 * face;
 
-	const board = new THREE.Mesh(new THREE.BoxGeometry(inner, inner, 0.006), materials.mat);
+	// the mat board: only its face shows, its edges are under the frame
+	const board = new THREE.Mesh(new THREE.PlaneGeometry(inner, inner), materials.mat);
 	board.name = 'mat';
-	board.position.z = 0.003;
-	board.castShadow = true;
+	board.position.z = 0.006;
 	g.add(board);
 
 	const printed = size * (state.settings.mat === 'none' ? 1 : PRINT_SCALE) * k;
 	const print = new THREE.Mesh(new THREE.PlaneGeometry(printed, printed),
-		new THREE.MeshBasicMaterial({ map: photoTexture(p) }));
+		new THREE.MeshBasicMaterial({ map: photoTexture(p, size) }));
 	print.name = 'photo';
 	print.position.z = 0.006 + 0.001;                // a millimetre proud of the mat (Uli)
 	g.add(print);
 	// the shadow that millimetre throws: a faint dark rim just behind the
 	// print, a hair larger and pushed down and to the right
-	const rim = new THREE.Mesh(new THREE.PlaneGeometry(printed + 0.003, printed + 0.003),
-		new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.28, depthWrite: false }));
+	const rim = new THREE.Mesh(new THREE.PlaneGeometry(printed + 0.003, printed + 0.003), materials.rim);
 	rim.name = 'photo-shadow';
 	rim.position.set(0.0008, -0.0008, 0.006 + 0.0004);
 	g.add(rim);
@@ -345,7 +397,7 @@ function makeFramedPrint(p, size) {
 		const horizontal = w > h;
 		const m = new THREE.Mesh(barGeometry(horizontal ? w : h, horizontal ? h : w, FRAME.depth * k, horizontal), materials.frame);
 		m.name = name;
-		m.position.set(x, y, FRAME.depth * k / 2);
+		m.position.set(x, y, 0);                       // the bar's back is the wall
 		m.castShadow = true;
 		m.receiveShadow = true;
 		g.add(m);
@@ -365,7 +417,7 @@ function makeFramedPrint(p, size) {
 function addLines(piece, w, h) {
 	const drop = state.settings.H - (HANG_Y + h / 2);
 	if (drop <= 0) return;
-	const geo = new THREE.CylinderGeometry(0.0006, 0.0006, drop, 6);
+	const geo = new THREE.PlaneGeometry(0.0012, drop);   // a ribbon: at 0.6 mm no one can tell it from a thread
 	for (const x of [-w / 2 + FRAME.face / 2, w / 2 - FRAME.face / 2]) {
 		const line = new THREE.Mesh(geo, materials.line);
 		line.name = 'line';
@@ -401,8 +453,72 @@ function makePiece(spec) {
 
 	addLines(piece, w, h);
 	addLabel(piece, spec, w, h);
+	// the warm pool on the wall behind, wider than the piece
+	const pool = new THREE.Mesh(new THREE.PlaneGeometry(w + 1.4, h + 1.2), poolMaterial);
+	pool.name = 'pool';
+	pool.position.set(0, 0.1, -0.0005 + 0.0008);
+	piece.add(pool);
 	piece.userData = { n: photos[0].n, w, h };
 	return piece;
+}
+
+// ---------------------------------------------------------------------------
+// Baking a room
+//
+// Once a room is hung nothing in it moves until the next ride, so the
+// parts that share a material — every bar, every mat, rim, line, pool —
+// are welded into one mesh each, in world coordinates. What stays its
+// own mesh: each print (its own texture) and each label (pressable).
+
+const _nm = new THREE.Matrix3();
+function weld(meshes, material, name) {
+	const pos = [], nor = [], uv = [];
+	for (const m of meshes) {
+		m.updateWorldMatrix(true, false);
+		const g = m.geometry.index ? m.geometry.toNonIndexed() : m.geometry;
+		const P = g.attributes.position, N = g.attributes.normal, U = g.attributes.uv;
+		_nm.getNormalMatrix(m.matrixWorld);
+		const v = new THREE.Vector3(), n = new THREE.Vector3();
+		for (let i = 0; i < P.count; i++) {
+			v.fromBufferAttribute(P, i).applyMatrix4(m.matrixWorld); pos.push(v.x, v.y, v.z);
+			if (N) { n.fromBufferAttribute(N, i).applyMatrix3(_nm).normalize(); nor.push(n.x, n.y, n.z); }
+			if (U) uv.push(U.getX(i), U.getY(i));
+		}
+		if (m.geometry.index) g.dispose();
+	}
+	const g = new THREE.BufferGeometry();
+	g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+	if (nor.length) g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+	if (uv.length) g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+	const mesh = new THREE.Mesh(g, material);
+	mesh.name = name;
+	return mesh;
+}
+
+function bakeRoom(pieces) {
+	const baked = new THREE.Group(); baked.name = 'baked';
+	const groups = { bars: [], mats: [], rims: [], lines: [], pools: [] };
+	pieces.traverse(o => {
+		if (!o.isMesh) return;
+		if (o.name.startsWith('bar-')) groups.bars.push(o);
+		else if (o.name === 'mat') groups.mats.push(o);
+		else if (o.name === 'photo-shadow') groups.rims.push(o);
+		else if (o.name === 'line') groups.lines.push(o);
+		else if (o.name === 'pool') groups.pools.push(o);
+	});
+	const add = (list, material, name, shadow) => {
+		if (!list.length) return;
+		const m = weld(list, material, name);
+		m.castShadow = shadow; m.receiveShadow = shadow;
+		baked.add(m);
+		for (const o of list) o.parent.remove(o);
+	};
+	add(groups.pools, poolMaterial, 'pools', false);
+	add(groups.mats, materials.mat, 'mats', false);
+	add(groups.rims, materials.rim, 'rims', false);
+	add(groups.bars, materials.frame, 'frames', true);
+	add(groups.lines, materials.line, 'lines', false);
+	return baked;
 }
 
 // A small card to the lower right of a piece, two or three lines: the
@@ -595,50 +711,6 @@ function layout(items, W, D) {
 }
 
 // ---------------------------------------------------------------------------
-// Spots and their shadows
-//
-// A shadow map costs a texture unit in every shader, and WebGL gives
-// sixteen. A room with two dozen spots cannot have two dozen shadows. So
-// the spots per piece light only, and a pool of eight shadow-casting
-// spots stands in for the eight nearest the viewer: each frame the pool
-// takes those spots' places (their own light goes dark meanwhile), and
-// the frames around you throw shadows while the far ones simply glow.
-
-const SPOT = { colour: 0xfff1dc, power: 4, angle: 0.7, penumbra: 1.0 };   // reduced (Uli): a lift, not a beam
-const SHADOW_POOL = 8;
-
-const shadowSpots = new THREE.Group();
-shadowSpots.name = 'shadow-spots';
-for (let i = 0; i < SHADOW_POOL; i++) {
-	const s = new THREE.SpotLight(SPOT.colour, 0, 0, SPOT.angle, SPOT.penumbra, 2);
-	s.castShadow = true;
-	s.shadow.mapSize.set(512, 512);
-	s.shadow.bias = -0.0005;
-	s.shadow.radius = 4;
-	shadowSpots.add(s);
-}
-scene.add(shadowSpots);
-
-function stepShadows() {
-	const pieces = scene.getObjectByName('pieces');
-	if (!pieces) return;
-	const near = pieces.children
-		.map(p => ({ p, d: p.position.distanceToSquared(head()) }))
-		.sort((a, b) => a.d - b.d)
-		.slice(0, SHADOW_POOL)
-		.map(o => o.p);
-	for (const p of pieces.children) p.userData.spot.intensity = SPOT.power;
-	shadowSpots.children.forEach((s, i) => {
-		const p = near[i];
-		if (!p) { s.intensity = 0; return; }
-		s.position.copy(p.userData.spot.position);
-		s.target = p;
-		s.intensity = SPOT.power;
-		p.userData.spot.intensity = 0;
-	});
-}
-
-// ---------------------------------------------------------------------------
 // Rooms
 //
 // One room per year — unless the year does not fit the room even with the
@@ -700,12 +772,11 @@ function roomByKey(key) {
 function hangRoom(key) {
 	const room = roomByKey(key);
 	const H = state.settings.H;
-	for (const name of ['pieces', 'spots']) {
+	for (const name of ['pieces', 'baked']) {
 		const old = scene.getObjectByName(name);
-		if (old) scene.remove(old);
+		if (old) { old.traverse(o => { if (o.isMesh && o.parent === old) o.geometry.dispose(); }); scene.remove(old); }
 	}
 	const pieces = new THREE.Group(); pieces.name = 'pieces';
-	const spots  = new THREE.Group(); spots.name  = 'spots';
 
 	// newest first from the elevator
 	const items = [...room.specs].reverse();
@@ -737,21 +808,13 @@ function hangRoom(key) {
 		piece.rotation.y = yaw;
 		piece.userData.wall = wall;
 		pieces.add(piece);
-
-		// One spot per piece from the ceiling track, a metre out into the
-		// room from the piece, angled down at its centre. Soft, not harsh
-		// (Uli): a wide cone with the whole edge feathered, modest power, so
-		// a piece is lifted from its wall rather than picked out of the dark.
-		// The spot itself throws no shadow: shadows come from the pool below,
-		// which stands in for the spots nearest the viewer.
-		const spot = new THREE.SpotLight(SPOT.colour, SPOT.power, 0, SPOT.angle, SPOT.penumbra, 2);
-		spot.position.set(x + Math.sin(yaw) * 1.0, H - 0.05, z + Math.cos(yaw) * 1.0);
-		spot.target = piece;
-		piece.userData.spot = spot;
-		spots.add(spot);
 	}
 
-	scene.add(pieces, spots);
+	scene.add(pieces);
+	pieces.updateMatrixWorld(true);
+	scene.add(bakeRoom(pieces));
+	const keep = new Set(); pieces.traverse(o => { if (o.name === 'photo') for (const [k, t] of textureCache) if (t === o.material.map) keep.add(k); });
+	freeTexturesExcept(keep);
 	state.year = room.year;
 	state.roomKey = key;
 	state.gap = lay.gap;
@@ -1212,7 +1275,7 @@ const elevator = {
 			return;
 		}
 		if (!r.ready) {
-			const loaded = r.photos.every(p => textureCache.get(p.n)?.image);
+			const loaded = r.photos.every(p => [...textureCache.keys()].some(k => k.startsWith(p.n + '@') && textureCache.get(k).image));
 			if (!loaded && t < 10) return;         // wait; but never lock a visitor in
 			r.ready = true;
 			r.tOpen = now + BELL_GAP;              // the bell first, the doors after a breath
@@ -1505,6 +1568,8 @@ async function offerVR() {
 			const session = await navigator.xr.requestSession('immersive-vr', { optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking'] });
 			session.addEventListener('end', () => { vrButton.hidden = false; document.body.classList.remove('xr'); rig.position.set(0, 0, 0); rig.rotation.set(0, 0, 0); });
 			await renderer.xr.setSession(session);
+			renderer.xr.setFoveation(1);                 // the edges of the view at lower resolution: free on the Quest
+			scene.traverse(o => { if (o.isDirectionalLight && o.castShadow) { o.shadow.mapSize.set(1024, 1024); o.shadow.map?.dispose(); o.shadow.map = null; } });
 			document.body.classList.add('xr');
 			vrButton.hidden = true;
 			// stand where the bench stood, facing the same way
@@ -1569,13 +1634,33 @@ function init() {
 	applyLook();
 }
 
+// P: wireframes (Uli). ?stats=1: frame time on the cabin's display and in
+// the hint, so the headset can report its own frame rate.
+let wire = false;
+addEventListener('keydown', e => {
+	if (e.code !== 'KeyP' || e.repeat) return;
+	wire = !wire;
+	scene.traverse(o => { if (o.isMesh) for (const m of [].concat(o.material)) m.wireframe = wire; });
+});
+const stats = new URLSearchParams(location.search).get('stats') === '1';
+let frames = 0, statsT = performance.now(), fpsText = '';
+function stepStats(now) {
+	frames++;
+	if (now - statsT < 1000) return;
+	const fps = Math.round(frames * 1000 / (now - statsT)); frames = 0; statsT = now;
+	const i = renderer.info.render;
+	fpsText = `${fps} fps · ${i.calls} calls · ${(i.triangles / 1000).toFixed(1)}k tris`;
+	const hint = document.getElementById('hint'); if (hint) hint.textContent = fpsText;
+	if (elevator.displays.length && !elevator.ride && !elevator.coming) elevator.show(`${fps} fps`, '');
+}
+
 renderer.setAnimationLoop(now => {
 	elevator.step(now);
 	stepWalk(now);
-	stepShadows();
 	renderer.render(scene, camera);
+	if (stats) stepStats(now);
 });
 
 // Test-harness handle only: the plan's browser checks read the scene graph
 // and camera through this. Nothing on the page uses it.
-window.G = { scene, camera, renderer, state, buildRoom, applyMode, makePiece, rooms, hangRoom, walk, stepWalk, stepShadows, elevator, pressAt, setSetting, materials, rig, placeBody, lift };
+window.G = { scene, camera, renderer, state, buildRoom, applyMode, makePiece, rooms, hangRoom, walk, stepWalk, elevator, pressAt, setSetting, materials, rig, placeBody, lift };
