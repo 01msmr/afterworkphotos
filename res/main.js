@@ -539,7 +539,7 @@ if (DECK) {
   // whichever of the two is further from the edge. On the strip the
   // print is sticky beside the rail; in the finer gear it jumps GEAR_JUMP
   // further in and grows a fifth — the gear made visible.
-  const THUMB = 44, GEAR_JUMP = 90;
+  const THUMB = 44, GEAR_JUMP = 90, STRIP_W = 28;   // the strip's width, as in the CSS
   function placeLabel(clientX, clientY, rate = 1) {
     const r = strip.getBoundingClientRect();
     const h = scrubLabel.offsetHeight;
@@ -551,14 +551,14 @@ if (DECK) {
     // Safari has no vibrate API — there the jump and the growth are the tick)
     if ((rate < 1) !== scrubLabel.classList.contains('fine') && 'vibrate' in navigator) navigator.vibrate(8);
     scrubLabel.classList.toggle('fine', rate < 1);
-    const edge = labelRight + (rate < 1 ? GEAR_JUMP : 0);
-    if (side > 0) {
-      scrubLabel.style.left = 'auto';
-      scrubLabel.style.right = Math.max(edge, window.innerWidth - clientX + THUMB) + 'px';
-    } else {
-      scrubLabel.style.right = 'auto';
-      scrubLabel.style.left = Math.max(edge, clientX + THUMB) + 'px';
-    }
+    // on the strip a fixed distance — the strip's width plus the thumb's
+    // room — so the print stands still whatever the finger does on the
+    // rail; in the finer gear it keeps clear of the finger wherever it is
+    const fromEdge = rate < 1
+      ? Math.max(labelRight + GEAR_JUMP, (side > 0 ? window.innerWidth - clientX : clientX) + THUMB)
+      : Math.max(labelRight, STRIP_W + THUMB);
+    if (side > 0) { scrubLabel.style.left = 'auto'; scrubLabel.style.right = fromEdge + 'px'; }
+    else { scrubLabel.style.right = 'auto'; scrubLabel.style.left = fromEdge + 'px'; }
   }
 
   // Precision gear: when the strip gives less than GEAR_NEEDED_PX per photo,
@@ -572,11 +572,11 @@ if (DECK) {
     // how far the finger has gone in from the strip, towards the middle
     const r = scrub.getBoundingClientRect();
     const d = side > 0 ? r.left - clientX : clientX - r.right;
-    // two gears: the strip, and ¼ from 60 px in. A third (1/16 from
+    // two gears: the strip, and ¼ from 30 px in. A third (1/16 from
     // 160 px) is not needed while single sheets are reachable in ¼ —
     // 4 · stripHeight / N ≥ 3 px, to ≈ 900 photos on an iPhone:
     // return d < 60 ? 1 : d < 160 ? 0.25 : 1 / 16;
-    return d < 60 ? 1 : 0.25;
+    return d < 30 ? 1 : 0.25;
   }
 
   let restTimer = 0;
