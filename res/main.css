@@ -1374,6 +1374,9 @@ html.deck {
 		/* the number on the scrubber's print, and its outline */
 		--number: #fff;
 		--number-edge: #333;
+		/* the gear label under the print: white on black, inverted in dark */
+		--hint-ink: #fff;
+		--hint-bg: #000;
 		/* lit bevel on the top/left edge, and the sheet's dark thickness */
 		--edge-light: rgba(255, 255, 255, 0.55);
 		--edge-dark: rgba(0, 0, 0, 0.22);
@@ -1411,6 +1414,8 @@ html.deck {
 			--divider: rgba(255, 255, 255, 0.16);
 			--number: #1a1a1a;
 			--number-edge: #ddd;
+			--hint-ink: #000;
+			--hint-bg: #fff;
 			--edge-light: rgba(255, 255, 255, 0.14);
 			--edge-dark: rgba(0, 0, 0, 0.7);
 			--shade: 0, 0, 0;
@@ -1877,7 +1882,17 @@ html.deck {
 	.scrub-card {
 		position: relative;
 		border-radius: 5px;
+		transform-origin: right center;
+		transition: transform 0.15s ease;
 		box-shadow: 0 0 0 1px var(--edge-dark), 0 12px 28px rgba(var(--shade), 0.45);
+	}
+
+	.scrub-label.left .scrub-card {
+		transform-origin: left center;
+	}
+
+	.scrub-label.fine .scrub-card {
+		transform: scale(1.2);
 	}
 
 	.scrub-card img {
@@ -1898,22 +1913,27 @@ html.deck {
 		paint-order: stroke fill;
 	}
 
-	.scrub-hint {
-		font: 600 11px/1 "Helvetica Neue", Helvetica, Arial, sans-serif;
-		letter-spacing: 0.03em;
-		color: var(--ink);
-		margin-top: 2px;
-		padding: 3px 6px;
-		background: var(--paper);
-		border-radius: 4px;
-		box-shadow: var(--sheet-edge);
-	}
-
-	/* the word stays where it is; a chevron shows on the finger's side, the
-	   other side keeps its room so nothing shifts */
+	/* The gear label: under the print, its width, inverted — white on
+	   black in light mode, black on white in dark. The word keeps its place; a chevron shows on
+	   the finger's side, the other side keeps its room so nothing shifts. */
 	.scrub-hint {
 		display: flex;
+		justify-content: center;
 		gap: 4px;
+		width: 72px;
+		box-sizing: border-box;
+		margin-top: 4px;
+		padding: 4px 0;
+		font: 600 11px/1 "Helvetica Neue", Helvetica, Arial, sans-serif;
+		letter-spacing: 0.03em;
+		color: var(--hint-ink);
+		background: var(--hint-bg);
+		border-radius: 4px;
+	}
+
+	/* room for the grown print above it */
+	.scrub-label.fine .scrub-hint {
+		margin-top: 12px;
 	}
 
 	.scrub-hint .word {
