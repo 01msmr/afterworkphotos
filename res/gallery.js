@@ -63,7 +63,7 @@ rig.name = 'rig';
 rig.add(camera);
 scene.add(rig);
 renderer.xr.enabled = true;
-renderer.xr.setReferenceSpaceType('local-floor');
+renderer.xr.setReferenceSpaceType('local-floor');   // switched to bounded-floor at session start when the Quest has a boundary
 const headPos = new THREE.Vector3();
 function head() { return camera.getWorldPosition(headPos); }   // where the eyes are, in the world
 
@@ -1559,16 +1559,12 @@ function applyLook() {
 // Put the body at a spot on the floor, facing a yaw. On the bench that is
 // the camera; in VR the rig moves so that the head lands there.
 function placeBody(x, z, yaw) {
-	if (renderer.xr.isPresenting) {
-		rig.rotation.y = yaw;
-		rig.position.set(0, 0, 0);
-		rig.updateMatrixWorld(true);
-		const h = head();
-		rig.position.set(x - h.x, 0, z - h.z);
-	} else {
-		walk.pos.set(x, walk.pos.y, z);
-		walk.yaw = yaw; walk.pitch = 0;
-	}
+	// In a session the body is never moved: you walk by feet and stand in
+	// the real cabin; turning the rig here spun the whole room round the
+	// visitor on every ride (Uli: jump-rotation on a year button).
+	if (renderer.xr.isPresenting) return;
+	walk.pos.set(x, walk.pos.y, z);
+	walk.yaw = yaw; walk.pitch = 0;
 }
 
 function clampToRoom(v) {
@@ -1646,7 +1642,12 @@ async function offerVR() {
 			// still asked for, should a browser ever hand them over in VR.
 			const session = await navigator.xr.requestSession(state.xrMode, { requiredFeatures: ['local-floor'], optionalFeatures: ['bounded-floor', 'hand-tracking', 'plane-detection', 'mesh-detection'] });
 			state.sessionT0 = performance.now();
+			// Render in the boundary's own space: its polygon and the world then
+			// share one origin and yaw (read in bounded-floor, rendered in
+			// local-floor, the room landed turned and shifted).
 			try { state.bounded = await session.requestReferenceSpace('bounded-floor'); } catch (e) { state.bounded = null; }
+			if (state.bounded && state.bounded.boundsGeometry && state.bounded.boundsGeometry.length >= 3) renderer.xr.setReferenceSpace(state.bounded);
+			else state.bounded = null;
 			session.addEventListener('end', () => { vrButton.hidden = false; document.body.classList.remove('xr'); rig.position.set(0, 0, 0); rig.rotation.set(0, 0, 0); state.lookSet = false; if (state.real) { state.real = null; world.position.set(0, 0, 0); world.rotation.set(0, 0, 0); state.settings.H = loadSettings().H; roomList = null; state.room = null; hangRoom(rooms()[0].key); } });
 			await renderer.xr.setSession(session);
 			renderer.xr.setFoveation(1);                 // the edges of the view at lower resolution: free on the Quest
@@ -1762,6 +1763,8 @@ function stepPlanes(frame) {
 	}
 	// no planes: the Guardian's boundary gives the rectangle — at once, from
 	// where you stand and look (Uli: look straight at the middle of a wall)
+	// wait for a real head pose (the first frames report the origin)
+	const hp = head(); if (hp.lengthSq() < 1e-6 || Math.abs(hp.y) < 0.3) return;
 	if ((!planes || !planes.length) && state.bounded && state.bounded.boundsGeometry && now - state.sessionT0 > 300) {
 		const pts = state.bounded.boundsGeometry.map(q => new THREE.Vector3(q.x, 0, q.z));
 		if (pts.length >= 3) { fitRoom(pts, [], [], 0, 'bounds'); return; }
@@ -1811,12 +1814,17 @@ function fitRoom(floorPts, walls, ceilings, floorY, source) {
 		}
 		theta = Math.atan2(sy, sx) / 4;
 	} else {
-		let best = 0, bestLen = 0;
-		for (let i = 0; i < floorPts.length; i++) {
-			const a = floorPts[i], b = floorPts[(i + 1) % floorPts.length], len = a.distanceTo(b);
-			if (len > bestLen) { bestLen = len; best = Math.atan2(b.x - a.x, b.z - a.z); }
+		// a boundary drawn by hand is many short wobbly edges: the angle that
+		// gives the smallest box round the polygon is the walls' direction
+		let bestA = 0, bestArea = Infinity;
+		for (let deg = 0; deg < 90; deg += 0.5) {
+			const a = deg * Math.PI / 180, c = Math.cos(a), sn = Math.sin(a);
+			let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+			for (const p of floorPts) { const x = p.x * c - p.z * sn, z = p.x * sn + p.z * c; if (x < x0) x0 = x; if (x > x1) x1 = x; if (z < z0) z0 = z; if (z > z1) z1 = z; }
+			const area = (x1 - x0) * (z1 - z0);
+			if (area < bestArea) { bestArea = area; bestA = a; }
 		}
-		theta = best;
+		theta = bestA;                                    // the scan rotates as fitRoom does below, so the angle carries straight over
 	}
 	const rot = new THREE.Matrix4().makeRotationY(-theta);
 	let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
