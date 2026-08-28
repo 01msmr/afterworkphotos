@@ -373,7 +373,7 @@ function freeVideosExcept(keep) {
 // the panel. LED_PITCH is a diode's size on the wall, so a 90 cm panel
 // shows 90/0.9 = 100 of them across — large enough to read as diodes,
 // fine enough to keep the picture.
-const LED_PITCH = 0.009;          // metres per diode
+const LED_PITCH = 0.006;          // metres per diode — 0.66 of the first try (Uli: finer)
 let ledTex = null;
 function ledGrid() {
 	if (ledTex) return ledTex;
