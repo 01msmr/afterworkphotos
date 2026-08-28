@@ -28,7 +28,7 @@
     const m = main && main.getBoundingClientRect();
     const cs = cur && getComputedStyle(cur);
     box.textContent = [
-      `screen ${screen.width}×${screen.height} @${devicePixelRatio}  standalone ${matchMedia('(display-mode: standalone)').matches}`,
+      `${location.pathname}  screen ${screen.width}×${screen.height} @${devicePixelRatio}  standalone ${matchMedia('(display-mode: standalone)').matches}`,
       `inner ${innerWidth}×${innerHeight}  vv ${visualViewport ? Math.round(visualViewport.height) + ' top ' + Math.round(visualViewport.offsetTop) : '-'}`,
       `html rect ${Math.round(html.top)} → ${Math.round(html.bottom)}  client ${document.documentElement.clientHeight}`,
       `.main rect ${m ? Math.round(m.top) + ' → ' + Math.round(m.bottom) : '-'}  --app-height ${getComputedStyle(document.documentElement).getPropertyValue('--app-height').trim()}`,
