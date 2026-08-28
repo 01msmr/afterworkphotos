@@ -201,8 +201,9 @@ function applyMode(dark) {
 // around the mat's edge, 3 cm face and 4 cm deep, mitred by overlap. Two
 // lines rise from the frame's top corners to the ceiling. No glass.
 
-const FRAME = { face: 0.03, depth: 0.04, chamfer: 0.0015 };   // a 1.5 mm chamfer on the long edges (Uli)
+const FRAME = { face: 0.03, depth: 0.03, chamfer: 0.0015 };   // a square section (Uli), a 1.5 mm chamfer on the long edges
 const MAT = { 0.9: 0.09, 0.6: 0.06, 0.4: 0.045 };     // mat width per nominal print size: the spec's 6/4/3 plus half (Uli)
+const MAT_Z = 0.014;                                   // the mat 14 mm off the wall: 8 mm further forward (Uli)
 const PRINT_SCALE = 0.9;                               // the print inside is a little smaller than nominal, the mat takes the rest (Uli)
 const MAT_COLOURS = { white: 0xfaf9f6, warm: 0xf3ecdd, none: 0xfaf9f6 };
 
@@ -338,26 +339,30 @@ function freeTexturesExcept(keep) {
 // Outer edge of one framed print of a given print size.
 const framedSize = size => (size + 2 * matWidth(size) + 2 * FRAME.face) * sc();
 
-// A frame bar, only the faces that can be seen: front, its two chamfers,
-// the two sides. The back lies on the wall, the ends hide in the mitre —
-// left out. Ten triangles a bar. Built by hand along x (a horizontal
-// bar: face across y, depth along z), turned for a vertical one.
+// A frame bar: a closed square section with all four long edges
+// chamfered, mitred at 45 degrees at both ends so the four bars meet
+// corner to corner (Uli) — no open ends to see into from the side. Built
+// along x (a horizontal bar: face across y, depth along z), the mitre
+// cutting each vertex's x by how far it sits from the outer edge; turned
+// for a vertical bar. Sixteen triangles.
 const barCache = new Map();
 function barGeometry(length, face, depth, horizontal) {
 	const key = `${length.toFixed(4)}|${face.toFixed(4)}|${depth.toFixed(4)}|${horizontal}`;
 	if (barCache.has(key)) return barCache.get(key);
 	const c = Math.min(FRAME.chamfer, face / 3), fw = face / 2, L = length / 2;
-	// the profile from one side round the front to the other, (y, z)
-	const prof = [[-fw, 0], [-fw, depth - c], [-fw + c, depth], [fw - c, depth], [fw, depth - c], [fw, 0]];
+	// the section, anticlockwise seen from +x, starting at the outer back corner
+	const prof = [[fw, c], [fw, depth - c], [fw - c, depth], [-fw + c, depth], [-fw, depth - c], [-fw, c], [-fw + c, 0], [fw - c, 0]];
+	// the mitre: the outer edge (y = +fw) runs the full length, the inner (y = -fw) is shorter by the face
+	const xEnd = (y, sign) => sign * (L - (fw - y));
 	const pos = [], nor = [], uv = [];
 	let v = 0;
-	for (let i = 0; i < prof.length - 1; i++) {
-		const [y0, z0] = prof[i], [y1, z1] = prof[i + 1];
+	for (let i = 0; i < prof.length; i++) {
+		const [y0, z0] = prof[i], [y1, z1] = prof[(i + 1) % prof.length];
 		const len = Math.hypot(y1 - y0, z1 - z0);
-		// outward normal of this face: the profile runs anticlockwise seen from +x, so rotate the edge direction
-		const nx = 0, ny = (z1 - z0) / len, nz = -(y1 - y0) / len;
-		const quad = [[-L, y0, z0, 0, v], [L, y0, z0, length, v], [L, y1, z1, length, v + len], [-L, y1, z1, 0, v + len]];
-		for (const t of [[0, 1, 2], [0, 2, 3]]) for (const k of t) { const q = quad[k]; pos.push(q[0], q[1], q[2]); nor.push(nx, ny, nz); uv.push(q[3], q[4]); }
+		const ny = (z1 - z0) / len, nz = -(y1 - y0) / len;
+		const quad = [[xEnd(y0, -1), y0, z0, 0, v], [xEnd(y0, 1), y0, z0, length, v], [xEnd(y1, 1), y1, z1, length, v + len], [xEnd(y1, -1), y1, z1, 0, v + len]];
+		// wound anticlockwise seen from outside, so the faces are front faces (they were back faces: see-through from the side)
+		for (const t of [[0, 2, 1], [0, 3, 2]]) for (const k of t) { const q = quad[k]; pos.push(q[0], q[1], q[2]); nor.push(0, ny, nz); uv.push(q[3], q[4]); }
 		v += len;
 	}
 	const g = new THREE.BufferGeometry();
@@ -380,20 +385,20 @@ function makeFramedPrint(p, size) {
 	// the mat board: only its face shows, its edges are under the frame
 	const board = new THREE.Mesh(new THREE.PlaneGeometry(inner, inner), materials.mat);
 	board.name = 'mat';
-	board.position.z = 0.006;
+	board.position.z = MAT_Z;
 	g.add(board);
 
 	const printed = size * (state.settings.mat === 'none' ? 1 : PRINT_SCALE) * k;
 	const print = new THREE.Mesh(new THREE.PlaneGeometry(printed, printed),
 		new THREE.MeshBasicMaterial({ map: photoTexture(p, size) }));
 	print.name = 'photo';
-	print.position.z = 0.006 + 0.001;                // a millimetre proud of the mat (Uli)
+	print.position.z = MAT_Z + 0.001;                // a millimetre proud of the mat (Uli)
 	g.add(print);
 	// the shadow that millimetre throws: a faint dark rim just behind the
 	// print, a hair larger and pushed down and to the right
 	const rim = new THREE.Mesh(new THREE.PlaneGeometry(printed + 0.003, printed + 0.003), materials.rim);
 	rim.name = 'photo-shadow';
-	rim.position.set(0.0008, -0.0008, 0.006 + 0.0004);
+	rim.position.set(0.0008, -0.0008, MAT_Z + 0.0004);
 	g.add(rim);
 
 	// Four bars around the board. Horizontal bars run the full outer width;
@@ -401,19 +406,23 @@ function makeFramedPrint(p, size) {
 	// any angle the viewer can take. Bars sit flush with the wall at z=0
 	// and come 4 cm into the room. Their long edges carry the chamfer.
 	const bar = (name, w, h, x, y) => {
-		const horizontal = w > h;
+		const horizontal = name === 'bar-top' || name === 'bar-bottom';
 		const m = new THREE.Mesh(barGeometry(horizontal ? w : h, horizontal ? h : w, FRAME.depth * k, horizontal), materials.frame);
 		m.name = name;
 		m.position.set(x, y, 0);                       // the bar's back is the wall
+		// built with its outer edge at +y: the bottom bar and the right bar are mirrored
+		if (name === 'bar-bottom') m.scale.y = -1;
+		if (name === 'bar-right') m.scale.x = -1;
 		m.castShadow = true;
 		m.receiveShadow = true;
 		g.add(m);
 	};
+	// all four the full outer length, mitred at the corners
 	const half = inner / 2 + face / 2;
 	bar('bar-top',    outer, face, 0,  half);
 	bar('bar-bottom', outer, face, 0, -half);
-	bar('bar-left',   face, inner, -half, 0);
-	bar('bar-right',  face, inner,  half, 0);
+	bar('bar-left',   face, outer, -half, 0);
+	bar('bar-right',  face, outer,  half, 0);
 
 	g.userData = { n: p.n, w: outer, h: outer };
 	return g;
@@ -488,10 +497,15 @@ function weld(meshes, material, name) {
 		const rel = new THREE.Matrix4().copy(world.matrixWorld).invert().multiply(m.matrixWorld);
 		_nm.getNormalMatrix(rel);
 		const v = new THREE.Vector3(), n = new THREE.Vector3();
-		for (let i = 0; i < P.count; i++) {
-			v.fromBufferAttribute(P, i).applyMatrix4(rel); pos.push(v.x, v.y, v.z);
-			if (N) { n.fromBufferAttribute(N, i).applyMatrix3(_nm).normalize(); nor.push(n.x, n.y, n.z); }
-			if (U) uv.push(U.getX(i), U.getY(i));
+		// a mirrored mesh (negative scale) has its winding flipped: bake it back
+		const flip = rel.determinant() < 0;
+		for (let t = 0; t < P.count; t += 3) {
+			const order = flip ? [t + 2, t + 1, t] : [t, t + 1, t + 2];
+			for (const i of order) {
+				v.fromBufferAttribute(P, i).applyMatrix4(rel); pos.push(v.x, v.y, v.z);
+				if (N) { n.fromBufferAttribute(N, i).applyMatrix3(_nm).normalize(); nor.push(n.x, n.y, n.z); }
+				if (U) uv.push(U.getX(i), U.getY(i));
+			}
 		}
 		if (m.geometry.index) g.dispose();
 	}
