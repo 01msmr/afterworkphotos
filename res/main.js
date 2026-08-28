@@ -536,7 +536,7 @@ if (DECK) {
   // keeps THUMB px from the strip. In the finer gear it jumps GEAR_JUMP
   // further in and grows a fifth — the gear made visible. Both places
   // are fixed; the print never follows the finger's x.
-  const THUMB = 44, GEAR_JUMP = 63, STRIP_W = 28;   // the strip's width, as in the CSS
+  const THUMB = 44, GEAR_JUMP = 63, STRIP_W = 28;   // the rail's visual width (the touch area is twice that)
   function placeLabel(clientX, clientY, rate = 1) {
     const r = strip.getBoundingClientRect();
     const h = scrubLabel.offsetHeight;
@@ -568,8 +568,8 @@ if (DECK) {
   function gearRate(clientX) {
     if (!gearsOn) return 1;
     // how far the finger has gone in from the strip, towards the middle
-    const r = scrub.getBoundingClientRect();
-    const d = side > 0 ? r.left - clientX : clientX - r.right;
+    // measured from the rail's visual edge (STRIP_W), not the wider touch area
+    const d = side > 0 ? (window.innerWidth - STRIP_W) - clientX : clientX - STRIP_W;
     // two gears: the strip, and ¼ from 30 px in. A third (1/16 from
     // 160 px) is not needed while single sheets are reachable in ¼ —
     // 4 · stripHeight / N ≥ 3 px, to ≈ 900 photos on an iPhone:
@@ -615,6 +615,14 @@ if (DECK) {
   // where the finger rests when the time is up.
   const ARM_MS = 200, ARM_MOVE = 8;
   let armTimer = 0, armX = 0, armY = 0, lastTouch = null;
+  // A touch that moves before the time is up is a swipe: it is handed to
+  // the deck (the touch area reaches 28 px inside the rail, where swipes
+  // begin too) — the same events, re-sent on .main from where it landed
+  let handoff = false;
+  function forward(type, x, y) {
+    const t = new Touch({ identifier: 9, target: main, clientX: x, clientY: y });
+    main.dispatchEvent(new TouchEvent(type, { touches: type === 'touchend' ? [] : [t], changedTouches: [t], bubbles: true, cancelable: true }));
+  }
 
   function engage() {
     armTimer = 0;
@@ -632,6 +640,7 @@ if (DECK) {
   el.addEventListener('touchstart', (e) => {
     if (animating || scrubbing) return;
     scrub = el; strip = el.querySelector('.scrub-strip'); side = +el.dataset.side;
+    handoff = false;
     lastTouch = e.touches[0];
     armX = lastTouch.clientX; armY = lastTouch.clientY;
     disarm();
@@ -641,16 +650,22 @@ if (DECK) {
   el.addEventListener('touchmove', (e) => {
     lastTouch = e.touches[0];
     if (!scrubbing) {
-      // armed: a finger that moves before the time is up is not scrubbing
-      if (armTimer && Math.hypot(lastTouch.clientX - armX, lastTouch.clientY - armY) > ARM_MOVE) disarm();
+      // armed: a finger that moves before the time is up is not scrubbing — it swipes
+      if (armTimer && Math.hypot(lastTouch.clientX - armX, lastTouch.clientY - armY) > ARM_MOVE) {
+        disarm();
+        handoff = true;
+        forward('touchstart', armX, armY);
+      }
+      if (handoff) { e.preventDefault(); forward('touchmove', lastTouch.clientX, lastTouch.clientY); }
       return;
     }
     e.preventDefault();
     scrubTo(lastTouch.clientX, lastTouch.clientY);
   }, { passive: false });
 
-  el.addEventListener('touchend', () => {
+  el.addEventListener('touchend', (e) => {
     disarm();
+    if (handoff) { handoff = false; const t = e.changedTouches[0]; forward('touchend', t.clientX, t.clientY); return; }
     if (!scrubbing) return;
     scrubbing = false;
     scrub.classList.remove('active');
@@ -662,7 +677,7 @@ if (DECK) {
     startMove(target > current ? 1 : -1, target);
     settle(true);
   }, { passive: true });
-  el.addEventListener('touchcancel', () => { disarm(); if (scrubbing) { scrubbing = false; scrub.classList.remove('active'); document.body.classList.remove('scrubbing'); } }, { passive: true });
+  el.addEventListener('touchcancel', () => { disarm(); handoff = false; if (scrubbing) { scrubbing = false; scrub.classList.remove('active'); document.body.classList.remove('scrubbing'); } }, { passive: true });
   });
 
   // ── Tap zones ──
