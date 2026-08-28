@@ -547,6 +547,9 @@ if (DECK) {
     const top = Math.min(r.bottom - h, Math.max(r.top, clientY - cardMid));
     scrubLabel.style.top = top + 'px';
     scrubLabel.classList.toggle('left', side < 0);
+    // a gear change: a tick where the device can give one (Android; iOS
+    // Safari has no vibrate API — there the jump and the growth are the tick)
+    if ((rate < 1) !== scrubLabel.classList.contains('fine') && 'vibrate' in navigator) navigator.vibrate(8);
     scrubLabel.classList.toggle('fine', rate < 1);
     const edge = labelRight + (rate < 1 ? GEAR_JUMP : 0);
     if (side > 0) {
