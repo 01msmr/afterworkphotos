@@ -39,17 +39,19 @@
 	   rest of the mark does */
 	--favs-type: 1.1rem;
 	--towns-w: min(490px, 34vw);
-	/* The viewport's live height — dvh follows Safari's toolbar and, in the
-	   home screen app, the late correction iOS makes at launch: the view
-	   starts one status bar short (797 on a 390×844 phone) and grows to the
-	   glass ~100 ms later. Never measure this from JS: a value read at load
-	   pins the short one, and the black band under the sheets stays. */
+	/* The viewport's height, the large one (lvh — with the toolbar collapsed,
+	   the glass). Not dvh and never a px value measured from JS: the home
+	   screen app launches its view one status bar short (797 on a 390×844
+	   phone) and iOS grows it to the glass only when the document is taller
+	   than that view — a box the short view's own height (dvh, innerHeight)
+	   leaves it there and a black band under the sheets. 100vh overflowed
+	   by exactly a status bar and so worked; lvh says what is meant. */
 	--app-height: 100vh;
 }
 
-@supports (height: 100dvh) {
+@supports (height: 100lvh) {
 	:root {
-		--app-height: 100dvh;
+		--app-height: 100lvh;
 	}
 }
 

@@ -132,11 +132,11 @@ function fitTitle() {
   title.style.fontSize = lo + 'px';
 }
 
-/* The viewport height is --app-height in the CSS (100dvh) — it is not
-   measured here. On the iPhone 17e the home screen app launches its view
-   one status bar short and grows it ~100 ms later; a height read at load
-   froze the short one into the page and the sheets ended above the glass
-   (2026-08-28, found with test.html–test6.html). */
+/* The viewport height is --app-height in the CSS (100lvh) — never measured
+   here: on the iPhone 17e the home screen app launches its view one status
+   bar short and grows it only if the document is taller than that view; a
+   height read at load pinned the short one and the sheets ended above the
+   glass (2026-08-28, found with test.html–test12.html). */
 
 /* ============================================================
    MOBILE: Card stack
