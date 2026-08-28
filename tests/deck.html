@@ -137,8 +137,10 @@ async function run() {
 		scrub.dispatchEvent(new w.TouchEvent(type, { touches: type === 'touchend' ? [] : [t], changedTouches: [t], bubbles: true, cancelable: true }));
 	};
 	S('touchstart', r.left + 10, r.top + r.height * 0.4);
-	await sleep(280);   // the strip arms on touch and engages after 120 ms
+	await sleep(420);   // arms on touch, engages after 120 ms, the strip fades in over 0.25 s
 	const label = d.querySelector('.scrub-label'), card = d.querySelector('.scrub-card');
+	const stripOpacity = (sel) => w.getComputedStyle(d.querySelector(sel + ' .scrub-strip')).opacity;
+	say(stripOpacity('.scrub:not(.left)') === '1' && stripOpacity('.scrub.left') === '0', 'only the strip under the finger shows', `right ${stripOpacity('.scrub:not(.left)')}, left ${stripOpacity('.scrub.left')}`);
 	say(card.querySelectorAll('img').length === 1 && !d.querySelector('.scrub-up') && !d.querySelector('.scrub-down'), 'the label is one print, no neighbours');
 	const n = card.querySelector('b');
 	say(n && /^\d+$/.test(n.textContent) && w.getComputedStyle(n).webkitTextStrokeWidth === '2px', 'the number is on the print, outlined 2 px', n && n.textContent);
@@ -204,6 +206,8 @@ async function run() {
 	L('touchstart', lr.right - 4, lr.top + lr.height * 0.5);
 	await sleep(200);
 	say(d.body.classList.contains('scrubbing'), 'the left strip engages after 120 ms');
+	await sleep(300);   // the strip's 0.25 s fade
+	say(stripOpacity('.scrub.left') === '1' && stripOpacity('.scrub:not(.left)') === '0', 'and only it shows', `left ${stripOpacity('.scrub.left')}, right ${stripOpacity('.scrub:not(.left)')}`);
 	const lb = label.getBoundingClientRect();
 	say(lb.left - (lr.right - 4) >= 44 && label.classList.contains('left'), 'the label stands to the right of the finger, 44 px clear', `${Math.round(lb.left - (lr.right - 4))} px`);
 	say(H() === 'finer ›', 'the hint points right', H());
