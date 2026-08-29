@@ -18,7 +18,7 @@ How everything works, in detail. The overview is in the [README](../README.md).
 | `inbox/` | where new photos land (the afterworksnap app puts them there, via `snap.afterworkphotos.com`); emptied by the ingest workflow |
 | `scripts/ingest.sh` | names an inbox photo by date taken, makes the 1000 px square and the thumbnail, moves the original, rewrites `photos.json` |
 | `.github/workflows/ingest.yml` | runs the script on every push to `inbox/` and commits the result |
-| `upload.php`, `secret.php`, `.user.ini` | the old server-side upload endpoint — superseded by `snap.afterworkphotos.com` (repo `afterworkphotos-snap`), to be removed |
+| `.user.ini` | PHP body limits, left from the old server-side upload endpoint (removed 2026-08-29; the upload lives at `snap.afterworkphotos.com`, repo `afterworkphotos-snap`) |
 | `apple-touch-icon.png`, `favicon.ico` | icons |
 | `card-stack.html`, `res/onepage.*`, `res/noRubberband.js`, `favicon_.ico` | legacy / prototypes, not referenced by the page |
 | `docs/superpowers/specs/`, `docs/superpowers/plans/` | design specs and implementation plans of larger changes (the iPad deck / aspect layouts / precision scrubber of 2026-08-23 are there, with the browser checks each step was verified by) |
@@ -113,7 +113,7 @@ The phone does this with the **afterworksnap** app (repo `afterworkphotos-snap`,
 
 By hand: `git add inbox/whatever.jpg && git commit && git push` does the same. To try the script locally: `scripts/ingest.sh` (needs ImageMagick), then look at what it staged.
 
-`upload.php` and `secret.php` here are the old way — it edited `res/main.js` on the server, which the next pull undid — and are to be removed, together with the earlier Shortcut and its token.
+`upload.php` and `secret.php` were the old way — it edited `res/main.js` on the server, which the next pull undid — removed 2026-08-29 together with the Shortcut path.
 
 ## Deep links
 
@@ -178,4 +178,4 @@ The deck is chosen by touch support, not width — on a desktop browser use `?to
 
 ## Security note
 
-`secret.php` must not be in the repository. It was, because the `.gitignore` line had a typo (`sth secret.php`); the line is fixed now, but the file is still tracked and the token is in the history — rotate `UPLOAD_SECRET` and `git rm --cached secret.php`.
+`secret.php` was committed by accident (a `.gitignore` typo) and removed on 2026-08-29 together with `upload.php`; the password in it unlocks nothing any more, since the endpoint it guarded is gone. It remains in the git history.
