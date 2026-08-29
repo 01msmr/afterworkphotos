@@ -166,7 +166,11 @@ describe() {
   | curl -sS -m 30 https://api.anthropic.com/v1/messages \
       -H "Content-Type: application/json" -H "x-api-key: $ANTHROPIC_API_KEY" \
       -H "anthropic-version: 2023-06-01" -d @- 2>/dev/null \
-  | jq -r '[.content[]? | select(.type == "text") | .text][0] // empty' \
+  | jq -r '
+      # an API error is named on stderr (its type and message, never the key),
+      # so a silent run does not have to be guessed at
+      if .type == "error" then ("desc error: " + .error.type + ": " + .error.message | stderr | empty)
+      else ([.content[]? | select(.type == "text") | .text][0] // empty) end' \
   | head -1 | tr '[:upper:]' '[:lower:]' | tr -d '"' | cut -c1-40
   return 0
 }
