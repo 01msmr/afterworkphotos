@@ -53,6 +53,11 @@ cd "$(dirname "$0")/.."
 
 MAX_VIDEO_SECONDS=30
 
+# the originals live in a gitignored folder: on the runner it does not exist
+# until something is put there, and the first already-square arrival is moved
+# into it directly rather than written by convert
+mkdir -p "img originals"
+
 # inbox files arrive tracked (pushed through the API) or untracked (dropped
 # in locally), and "img originals" is gitignored — git mv / git add work on
 # neither, so fall back to a plain move and record the departure by hand
