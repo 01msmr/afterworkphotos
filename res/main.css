@@ -203,6 +203,9 @@ p.subtitle {
 
 p.subtitle .cap {
 	flex: none;
+	/* the name keeps the right end even when there is no description to
+	   hold the left one — space-between alone would let it slide left */
+	margin-left: auto;
 }
 
 /* the description, left-aligned opposite the caption: the meta line's
