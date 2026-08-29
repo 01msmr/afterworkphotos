@@ -1,5 +1,5 @@
 {
-  "count": 428,
+  "count": 429,
   "photos": [
     {"n": 1, "id": "awp-2009-06-12-01", "taken": "2009-06-12T18:37:36", "place": "Oderen", "desc": "orange railing", "file": "img/awp-2009-06-12-01.jpg", "thumb": "img/thumb/awp-2009-06-12-01.jpg", "video": null},
     {"n": 2, "id": "awp-2010-01-15-01", "taken": "2010-01-15T21:21:56", "place": null, "desc": "lamp on floor", "file": "img/awp-2010-01-15-01.jpg", "thumb": "img/thumb/awp-2010-01-15-01.jpg", "video": null},
@@ -428,7 +428,8 @@
     {"n": 425, "id": "awp-2026-06-07-01", "taken": "2026-06-07T09:13:19", "place": "Gütersloh", "desc": "lined yellow card", "file": "img/awp-2026-06-07-01.jpg", "thumb": "img/thumb/awp-2026-06-07-01.jpg", "video": null},
     {"n": 426, "id": "awp-2026-06-19-01", "taken": "2026-06-19T16:05:22", "place": "Markdorf", "desc": "diagonal shadows on tiles", "file": "img/awp-2026-06-19-01.jpg", "thumb": "img/thumb/awp-2026-06-19-01.jpg", "video": null},
     {"n": 427, "id": "awp-2026-07-29-01", "taken": "2026-07-29T21:30:28", "place": null, "desc": "ship funnels", "file": "img/awp-2026-07-29-01.jpg", "thumb": "img/thumb/awp-2026-07-29-01.jpg", "video": null},
-    {"n": 428, "id": "awp-2026-08-29-01", "taken": "2026-08-29T16:03:53", "place": "Markdorf", "desc": "white keyboard", "file": "img/awp-2026-08-29-01.jpg", "thumb": "img/thumb/awp-2026-08-29-01.jpg", "video": null}
+    {"n": 428, "id": "awp-2026-08-29-01", "taken": "2026-08-29T16:03:53", "place": "Markdorf", "desc": "white keyboard", "file": "img/awp-2026-08-29-01.jpg", "thumb": "img/thumb/awp-2026-08-29-01.jpg", "video": null},
+    {"n": 429, "id": "awp-2026-08-29-02", "taken": "2026-08-29T17:42:28", "place": null, "desc": "airplane wing, sky", "file": "img/awp-2026-08-29-02.jpg", "thumb": "img/thumb/awp-2026-08-29-02.jpg", "video": null}
   ],
   "places": {
     "Alsheim": [49.77, 8.34],
