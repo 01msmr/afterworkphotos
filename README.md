@@ -29,7 +29,7 @@ The site never shows file names: photos are numbered 1…N in date order.
 
 ## Adding photos
 
-Put an image (or a video up to 30 s) into `inbox/` on `main`. The workflow names it by date taken, makes the square, the thumbnail and the index, commits, and the server pulls. From the phone this is a Shortcut writing to `inbox/` through the GitHub API; from the Mac, drop the files in and run `scripts/ingest.sh` (needs ImageMagick; videos need ffmpeg).
+Put an image (or a video up to 30 s) into `inbox/` on `main`. The workflow names it by date taken, makes the square, the thumbnail and the index, commits, and the server pulls. From the phone this is the afterworksnap app (repo `afterworkphotos-snap`) sending to `snap.afterworkphotos.com`, which writes to `inbox/` through the GitHub API; from the Mac, drop the files in and run `scripts/ingest.sh` (needs ImageMagick; videos need ffmpeg).
 
 ## Deployment
 

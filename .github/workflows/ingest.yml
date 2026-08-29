@@ -1,10 +1,10 @@
 # Turns whatever lands in inbox/ into the next numbered photo, and keeps
 # the thumbnails and photos.json current.
 #
-# The Shortcut on the phone PUTs a photo into inbox/ through the GitHub
-# contents API; that push triggers this. scripts/ingest.sh numbers it, makes
+# The afterworksnap app posts a photo to snap.afterworkphotos.com, which PUTs
+# it into inbox/ through the GitHub contents API; that push triggers this. scripts/ingest.sh numbers it, makes
 # the 1000px square derivative and the 200px thumbnail, moves the original,
-# bumps PHOTO_COUNT and rewrites photos.json; this workflow commits and
+# rewrites photos.json; this workflow commits and
 # pushes. The server pulls main and the photo is live. A push made with
 # GITHUB_TOKEN does not trigger workflows, so the commit made here cannot
 # start another run. Run it by hand (workflow_dispatch) to regenerate the
