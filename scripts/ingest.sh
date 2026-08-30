@@ -150,6 +150,22 @@ gps_of_photo() {
   return 0
 }
 
+# a name and a place the photo brought with it (the snap app writes them):
+# TIFF ImageDescription and IPTC City on the original; empty when absent
+desc_in_photo() {
+  local o; o=$(original_of "$1"); [[ -n "$o" ]] || return 0
+  is_video "$o" && return 0
+  identify -quiet -format '%[EXIF:ImageDescription]' "$o" 2>/dev/null \
+    | head -1 | tr '[:upper:]' '[:lower:]' | tr -d '"' | cut -c1-40
+  return 0
+}
+place_in_photo() {
+  local o; o=$(original_of "$1"); [[ -n "$o" ]] || return 0
+  is_video "$o" && return 0
+  identify -quiet -format '%[IPTC:2:90]' "$o" 2>/dev/null | head -1 | cut -c1-60
+  return 0
+}
+
 # a 1–3 word description of the photo (its thumbnail), asked of Claude —
 # lowercase English, concrete nouns ("garage door", "snow on street").
 # Needs ANTHROPIC_API_KEY and jq; empty without them or on any failure
@@ -379,6 +395,7 @@ done
     taken_json=null
     (( ${#d} >= 14 )) && taken_json="\"${d:0:4}-${d:4:2}-${d:6:2}T${d:8:2}:${d:10:2}:${d:12:2}\""
     place=$(place_of "$d" || true)
+    [[ -n "$place" ]] || place=$(place_in_photo "$name" || true)
     coords=""; [[ -n "$place" ]] && coords=$(city_of "$place" || true)
     if [[ -z "$place" || -z "$coords" ]]; then
       gps=$(gps_of_photo "$name" || true)
@@ -398,6 +415,7 @@ done
     place_json=null
     [[ -n "$place" ]] && place_json="\"$(printf '%s' "$place" | sed 's/\\/\\\\/g; s/"/\\"/g')\""
     desc=$(desc_of "$d" || true)
+    [[ -n "$desc" ]] || desc=$(desc_in_photo "$name" || true)
     if [[ -z "$desc" && -f "img/thumb/$name.jpg" ]]; then
       desc=$(describe "img/thumb/$name.jpg" || true)
       [[ -n "$desc" ]] && echo "desc for $name: $desc" >&2
