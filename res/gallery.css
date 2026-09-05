@@ -1,5 +1,5 @@
 /* The gallery page is one full-bleed WebGL canvas. Everything that will
-   sit over it (the years overlay, the switchboard) is positioned on top
+   sit over it (the years overlay) is positioned on top
    later; the page itself never scrolls. */
 
 html, body {
@@ -68,46 +68,6 @@ body.locked #hint { opacity: 0; }
 #floors button[aria-current="true"] { box-shadow: 0 0 0 3px #f0c674, 0 0 14px #f0c674; }
 #floors button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 
-/* the switchboard: a small panel top left, the settings as rows of choices */
-#board {
-	position: fixed;
-	left: 24px;
-	top: 24px;
-	margin: 0;
-	padding: 12px 14px;
-	display: grid;
-	gap: 8px;
-	background: rgba(20, 20, 20, .82);
-	border-radius: 4px;
-	color: #e9e7e2;
-	font: 12px/1.4 -apple-system, "Helvetica Neue", Arial, sans-serif;
-	letter-spacing: .03em;
-}
-#board[hidden] { display: none; }
-#board .row { display: flex; align-items: center; gap: 4px; }
-#board .row > span { width: 48px; color: #9b978f; text-transform: uppercase; font-size: 10px; letter-spacing: .1em; }
-#board button {
-	font: inherit;
-	color: #e9e7e2;
-	background: rgba(255, 255, 255, .08);
-	border: 1px solid rgba(255, 255, 255, .15);
-	border-radius: 3px;
-	padding: 3px 9px;
-	cursor: pointer;
-}
-#board button:hover { background: rgba(255, 255, 255, .16); }
-#board button[aria-pressed="true"] { background: #f2efe8; color: #1b1b1b; border-color: #f2efe8; }
-#board label { display: inline-flex; align-items: center; gap: 4px; color: #9b978f; }
-#board input {
-	font: inherit;
-	width: 52px;
-	color: #e9e7e2;
-	background: rgba(255, 255, 255, .08);
-	border: 1px solid rgba(255, 255, 255, .15);
-	border-radius: 3px;
-	padding: 2px 5px;
-}
-#board :focus-visible { outline: 2px solid #f0c674; outline-offset: 1px; }
 
 /* the way into VR, where there is one: big enough to hit with a controller */
 #vr {
@@ -127,7 +87,7 @@ body.locked #hint { opacity: 0; }
 }
 #vr[hidden] { display: none; }
 #vr:hover { background: #fff; }
-body.xr #hint, body.xr #floors, body.xr #board { display: none; }
+body.xr #hint, body.xr #floors { display: none; }
 
 /* The lift buttons' face: Jost Light, drawn on canvases in gallery.js
    (res/fonts/LICENSE.txt). */

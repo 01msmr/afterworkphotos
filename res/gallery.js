@@ -1263,19 +1263,73 @@ const SWITCHES = [
 	{ key: 'labels', label: 'labels', value: () => state.settings.labels ? 'on' : 'off',   press: () => setSetting('labels', !state.settings.labels) },
 	{ key: 'wire',   label: 'wire',   value: () => wire ? 'on' : 'off',                    press: () => setWire(!wire) },
 ];
+// A switch's face shows its state; its description is printed on the
+// plate under it (Uli).
 function switchFace(sw) {
 	const c = document.createElement('canvas'); c.width = c.height = 128;
 	const g = c.getContext('2d');
 	g.fillStyle = '#f2efe8'; g.beginPath(); g.arc(64, 64, 64, 0, Math.PI * 2); g.fill();
-	g.fillStyle = '#6b6862'; g.textAlign = 'center'; g.textBaseline = 'middle';
-	g.font = '500 22px -apple-system, "Helvetica Neue", Arial, sans-serif'; g.fillText(sw.label, 64, 44);
-	g.fillStyle = '#1b1b1b';
-	g.font = '600 28px -apple-system, "Helvetica Neue", Arial, sans-serif'; g.fillText(sw.value(), 64, 80);
+	g.fillStyle = '#1b1b1b'; g.textAlign = 'center'; g.textBaseline = 'middle';
+	g.font = '300 34px Jost, "Helvetica Neue", Arial, sans-serif'; g.fillText(sw.value(), 64, 66);
+	const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+function switchLabel(sw) {
+	const c = document.createElement('canvas'); c.width = 256; c.height = 64;
+	const g = c.getContext('2d');
+	g.fillStyle = '#d8d5cf'; g.textAlign = 'center'; g.textBaseline = 'middle';
+	g.font = '300 40px Jost, "Helvetica Neue", Arial, sans-serif'; g.fillText(sw.label, 128, 34);
 	const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
 }
 function refreshSwitches() {
-	for (const f of elevator.switches) if (f.userData.sw) { f.material.map.dispose(); f.material.map = switchFace(f.userData.sw); f.material.needsUpdate = true; }
+	for (const f of [...elevator.switches, ...settingsMap.switches]) if (f.userData.sw) { f.material.map.dispose(); f.material.map = switchFace(f.userData.sw); f.material.needsUpdate = true; }
 }
+
+// The switchplate: the four switches two by two on an anthracite plate,
+// each a round button showing its state with its description printed
+// under it (Uli). Built into `parent` with its middle at (px, py, pz),
+// facing +z, the buttons proud that way. Returns what presses.
+const SWITCHPLATE = { cols: 2, pitchX: 0.07, pitchY: 0.085, margin: 0.015 };
+function buildSwitchplate(parent, px, py, pz) {
+	const { cols, pitchX, pitchY, margin } = SWITCHPLATE, rows = Math.ceil(SWITCHES.length / cols);
+	const plateW = cols * pitchX + 2 * margin, plateH = rows * pitchY + 2 * margin;
+	const plate = new THREE.Mesh(new THREE.BoxGeometry(plateW, plateH, 0.024), panelPlate);
+	plate.name = 'switchplate'; plate.position.set(px, py, pz); parent.add(plate);
+	const bodyGeo = new THREE.CylinderGeometry(BUTTON.r, BUTTON.r, BUTTON.rise, 12, 1, true); bodyGeo.rotateX(Math.PI / 2);   // axis along z
+	const faceGeo = new THREE.CircleGeometry(BUTTON.r * 0.92, 12);
+	const labelGeo = new THREE.PlaneGeometry(0.056, 0.014);
+	const switches = [];
+	SWITCHES.forEach((sw, i) => {
+		const col = i % cols, row = Math.floor(i / cols);
+		const x = px - plateW / 2 + margin + pitchX * (col + 0.5);
+		const y = py + plateH / 2 - margin - pitchY * (row + 0.5) + 0.009;   // up a little: the label takes the room below
+		const z = pz + 0.012 + BUTTON.rise / 2;
+		const b = new THREE.Mesh(bodyGeo, metal); b.name = `switch-${sw.key}`; b.userData.action = sw.key; b.position.set(x, y, z); parent.add(b);
+		const f = new THREE.Mesh(faceGeo, new THREE.MeshStandardMaterial({ map: switchFace(sw), roughness: 0.6 }));
+		f.name = `switch-face-${sw.key}`; f.userData.action = sw.key; f.userData.sw = sw; f.position.set(x, y, z + BUTTON.rise / 2 + 0.0005); parent.add(f);
+		const l = new THREE.Mesh(labelGeo, new THREE.MeshBasicMaterial({ map: switchLabel(sw), transparent: true }));
+		l.name = `switch-label-${sw.key}`; l.position.set(x, y - BUTTON.r - 0.011, pz + 0.0125); parent.add(l);
+		switches.push(b, f);
+	});
+	return switches;
+}
+
+// The settings map (Uli): the switchplate again, held up in front of you
+// on B — a controller's B or Y button, the bench's B or O key — half a metre
+// off, a little below the eyes and turned to them like a map, left where
+// it was summoned; B again puts it away. Its switches press like the
+// plate's.
+const settingsMap = {
+	group: null, switches: [],
+	toggle() {
+		if (!this.group) { this.group = new THREE.Group(); this.group.name = 'settings-map'; this.switches = buildSwitchplate(this.group, 0, 0, 0); scene.add(this.group); }
+		else if (this.group.visible) { this.group.visible = false; return; }
+		const h = head().clone(), fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.getWorldQuaternion(new THREE.Quaternion()));
+		fwd.y = 0; if (fwd.lengthSq() < 1e-6) fwd.set(0, 0, -1); fwd.normalize();
+		this.group.position.copy(h).addScaledVector(fwd, 0.5); this.group.position.y -= 0.12;
+		this.group.lookAt(h);                          // +z, the buttons' side, toward the eyes
+		this.group.visible = true;
+	},
+};
 
 const elevator = {
 	group: null,
@@ -1354,24 +1408,11 @@ const elevator = {
 			this.callButtons.push(cb, cf);
 		}
 
-		// The switchplate (Uli): on the cabin's south face, the side you face
-		// stepping out — four buttons showing their state, pressed like the
-		// lift's: day/night, the wood, labels, wireframes.
-		this.switches = [];
-		{
-			const plateW = 4 * 0.07 + 0.03, plateH = 0.1;
-			const px = W / 2 - e / 2, py = 1.5, pz = z1 + 0.012;   // just under eye height (Uli: higher)
-			const plate = box('switchplate', plateW, plateH, 0.024, px, py, pz, panelPlate);
-			const bodyGeo = new THREE.CylinderGeometry(BUTTON.r, BUTTON.r, BUTTON.rise, 12, 1, true); bodyGeo.rotateX(Math.PI / 2);   // axis along z
-			const faceGeo = new THREE.CircleGeometry(BUTTON.r * 0.92, 12);
-			SWITCHES.forEach((sw, i) => {
-				const x = px - plateW / 2 + 0.015 + 0.07 * (i + 0.5), z = pz + 0.012 + BUTTON.rise / 2;
-				const b = new THREE.Mesh(bodyGeo, metal); b.name = `switch-${sw.key}`; b.userData.action = sw.key; b.position.set(x, py, z); g.add(b);
-				const f = new THREE.Mesh(faceGeo, new THREE.MeshStandardMaterial({ map: switchFace(sw), roughness: 0.6 }));
-				f.name = `switch-face-${sw.key}`; f.userData.action = sw.key; f.userData.sw = sw; f.position.set(x, py, z + BUTTON.rise / 2 + 0.0005); g.add(f);
-				this.switches.push(b, f);
-			});
-		}
+		// The switchplate (Uli): on the room's north wall just west of the
+		// cabin — the wall on your right as you step out of the doors — so
+		// the settings are at hand on leaving. In the corner's empty margin,
+		// before the first frame.
+		this.switches = buildSwitchplate(g, x0 - 0.45, 1.5, -D / 2 + 0.012);
 
 		// Two door panels behind the jambs, sliding apart along z into the
 		// cabin's own walls' thickness; closed, they meet at the centre.
@@ -1674,7 +1715,7 @@ function pressAt(ndcX, ndcY) {
 	return pressAlong(raycaster, 2.2);
 }
 function pressAlong(rc, reach) {
-	const hit = rc.intersectObjects([...elevator.buttons, ...elevator.callButtons, ...elevator.switches], false)[0];
+	const hit = rc.intersectObjects([...elevator.buttons, ...elevator.callButtons, ...elevator.switches, ...settingsMap.switches], false)[0];
 	if (hit && hit.distance <= reach) {
 		const u = hit.object.userData;
 		if (u.action) { SWITCHES.find(sw => sw.key === u.action).press(); refreshSwitches(); }
@@ -1726,9 +1767,10 @@ addEventListener('keydown', e => {
 //
 // The settings, and what each one does when it changes. Light and frame
 // and mat colour touch shared materials and are instant; mat 'none', the
-// scale and the room's size change what hangs and rehang. On the bench
-// the board is a small DOM panel, S toggles it; in VR (phase 2) it is a
-// panel on the wall beside the elevator with the same controls.
+// scale and the room's size change what hangs and rehang. They are set
+// on the switchplate by the lift and on the settings map (B); the ones
+// not on it (mat, scale, the room's size) by the URL (?mat=none&scale=0.8
+// &W=7) — the DOM board that had them went (Uli, 2026-09-05).
 
 function saveSettings() {
 	try { localStorage.setItem('galleryS', JSON.stringify(state.settings)); } catch (e) {}
@@ -1758,42 +1800,11 @@ function setSetting(k, v) {
 			break;
 		default: rehang();                    // scale, W, D, H
 	}
-	renderBoard();
 	refreshSwitches();
 }
 
-const board = document.getElementById('board');
-function renderBoard() {
-	const s = state.settings;
-	const opt = (name, values, labels = values) => values.map((v, i) =>
-		`<button data-k="${name}" data-v="${v}" aria-pressed="${String(s[name]) === String(v)}">${labels[i]}</button>`).join('');
-	board.innerHTML = `
-		<div class="row"><span>light</span>${opt('dark', [false, true], ['day', 'night'])}</div>
-		<div class="row"><span>frame</span>${opt('frame', ['maple', 'oak', 'walnut', 'black', 'white'])}</div>
-		<div class="row"><span>mat</span>${opt('mat', ['white', 'warm', 'none'])}</div>
-		<div class="row"><span>scale</span>${opt('scale', [1, 0.8], ['100 %', '80 %'])}</div>
-		<div class="row"><span>labels</span>${opt('labels', [true, false], ['on', 'off'])}</div>
-		<div class="row"><span>room</span>
-			<label>W <input data-k="W" type="number" min="3" max="40" step="0.5" value="${s.W}"></label>
-			<label>D <input data-k="D" type="number" min="3" max="40" step="0.5" value="${s.D}"></label>
-			<label>H <input data-k="H" type="number" min="2.4" max="6" step="0.1" value="${s.H}"></label>
-		</div>`;
-}
-board.addEventListener('click', e => {
-	const b = e.target.closest('button[data-k]');
-	if (!b) return;
-	const k = b.dataset.k, raw = b.dataset.v;
-	const v = raw === 'true' ? true : raw === 'false' ? false : isNaN(Number(raw)) ? raw : Number(raw);
-	setSetting(k, v);
-});
-board.addEventListener('change', e => {
-	const i = e.target.closest('input[data-k]');
-	if (!i) return;
-	const v = Number(i.value);
-	if (v >= Number(i.min) && v <= Number(i.max)) setSetting(i.dataset.k, v);
-});
 addEventListener('keydown', e => {
-	if (e.code === 'KeyS' && !walk.locked()) { board.hidden = !board.hidden; if (!board.hidden) renderBoard(); }
+	if ((e.code === 'KeyB' || e.code === 'KeyO') && !e.repeat) settingsMap.toggle();   // B like the controller's, or O (Uli)
 });
 
 // ---------------------------------------------------------------------------
@@ -1841,7 +1852,7 @@ document.addEventListener('pointerlockchange', () => {
 document.addEventListener('pointerlockerror', () => lockFailed());
 function lockFailed(err) {
 	const hint = document.getElementById('hint');
-	if (hint) hint.textContent = `the browser refused the pointer${err ? ` (${err.name || err})` : ''} \u00b7 drag to look around \u00b7 W A S D to walk \u00b7 Y for the floors \u00b7 S for the switchboard`;
+	if (hint) hint.textContent = `the browser refused the pointer${err ? ` (${err.name || err})` : ''} \u00b7 drag to look around \u00b7 W A S D to walk \u00b7 Y for the floors \u00b7 B or O for the settings`;
 	console.warn('pointer lock refused', err || '');
 }
 renderer.domElement.addEventListener('mousedown', e => { if (!walk.locked() && e.button === 0) drag = { x: e.clientX, y: e.clientY }; });
@@ -2074,7 +2085,7 @@ function stepHands() {
 		if (!j || !j.visible) { h.userData.touching = null; continue; }
 		j.getWorldPosition(tip);
 		let hit = null;
-		for (const b of [...elevator.buttons, ...elevator.callButtons, ...elevator.switches]) {
+		for (const b of [...elevator.buttons, ...elevator.callButtons, ...elevator.switches, ...settingsMap.switches]) {
 			if (b.getWorldPosition(new THREE.Vector3()).distanceTo(tip) < TOUCH + BUTTON.r) { hit = b; break; }
 		}
 		if (!hit && pieces) pieces.traverse(o => {
@@ -2094,7 +2105,20 @@ function stepHands() {
 }
 
 // In VR you walk by feet (Uli); nothing moves the body but the elevator.
-function stepXR(dt) { stepHands(); }
+// The controllers' B (right) and Y (left) — buttons[5] of the xr-standard
+// gamepad — summon and put away the settings map, on the press's edge.
+const bDown = new WeakMap();
+function stepGamepads() {
+	const session = renderer.xr.getSession();
+	if (!session) return;
+	for (const src of session.inputSources) {
+		const b = src.gamepad && src.gamepad.buttons[5];
+		if (!b) continue;
+		if (b.pressed && !bDown.get(src)) settingsMap.toggle();
+		bDown.set(src, b.pressed);
+	}
+}
+function stepXR(dt) { stepHands(); stepGamepads(); }
 
 // ---------------------------------------------------------------------------
 // Boot
