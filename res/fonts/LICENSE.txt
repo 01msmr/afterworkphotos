@@ -1,0 +1,4 @@
+Jost (Light, latin subset) — Copyright 2020 The Jost Project Authors
+(https://github.com/indestructible-type/Jost), SIL Open Font License 1.1
+(https://openfontlicense.org). Served from Google Fonts; the file is the
+woff2 the Fonts API hands a browser for weight 300.
