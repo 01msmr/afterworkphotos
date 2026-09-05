@@ -4,7 +4,8 @@
 #
 # Every photo lives under a date name, awp-YYYY-MM-DD-NN (NN counts the
 # photos of that day in time order): img/<name>.jpg is the 1000px square
-# derivative, img/thumb/<name>.jpg the 200px thumbnail, "img originals/
+# derivative, img/1600/<name>.jpg the 1600px one for the VR gallery's
+# prints (never enlarged), img/thumb/<name>.jpg the 200px thumbnail, "img originals/
 # <name>.<ext>" the full-size original cropped to the same square, and for a
 # video img/<name>.mp4 as well. The site never shows these names; it numbers
 # the photos 1..N in date order through photos.json.
@@ -302,6 +303,11 @@ for f in ${files[@]+"${files[@]}"}; do
     convert "$tmp" -gravity center -crop "${s}x${s}+0+0" +repage \
       -resize 1000x1000 -quality 85 -strip "img/$id.jpg"
     git add "img/$id.jpg"
+    # the gallery's 1600px derivative (never enlarged): the VR prints
+    mkdir -p img/1600
+    convert "$tmp" -gravity center -crop "${s}x${s}+0+0" +repage \
+      -resize '1600x1600>' -quality 85 -strip "img/1600/$id.jpg"
+    git add "img/1600/$id.jpg"
     if (( w == h )); then
       move "$f" "img originals/$id.$ext"
     else
