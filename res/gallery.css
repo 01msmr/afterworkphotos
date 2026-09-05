@@ -128,3 +128,12 @@ body.locked #hint { opacity: 0; }
 #vr[hidden] { display: none; }
 #vr:hover { background: #fff; }
 body.xr #hint, body.xr #floors, body.xr #board { display: none; }
+
+/* The lift buttons' face: Jost Light, drawn on canvases in gallery.js
+   (res/fonts/LICENSE.txt). */
+@font-face {
+	font-family: 'Jost';
+	font-style: normal;
+	font-weight: 300;
+	src: url('/res/fonts/Jost-Light.woff2') format('woff2');
+}

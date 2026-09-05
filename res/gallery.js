@@ -46,8 +46,7 @@ const HANG_Y = 1.5;   // every piece's centre, the gallery's line
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFShadowMap;      // plain PCF: the soft filter costs too much on the headset
+renderer.shadowMap.enabled = false;               // no cast shadows (Uli, 2026-09-05): the hard cut-outs looked wrong; the meshes keep their flags should they come back
 document.getElementById('stage').appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
@@ -104,6 +103,51 @@ function hashKey(key) {
 	return h;
 }
 function lookOf(key)  { return LOOKS[hashKey(key) % LOOKS.length]; }
+
+// The floor of a room is its year's, and stays it, so a year is remembered
+// by what one stands on (Uli, 2026-09-05): the entry floor a grey lacquer,
+// every other year a texture of its own — ambientCG sets in res/textures
+// (see LICENSE.txt there). `metres` is what one tile of the texture covers
+// on the floor; the metals carry a metalness map. A year not in the table
+// takes a spare, in turn.
+const FLOORS = {
+	lacquer:         { colour: { light: 0x6e6f71, dark: 0x2a2a2c }, roughness: 0.25 },
+	warehouse:       { metres: 2 },        // worn planks, knots and nail holes
+	'planks-dark':   { metres: 2 },        // the darker old planks
+	checker:         { metres: 1, metal: true },   // diamond plate
+	plates:          { metres: 1, metal: true },   // flat brushed plates
+	herringbone:     { metres: 1.5 },
+	basket:          { metres: 1.5 },      // basket parquet
+	concrete:        { metres: 2 },        // polished, light
+	'concrete-dark': { metres: 2 },
+	terrazzo:        { metres: 1 },        // antique
+	'terrazzo-grey': { metres: 1 },
+	marble:          { metres: 1.5 },      // grey, polished
+	'marble-tiles':  { metres: 1 },
+	checkered:       { metres: 1 },        // cream and black shop tiles
+	rubber:          { metres: 1 },        // studded gym floor
+};
+const FLOOR_OF_YEAR = {
+	2026: 'lacquer', 2025: 'herringbone', 2024: 'concrete', 2023: 'warehouse', 2022: 'terrazzo', 2021: 'checker',
+	2020: 'marble', 2019: 'basket', 2018: 'checkered', 2017: 'concrete-dark', 2016: 'planks-dark', 2015: 'terrazzo-grey',
+	2009: 'marble-tiles',                  // the merged thin years, 2009–2014
+};
+const SPARE_FLOORS = ['plates', 'rubber'];
+function floorOf(year) { return FLOOR_OF_YEAR[year] || SPARE_FLOORS[Number(year) % SPARE_FLOORS.length]; }
+
+// The floor's material: the lacquer is a colour with the room mirrored
+// softly in it; a textured floor repeats its tile every `metres`. In dark
+// mode the texture is dimmed through the material's colour (applyMode).
+function floorMaterial(slug, W, D) {
+	const f = FLOORS[slug];
+	if (!f.metres) return { material: new THREE.MeshStandardMaterial({ color: f.colour.light, roughness: f.roughness, metalness: 0, envMapIntensity: 1 }), colours: f.colour };
+	const t = kind => tex(`floor-${slug}-${kind}.jpg`, kind === 'color', D / f.metres, W / f.metres);
+	const material = new THREE.MeshStandardMaterial({
+		map: t('color'), roughnessMap: t('rough'), normalMap: t('normal'), normalScale: new THREE.Vector2(0.7, 0.7),
+		metalnessMap: f.metal ? t('metalness') : null, metalness: f.metal ? 1 : 0, roughness: 1, envMapIntensity: f.metal ? 0.5 : 0.35,
+	});
+	return { material, colours: { light: 0xffffff, dark: 0x4a4a4a } };
+}
 function shapeOf(key) {
 	if (state.real) return { W: state.real.W, D: state.real.D };     // a real room is the room, for every year
 	const [fw, fd] = SHAPES[(hashKey(key) >>> 3) % SHAPES.length];   // unsigned shift: a signed one can go negative
@@ -114,7 +158,7 @@ function shapeOf(key) {
 const AMBIENT = { light: 0.6,  dark: 0.08 };
 const FILL    = { light: 0.65, dark: 0.06 };
 
-function buildRoom(W, D, H, look = LOOKS[0]) {
+function buildRoom(W, D, H, look = LOOKS[0], floor = 'lacquer') {
 	const room = new THREE.Group();
 	room.name = 'room';
 	room.userData.look = look.name;
@@ -125,18 +169,20 @@ function buildRoom(W, D, H, look = LOOKS[0]) {
 
 	// Each surface: a plane sized to its span, rotated to face the room's
 	// inside, positioned on the boundary. PlaneGeometry lies in xy facing +z.
-	const surface = (name, key, w, h, pos, rot) => {
-		const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat(key));
+	const surface = (name, key, w, h, pos, rot, material = mat(key), colours = COLOURS[key]) => {
+		const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), material);
 		m.name = name;
 		m.position.set(...pos);
 		m.rotation.set(...rot);
 		m.receiveShadow = true;
 		m.userData.surface = key;
-		m.userData.colours = COLOURS[key];
+		m.userData.colours = colours;
+		m.material.color.setHex(colours[mode]);
 		room.add(m);
 	};
 
-	surface('floor',   'floor',   W, D, [0, 0, 0],       [-Math.PI / 2, 0, 0]);
+	const fl = floorMaterial(floor, W, D);
+	surface('floor',   'floor',   W, D, [0, 0, 0],       [-Math.PI / 2, 0, 0], fl.material, fl.colours);
 	surface('ceiling', 'ceiling', W, D, [0, H, 0],       [ Math.PI / 2, 0, 0]);
 	surface('wall-n',  'wall',    W, H, [0, H / 2, -D / 2], [0, 0, 0]);
 	surface('wall-s',  'wall',    W, H, [0, H / 2,  D / 2], [0, Math.PI, 0]);
@@ -154,14 +200,14 @@ function buildRoom(W, D, H, look = LOOKS[0]) {
 	fill.position.set(0, H, 0);
 	room.add(fill);
 
-	// The one light that casts: a warm directional from high in the
-	// middle of the room, a little forward, so every frame throws a short
-	// shadow down its wall. One shadow map for the whole room (Quest: 1024).
+	// The key light: a warm directional from high in the middle of the
+	// room, a little forward. It cast the room's one shadow map until the
+	// shadows went (renderer.shadowMap above); its set-up stays for that.
 	const sun = new THREE.DirectionalLight(0xfff2e0, mode === 'dark' ? 0.9 : 1.1);
 	sun.name = 'sun';
 	sun.position.set(0.6, H + 2, 0.4);
 	sun.target.position.set(0, 0, 0);
-	sun.castShadow = true;
+	sun.castShadow = renderer.shadowMap.enabled;
 	const half = Math.max(W, D) / 2 + 0.5;
 	Object.assign(sun.shadow.camera, { left: -half, right: half, top: half, bottom: -half, near: 0.5, far: H + 6 });
 	sun.shadow.mapSize.set(renderer.xr.isPresenting ? 1024 : 2048, renderer.xr.isPresenting ? 1024 : 2048);
@@ -294,11 +340,27 @@ function poolTexture() {
 }
 const poolMaterial = new THREE.MeshBasicMaterial({ map: poolTexture(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
 
+// A wood's colour map faded toward a flat colour: the image drawn on a
+// canvas and the colour laid over it at `fade`. Blank until the image is in.
+function fadedWood(file, colour, fade) {
+	const c = document.createElement('canvas'); c.width = c.height = 512;
+	const g = c.getContext('2d');
+	g.fillStyle = colour; g.fillRect(0, 0, 512, 512);
+	const t = new THREE.CanvasTexture(c);
+	t.colorSpace = THREE.SRGBColorSpace;
+	t.wrapS = t.wrapT = THREE.RepeatWrapping;
+	const img = new Image();
+	img.onload = () => { g.globalAlpha = 1; g.drawImage(img, 0, 0, 512, 512); g.globalAlpha = fade; g.fillRect(0, 0, 512, 512); t.needsUpdate = true; };
+	img.src = '/res/textures/' + file;
+	return t;
+}
+
 const materials = {
 	frame: new THREE.MeshStandardMaterial({ roughness: 1, metalness: 0, normalScale: new THREE.Vector2(0.6, 0.6), envMapIntensity: 0.5 }),
 	mat:   new THREE.MeshLambertMaterial({ color: MAT_COLOURS[state.settings.mat] }),
 	rim:   new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.28, depthWrite: false }),
 	line:  new THREE.MeshBasicMaterial({ color: 0xe8e4dc, transparent: true, opacity: 0.55, side: THREE.DoubleSide }),
+	back:  new THREE.MeshLambertMaterial({ map: fadedWood('wood-maple-color.jpg', '#d6c6a4', 0.6) }),   // the cheap pale board closing a frame's back: the grain faded 60 % into a flat colour (Uli)
 };
 
 applyFrameLook(materials.frame, state.settings.frame);
@@ -490,6 +552,14 @@ function makeFramedPrint(p, size) {
 	board.name = 'mat';
 	board.position.z = MAT_Z;
 	g.add(board);
+	// the backing board: hardboard closing the frame behind the mat, so a
+	// frame seen from behind (a middle row's empty face, a wall walked
+	// through on the bench) is a closed thing, not a hollow moulding
+	const back = new THREE.Mesh(new THREE.PlaneGeometry(inner, inner), materials.back);
+	back.name = 'back';
+	back.position.z = 0.0005;
+	back.rotation.y = Math.PI;                       // faces out of the back
+	g.add(back);
 
 	const printed = size * (state.settings.mat === 'none' ? 1 : PRINT_SCALE) * k;
 	const print = new THREE.Mesh(new THREE.PlaneGeometry(printed, printed),
@@ -623,11 +693,12 @@ function weld(meshes, material, name) {
 
 function bakeRoom(pieces) {
 	const baked = new THREE.Group(); baked.name = 'baked';
-	const groups = { bars: [], mats: [], rims: [], lines: [], pools: [] };
+	const groups = { bars: [], mats: [], backs: [], rims: [], lines: [], pools: [] };
 	pieces.traverse(o => {
 		if (!o.isMesh) return;
 		if (o.name.startsWith('bar-')) groups.bars.push(o);
 		else if (o.name === 'mat') groups.mats.push(o);
+		else if (o.name === 'back') groups.backs.push(o);
 		else if (o.name === 'photo-shadow') groups.rims.push(o);
 		else if (o.name === 'line') groups.lines.push(o);
 		else if (o.name === 'pool') groups.pools.push(o);
@@ -641,6 +712,7 @@ function bakeRoom(pieces) {
 	};
 	add(groups.pools, poolMaterial, 'pools', false);
 	add(groups.mats, materials.mat, 'mats', false);
+	add(groups.backs, materials.back, 'backs', false);
 	add(groups.rims, materials.rim, 'rims', false);
 	add(groups.bars, materials.frame, 'frames', true);
 	add(groups.lines, materials.line, 'lines', false);
@@ -928,14 +1000,19 @@ function hangRoom(key) {
 	}
 	if (W !== room.shape.W) console.warn(`${key}: room grown to ${W} × ${D} to hang everything`);
 	if (lay.rest.length) console.warn(`${key}: ${lay.rest.length} pieces do not fit the real room`);
-	if (!state.room || state.room.W !== W || state.room.D !== D || state.room.look !== room.look.name) {
+	const floor = floorOf(room.year);
+	if (!state.room || state.room.W !== W || state.room.D !== D || state.room.look !== room.look.name || state.room.floor !== floor) {
 		for (const name of ['room', 'elevator']) {
 			const old = scene.getObjectByName(name);
-			if (old) old.parent.remove(old);
+			if (!old) continue;
+			old.parent.remove(old);
+			// the floor's textures go with the room
+			const f = old.getObjectByName('floor');
+			if (f) { for (const k of ['map', 'roughnessMap', 'normalMap', 'metalnessMap']) f.material[k]?.dispose(); f.material.dispose(); }
 		}
-		world.add(buildRoom(W, D, H, room.look));
+		world.add(buildRoom(W, D, H, room.look, floor));
 		world.add(elevator.build(W, D, H));
-		state.room = { W, D, H, look: room.look.name };
+		state.room = { W, D, H, look: room.look.name, floor };
 	}
 
 	state.gap = lay.gap;                           // the labels need it before the pieces exist
@@ -976,54 +1053,58 @@ function hangRoom(key) {
 // A cabin in the room's +x, -z corner, ELEVATOR.size square, the room's
 // height. Its doors are on the west face, so you step out looking down
 // the long axis of the room. Inside, on the south wall beside the door,
-// the panel: two columns of round buttons, one per room, the newest at
-// the top, the year printed on each and a small "1/2" line where a year
-// has two rooms. The lit button is the room you stand in. A press closes
-// the doors, hangs the other room, and opens them again: one second.
+// the console: a dark sloped plate with a green-lit rim and round
+// buttons laid out like floors — a row per decade, ten across, the year
+// printed on each. The lit button is the room you stand in. A press
+// closes the doors, hangs the other room, and opens them again.
 
 const DOOR = { w: 0.7, h: 2.1, thick: 0.03 };            // 0.7 in a 1.5 m front: an open panel stays behind its jamb (Uli)
 const CABIN_WALL = 0.08;
 const DISPLAY = { w: 0.44, h: 0.11 };                      // the floor display above the door
 const DOOR_T = 1800;                                       // ms for the doors to open or close — the length of their sound
 const BELL_GAP = 800;                                      // ms between the bell and the doors
-const BUTTON = { r: 0.02, rise: 0.008, pitch: 0.05 };     // radius, how far it stands proud, spacing
-const PANEL = { low: 1.0, high: 1.6, tilt: 22 * Math.PI / 180, cols: 8 };   // between hand and eye, turned up toward the eye, side by side
+const BUTTON = { w: 0.06, h: 0.03, rise: 0.006, pitchX: 0.07, pitchY: 0.04, gap: 0.002, r: 0.02 };   // the floor buttons: a rectangular cap, its rise off the steel, the grid, the black gap round it; r: the round call and switch buttons
+const PANEL = { low: 1.2, high: 1.8, depth: 0.03, cols: 10, margin: 0.03 };   // its centre at 1.5 m (Uli: 20 cm up), vertical on the wall (Uli), ten across; depth: the walnut block it is the face of
 
-// Brushed steel, not mirror: without an environment to reflect, a highly
-// metallic surface renders near black, so the cabin is a dull satin.
+// Brushed steel, matte (Uli): the roughness map is left out so nothing on
+// the sheet turns glossy, the environment only just shows in it.
 const metal = new THREE.MeshStandardMaterial({
-	map: tex('metal-color.jpg', true, 1), roughnessMap: tex('metal-rough.jpg', false, 1), metalnessMap: tex('metal-metalness.jpg', false, 1),
+	map: tex('metal-color.jpg', true, 1), metalnessMap: tex('metal-metalness.jpg', false, 1),
 	normalMap: tex('metal-normal.jpg', false, 1), normalScale: new THREE.Vector2(0.5, 0.5),
-	metalness: 1, roughness: 1, envMapIntensity: 1.2,
+	metalness: 1, roughness: 0.85, envMapIntensity: 0.45,
 });
 const cabinInner = new THREE.MeshLambertMaterial({ color: 0xcfccc5 });
 const displayBack = new THREE.MeshStandardMaterial({ color: 0x0c0c0c, roughness: 0.4, metalness: 0.2 });
 const cabinFloor = new THREE.MeshLambertMaterial({ color: 0x5a5854 });
-const panelPlate = new THREE.MeshStandardMaterial({ color: 0xb5b2ac, metalness: 0.4, roughness: 0.5 });
+const panelPlate = new THREE.MeshStandardMaterial({ color: 0x2b2b2d, metalness: 0.5, roughness: 0.45 });   // anthracite: the switchplate outside
+const GREEN = 0x46ff7a;                                                                                    // the lit floor
+// The console's walnut (Uli): the dark wood set, tiled every half metre —
+// `rx`, `ry` are the tiles across the face it is put on.
+const walnut = (rx, ry) => new THREE.MeshStandardMaterial({
+	map: tex('wood-dark-color.jpg', true, ry, rx), roughnessMap: tex('wood-dark-rough.jpg', false, ry, rx), normalMap: tex('wood-dark-normal.jpg', false, ry, rx),
+	normalScale: new THREE.Vector2(0.6, 0.6), roughness: 1, metalness: 0, envMapIntensity: 0.4,
+});
+const pocketMat = new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.9 });   // the black gap round a button
 const lightPanel = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xfff6e8, emissiveIntensity: 1.6, roughness: 1 });
 
-// The face of a button: the year, and beneath it "1/2" for a split year.
-function buttonFace(room) {
+// The print on a button: the year, left-aligned, in Jost Light (loaded
+// before the first room, see the start); a split year's floors are
+// "2018.1", "2018.2", the suffix smaller on the same baseline (Uli).
+// Drawn on a clear canvas: the cap under it shows through.
+function buttonFace(year, room) {
 	const c = document.createElement('canvas');
-	c.width = c.height = 128;
+	c.width = 256; c.height = 128;
 	const g = c.getContext('2d');
-	g.fillStyle = '#f2efe8';
-	g.beginPath(); g.arc(64, 64, 64, 0, Math.PI * 2); g.fill();
-	g.fillStyle = '#1b1b1b';
-	g.textAlign = 'center';
+	g.fillStyle = '#1d1c1a';
+	g.textAlign = 'left';
 	g.textBaseline = 'middle';
-	if (room.years.length > 1) {
-		g.font = '600 34px -apple-system, "Helvetica Neue", Arial, sans-serif';
-		g.fillText(room.years[0], 64, 46);
-		g.fillText('\u2013' + room.years[room.years.length - 1].slice(2), 64, 84);
-	} else if (room.of === 1) {
-		g.font = '600 46px -apple-system, "Helvetica Neue", Arial, sans-serif';
-		g.fillText(room.year, 64, 66);
-	} else {
-		g.font = '600 40px -apple-system, "Helvetica Neue", Arial, sans-serif';
-		g.fillText(room.year, 64, 52);
-		g.font = '500 24px -apple-system, "Helvetica Neue", Arial, sans-serif';
-		g.fillText(`${room.part}/${room.of}`, 64, 92);
+	const font = px => `300 ${px}px Jost, "Helvetica Neue", Arial, sans-serif`;
+	g.font = font(56);
+	g.fillText(year, 36, 66);
+	if (room.of > 1) {
+		const w = g.measureText(year).width;
+		g.font = font(45);
+		g.fillText(`.${room.part}`, 36 + w + 2, 66);
 	}
 	const t = new THREE.CanvasTexture(c);
 	t.colorSpace = THREE.SRGBColorSpace;
@@ -1048,7 +1129,7 @@ function drawDisplay(ctx, text, arrow) {
 }
 function roomLabel(room) {
 	if (room.years.length > 1) return room.span;
-	return room.of > 1 ? `${room.year} · ${room.part}/${room.of}` : room.year;
+	return room.of > 1 ? `${room.year}.${room.part}` : room.year;
 }
 
 // The sound of the lift: Uli's recordings in res/sound/. ride.mp3 has a
@@ -1097,7 +1178,8 @@ const lift = {
 		}
 	},
 	// play buffer `k` from `from` for `dur` seconds at time `at`, faded in and out
-	play(k, from, dur, at = null, gain = 1, fadeIn = 0.05, fadeOut = 0.12) {
+	// `muffle`: a low-pass at that many Hz, for a sound heard through a door
+	play(k, from, dur, at = null, gain = 1, fadeIn = 0.05, fadeOut = 0.12, muffle = 0) {
 		const b = this.buf[k];
 		if (!b) return null;
 		const ctx = this.ctx, t = at ?? ctx.currentTime;
@@ -1107,7 +1189,9 @@ const lift = {
 		g.gain.exponentialRampToValueAtTime(gain, t + fadeIn);
 		g.gain.setValueAtTime(gain, t + dur - fadeOut);
 		g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-		src.connect(g); g.connect(this.master);
+		src.connect(g);
+		if (muffle) { const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = muffle; g.connect(f); f.connect(this.master); }
+		else g.connect(this.master);
 		src.start(t, from, dur + 0.02);
 		return src;
 	},
@@ -1119,10 +1203,17 @@ const lift = {
 		this.play('ride', R.run[0], runLen, t, 1, 0.03, 0.15);
 		this.play('ride', R.stop[0], STOP_LEN, t + runLen - 0.1, 1, 0.1, 0.2);
 	},
+	// The doors: a lift has two, the cabin's and the shaft's, moving as
+	// one — the near door is heard plain, the far one through it: a beat
+	// behind, at a third, muffled (Uli). Both fall away with the distance
+	// from the doors: full within a metre, a quarter at 2.5 m.
 	slide() {
 		if (!this.ready()) return;
-		const R = SOUND.ride;
-		this.play('ride', R.door[0], R.door[1] - R.door[0], null, 0.9, 0.03, 0.15);
+		const R = SOUND.ride, t = this.ctx.currentTime;
+		const d = elevator.doorsWorld ? head().distanceTo(elevator.doorsWorld()) : 1;
+		const gain = 0.9 * Math.min(1, Math.pow(1 / Math.max(d, 1), 1.5));
+		this.play('ride', R.door[0], R.door[1] - R.door[0], t, gain, 0.03, 0.15);
+		this.play('ride', R.door[0], R.door[1] - R.door[0], t + 0.07, gain * 0.33, 0.03, 0.15, 900);
 	},
 	bell() {
 		if (!this.ready() || !this.buf.bell) return;
@@ -1293,47 +1384,75 @@ const elevator = {
 		lamp.position.set(this.origin.x, H - 0.15, this.origin.z);
 		g.add(lamp);
 
-		// The panel on the south wall's inner face, beside the door, between
-		// hand and eye height and tilted up toward the eye like a sloped desk
-		// (Uli): the buttons side by side in rows of eight, read row by row,
-		// the newest room top left, a split year's halves next to each other.
-		const n = rooms().length, cols = PANEL.cols, rows = Math.ceil(n / cols);
-		const plateW = cols * BUTTON.pitch + 0.03, plateH = rows * BUTTON.pitch + 0.03;
+		// The console on the south wall's inner face, beside the door, between
+		// hand and eye height: a walnut block standing on the wall, vertical
+		// (Uli), its face the plate — nothing of it in the wall. The buttons
+		// sit like floors (Uli): a line per decade, the newest at the top,
+		// ten across with the year ending in 1 at the left and 0 at the
+		// right, so a year always has the same place, and a year's further
+		// floors on lines under its decade's, in its column, like a
+		// sub-table. The next decade's line starts below the lowest button
+		// of the one above. A year without a room leaves its place empty;
+		// the thin years merged into one room each keep a button to it.
+		const list = rooms();
+		const decade = y => Math.floor((Number(y) - 1) / 10);
+		const deep = new Map();                        // decade -> lines it takes
+		for (const r of list) for (const y of r.years) { const d = decade(y); deep.set(d, Math.max(deep.get(d) || 1, r.of || 1)); }
+		const top = Math.max(...deep.keys()), bottom = Math.min(...deep.keys());
+		const start = new Map(); let rows = 0;
+		for (let d = top; d >= bottom; d--) { start.set(d, rows); rows += deep.get(d) || 1; }
+		const cols = PANEL.cols, margin = PANEL.margin;
+		const plateW = cols * BUTTON.pitchX + 2 * margin, plateH = rows * BUTTON.pitchY + 2 * margin;
+		// the block: its face at the panel's z = 0, its back on the skin; the buttons stand proud at -z
 		const panel = new THREE.Group();
 		panel.name = 'panel';
-		panel.position.set(ix0 + 0.10 + plateW / 2, (PANEL.low + PANEL.high) / 2, iz1 - 0.022);
-		panel.rotation.x = PANEL.tilt;                 // faces turn up toward the eye
+		panel.position.set(ix0 + 0.10 + plateW / 2, (PANEL.low + PANEL.high) / 2, iz1 - 0.0105 - PANEL.depth);
 		g.add(panel);
-		const plate = new THREE.Mesh(new THREE.BoxGeometry(plateW, plateH, 0.024), panelPlate);
+		const plate = new THREE.Mesh(new THREE.BoxGeometry(plateW, plateH, PANEL.depth), walnut(plateW / 0.5, plateH / 0.5));
 		plate.name = 'plate';
-		plate.castShadow = plate.receiveShadow = true;
+		plate.position.z = PANEL.depth / 2;
 		panel.add(plate);
+		// the lit floor's lamp: a little green light in front of the lit button, spilling onto the plate
+		this.floorLamp = new THREE.PointLight(GREEN, 0.004, 0.08, 2);
+		this.floorLamp.name = 'floor-lamp';
+		this.floorLamp.visible = false;
+		panel.add(this.floorLamp);
 
+		// A button: a black pocket in the plate, brushed steel at its bottom,
+		// a clear cap standing proud of it, the year printed on the cap. Lit,
+		// the cap glows green (light()).
 		this.buttons = [];
-		const body = new THREE.CylinderGeometry(BUTTON.r, BUTTON.r, BUTTON.rise, 32);
-		body.rotateX(Math.PI / 2);                     // axis along z
-		const faceGeo = new THREE.CircleGeometry(BUTTON.r * 0.92, 32);
-		rooms().forEach((room, i) => {
-			const col = i % cols, row = Math.floor(i / cols);
-			const x = -plateW / 2 + 0.015 + BUTTON.pitch * (col + 0.5);
-			const y =  plateH / 2 - 0.015 - BUTTON.pitch * (row + 0.5);
-			const z = -0.012 - BUTTON.rise / 2;        // proud of the plate's front (-z)
-			const b = new THREE.Mesh(body, metal);
-			b.name = `button-${room.key}`;
-			b.userData.key = room.key;
-			b.position.set(x, y, z);
-			panel.add(b);
-			// The printed face: a flat disc on the button's front, turned to
-			// face into the cabin (-z) so the year reads upright.
-			const face = new THREE.Mesh(faceGeo, new THREE.MeshStandardMaterial({ map: buttonFace(room), emissive: 0xffffff, emissiveIntensity: 0, roughness: 0.6 }));
-			face.name = `face-${room.key}`;
-			face.userData.key = room.key;
-			face.position.set(x, y, z - BUTTON.rise / 2 - 0.0005);
-			face.rotation.y = Math.PI;
-			panel.add(face);
-			b.userData.face = face;
-			this.buttons.push(b, face);                // both press
+		const { w, h, rise, gap } = BUTTON;
+		const pocketGeo = new THREE.BoxGeometry(w + 2 * gap, h + 2 * gap, 0.001);
+		const steelGeo = new THREE.BoxGeometry(w, h, 0.002);
+		const capGeo = new THREE.BoxGeometry(w, h, rise);
+		const printGeo = new THREE.PlaneGeometry(w, h);
+		// facing the south wall the viewer's left is +x, so the columns run down x
+		const cell = (y, r) => ({
+			x: plateW / 2 - margin - BUTTON.pitchX * ((Number(y) - 1) % 10 + 0.5),
+			y: plateH / 2 - margin - BUTTON.pitchY * (start.get(decade(y)) + Math.max((r.part || 0) - 1, 0) + 0.5),
 		});
+		for (const room of list) for (const year of room.years) {
+			const { x, y } = cell(year, room);
+			const put = (name, geo, material, z) => {
+				const m = new THREE.Mesh(geo, material);
+				m.name = `${name}-${room.key}`;
+				m.userData.key = room.key;
+				m.position.set(x, y, z);
+				panel.add(m);
+				return m;
+			};
+			put('pocket', pocketGeo, pocketMat, -0.0005);
+			put('steel', steelGeo, metal, -0.002);
+			const cap = put('cap', capGeo, new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.28, roughness: 0.3, metalness: 0, emissive: GREEN, emissiveIntensity: 0, envMapIntensity: 0.5 }), -0.003 - rise / 2);
+			cap.userData.cap = true;
+			// the print: a clear plane a hair before the cap, turned to face
+			// into the cabin (-z) so the year reads the right way round
+			const print = put('print', printGeo, new THREE.MeshBasicMaterial({ map: buttonFace(year, room), transparent: true, depthWrite: false }), -0.003 - rise - 0.0003);
+			print.rotation.y = Math.PI;
+			print.renderOrder = 2;
+			this.buttons.push(cap, print);              // both press
+		}
 		this.group = g;
 		return g;
 	},
@@ -1343,14 +1462,18 @@ const elevator = {
 	},
 
 	light(key) {
+		let lit = null;
 		for (const b of this.buttons) {
-			if (!b.userData.face) continue;                 // faces are handled through their button
-			const m = b.userData.face.material;
-			const on = b.userData.key === key;
-			m.emissiveIntensity = on ? 0.5 : 0;
-			m.emissiveMap = on ? m.map : null;
-			m.needsUpdate = true;
+			if (!b.userData.cap) continue;                  // the prints carry no light
+			const m = b.material, on = b.userData.key === key;
+			m.emissiveIntensity = on ? 1.3 : 0;
+			m.opacity = on ? 0.9 : 0.28;                    // lit, the cap fills with green light
+			m.color.set(on ? 0x2a5a38 : 0xffffff);
+			if (on && !lit) lit = b;
 		}
+		// the floor's lamp stands 2 cm off the (first) lit button
+		this.floorLamp.visible = !!lit;
+		if (lit) { this.floorLamp.position.copy(lit.position); this.floorLamp.position.z -= 0.02; }
 	},
 
 	placeInCabin() {
@@ -1368,6 +1491,8 @@ const elevator = {
 	// Is the body in the cabin?
 	// The cabin's centre in the scene (world may be turned to the real room).
 	originWorld() { return world.localToWorld(this.origin.clone()); },
+	// the doors' middle, at chest height, in the scene
+	doorsWorld() { return world.localToWorld(new THREE.Vector3(this.origin.x - ELEVATOR.size / 2, 1.2, this.origin.z)); },
 	inside() {
 		if (!this.origin) return true;
 		const h = world.worldToLocal(head().clone()), e = ELEVATOR.size / 2 + 0.1;
@@ -1440,7 +1565,7 @@ const elevator = {
 		// the doors close from where they stand: back-date t0 by what is already shut
 		this.ride = { key, t0: performance.now() - (1 - fromOpen) * DOOR_T, hung: false, floors, up: to < from, path,
 		              travel: Math.max(6, Math.min(9, 2.5 + 0.35 * floors)) };   // long enough for the run to be heard before the stop
-		this.placeInCabin();                                     // into the cabin, facing the doors
+		if (!this.inside()) this.placeInCabin();                 // pressed from the room (the bench's Y list): into the cabin; a body in the cabin stays as it stands (Uli)
 	},
 
 	// Called every frame. Half a second closing; then the cabin travels —
@@ -1456,8 +1581,11 @@ const elevator = {
 		if (t < close) { this.setDoors(1 - t / close); return; }
 		if (!r.hung) {
 			lift.run(r.travel);
+			// the new room's cabin may stand elsewhere: the body keeps its
+			// place and look in the cabin, not put back facing the doors (Uli)
+			const before = this.originWorld().clone(), off = new THREE.Vector3().subVectors(walk.pos, before);
 			hangRoom(r.key);                       // may rebuild the room and this cabin
-			this.placeInCabin();
+			if (!renderer.xr.isPresenting) { const o = this.originWorld(); walk.pos.set(o.x + off.x, walk.pos.y, o.z + off.z); }
 			this.setDoors(0);
 			renderer.compile(scene, camera);
 			r.hung = true;
@@ -1532,7 +1660,7 @@ function pressAlong(rc, reach) {
 const floors = document.getElementById('floors');
 function renderFloors() {
 	floors.innerHTML = rooms().map(r =>
-		`<button data-key="${r.key}"${r.key === state.roomKey ? ' aria-current="true"' : ''}>${r.years.length > 1 ? `${r.years[0]}<small>\u2013${r.years[r.years.length - 1]}</small>` : r.year}${r.of > 1 ? `<small>${r.part}/${r.of}</small>` : ''}</button>`).join('');
+		`<button data-key="${r.key}"${r.key === state.roomKey ? ' aria-current="true"' : ''}>${r.years.length > 1 ? `${r.years[0]}<small>\u2013${r.years[r.years.length - 1]}</small>` : r.year}${r.of > 1 ? `<small>.${r.part}</small>` : ''}</button>`).join('');
 }
 floors.addEventListener('click', e => {
 	const b = e.target.closest('button');
@@ -1700,6 +1828,18 @@ function clampToRoom(v) {
 	return v;
 }
 
+// Does a step from `a` to `b` cross the cabin's walls? Only the doorway
+// lets one through: the west face, the door's width about the cabin's
+// middle, with the doors open.
+function throughCabinWall(a, b) {
+	const { W, D } = state.room || state.settings;
+	const e = ELEVATOR.size, x0 = W / 2 - e, z1 = -D / 2 + e, zc = -D / 2 + e / 2;
+	const inCabin = p => p.x > x0 && p.z < z1;
+	if (inCabin(a) === inCabin(b)) return false;
+	const inDoorway = p => Math.abs(p.z - zc) < DOOR.w / 2 - 0.08;
+	return !(inDoorway(a) && inDoorway(b) && elevator.open > 0.5);
+}
+
 let lastT = performance.now();
 function stepWalk(now) {
 	// never more than a twentieth of a second, never backwards
@@ -1716,8 +1856,15 @@ function stepWalk(now) {
 		const dx = (-Math.sin(walk.yaw) * fwd + Math.cos(walk.yaw) * side) * WALK_SPEED * dt;
 		const dz = (-Math.cos(walk.yaw) * fwd - Math.sin(walk.yaw) * side) * WALK_SPEED * dt;
 		const { W, D } = state.room || state.settings;
-		walk.pos.x = Math.max(-W / 2 + WALL_KEEP, Math.min(W / 2 - WALL_KEEP, walk.pos.x + dx));
-		walk.pos.z = Math.max(-D / 2 + WALL_KEEP, Math.min(D / 2 - WALL_KEEP, walk.pos.z + dz));
+		const to = new THREE.Vector3(walk.pos.x + dx, 0, walk.pos.z + dz);
+		clampToRoom(to);
+		// the cabin's walls stop the body (Uli): in or out only through the
+		// open door; a blocked step slides along the wall instead
+		if (throughCabinWall(walk.pos, to)) {
+			const along = new THREE.Vector3(to.x, 0, walk.pos.z), across = new THREE.Vector3(walk.pos.x, 0, to.z);
+			to.copy(!throughCabinWall(walk.pos, along) ? along : !throughCabinWall(walk.pos, across) ? across : walk.pos);
+		}
+		walk.pos.x = to.x; walk.pos.z = to.z;
 	}
 	// kneel or rise over a third of a second
 	walk.pos.y += (walk.eye - walk.pos.y) * Math.min(1, dt * 9);
@@ -1874,9 +2021,13 @@ function stepXR(dt) { stepHands(); }
 // ---------------------------------------------------------------------------
 // Boot
 
-fetch('/photos.json', { cache: 'no-cache' })   // root-absolute: the page lives at /gallery/
-	.then(r => r.json())
-	.then(d => { state.photos = d.photos; init(); });
+// The photos, and the buttons' font (res/fonts, @font-face in gallery.css):
+// the faces are drawn on canvases when the lift is built, so the font
+// must be in before the first room. Should it fail, the fallback prints.
+Promise.all([
+	fetch('/photos.json', { cache: 'no-cache' }).then(r => r.json()),   // root-absolute: the page lives at /gallery/
+	document.fonts.load('300 56px Jost').catch(() => {}),
+]).then(([d]) => { state.photos = d.photos; init(); });
 
 function init() {
 	hangRoom(rooms()[0].key);    // the newest room; builds the room around it

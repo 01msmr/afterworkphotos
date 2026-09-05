@@ -4,3 +4,19 @@ wood-maple-*  Wood050    pale maple       https://ambientcg.com/a/Wood050
 wood-dark-*   Wood051    dark hardwood    https://ambientcg.com/a/Wood051
 metal-*       Metal049A  clean silver     https://ambientcg.com/a/Metal049A
 1K JPG sets: Color, Roughness, NormalGL (+ Metalness for the metal).
+
+Floors (1K JPG: Color, Roughness, NormalGL, + Metalness for the metals):
+floor-warehouse-*  WoodFloor043   https://ambientcg.com/a/WoodFloor043
+floor-planks-dark-*  WoodFloor041   https://ambientcg.com/a/WoodFloor041
+floor-checker-*  MetalPlates006 https://ambientcg.com/a/MetalPlates006
+floor-plates-*  MetalPlates001 https://ambientcg.com/a/MetalPlates001
+floor-herringbone-*  WoodFloor052   https://ambientcg.com/a/WoodFloor052
+floor-basket-*  WoodFloor070   https://ambientcg.com/a/WoodFloor070
+floor-concrete-*  Concrete034    https://ambientcg.com/a/Concrete034
+floor-concrete-dark-*  Concrete046    https://ambientcg.com/a/Concrete046
+floor-terrazzo-*  Terrazzo004    https://ambientcg.com/a/Terrazzo004
+floor-terrazzo-grey-*  Tiles043       https://ambientcg.com/a/Tiles043
+floor-marble-*  Marble012      https://ambientcg.com/a/Marble012
+floor-marble-tiles-*  Tiles074       https://ambientcg.com/a/Tiles074
+floor-checkered-*  Tiles139       https://ambientcg.com/a/Tiles139
+floor-rubber-*  Rubber004      https://ambientcg.com/a/Rubber004
