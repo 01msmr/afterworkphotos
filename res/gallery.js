@@ -36,7 +36,7 @@ const FRAME_COLOURS_KEYS = { maple: 1, oak: 1, walnut: 1, black: 1, white: 1 };
 
 // settings.W/D is the smallest room; room.W/D is the one standing, which a
 // crowded year may have grown (see hangYear).
-const state = { year: null, roomKey: null, settings: loadSettings(), room: null, real: null, photos: [] };
+const state = { year: null, roomKey: null, settings: loadSettings(), room: null, real: null, photos: [], obstacles: [] };   // obstacles: the middle rows' footprints, for the bench's walk
 
 const EYE = 1.6;
 const HANG_Y = 1.5;   // every piece's centre, the gallery's line
@@ -1016,11 +1016,14 @@ function hangRoom(key) {
 	}
 
 	state.gap = lay.gap;                           // the labels need it before the pieces exist
+	state.obstacles = [];
 	for (const { piece: spec, x, z, yaw, wall } of lay.placed) {
 		const piece = makePiece(spec);
 		piece.position.set(x, HANG_Y, z);
 		piece.rotation.y = yaw;
 		piece.userData.wall = wall;
+		// a middle row stops the body (Uli): its footprint, the body's radius round it
+		if (wall === 'mid') state.obstacles.push({ x0: x - spec.w / 2 - BODY_R, x1: x + spec.w / 2 + BODY_R, z0: z - FRAME.depth - BODY_R, z1: z + FRAME.depth + BODY_R });
 		// A piece in the middle of the room has no wall behind it: the warm
 		// pool a spot throws would hang in the air. The light stays, the
 		// pool goes (Uli, 2026-08-29).
@@ -1214,6 +1217,21 @@ const lift = {
 		const gain = 0.9 * Math.min(1, Math.pow(1 / Math.max(d, 1), 1.5));
 		this.play('ride', R.door[0], R.door[1] - R.door[0], t, gain, 0.03, 0.15);
 		this.play('ride', R.door[0], R.door[1] - R.door[0], t + 0.07, gain * 0.33, 0.03, 0.15, 900);
+	},
+	// a button's click: a short burst of band-passed noise with a tick on
+	// top, made here, no file
+	click() {
+		if (!this.ready()) return;
+		const ctx = this.ctx, t = ctx.currentTime, n = Math.floor(ctx.sampleRate * 0.03);
+		const b = ctx.createBuffer(1, n, ctx.sampleRate), d = b.getChannelData(0);
+		for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n) ** 2;
+		const src = ctx.createBufferSource(); src.buffer = b;
+		const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 2600; f.Q.value = 1.2;
+		const g = ctx.createGain(); g.gain.value = 0.35;
+		src.connect(f); f.connect(g); g.connect(this.master); src.start(t);
+		const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(1900, t); o.frequency.exponentialRampToValueAtTime(900, t + 0.025);
+		const og = ctx.createGain(); og.gain.setValueAtTime(0.12, t); og.gain.exponentialRampToValueAtTime(0.0001, t + 0.04);
+		o.connect(og); og.connect(this.master); o.start(t); o.stop(t + 0.05);
 	},
 	bell() {
 		if (!this.ready() || !this.buf.bell) return;
@@ -1438,6 +1456,7 @@ const elevator = {
 				const m = new THREE.Mesh(geo, material);
 				m.name = `${name}-${room.key}`;
 				m.userData.key = room.key;
+				m.userData.z0 = z;                     // where it rests: a press dips it in and back
 				m.position.set(x, y, z);
 				panel.add(m);
 				return m;
@@ -1474,6 +1493,24 @@ const elevator = {
 		// the floor's lamp stands 2 cm off the (first) lit button
 		this.floorLamp.visible = !!lit;
 		if (lit) { this.floorLamp.position.copy(lit.position); this.floorLamp.position.z -= 0.02; }
+	},
+
+	// A press, before anything else happens (Uli): the button lights at
+	// once, its cap dips in and springs back over a fifth of a second, and
+	// it clicks. `at` is the mesh that was hit — of a merged room's several
+	// buttons only that one dips; from the bench's list, all of them.
+	press(key, at = null) {
+		lift.click();
+		if (!(this.ride && !this.ride.ready)) this.light(key);   // travelling, the light is the ride's
+		const same = b => !at || (Math.abs(b.position.x - at.position.x) < 1e-4 && Math.abs(b.position.y - at.position.y) < 1e-4);
+		this.pressAnim = { meshes: this.buttons.filter(b => b.userData.key === key && same(b)), t0: performance.now() };
+	},
+	stepPress(now) {
+		const a = this.pressAnim;
+		if (!a) return;
+		const f = (now - a.t0) / 200, k = f < 0.35 ? f / 0.35 : Math.max(0, 1 - (f - 0.35) / 0.65);
+		for (const m of a.meshes) m.position.z = m.userData.z0 + k * BUTTON.rise * 0.7;
+		if (f >= 1) this.pressAnim = null;
 	},
 
 	placeInCabin() {
@@ -1574,6 +1611,7 @@ const elevator = {
 	// shut until that room's pictures are in (Uli: no switching to be
 	// seen); then the bell, and half a second opening.
 	step(now) {
+		this.stepPress(now);
 		if (!this.ride) { this.stepIdle(now); return; }
 		const r = this.ride;
 		const t = (now - r.t0) / 1000;
@@ -1632,7 +1670,7 @@ function pressAlong(rc, reach) {
 		const u = hit.object.userData;
 		if (u.action) { SWITCHES.find(sw => sw.key === u.action).press(); refreshSwitches(); }
 		else if (u.call) elevator.call();
-		else elevator.go(u.key);
+		else { elevator.press(u.key, hit.object); elevator.go(u.key); }
 		return true;
 	}
 	// a label card: a press doubles it, the next press puts it back (Uli)
@@ -1666,6 +1704,7 @@ floors.addEventListener('click', e => {
 	const b = e.target.closest('button');
 	if (!b) return;
 	floors.hidden = true;
+	elevator.press(b.dataset.key);
 	elevator.go(b.dataset.key);
 });
 addEventListener('keydown', e => {
@@ -1828,6 +1867,9 @@ function clampToRoom(v) {
 	return v;
 }
 
+const BODY_R = 0.25;   // how close the body's middle comes to a frame
+// Is `p` in a middle row's footprint?
+function inObstacle(p) { return state.obstacles.some(o => p.x > o.x0 && p.x < o.x1 && p.z > o.z0 && p.z < o.z1); }
 // Does a step from `a` to `b` cross the cabin's walls? Only the doorway
 // lets one through: the west face, the door's width about the cabin's
 // middle, with the doors open.
@@ -1858,11 +1900,13 @@ function stepWalk(now) {
 		const { W, D } = state.room || state.settings;
 		const to = new THREE.Vector3(walk.pos.x + dx, 0, walk.pos.z + dz);
 		clampToRoom(to);
-		// the cabin's walls stop the body (Uli): in or out only through the
-		// open door; a blocked step slides along the wall instead
-		if (throughCabinWall(walk.pos, to)) {
+		// the cabin's walls and the middle rows stop the body (Uli): into
+		// the cabin only through the open door; a blocked step slides along
+		// the wall or the row instead
+		const blocked = p => throughCabinWall(walk.pos, p) || (inObstacle(p) && !inObstacle(walk.pos));
+		if (blocked(to)) {
 			const along = new THREE.Vector3(to.x, 0, walk.pos.z), across = new THREE.Vector3(walk.pos.x, 0, to.z);
-			to.copy(!throughCabinWall(walk.pos, along) ? along : !throughCabinWall(walk.pos, across) ? across : walk.pos);
+			to.copy(!blocked(along) ? along : !blocked(across) ? across : walk.pos);
 		}
 		walk.pos.x = to.x; walk.pos.z = to.z;
 	}
