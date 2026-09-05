@@ -1813,21 +1813,41 @@ const walk = {
 	locked() { return this.lockedForTest || document.pointerLockElement === renderer.domElement; },
 };
 
+// Taking the pointer: a click. A browser that refuses (Firefox, 2026-09-05)
+// says so in the hint, and a drag on the canvas turns the view instead;
+// a drag that moved is not a click, so it presses nothing.
+let drag = null, dragged = false;
 renderer.domElement.addEventListener('click', e => {
+	if (dragged) { dragged = false; return; }
 	if (walk.locked()) { pressAt(0, 0); return; }
 	// a button under the pointer is pressed; anywhere else takes the pointer
 	if (pressAt((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1)) return;
-	renderer.domElement.requestPointerLock();
+	let p = null;
+	try { p = renderer.domElement.requestPointerLock(); } catch (err) { lockFailed(err); }
+	if (p && p.catch) p.catch(lockFailed);
 });
 document.addEventListener('pointerlockchange', () => {
 	document.body.classList.toggle('locked', walk.locked());
 });
+document.addEventListener('pointerlockerror', () => lockFailed());
+function lockFailed(err) {
+	const hint = document.getElementById('hint');
+	if (hint) hint.textContent = `the browser refused the pointer${err ? ` (${err.name || err})` : ''} \u00b7 drag to look around \u00b7 W A S D to walk \u00b7 Y for the floors \u00b7 S for the switchboard`;
+	console.warn('pointer lock refused', err || '');
+}
+renderer.domElement.addEventListener('mousedown', e => { if (!walk.locked() && e.button === 0) drag = { x: e.clientX, y: e.clientY }; });
+addEventListener('mouseup', () => { drag = null; });
 
-addEventListener('mousemove', e => {
-	if (!walk.locked()) return;
-	walk.yaw   -= e.movementX * LOOK_SPEED;
-	walk.pitch -= e.movementY * LOOK_SPEED;
+function turn(dx, dy) {
+	walk.yaw   -= dx * LOOK_SPEED;
+	walk.pitch -= dy * LOOK_SPEED;
 	walk.pitch  = Math.max(-PITCH_MAX, Math.min(PITCH_MAX, walk.pitch));
+}
+addEventListener('mousemove', e => {
+	if (walk.locked()) { turn(e.movementX, e.movementY); return; }
+	if (!drag) return;
+	const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+	if (dx || dy) { dragged = true; drag.x = e.clientX; drag.y = e.clientY; turn(dx, dy); }
 });
 
 const KEYS = {
