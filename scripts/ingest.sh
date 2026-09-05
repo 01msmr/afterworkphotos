@@ -34,7 +34,9 @@
 #    phases, so history follows and nothing collides.
 # 3. Thumbnails for any photo lacking one (from the derivative: same crop).
 # 4. photos.json, rewritten from scratch: count, and per photo n (its
-#    position in date order), id, taken, place, file, thumb, video. The
+#    position in date order), id, taken, place, file, thumb, video, hang
+#    (single | group — the gallery's grouping, carried forward by date
+#    taken; a new photo is single until judged in docs/hang-reasons.txt). The
 #    place is the city-level name for the original's GPS (the public
 #    derivative is stripped of it), asked of Nominatim once per photo and
 #    carried forward from the previous photos.json by date taken — only
@@ -221,10 +223,11 @@ map=$(mktemp "${TMPDIR:-/tmp}/ingest-map.XXXXXX")
 idx=$(mktemp "${TMPDIR:-/tmp}/ingest-idx.XXXXXX")
 pidx=$(mktemp "${TMPDIR:-/tmp}/ingest-pidx.XXXXXX")
 didx=$(mktemp "${TMPDIR:-/tmp}/ingest-didx.XXXXXX")
+hidx=$(mktemp "${TMPDIR:-/tmp}/ingest-hidx.XXXXXX")
 cidx=$(mktemp "${TMPDIR:-/tmp}/ingest-cidx.XXXXXX")
 tmap=$(mktemp "${TMPDIR:-/tmp}/ingest-tmap.XXXXXX")
 used=$(mktemp "${TMPDIR:-/tmp}/ingest-used.XXXXXX")
-trap 'rm -f "$tmp" "$map" "$idx" "$pidx" "$didx" "$cidx" "$used" "$tmap"' EXIT
+trap 'rm -f "$tmp" "$map" "$idx" "$pidx" "$didx" "$hidx" "$cidx" "$used" "$tmap"' EXIT
 
 # what exists, by date taken (digits) → id, from the last photos.json —
 # and what already has a place, by date taken → place, so Nominatim is
@@ -236,12 +239,16 @@ if [[ -f photos.json ]]; then
     | awk -F'\t' '{gsub(/[^0-9]/, "", $1); print $1 "\t" $2}' > "$pidx"
   sed -nE 's/.*"taken": "([^"]+)", "place": [^,]*, "desc": "([^"]+)".*/\1\t\2/p' photos.json \
     | awk -F'\t' '{gsub(/[^0-9]/, "", $1); print $1 "\t" $2}' > "$didx"
+  # the hang judgement (single | group, the gallery's grouping), by date taken
+  sed -nE 's/.*"taken": "([^"]+)".*"hang": "([^"]+)".*/\1\t\2/p' photos.json \
+    | awk -F'\t' '{gsub(/[^0-9]/, "", $1); print $1 "\t" $2}' > "$hidx"
   # the towns' centre coordinates, by place name
   sed -nE 's/^    "([^"]+)": \[(-?[0-9.]+), (-?[0-9.]+)\],?$/\1\t\2\t\3/p' photos.json > "$cidx"
 fi
 existing_with_taken() { [[ -n "$1" ]] && awk -F'\t' -v t="$1" '$1 == t {print $2; exit}' "$idx"; }
 place_of() { [[ -n "$1" ]] && awk -F'\t' -v t="$1" '$1 == t {print $2; exit}' "$pidx"; return 0; }
 desc_of() { [[ -n "$1" ]] && awk -F'\t' -v t="$1" '$1 == t {print $2; exit}' "$didx"; return 0; }
+hang_of() { [[ -n "$1" ]] && awk -F'\t' -v t="$1" '$1 == t {print $2; exit}' "$hidx"; return 0; }
 city_of() { [[ -n "$1" ]] && awk -F'\t' -v t="$1" '$1 == t {print $2 "\t" $3; exit}' "$cidx"; return 0; }
 
 # ── 1. inbox ──────────────────────────────────────────────────────────────
@@ -429,9 +436,11 @@ done
     desc_json=null
     [[ -n "$desc" ]] && desc_json="\"$(printf '%s' "$desc" | sed 's/\\/\\\\/g; s/"/\\"/g')\""
     video_json=null; [[ -f "img/$name.mp4" ]] && video_json="\"img/$name.mp4\""
+    # the hang judgement is carried forward; a new photo hangs single until judged (docs/hang-reasons.txt)
+    hang=$(hang_of "$d" || true); [[ "$hang" == group ]] || hang=single
     sep=','; (( n == ${#names[@]} )) && sep=''
-    printf '    {"n": %d, "id": "%s", "taken": %s, "place": %s, "desc": %s, "file": "img/%s.jpg", "thumb": "img/thumb/%s.jpg", "video": %s}%s\n' \
-      "$n" "$name" "$taken_json" "$place_json" "$desc_json" "$name" "$name" "$video_json" "$sep"
+    printf '    {"n": %d, "id": "%s", "taken": %s, "place": %s, "desc": %s, "file": "img/%s.jpg", "thumb": "img/thumb/%s.jpg", "video": %s, "hang": "%s"}%s\n' \
+      "$n" "$name" "$taken_json" "$place_json" "$desc_json" "$name" "$name" "$video_json" "$hang" "$sep"
   done
   echo '  ],'
   echo '  "places": {'
