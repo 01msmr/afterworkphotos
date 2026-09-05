@@ -155,8 +155,12 @@ function shapeOf(key) {
 	return { W: r(state.settings.W * fw), D: r(state.settings.D * fd) };
 }
 
-const AMBIENT = { light: 0.6,  dark: 0.08 };
-const FILL    = { light: 0.65, dark: 0.06 };
+// A Lambert wall gets the ambient and the hemisphere fill over π, so an
+// off-white wall needs about three units of the two together to render
+// near its paint: with these it stands at its paint by day (Uli,
+// 2026-09-05: the walls had read mid-grey), never blown white.
+const AMBIENT = { light: 1.9,  dark: 0.08 };
+const FILL    = { light: 1.4,  dark: 0.06 };
 
 function buildRoom(W, D, H, look = LOOKS[0], floor = 'lacquer') {
 	const room = new THREE.Group();
@@ -195,7 +199,7 @@ function buildRoom(W, D, H, look = LOOKS[0], floor = 'lacquer') {
 
 	// Sky-and-ground fill: the ceiling's white bouncing down, the floor's
 	// grey bouncing up. Keeps every wall lit between the spots.
-	const fill = new THREE.HemisphereLight(0xfffaf2, 0x8c8880, FILL[mode]);
+	const fill = new THREE.HemisphereLight(0xfffaf2, 0xa8a49e, FILL[mode]);   // a light neutral ground, so no wall goes yellow-grey
 	fill.name = 'fill';
 	fill.position.set(0, H, 0);
 	room.add(fill);
@@ -205,7 +209,7 @@ function buildRoom(W, D, H, look = LOOKS[0], floor = 'lacquer') {
 	// shadows went (renderer.shadowMap above); its set-up stays for that.
 	const sun = new THREE.DirectionalLight(0xfff2e0, mode === 'dark' ? 0.9 : 1.1);
 	sun.name = 'sun';
-	sun.position.set(0.6, H + 2, 0.4);
+	sun.position.set(0.15, H + 2, 0.1);          // all but overhead: the walls share the fills alike, the floor takes the sun
 	sun.target.position.set(0, 0, 0);
 	sun.castShadow = renderer.shadowMap.enabled;
 	const half = Math.max(W, D) / 2 + 0.5;
@@ -367,19 +371,24 @@ applyFrameLook(materials.frame, state.settings.frame);
 
 const textures = new THREE.TextureLoader();
 const textureCache = new Map();
-// A print's texture at the size its print needs: the 1000 px file for a
-// 90 or 60, shrunk to 512 px on a canvas for a 40 in a grid (a quarter
-// of the memory). The texture's image stays empty until loaded, which
-// is what the lift waits for. Textures of a room you have left are freed.
-const PHOTO_PX = { 0.9: 1000, 0.6: 1000, 0.4: 512 };
+// A print's texture at the size its print needs: the 1600 px file
+// (img/1600, the gallery's own set — the main page never loads it) for a
+// 90, the 1000 px file for a 60, shrunk to 512 px on a canvas for a 40
+// in a grid (a quarter of the memory). A photo without a 1600 (an old
+// one, a video's still) falls back to its 1000. The texture's image
+// stays empty until loaded, which is what the lift waits for. Textures
+// of a room you have left are freed.
+const PHOTO_PX = { 0.9: 1600, 0.6: 1000, 0.4: 512 };
+const hdFile = p => 'img/1600/' + p.file.slice(p.file.lastIndexOf('/') + 1);
 function photoTexture(p, size) {
 	const px = PHOTO_PX[size] || 1000;
 	const key = `${p.n}@${px}`;
 	if (!textureCache.has(key)) {
 		const t = new THREE.Texture();
 		t.colorSpace = THREE.SRGBColorSpace;
-		t.anisotropy = renderer.xr.isPresenting ? 2 : 4;
+		t.anisotropy = 8;                        // prints seen at an angle stay sharp; the Quest 3 affords it (Uli, 2026-09-05)
 		const img = new Image();
+		img.onerror = () => { if (img.src.includes('/img/1600/')) img.src = '/' + p.file; };
 		img.onload = () => {
 			if (px >= img.width) { t.image = img; }
 			else {
@@ -389,7 +398,7 @@ function photoTexture(p, size) {
 			}
 			t.needsUpdate = true;
 		};
-		img.src = '/' + p.file;                  // photos.json paths are relative to the site root
+		img.src = '/' + (px > 1000 ? hdFile(p) : p.file);   // photos.json paths are relative to the site root
 		textureCache.set(key, t);
 	}
 	return textureCache.get(key);
@@ -2023,6 +2032,11 @@ async function offerVR() {
 			// The room is set up at entry (Uli): the Guardian boundary gives the
 			// rectangle, the wall you look at becomes the north wall. Planes are
 			// still asked for, should a browser ever hand them over in VR.
+			// Sharpness on the Quest 3 (Uli, 2026-09-05): the view rendered at
+			// 1.3× the headset's default scale (set before the session), the
+			// fixed foveation eased from full to 0.3 so the edges of the view
+			// do not go soft where a print sits.
+			renderer.xr.setFramebufferScaleFactor(1.3);
 			const session = await navigator.xr.requestSession(state.xrMode, { requiredFeatures: ['local-floor'], optionalFeatures: ['bounded-floor', 'hand-tracking', 'plane-detection', 'mesh-detection'] });
 			state.sessionT0 = performance.now();
 			// Render in the boundary's own space: its polygon and the world then
@@ -2033,7 +2047,7 @@ async function offerVR() {
 			else state.bounded = null;
 			session.addEventListener('end', () => { vrButton.hidden = false; document.body.classList.remove('xr'); rig.position.set(0, 0, 0); rig.rotation.set(0, 0, 0); state.lookSet = false; if (state.real) { state.real = null; world.position.set(0, 0, 0); world.rotation.set(0, 0, 0); state.settings.H = loadSettings().H; roomList = null; state.room = null; hangRoom(rooms()[0].key); } });
 			await renderer.xr.setSession(session);
-			renderer.xr.setFoveation(1);                 // the edges of the view at lower resolution: free on the Quest
+			renderer.xr.setFoveation(0.3);
 			scene.traverse(o => { if (o.isDirectionalLight && o.castShadow) { o.shadow.mapSize.set(1024, 1024); o.shadow.map?.dispose(); o.shadow.map = null; } });
 			document.body.classList.add('xr');
 			vrButton.hidden = true;
