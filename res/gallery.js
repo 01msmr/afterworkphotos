@@ -223,18 +223,38 @@ function buildRoom(W, D, H, look = LOOKS[0], floor = 'lacquer') {
 }
 
 // Switch between the white cube and the room at night without rebuilding:
-// every surface remembers which colour family it belongs to.
+// every surface remembers which colour family it belongs to. The switch
+// is a fade (Uli): `modeF` runs from 0 (day) to 1 (night) over MODE_T,
+// stepped every frame, and everything the mode touches — the surfaces'
+// colours, the fills, the sun, the cabin's lamp and light panel — is set
+// from it.
+const MODE_T = 1200;
+let modeF = state.settings.dark ? 1 : 0, modeAt = null;
 function applyMode(dark) {
 	state.settings.dark = dark;
-	const mode = dark ? 'dark' : 'light';
+	modeAt = performance.now();
+}
+const _ca = new THREE.Color(), _cb = new THREE.Color();
+function applyModeF(f) {
+	const mix = (a, b) => a + (b - a) * f;
 	const room = scene.getObjectByName('room');
-	if (!room) return;
-	room.traverse(o => {
-		if (o.isMesh && o.userData.colours) o.material.color.setHex(o.userData.colours[mode]);
-		if (o.isAmbientLight) o.intensity = AMBIENT[mode];
-		if (o.isHemisphereLight) o.intensity = FILL[mode];
-		if (o.isDirectionalLight) o.intensity = dark ? 0.9 : 1.1;
+	if (room) room.traverse(o => {
+		if (o.isMesh && o.userData.colours) o.material.color.copy(_ca.setHex(o.userData.colours.light).lerp(_cb.setHex(o.userData.colours.dark), f));
+		if (o.isAmbientLight) o.intensity = mix(AMBIENT.light, AMBIENT.dark);
+		if (o.isHemisphereLight) o.intensity = mix(FILL.light, FILL.dark);
+		if (o.isDirectionalLight) o.intensity = mix(1.1, 0.9);
 	});
+	const lamp = scene.getObjectByName('cabin-lamp');
+	if (lamp) lamp.intensity = mix(CABIN_LAMP.light, CABIN_LAMP.dark);
+	lightPanel.emissiveIntensity = mix(CABIN_PANEL.light, CABIN_PANEL.dark);
+}
+function stepMode(now) {
+	const target = state.settings.dark ? 1 : 0;
+	if (modeF === target) { modeAt = null; return; }
+	const dt = modeAt === null ? MODE_T : now - modeAt;
+	modeAt = now;
+	modeF = target > modeF ? Math.min(target, modeF + dt / MODE_T) : Math.max(target, modeF - dt / MODE_T);
+	applyModeF(modeF);
 }
 
 // ---------------------------------------------------------------------------
@@ -275,7 +295,7 @@ const FRAME_COLOURS = { oak: 0xb08d57, walnut: 0x5b4633, black: 0x171717, white:
 // a tile every half metre; the cabin's boxes stretch one tile per face.
 const texLoader = new THREE.TextureLoader();
 function tex(file, srgb, repeat, along = repeat) {
-	const t = texLoader.load('/res/textures/' + file);
+	const t = texLoader.load('/res/textures/' + file, loaded => renderer.initTexture(loaded));   // to the GPU as it arrives
 	t.wrapS = t.wrapT = THREE.RepeatWrapping;
 	// the bars' u runs their length and the images' grain runs their x, so
 	// no turn: grain along the bar (Uli), stretched by `along`
@@ -389,7 +409,10 @@ function photoTexture(p, size) {
 		t.anisotropy = 8;                        // prints seen at an angle stay sharp; the Quest 3 affords it (Uli, 2026-09-05)
 		const img = new Image();
 		img.onerror = () => { if (img.src.includes('/img/1600/')) img.src = '/' + p.file; };
-		img.onload = () => {
+		// decoded off the main thread, then sent to the GPU at once: each
+		// print costs its frame as it arrives during the ride, not all of
+		// them the frame the doors open (Uli: the view lagged a second or two)
+		img.onload = () => img.decode().catch(() => {}).then(() => {
 			if (px >= img.width) { t.image = img; }
 			else {
 				const c = document.createElement('canvas'); c.width = c.height = px;
@@ -397,7 +420,8 @@ function photoTexture(p, size) {
 				t.image = c;
 			}
 			t.needsUpdate = true;
-		};
+			renderer.initTexture(t);
+		});
 		img.src = '/' + (px > 1000 ? hdFile(p) : p.file);   // photos.json paths are relative to the site root
 		textureCache.set(key, t);
 	}
@@ -742,18 +766,20 @@ function labelLines(photos) {
 }
 function addLabel(piece, spec, w, h) {
 	const lines = labelLines(spec.photos);
+	// drawn at twice the size it was (Uli: sharper), 1536 px across a 24 cm card
 	const c = document.createElement('canvas');
-	c.width = 768; c.height = 80 + 64 * lines.length;
+	c.width = 1536; c.height = 2 * (80 + 64 * lines.length);
 	const g = c.getContext('2d');
 	g.fillStyle = '#fbfaf7'; g.fillRect(0, 0, c.width, c.height);
 	g.textBaseline = 'middle';
 	lines.forEach((line, i) => {
 		g.fillStyle = i === 0 ? '#3a3835' : '#6b6862';
-		g.font = `${i === 0 ? 500 : 400} ${i === 0 ? 40 : 36}px -apple-system, "Helvetica Neue", Arial, sans-serif`;
-		g.fillText(line, 40, 40 + 32 + 64 * i);
+		g.font = `${i === 0 ? 500 : 400} ${i === 0 ? 80 : 72}px -apple-system, "Helvetica Neue", Arial, sans-serif`;
+		g.fillText(line, 80, 2 * (40 + 32 + 64 * i));
 	});
 	const t = new THREE.CanvasTexture(c);
 	t.colorSpace = THREE.SRGBColorSpace;
+	t.anisotropy = 8;
 	const cw = 0.24, ch = cw * c.height / c.width;
 	const card = new THREE.Mesh(new THREE.PlaneGeometry(cw, ch), new THREE.MeshLambertMaterial({ map: t }));
 	card.name = 'label';
@@ -1098,6 +1124,7 @@ const walnut = (rx, ry) => new THREE.MeshStandardMaterial({
 });
 const pocketMat = new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.9 });   // the black gap round a button
 const lightPanel = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xfff6e8, emissiveIntensity: 1.6, roughness: 1 });
+const CABIN_LAMP = { light: 5, dark: 1.8 }, CABIN_PANEL = { light: 1.6, dark: 0.5 };   // the cabin at night: dimmer, not dark (Uli)
 
 // The print on a button: the year, left-aligned, in Jost Light (loaded
 // before the first room, see the start); a split year's floors are
@@ -1363,11 +1390,13 @@ const elevator = {
 
 		// A cabin all round (Uli): its own four walls, floor and ceiling, steel
 		// outside, satin inside — not the room's plaster on two sides.
-		box('cabin-s', e, H, t, W / 2 - e / 2, H / 2, z1 - t / 2, metal);
-		box('cabin-n', e, H, t, W / 2 - e / 2, H / 2, -D / 2 + t / 2, metal);
-		box('cabin-e', t, H, e, W / 2 - t / 2, H / 2, -D / 2 + e / 2, metal);
-		box('cabin-floor', e, 0.01, e, W / 2 - e / 2, 0.005, -D / 2 + e / 2, cabinFloor);
-		box('cabin-ceiling', e, 0.02, e, W / 2 - e / 2, H - 0.01, -D / 2 + e / 2, cabinInner);
+		// 2 mm short of the room's ceiling and floor: a face flush with either
+		// shimmered along the cabin's top edge (Uli)
+		box('cabin-s', e, H - 0.004, t, W / 2 - e / 2, H / 2, z1 - t / 2, metal);
+		box('cabin-n', e, H - 0.004, t, W / 2 - e / 2, H / 2, -D / 2 + t / 2, metal);
+		box('cabin-e', t, H - 0.004, e, W / 2 - t / 2, H / 2, -D / 2 + e / 2, metal);
+		box('cabin-floor', e, 0.01, e, W / 2 - e / 2, 0.007, -D / 2 + e / 2, cabinFloor);
+		box('cabin-ceiling', e, 0.02, e, W / 2 - e / 2, H - 0.012, -D / 2 + e / 2, cabinInner);
 		// Inner skins so the inside reads as a cabin, not raw steel.
 		box('skin-s', e - 2 * t, H - 0.04, 0.01, W / 2 - e / 2, H / 2, iz1 - 0.005, cabinInner);
 		box('skin-n', e - 2 * t, H - 0.04, 0.01, W / 2 - e / 2, H / 2, iz0 + 0.005, cabinInner);
@@ -1447,7 +1476,7 @@ const elevator = {
 		// behind it that actually lights the walls and the buttons.
 		const panelLight = box('cabin-light', e * 0.5, 0.005, e * 0.5, this.origin.x, H - 0.025, this.origin.z, lightPanel);
 		panelLight.castShadow = false;
-		const lamp = new THREE.PointLight(0xfff4e6, 5, 3.5, 2);
+		const lamp = new THREE.PointLight(0xfff4e6, CABIN_LAMP[state.settings.dark ? 'dark' : 'light'], 3.5, 2);
 		lamp.name = 'cabin-lamp';
 		lamp.position.set(this.origin.x, H - 0.15, this.origin.z);
 		g.add(lamp);
@@ -2291,6 +2320,7 @@ renderer.setAnimationLoop((now, frame) => {
 	elevator.step(now);
 	stepWalk(now);
 	stepVideos(now);
+	stepMode(now);
 	renderer.render(scene, camera);
 	if (stats) stepStats(now);
 });
