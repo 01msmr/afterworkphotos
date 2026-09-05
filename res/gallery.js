@@ -1227,10 +1227,10 @@ const lift = {
 		for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n) ** 2;
 		const src = ctx.createBufferSource(); src.buffer = b;
 		const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 2600; f.Q.value = 1.2;
-		const g = ctx.createGain(); g.gain.value = 0.35;
+		const g = ctx.createGain(); g.gain.value = 0.44;
 		src.connect(f); f.connect(g); g.connect(this.master); src.start(t);
 		const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(1900, t); o.frequency.exponentialRampToValueAtTime(900, t + 0.025);
-		const og = ctx.createGain(); og.gain.setValueAtTime(0.12, t); og.gain.exponentialRampToValueAtTime(0.0001, t + 0.04);
+		const og = ctx.createGain(); og.gain.setValueAtTime(0.15, t); og.gain.exponentialRampToValueAtTime(0.0001, t + 0.04);
 		o.connect(og); og.connect(this.master); o.start(t); o.stop(t + 0.05);
 	},
 	bell() {
