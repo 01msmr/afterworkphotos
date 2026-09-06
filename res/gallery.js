@@ -1351,12 +1351,17 @@ const lift = {
 		src.start(t, from, dur + 0.02);
 		return src;
 	},
-	// a ride of `seconds`: the start and the run for what is left after the stop, then the stop
+	// a ride of `seconds`: the start and the run for what is left after
+	// the stop — the recording's run played over again, overlapping a
+	// little, when the ride outlasts it — then the stop
 	run(seconds) {
 		if (!this.ready()) return;
 		const R = SOUND.ride, t = this.ctx.currentTime;
-		const runLen = Math.max(0.4, Math.min(seconds - STOP_LEN, R.run[1] - R.run[0]));
-		this.play('ride', R.run[0], runLen, t, 1, 0.03, 0.15);
+		const seg = R.run[1] - R.run[0], runLen = Math.max(0.4, seconds - STOP_LEN);
+		for (let at = 0; at < runLen; at += seg - 0.3) {
+			const len = Math.min(seg, runLen - at);
+			this.play('ride', at === 0 ? R.run[0] : R.run[0] + 1.0, len, t + at, 1, at === 0 ? 0.03 : 0.3, 0.3);   // later passes skip the start's whirr
+		}
 		this.play('ride', R.stop[0], STOP_LEN, t + runLen - 0.1, 1, 0.1, 0.2);
 	},
 	// The doors: a lift has two, the cabin's and the shaft's, moving as
@@ -1506,8 +1511,33 @@ const settingsMap = {
 	},
 };
 
+// The shaft in the door seam (Uli): the two leaves close with a narrow
+// gap between them, centred, and in it the shaft shows — during the ride
+// the shaft wall passes, a floor's divider slab and its lit landing for
+// every floor passed, one more hint that the cabin moves. One storey of
+// shaft on a canvas (the landing's light in the lower seven tenths, the
+// wall above the door, the slab), tiled and scrolled; at rest the landing
+// fills the seam.
+const SLOT = { gap: 0.012, storey: 3 };
+function shaftTexture() {
+	const c = document.createElement('canvas'); c.width = 64; c.height = 512;
+	const g = c.getContext('2d');
+	g.fillStyle = '#1c1c1c'; g.fillRect(0, 0, 64, 51);                     // the slab between the floors
+	g.fillStyle = '#3b3a38'; g.fillRect(0, 51, 64, 103);                   // the shaft wall over the door
+	for (let i = 0; i < 30; i++) { g.fillStyle = `rgba(0,0,0,${0.05 + Math.random() * 0.12})`; g.fillRect(Math.random() * 64, 51, 1 + Math.random() * 3, 103); }
+	g.fillStyle = '#5a5855'; g.fillRect(0, 49, 64, 3);
+	const grad = g.createLinearGradient(0, 154, 0, 512); grad.addColorStop(0, '#f3ecdc'); grad.addColorStop(1, '#d9cfb8');
+	g.fillStyle = grad; g.fillRect(0, 154, 64, 358);                       // the landing, lit
+	g.fillStyle = '#fff4dc'; g.fillRect(0, 152, 64, 3);
+	const t = new THREE.CanvasTexture(c);
+	t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping;
+	t.repeat.set(1, DOOR.h / SLOT.storey);                                // the seam is a door high; a storey of shaft is three metres
+	return t;
+}
+
 const elevator = {
 	group: null,
+	shaftTex: shaftTexture(),   // shared across rebuilds: its scroll is the ride's
 	doors: null,        // [north panel, south panel]
 	buttons: [],
 	displays: [],       // { tex, ctx } inside and outside
@@ -1597,12 +1627,15 @@ const elevator = {
 
 		// Two door panels behind the jambs, sliding apart along z into the
 		// cabin's own walls' thickness; closed, they meet at the centre.
-		const dx = x0 + t + DOOR.thick / 2 + 0.005;
+		// closed, they leave SLOT.gap between them at the centre, with the shaft in it
+		const dx = x0 + t + DOOR.thick / 2 + 0.005, leaf = DOOR.w / 2 - SLOT.gap / 2;
 		this.doors = [
-			box('door-n', DOOR.thick, DOOR.h, DOOR.w / 2, dx, DOOR.h / 2, zc - DOOR.w / 4, metal),
-			box('door-s', DOOR.thick, DOOR.h, DOOR.w / 2, dx, DOOR.h / 2, zc + DOOR.w / 4, metal),
+			box('door-n', DOOR.thick, DOOR.h, leaf, dx, DOOR.h / 2, zc - SLOT.gap / 2 - leaf / 2, metal),
+			box('door-s', DOOR.thick, DOOR.h, leaf, dx, DOOR.h / 2, zc + SLOT.gap / 2 + leaf / 2, metal),
 		];
 		for (const d of this.doors) d.userData.closedZ = d.position.z;
+		const seam = new THREE.Mesh(new THREE.PlaneGeometry(SLOT.gap, DOOR.h), new THREE.MeshBasicMaterial({ map: this.shaftTex, side: THREE.DoubleSide }));
+		seam.name = 'shaft-seam'; seam.position.set(dx, DOOR.h / 2, zc); seam.rotation.y = Math.PI / 2; g.add(seam);
 
 		// Floor displays above the door, one facing into the cabin, one out.
 		this.displays = [];
@@ -1620,10 +1653,6 @@ const elevator = {
 			this.displays.push({ tex, ctx });
 		};
 		display('display-in',  x0 + t + 0.015, Math.PI / 2);     // inside, on the door wall, facing +x into the cabin
-		display('display-out', x0 - 0.015, -Math.PI / 2);        // outside, above the architrave, facing the room
-		const cur = rooms().find(r => r.key === state.roomKey);   // may be gone after a re-plan
-		this.show(cur ? roomLabel(cur) : '', '');
-
 		// Light in the cabin: a glowing panel in the ceiling and the lamp
 		// behind it that actually lights the walls and the buttons.
 		const panelLight = box('cabin-light', e * 0.5, 0.005, e * 0.5, this.origin.x, H - 0.025, this.origin.z, lightPanel);
@@ -1832,7 +1861,7 @@ const elevator = {
 		if (to < from) path.reverse();
 		// the doors close from where they stand: back-date t0 by what is already shut
 		this.ride = { key, t0: performance.now() - (1 - fromOpen) * DOOR_T, hung: false, floors, up: to < from, path,
-		              travel: Math.max(6, Math.min(9, 2.5 + 0.35 * floors)) };   // long enough for the run to be heard before the stop
+		              travel: Math.min(30, 4 + 1.6 * floors) };   // near real time (Uli): a floor and a half a second per floor, 4 s to start and stop, half a minute at most
 		if (!this.inside()) this.placeInCabin();                 // pressed from the room (the bench's Y list): into the cabin; a body in the cabin stays as it stands (Uli)
 	},
 
@@ -1866,6 +1895,9 @@ const elevator = {
 			// the floor passed: the path's index by the fraction of the travel
 			const i = Math.min(r.path.length - 1, Math.floor(tt / r.travel * r.path.length));
 			this.show(roomLabel(r.path[i]), r.up ? '▲' : '▼');
+			// the shaft passes in the slot: one floor per floor, eased in and out
+			const p = tt / r.travel, e = p * p * (3 - 2 * p);
+			this.shaftTex.offset.y = (r.up ? 1 : -1) * e * r.floors;
 			return;
 		}
 		if (!r.ready) {
