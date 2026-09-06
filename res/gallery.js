@@ -39,8 +39,11 @@ const FRAME_COLOURS_KEYS = { maple: 1, oak: 1, walnut: 1, black: 1, white: 1 };
 const state = { year: null, roomKey: null, settings: loadSettings(), room: null, real: null, photos: [], obstacles: [] };   // obstacles: the middle rows' footprints, for the bench's walk
 
 const EYE = 1.6;
-const HANG_Y = 1.5;   // every piece's centre, the gallery's line — or higher in a room whose dado it must clear (hangY())
-function hangY() { return state.hangY || HANG_Y; }
+const HANG_Y = 1.5;   // a piece's centre, the gallery's line
+const HANG_MAX = 1.65;   // the highest a centre goes (Uli: not too high) — a dado that would ask more drops instead
+// Where a piece of height h hangs: on the line, or just enough higher
+// to clear the room's dado (state.dadoCap) by a hand's width.
+function pieceY(h) { return Math.max(HANG_Y, (state.dadoCap || 0) + 0.15 + h / 2); }
 
 // ---------------------------------------------------------------------------
 // Renderer, scene, camera
@@ -711,7 +714,7 @@ function makeFramedPrint(p, size) {
 // Two 0.5 mm lines from a piece's top corners up to the ceiling. Their
 // length follows from where the piece hangs: centre at HANG_Y, ceiling at H.
 function addLines(piece, w, h) {
-	const drop = state.settings.H - (hangY() + h / 2);
+	const drop = state.settings.H - (pieceY(h) + h / 2);
 	if (drop <= 0) return;
 	const geo = new THREE.PlaneGeometry(0.0012, drop);   // a ribbon: at 0.6 mm no one can tell it from a thread
 	for (const x of [-w / 2 + FRAME.face / 2, w / 2 - FRAME.face / 2]) {
@@ -1126,14 +1129,15 @@ function hangRoom(key) {
 	if (W !== room.shape.W) console.warn(`${key}: room grown to ${W} × ${D} to hang everything`);
 	if (lay.rest.length) console.warn(`${key}: ${lay.rest.length} pieces do not fit the real room`);
 	const floor = floorOf(room.year);
-	// The pieces stay above the dado line (Uli): the room hangs higher
-	// where its tallest piece needs it, a hand's width over the rail; a
-	// dado the ceiling leaves no room for drops to what the piece leaves.
+	// The pieces stay above the dado line (Uli): each hangs on the line or
+	// just high enough to clear the dado (pieceY), never with its centre
+	// above HANG_MAX — so the dado in a room drops to what its tallest
+	// piece leaves under that.
 	const tallest = Math.max(0, ...room.specs.map(specHeight));
 	const style = WALL_STYLES[floor] || WALL_STYLES.lacquer;
-	const dadoCap = Math.max(0, Math.min(dadoTop(style), H - 0.2 - tallest - 0.15));
-	state.hangY = Math.max(HANG_Y, dadoCap + 0.15 + tallest / 2);
-	if (!state.room || state.room.W !== W || state.room.D !== D || state.room.look !== room.look.name || state.room.floor !== floor) {
+	const dadoCap = Math.max(0, Math.min(dadoTop(style), HANG_MAX - 0.15 - tallest / 2));
+	state.dadoCap = dadoCap;
+	if (!state.room || state.room.W !== W || state.room.D !== D || state.room.look !== room.look.name || state.room.floor !== floor || state.room.dadoCap !== dadoCap) {
 		for (const name of ['room', 'elevator']) {
 			const old = scene.getObjectByName(name);
 			if (!old) continue;
@@ -1144,7 +1148,7 @@ function hangRoom(key) {
 		}
 		world.add(buildRoom(W, D, H, room.look, floor, dadoCap));
 		world.add(elevator.build(W, D, H));
-		state.room = { W, D, H, look: room.look.name, floor };
+		state.room = { W, D, H, look: room.look.name, floor, dadoCap };
 	}
 
 	state.gap = lay.gap;                           // the labels need it before the pieces exist
@@ -1152,15 +1156,16 @@ function hangRoom(key) {
 	const slabs = new Map();                       // a slot's slab: the larger of the pair's sizes
 	for (const { piece: spec, x, z, yaw, wall, slab } of lay.placed) {
 		const piece = makePiece(spec);
-		piece.position.set(x, hangY(), z);
+		piece.position.set(x, pieceY(piece.userData.h), z);
 		piece.rotation.y = yaw;
 		piece.userData.wall = wall;
 		// a middle row stops the body (Uli): its footprint, the body's radius round it
 		if (wall === 'mid') state.obstacles.push({ x0: x - spec.w / 2 - BODY_R, x1: x + spec.w / 2 + BODY_R, z0: z - SLAB.thick / 2 - BODY_R, z1: z + SLAB.thick / 2 + BODY_R });
 		if (slab) {
 			const zc = yaw === 0 ? z - SLAB.thick / 2 : z + SLAB.thick / 2, k = `${x}|${zc}`;
-			const prev = slabs.get(k) || { x, z: zc, w: 0, h: 0 };
-			slabs.set(k, { ...prev, w: Math.max(prev.w, piece.userData.w), h: Math.max(prev.h, piece.userData.h) });
+			const y = piece.position.y, h = piece.userData.h;
+			const prev = slabs.get(k) || { x, z: zc, w: 0, bottom: Infinity, top: -Infinity };
+			slabs.set(k, { ...prev, w: Math.max(prev.w, piece.userData.w), bottom: Math.min(prev.bottom, y - h / 2), top: Math.max(prev.top, y + h / 2) });
 		}
 		// A piece in the middle of the room has no wall behind it: the warm
 		// pool a spot throws would hang in the air. The light stays, the
@@ -1174,9 +1179,9 @@ function hangRoom(key) {
 	// the slabs: the wall's colour, following day and night like a wall
 	for (const sl of slabs.values()) {
 		const paint = wallColours((WALL_STYLES[floor] || WALL_STYLES.lacquer).paint);
-		const m = new THREE.Mesh(new THREE.BoxGeometry(sl.w + SLAB.wider, sl.h + SLAB.wider, SLAB.thick), new THREE.MeshLambertMaterial({ color: paint[state.settings.dark ? 'dark' : 'light'] }));
+		const m = new THREE.Mesh(new THREE.BoxGeometry(sl.w + SLAB.wider, sl.top - sl.bottom + SLAB.wider, SLAB.thick), new THREE.MeshLambertMaterial({ color: paint[state.settings.dark ? 'dark' : 'light'] }));
 		m.name = 'slab';
-		m.position.set(sl.x, hangY(), sl.z);
+		m.position.set(sl.x, (sl.top + sl.bottom) / 2, sl.z);
 		m.userData.colours = paint;
 		pieces.add(m);
 	}
