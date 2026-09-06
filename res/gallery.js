@@ -39,7 +39,8 @@ const FRAME_COLOURS_KEYS = { maple: 1, oak: 1, walnut: 1, black: 1, white: 1 };
 const state = { year: null, roomKey: null, settings: loadSettings(), room: null, real: null, photos: [], obstacles: [] };   // obstacles: the middle rows' footprints, for the bench's walk
 
 const EYE = 1.6;
-const HANG_Y = 1.5;   // every piece's centre, the gallery's line
+const HANG_Y = 1.5;   // every piece's centre, the gallery's line — or higher in a room whose dado it must clear (hangY())
+function hangY() { return state.hangY || HANG_Y; }
 
 // ---------------------------------------------------------------------------
 // Renderer, scene, camera
@@ -133,6 +134,34 @@ const FLOOR_OF_YEAR = {
 	2009: 'marble-tiles',                  // the merged thin years, 2009–2014
 };
 const SPARE_FLOORS = ['plates', 'rubber'];
+
+// The walls follow the floor (Uli, 2026-09-06, from a swatch page): the
+// paint, and under it one of — a dado (the lower part in a second colour,
+// a thin rail on its top edge, its height the style's), a skirting board,
+// or wood panelling with inlaid frames (the gallery's maple or walnut;
+// never wood on a wood floor). Most rooms stay quiet, a few carry colour.
+// At night the paint goes to a ninth, the rest to a third (wallDark).
+const WALL_STYLES = {
+	lacquer:         { paint: 0xf4f4f2 },
+	herringbone:     { paint: 0xf3efe6, dado: { h: 0.9,  colour: 0xe9e1d2 }, rail: 0xc9bda8 },
+	concrete:        { paint: 0xe8e8e6, dado: { h: 0.9,  colour: 0xbdbcb8 }, rail: 0x9a9994 },
+	warehouse:       { paint: 0xefebe3, dado: { h: 1.1,  colour: 0x4a4744 }, rail: 0x2e2c2a },
+	terrazzo:        { paint: 0xf1ead8, dado: { h: 1.0,  colour: 0x3f5a4c }, rail: 0x2e4238 },
+	checker:         { paint: 0xdcdcda, dado: { h: 0.7,  colour: 0x3b3b3b }, rail: 0x3a3a3a },
+	marble:          { paint: 0xf5f5f3, skirting: { h: 0.15, floor: 'marble' } },
+	basket:          { paint: 0xf2ede4, dado: { h: 0.9,  colour: 0xe6dfd2 }, rail: 0xb8ad9a },
+	checkered:       { paint: 0xf0e9d8, dado: { h: 1.2,  colour: 0x6e3f3a }, rail: 0x1b1b1b },
+	'concrete-dark': { paint: 0xddd8ce, dado: { h: 0.6,  colour: 0xb9b2a6 } },
+	'planks-dark':   { paint: 0xe4e0d8, dado: { h: 1.0,  colour: 0x4d4640 }, rail: 0x3a3430 },
+	'terrazzo-grey': { paint: 0xececea, wainscot: { h: 0.85, wood: 'maple' } },
+	'marble-tiles':  { paint: 0xf4f3f0, wainscot: { h: 0.95, wood: 'dark' } },
+	plates:          { paint: 0xe2e2e0, dado: { h: 0.75, colour: 0xa9a9a6 } },
+	rubber:          { paint: 0x8d8b86, dado: { h: 1.0,  colour: 0x5a5855 } },
+};
+const wallDark = (hex, k) => { const c = new THREE.Color(hex).multiplyScalar(k); return c.getHex(); };
+const wallColours = (hex, k = 0.11) => ({ light: hex, dark: wallDark(hex, k) });
+// how high a style's dado or panelling reaches — the line the pieces stay above
+const dadoTop = style => (style.dado && style.dado.h) || (style.wainscot && style.wainscot.h) || 0;
 function floorOf(year) { return FLOOR_OF_YEAR[year] || SPARE_FLOORS[Number(year) % SPARE_FLOORS.length]; }
 
 // The floor's material: the lacquer is a colour with the room mirrored
@@ -159,16 +188,57 @@ function shapeOf(key) {
 // off-white wall needs about three units of the two together to render
 // near its paint: with these it stands at its paint by day (Uli,
 // 2026-09-05: the walls had read mid-grey), never blown white.
+// A wall's dressing, as children of the wall's plane (its local +z is the
+// room): the dado a plane a hair proud, the rail and the skirting thin
+// boxes, the panelling the wood with a canvas of inlaid frames over it
+// and a cap rail. `top` is the dado's or panelling's height in this room
+// — the style's, or less where the room's tallest piece needs the wall.
+function dressWall(wall, style, H, top, mode) {
+	const w = wall.geometry.parameters.width;
+	const add = (mesh, name, colours) => { mesh.name = name; mesh.userData.colours = colours; mesh.material.color.setHex(colours[mode]); wall.add(mesh); return mesh; };
+	const plane = (ww, hh, y, z, colour, k) => add(new THREE.Mesh(new THREE.PlaneGeometry(ww, hh), new THREE.MeshLambertMaterial({ color: colour })), 'dado', wallColours(colour, k)).position.set(0, y - H / 2, z);
+	const bar = (hh, depth, y, colour, name, k = 0.35) => add(new THREE.Mesh(new THREE.BoxGeometry(w, hh, depth), new THREE.MeshLambertMaterial({ color: colour })), name, wallColours(colour, k)).position.set(0, y - H / 2, depth / 2);
+	if (style.dado && top > 0) {
+		plane(w, top, top / 2, 0.002, style.dado.colour, 0.35);
+		if (style.rail) bar(0.025, 0.012, top, style.rail, 'rail');
+	}
+	if (style.skirting) {
+		const sk = style.skirting, m = new THREE.MeshLambertMaterial(sk.floor ? { map: tex(`floor-${sk.floor}-color.jpg`, true, sk.h / 0.5, w / 0.5) } : { color: sk.colour });
+		add(new THREE.Mesh(new THREE.BoxGeometry(w, sk.h, 0.015), m), 'skirting', wallColours(0xffffff, 0.35)).position.set(0, sk.h / 2 - H / 2, 0.0075);
+	}
+	if (style.wainscot && top > 0) {
+		const wood = style.wainscot.wood, rx = w / 0.5, ry = top / 0.5;
+		const m = new THREE.MeshStandardMaterial({ map: tex(`wood-${wood}-color.jpg`, true, ry, rx), roughnessMap: tex(`wood-${wood}-rough.jpg`, false, ry, rx), normalMap: tex(`wood-${wood}-normal.jpg`, false, ry, rx), normalScale: new THREE.Vector2(0.5, 0.5), roughness: 1, metalness: 0, envMapIntensity: 0.3 });
+		add(new THREE.Mesh(new THREE.PlaneGeometry(w, top), m), 'wainscot', wallColours(0xffffff, 0.35)).position.set(0, top / 2 - H / 2, 0.006);
+		// the inlaid frames: one panel cell drawn once, repeated every 0.7 m
+		const frames = new THREE.Mesh(new THREE.PlaneGeometry(w, top), new THREE.MeshBasicMaterial({ map: panelFrames(w / 0.7), transparent: true, depthWrite: false }));
+		add(frames, 'wainscot-frames', wallColours(0xffffff, 0.35)).position.set(0, top / 2 - H / 2, 0.0065);
+		bar(0.03, 0.02, top, wood === 'maple' ? 0xd8c7a3 : 0x4a3626, 'cap');
+	}
+}
+// A canvas of one panel's inlaid frame — a light line above a dark one,
+// the raised moulding — tiled `across` times along the wall.
+function panelFrames(across) {
+	const c = document.createElement('canvas'); c.width = 512; c.height = 512;
+	const g = c.getContext('2d');
+	const box = (inset, colour, width) => { g.strokeStyle = colour; g.lineWidth = width; g.strokeRect(inset, inset, 512 - 2 * inset, 512 - 2 * inset); };
+	box(60, 'rgba(0,0,0,0.35)', 6); box(66, 'rgba(255,255,255,0.35)', 4); box(84, 'rgba(255,255,255,0.3)', 3); box(88, 'rgba(0,0,0,0.3)', 5);
+	const t = new THREE.CanvasTexture(c);
+	t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(across, 1);
+	return t;
+}
+
 const AMBIENT = { light: 1.9,  dark: 0.08 };
 const FILL    = { light: 1.4,  dark: 0.06 };
 
-function buildRoom(W, D, H, look = LOOKS[0], floor = 'lacquer') {
+function buildRoom(W, D, H, look = LOOKS[0], floor = 'lacquer', dadoCap = Infinity) {
 	const room = new THREE.Group();
 	room.name = 'room';
 	room.userData.look = look.name;
+	const style = WALL_STYLES[floor] || WALL_STYLES.lacquer;
 
 	const mode = state.settings.dark ? 'dark' : 'light';
-	const COLOURS = { wall: look.wall, floor: look.floor, ceiling: CEILING };
+	const COLOURS = { wall: wallColours(style.paint), floor: look.floor, ceiling: CEILING };
 	const mat = key => new THREE.MeshLambertMaterial({ color: COLOURS[key][mode] });
 
 	// Each surface: a plane sized to its span, rotated to face the room's
@@ -192,6 +262,7 @@ function buildRoom(W, D, H, look = LOOKS[0], floor = 'lacquer') {
 	surface('wall-s',  'wall',    W, H, [0, H / 2,  D / 2], [0, Math.PI, 0]);
 	surface('wall-e',  'wall',    D, H, [ W / 2, H / 2, 0], [0, -Math.PI / 2, 0]);
 	surface('wall-w',  'wall',    D, H, [-W / 2, H / 2, 0], [0,  Math.PI / 2, 0]);
+	for (const name of ['wall-n', 'wall-s', 'wall-e', 'wall-w']) dressWall(room.getObjectByName(name), style, H, Math.min(dadoCap, dadoTop(style)), mode);
 
 	const ambient = new THREE.AmbientLight(0xffffff, AMBIENT[mode]);
 	ambient.name = 'ambient';
@@ -640,7 +711,7 @@ function makeFramedPrint(p, size) {
 // Two 0.5 mm lines from a piece's top corners up to the ceiling. Their
 // length follows from where the piece hangs: centre at HANG_Y, ceiling at H.
 function addLines(piece, w, h) {
-	const drop = state.settings.H - (HANG_Y + h / 2);
+	const drop = state.settings.H - (hangY() + h / 2);
 	if (drop <= 0) return;
 	const geo = new THREE.PlaneGeometry(0.0012, drop);   // a ribbon: at 0.6 mm no one can tell it from a thread
 	for (const x of [-w / 2 + FRAME.face / 2, w / 2 - FRAME.face / 2]) {
@@ -931,6 +1002,10 @@ function specWidth(spec) {
 	if (spec.photos.length === 1) return framedSize(spec.size);
 	return spec.cols * framedSize(spec.size) + (spec.cols - 1) * GRID_GAP * sc();
 }
+function specHeight(spec) {
+	if (spec.photos.length === 1) return framedSize(spec.size);
+	return spec.rows * framedSize(spec.size) + (spec.rows - 1) * GRID_GAP * sc();
+}
 
 // Lay pieces into a room of W × D: gallery spacing first; when the walls
 // run out, the spacing tightens; then the middle of the room takes the
@@ -1051,6 +1126,13 @@ function hangRoom(key) {
 	if (W !== room.shape.W) console.warn(`${key}: room grown to ${W} × ${D} to hang everything`);
 	if (lay.rest.length) console.warn(`${key}: ${lay.rest.length} pieces do not fit the real room`);
 	const floor = floorOf(room.year);
+	// The pieces stay above the dado line (Uli): the room hangs higher
+	// where its tallest piece needs it, a hand's width over the rail; a
+	// dado the ceiling leaves no room for drops to what the piece leaves.
+	const tallest = Math.max(0, ...room.specs.map(specHeight));
+	const style = WALL_STYLES[floor] || WALL_STYLES.lacquer;
+	const dadoCap = Math.max(0, Math.min(dadoTop(style), H - 0.2 - tallest - 0.15));
+	state.hangY = Math.max(HANG_Y, dadoCap + 0.15 + tallest / 2);
 	if (!state.room || state.room.W !== W || state.room.D !== D || state.room.look !== room.look.name || state.room.floor !== floor) {
 		for (const name of ['room', 'elevator']) {
 			const old = scene.getObjectByName(name);
@@ -1060,7 +1142,7 @@ function hangRoom(key) {
 			const f = old.getObjectByName('floor');
 			if (f) { for (const k of ['map', 'roughnessMap', 'normalMap', 'metalnessMap']) f.material[k]?.dispose(); f.material.dispose(); }
 		}
-		world.add(buildRoom(W, D, H, room.look, floor));
+		world.add(buildRoom(W, D, H, room.look, floor, dadoCap));
 		world.add(elevator.build(W, D, H));
 		state.room = { W, D, H, look: room.look.name, floor };
 	}
@@ -1070,7 +1152,7 @@ function hangRoom(key) {
 	const slabs = new Map();                       // a slot's slab: the larger of the pair's sizes
 	for (const { piece: spec, x, z, yaw, wall, slab } of lay.placed) {
 		const piece = makePiece(spec);
-		piece.position.set(x, HANG_Y, z);
+		piece.position.set(x, hangY(), z);
 		piece.rotation.y = yaw;
 		piece.userData.wall = wall;
 		// a middle row stops the body (Uli): its footprint, the body's radius round it
@@ -1091,10 +1173,11 @@ function hangRoom(key) {
 	}
 	// the slabs: the wall's colour, following day and night like a wall
 	for (const sl of slabs.values()) {
-		const m = new THREE.Mesh(new THREE.BoxGeometry(sl.w + SLAB.wider, sl.h + SLAB.wider, SLAB.thick), new THREE.MeshLambertMaterial({ color: room.look.wall[state.settings.dark ? 'dark' : 'light'] }));
+		const paint = wallColours((WALL_STYLES[floor] || WALL_STYLES.lacquer).paint);
+		const m = new THREE.Mesh(new THREE.BoxGeometry(sl.w + SLAB.wider, sl.h + SLAB.wider, SLAB.thick), new THREE.MeshLambertMaterial({ color: paint[state.settings.dark ? 'dark' : 'light'] }));
 		m.name = 'slab';
-		m.position.set(sl.x, HANG_Y, sl.z);
-		m.userData.colours = room.look.wall;
+		m.position.set(sl.x, hangY(), sl.z);
+		m.userData.colours = paint;
 		pieces.add(m);
 	}
 
