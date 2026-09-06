@@ -907,41 +907,38 @@ function placeLabels(piece, w, h, below) {
 // ---------------------------------------------------------------------------
 // Hanging a year
 //
-// The pieces of a year, in date order: a run of six or more group photos
-// becomes grids of nine then six; what will not fill a grid hangs single at
-// 60; everything judged single hangs at 90. Same rule as the review page.
+// The pieces of a year, in date order. The year's group photos are
+// pooled (Uli, 2026-09-06 — before, only six or more in a row made a
+// grid) and packed into grids of nine, six and four, cut from the pool in
+// date order so neighbours stay together; a grid takes its place in the
+// sequence at its first photo's date. What will not fill a grid of four
+// hangs single at 60; everything judged single hangs at 90.
 
+// How to cut n group photos into grids: the most covered, then the
+// fewest grids.
 function packRun(n) {
-	let best = { nine: 0, six: 0, covered: 0 };
-	for (let nine = Math.floor(n / 9); nine >= 0; nine--) {
-		const six = Math.floor((n - 9 * nine) / 6);
-		const covered = 9 * nine + 6 * six;
-		if (covered > best.covered) best = { nine, six, covered };
-	}
+	let best = { nine: 0, six: 0, four: 0, covered: -1, grids: 0 };
+	for (let nine = Math.floor(n / 9); nine >= 0; nine--)
+		for (let six = Math.floor((n - 9 * nine) / 6); six >= 0; six--) {
+			const four = Math.floor((n - 9 * nine - 6 * six) / 4);
+			const covered = 9 * nine + 6 * six + 4 * four, grids = nine + six + four;
+			if (covered > best.covered || (covered === best.covered && grids < best.grids)) best = { nine, six, four, covered, grids };
+		}
 	return best;
 }
 
 function piecesOf(photos) {
-	const specs = [];
-	let run = [];
-	const flush = () => {
-		if (!run.length) return;
-		const { nine, six } = packRun(run.length);
-		let i = 0;
-		for (const g of [...Array(nine).fill(9), ...Array(six).fill(6)]) {
-			specs.push({ photos: run.slice(i, i + g), size: 0.4, cols: 3, rows: g / 3 });
-			i += g;
-		}
-		for (; i < run.length; i++) specs.push({ photos: [run[i]], size: 0.6 });
-		run = [];
-	};
-	for (const p of photos) {
-		if (p.hang === 'group') { run.push(p); continue; }
-		flush();
-		specs.push({ photos: [p], size: 0.9 });
+	const specs = photos.filter(p => p.hang !== 'group').map(p => ({ photos: [p], size: 0.9 }));
+	const pool = photos.filter(p => p.hang === 'group');
+	const { nine, six, four } = packRun(pool.length);
+	let i = 0;
+	for (const g of [...Array(nine).fill(9), ...Array(six).fill(6), ...Array(four).fill(4)]) {
+		const cols = g === 4 ? 2 : 3;
+		specs.push({ photos: pool.slice(i, i + g), size: 0.4, cols, rows: g / cols });
+		i += g;
 	}
-	flush();
-	return specs;
+	for (; i < pool.length; i++) specs.push({ photos: [pool[i]], size: 0.6 });
+	return specs.sort((a, b) => a.photos[0].taken.localeCompare(b.photos[0].taken));
 }
 
 // The elevator's corner is reserved: +x, -z, a 1.5 m square — room to stand
