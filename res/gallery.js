@@ -1444,9 +1444,13 @@ const elevator = {
 		box('arch-s', proud, DOOR.h + arch, arch, x0 - proud / 2, (DOOR.h + arch) / 2, zc + DOOR.w / 2 + arch / 2, metal);
 		box('arch-top', proud, arch, DOOR.w + 2 * arch, x0 - proud / 2, DOOR.h + arch / 2, zc, metal);
 
-		// The call button outside, on the south side of the door at hand height.
+		// The call station outside (Uli): a steel plate on the cabin's face
+		// south of the door surround, at hand height, with one big round
+		// button on it — on the cabin, not in the air.
 		this.callButtons = [];
 		{
+			const CALL_R = 0.03, cy = 1.15, cz = zc + DOOR.w / 2 + arch + 0.09;
+			box('call-plate', 0.01, 0.15, 0.09, x0 - 0.005, cy, cz, panelPlate);
 			const c = document.createElement('canvas'); c.width = c.height = 128;
 			const g2 = c.getContext('2d');
 			g2.fillStyle = '#f2efe8'; g2.beginPath(); g2.arc(64, 64, 64, 0, Math.PI * 2); g2.fill();
@@ -1454,14 +1458,14 @@ const elevator = {
 			g2.beginPath(); g2.moveTo(64, 30); g2.lineTo(92, 62); g2.lineTo(36, 62); g2.closePath(); g2.fill();
 			g2.beginPath(); g2.moveTo(64, 98); g2.lineTo(92, 66); g2.lineTo(36, 66); g2.closePath(); g2.fill();
 			const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
-			const bodyGeo = new THREE.CylinderGeometry(BUTTON.r, BUTTON.r, BUTTON.rise, 32); bodyGeo.rotateZ(Math.PI / 2);   // axis along x
+			const bodyGeo = new THREE.CylinderGeometry(CALL_R, CALL_R, BUTTON.rise, 32); bodyGeo.rotateZ(Math.PI / 2);   // axis along x
 			const cb = new THREE.Mesh(bodyGeo, metal);
 			cb.name = 'call'; cb.userData.call = true;
-			cb.position.set(x0 - proud - BUTTON.rise / 2, 1.1, zc + DOOR.w / 2 + arch + 0.09);
+			cb.position.set(x0 - 0.01 - BUTTON.rise / 2, cy, cz);   // proud of the plate
 			g.add(cb);
-			const cf = new THREE.Mesh(new THREE.CircleGeometry(BUTTON.r * 0.92, 32), new THREE.MeshStandardMaterial({ map: tex, emissive: 0xffffff, emissiveIntensity: 0, roughness: 0.6 }));
+			const cf = new THREE.Mesh(new THREE.CircleGeometry(CALL_R * 0.92, 32), new THREE.MeshStandardMaterial({ map: tex, emissive: 0xffffff, emissiveIntensity: 0, roughness: 0.6 }));
 			cf.name = 'call-face'; cf.userData.call = true;
-			cf.position.set(cb.position.x - BUTTON.rise / 2 - 0.0005, 1.1, cb.position.z);
+			cf.position.set(cb.position.x - BUTTON.rise / 2 - 0.0005, cy, cz);
 			cf.rotation.y = -Math.PI / 2;                    // faces -x, the room
 			g.add(cf);
 			cb.userData.face = cf;
