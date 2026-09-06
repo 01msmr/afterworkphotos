@@ -865,37 +865,34 @@ function makeCard(lines, cw) {
 	card.userData.ch = ch;
 	return card;
 }
-// A single's card, lower right of the piece where the wall has room; when
-// the pieces hang closer than the card needs, below the frame instead
-// (Uli), so no card runs into the next frame. A grid's labels (Uli): one
-// card per print, laid out in the grid's own pattern, LABEL_GAP apart,
-// beside the group to its right — under it where the wall has no room,
-// and always under it in the middle of the room (placeLabels), where the
-// slab is made to hold them.
-const LABEL_GAP = 0.02, GRID_CARD = 0.16;
+// A piece's labels: a single's one card, a grid's one card per print laid
+// out in the grid's own pattern LABEL_GAP apart (Uli). A single's card
+// hangs under the frame, 3 cm below it, flush with its right edge. A
+// grid's block stands beside the group to its right, its bottom on the
+// group's bottom edge (Uli: bottom right, not top) — and goes under it,
+// flush right, where the wall has no room beside: the neighbour too
+// close, the wall's end too near (never into a corner), or in the middle
+// of the room, where the slab reaches down to hold it. Built with the
+// spacing known; a grid is placed for good in hangRoom, when the room to
+// its right is.
+const LABEL_GAP = 0.02, GRID_CARD = 0.16, SINGLE_CARD = 0.24, LABEL_OFF = 0.05;
 function addLabel(piece, spec, w, h) {
-	if (spec.photos.length === 1) {
-		const cw = 0.24, card = makeCard(labelLines(spec.photos), cw), ch = card.userData.ch;
-		const below = state.gap < cw + 0.05 + 0.05;
-		if (!below) card.position.set(w / 2 + 0.05 + cw / 2, -h / 2 + ch / 2, 0.002);
-		else card.position.set(w / 2 - cw / 2, -h / 2 - 0.03 - ch / 2, 0.002);
-		Object.assign(card.userData, { x0: card.position.x, y0: card.position.y, below });
-		piece.add(card);
-		return;
-	}
-	const { cols, rows } = spec, cw = GRID_CARD;
+	const grid = spec.photos.length > 1, cw = grid ? GRID_CARD : SINGLE_CARD, cols = grid ? spec.cols : 1;
 	const cards = spec.photos.map(p => makeCard(labelLines([p]), cw));
 	const ch = Math.max(...cards.map(c => c.userData.ch));
-	const bw = cols * cw + (cols - 1) * LABEL_GAP, bh = rows * ch + (rows - 1) * LABEL_GAP;
-	piece.userData.labels = { cards, cols, cw, ch, bw, bh };
+	const rows = Math.ceil(cards.length / cols);
+	piece.userData.labels = { cards, cols, cw, ch, bw: cols * cw + (cols - 1) * LABEL_GAP, bh: rows * ch + (rows - 1) * LABEL_GAP, grid };
 	for (const c of cards) piece.add(c);
-	placeLabels(piece, w, h, state.gap < bw + 0.05 + 0.05);
+	placeLabels(piece, w, h, Infinity);
 }
-function placeLabels(piece, w, h, below) {
+// `roomRight`: how far the wall runs on past the piece's right edge.
+function placeLabels(piece, w, h, roomRight, forceBelow = false) {
 	const L = piece.userData.labels;
 	if (!L) return;
-	// the block's top-left corner: right of the piece, level with its top; or under it, flush left
-	const x0 = below ? -w / 2 : w / 2 + 0.05, y0 = below ? -h / 2 - 0.03 : h / 2;
+	const below = !L.grid || forceBelow || state.gap < L.bw + 2 * LABEL_OFF || roomRight < L.bw + LABEL_OFF + 0.03;
+	// the block's top-left corner: beside with its bottom on the piece's
+	// bottom, or under it with its right on the piece's right
+	const x0 = below ? w / 2 - L.bw : w / 2 + LABEL_OFF, y0 = below ? -h / 2 - 0.03 : -h / 2 + L.bh;
 	L.cards.forEach((card, i) => {
 		const col = i % L.cols, row = Math.floor(i / L.cols);
 		card.position.set(x0 + col * (L.cw + LABEL_GAP) + L.cw / 2, y0 - row * (L.ch + LABEL_GAP) - card.userData.ch / 2, 0.002);
@@ -992,7 +989,7 @@ function layWalls(pieces, W, D, gap) {
 			const z = run.start[1] + run.dir[1] * t;
 			// step off the wall along the piece's facing direction
 			const nx = Math.sin(run.yaw), nz = Math.cos(run.yaw);
-			placed.push({ piece: pieces[i + k], x: x + nx * OFF_WALL, z: z + nz * OFF_WALL, yaw: run.yaw, wall: run.name });
+			placed.push({ piece: pieces[i + k], x: x + nx * OFF_WALL, z: z + nz * OFF_WALL, yaw: run.yaw, wall: run.name, roomRight: run.len - (t + pieces[i + k].w / 2) });
 		}
 		i += n;
 	}
@@ -1197,14 +1194,14 @@ function hangRoom(key) {
 	state.gap = lay.gap;                           // the labels need it before the pieces exist
 	state.obstacles = [];
 	const slabs = new Map();                       // a slot's slab: the larger of the pair's sizes
-	for (const { piece: spec, x, z, yaw, wall, slab } of lay.placed) {
+	for (const { piece: spec, x, z, yaw, wall, slab, roomRight } of lay.placed) {
 		const piece = makePiece(spec);
 		piece.position.set(x, pieceY(piece.userData.h), z);
 		piece.rotation.y = yaw;
 		piece.userData.wall = wall;
+		placeLabels(piece, piece.userData.w, piece.userData.h, roomRight ?? Infinity, wall === 'mid');
 		// a middle row stops the body (Uli): its footprint, the body's radius round it
 		if (wall === 'mid') state.obstacles.push({ x0: x - spec.w / 2 - BODY_R, x1: x + spec.w / 2 + BODY_R, z0: z - SLAB.thick / 2 - BODY_R, z1: z + SLAB.thick / 2 + BODY_R });
-		if (wall === 'mid' && piece.userData.labels) placeLabels(piece, piece.userData.w, piece.userData.h, true);
 		if (slab) {
 			const zc = yaw === 0 ? z - SLAB.thick / 2 : z + SLAB.thick / 2, k = `${x}|${zc}`;
 			const y = piece.position.y, h = piece.userData.h, drop = piece.userData.labelDrop || 0;
