@@ -877,7 +877,8 @@ function makeCard(lines, cw) {
 // its right is.
 const LABEL_GAP = 0.02, GRID_CARD = 0.16, SINGLE_CARD = 0.24, LABEL_OFF = 0.05;
 function addLabel(piece, spec, w, h) {
-	const grid = spec.photos.length > 1, cw = grid ? GRID_CARD : SINGLE_CARD, cols = grid ? spec.cols : 1;
+	// a row of three or a pair stacks its cards in a column (Uli); a grid keeps its pattern
+	const grid = spec.photos.length > 1, cw = grid ? GRID_CARD : SINGLE_CARD, cols = grid && spec.rows > 1 ? spec.cols : 1;
 	const cards = spec.photos.map(p => makeCard(labelLines([p]), cw));
 	const ch = Math.max(...cards.map(c => c.userData.ch));
 	const rows = Math.ceil(cards.length / cols);
@@ -985,18 +986,18 @@ function wallRuns(W, D) {
 // Lay pieces (with their widths) along the walls at a given gap; whatever
 // does not fit comes back for the middle of the room.
 // Which of the `pieces` still to hang go on a run of `len` at `gap`, and
-// where: taken in order, a grid ahead in the queue pulled forward when it
-// fits (Uli: grids on the walls, the order bent just so slightly —
-// LOOKAHEAD pieces at most), and the ones that fit spread evenly (Uli: the
-// ways between were uneven), the room left over shared out between them
-// and the two ends alike. Returns the pieces taken, in wall order.
+// where: taken in order, one ahead in the queue pulled forward when the
+// next does not fit but it does (LOOKAHEAD places at most), and the ones
+// that fit spread evenly (Uli: the ways between were uneven), the room
+// left over shared out between them and the two ends alike. Returns the
+// pieces taken, in wall order.
 const LOOKAHEAD = 3;
 function spread(pieces, len, gap, margin, lookahead = LOOKAHEAD) {
 	const taken = []; let total = 0;
 	const fits = p => (taken.length ? total + gap : 0) + p.w <= len - 2 * margin;
 	for (;;) {
 		let pick = -1;
-		for (let k = 0; k < Math.min(lookahead + 1, pieces.length); k++) if (fits(pieces[k]) && (pieces[k].photos.length > 1 || pick < 0)) { pick = k; if (pieces[k].photos.length > 1) break; }
+		for (let k = 0; k < Math.min(lookahead + 1, pieces.length); k++) if (fits(pieces[k])) { pick = k; break; }
 		if (pick < 0) break;
 		const p = pieces.splice(pick, 1)[0];
 		total += (taken.length ? gap : 0) + p.w; taken.push(p);
@@ -1006,10 +1007,14 @@ function spread(pieces, len, gap, margin, lookahead = LOOKAHEAD) {
 	for (const p of taken) { at.push(cursor + p.w / 2); cursor += p.w + gap + even; }
 	return { taken, at };
 }
-function layWalls(pieces, W, D, gap) {
-	const placed = [], queue = [...pieces];
+// The walls take the grids first, then the singles, each in date order
+// (Uli: groups on the walls, the big prints back to back in the middle).
+// `limit`: at most that many pieces on the walls (the parity fix in layout).
+function layWalls(pieces, W, D, gap, limit = Infinity) {
+	const placed = [], queue = [...pieces.filter(p => p.photos.length > 1), ...pieces.filter(p => p.photos.length === 1)];
 	for (const run of wallRuns(W, D)) {
-		const { taken, at } = spread(queue, run.len, gap, run.margin ?? WALL_MARGIN);
+		const { taken, at } = spread(queue.slice(0, Math.max(0, limit - placed.length)), run.len, gap, run.margin ?? WALL_MARGIN);
+		for (const p of taken) queue.splice(queue.indexOf(p), 1);
 		taken.forEach((p, k) => {
 			const t = at[k];
 			const x = run.start[0] + run.dir[0] * t;
@@ -1027,22 +1032,19 @@ function layWalls(pieces, W, D, gap) {
 // and to the walls. A 4 m room takes one row; every further 1.5 m of
 // depth adds one.
 const WALKWAY = 1.5;
-// The rows stand to one side (Uli, 2026-09-06): the first NEAR off the
-// south wall — a passage to see that face from — the next WALKWAY apart
-// toward the north, and what is left of the room's depth is the walkway
-// on the north side, where the lift lets you out: wider than a centred
-// row left it.
-const NEAR = 1.1;
+// The rows share the depth evenly with the walls (Uli, 2026-09-06: the
+// walking space alike everywhere): n rows at D / (n + 1).
 function middleRows(D) {
 	const n = Math.max(1, Math.floor(D / WALKWAY) - 1);
-	return Array.from({ length: n }, (_, i) => D / 2 - NEAR - i * WALKWAY);
+	return Array.from({ length: n }, (_, i) => -D / 2 + (i + 1) * D / (n + 1));
 }
 
 const SLAB = { thick: 0.08, edge: 0.08 };   // behind a middle-row grid: its thickness, and how far past the group on every edge (Uli)
 function layMiddle(rest, W, D, gap) {
 	const placed = [];
-	// grids first, so the grids that did not make a wall stand back to back (Uli), the singles after
-	const pieces = [...rest.filter(p => p.photos.length > 1), ...rest.filter(p => p.photos.length === 1)];
+	// what the walls did not take, in the walls' order: the grids that made
+	// no wall first, so they stand back to back, then the singles (Uli)
+	const pieces = [...rest];
 	let i = 0;
 	for (const z of middleRows(D)) {
 		// the slots of this row: each a pair, as wide as its wider piece, spread evenly
@@ -1090,6 +1092,13 @@ function layout(items, W, D) {
 		middle = layMiddle(walls.rest, W, D, gap);
 		if (!middle.rest.length || gap <= GAP_MIN) break;
 		gap = Math.max(GAP_MIN, gap - 0.1);
+	}
+	// An odd number in the middle leaves a slab with a bare back (Uli: no
+	// empty walls): one piece fewer on the walls makes it even, when the
+	// middle has room for it.
+	if (!middle.rest.length && middle.placed.length % 2 && walls.placed.length) {
+		const w2 = layWalls(items, W, D, gap, walls.placed.length - 1), m2 = layMiddle(w2.rest, W, D, gap);
+		if (!m2.rest.length) { walls = w2; middle = m2; }
 	}
 	// A thin room uses the whole perimeter (Uli: no two lonely prints in a
 	// corner): while everything still fits on the walls, widen the spacing.
@@ -2040,14 +2049,17 @@ function pressAlong(rc, reach) {
 		pieces.traverse(o => { if (o.name === 'label' && o.visible) labels.push(o); });
 		const l = rc.intersectObjects(labels, false)[0];
 		if (l && l.distance <= 4) {
-			const card = l.object, big = card.scale.x > 1.5;
-			// grow from the card's top-right corner, which sits by the frame, so it
-			// stays where it is and spreads down and out
-			const w = card.geometry.parameters.width, h = card.geometry.parameters.height;
-			const k = big ? 1 : 2;
-			card.scale.set(k, k, 1);
-			card.position.x = card.userData.x0 + (k - 1) * w / 2 * (card.userData.below ? -1 : 1);
-			card.position.y = card.userData.y0 - (k - 1) * h / 2;
+			// the whole block, a grid's cards together (Uli): it grows from the
+			// corner that sits by the frame — top-left beside the piece, top-right
+			// under it — so that corner stays and the block spreads down and out
+			const L = l.object.parent.userData.labels, k = l.object.scale.x > 1.5 ? 1 : 2;
+			const ax = L.cards[0].userData.below ? Math.max(...L.cards.map(c => c.userData.x0 + L.cw / 2)) : Math.min(...L.cards.map(c => c.userData.x0 - L.cw / 2));
+			const ay = Math.max(...L.cards.map(c => c.userData.y0 + c.userData.ch / 2));
+			for (const c of L.cards) {
+				c.scale.set(k, k, 1);
+				c.position.x = ax + (c.userData.x0 - ax) * k;
+				c.position.y = ay + (c.userData.y0 - ay) * k;
+			}
 			return true;
 		}
 	}
