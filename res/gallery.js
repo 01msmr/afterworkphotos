@@ -91,22 +91,6 @@ resize();
 // the wall's white, the floor — and a shape, chosen from the room's key
 // so a year always gets the same room. Dark mode keeps the differences
 // as tints of the dark.
-const LOOKS = [
-	{ name: 'warm white / concrete', wall: { light: 0xf2f1ee, dark: 0x1b1b1b }, floor: { light: 0xc9c6c0, dark: 0x2a2927 } },
-	{ name: 'cool white / pale oak',  wall: { light: 0xeff1f2, dark: 0x191b1d }, floor: { light: 0xd8c4a0, dark: 0x2e271d } },
-	{ name: 'greige / dark stone',    wall: { light: 0xe9e5dd, dark: 0x1e1c19 }, floor: { light: 0x7d7a74, dark: 0x1a1918 } },
-	{ name: 'pale grey / concrete',   wall: { light: 0xe4e4e2, dark: 0x171717 }, floor: { light: 0xb9b7b2, dark: 0x262524 } },
-];
-const CEILING = { light: 0xffffff, dark: 0x141414 };
-// Proportions relative to the settings' room: as set, wider and shallower, deeper and narrower.
-const SHAPES = [[1, 1], [1.2, 0.85], [0.85, 1.25]];
-
-function hashKey(key) {
-	let h = 7;
-	for (const c of key) h = (h * 31 + c.charCodeAt(0)) >>> 0;
-	return h;
-}
-function lookOf(key)  { return LOOKS[hashKey(key) % LOOKS.length]; }
 
 // The floor of a room is its year's, and stays it, so a year is remembered
 // by what one stands on (Uli, 2026-09-05): the entry floor a grey lacquer,
@@ -115,7 +99,7 @@ function lookOf(key)  { return LOOKS[hashKey(key) % LOOKS.length]; }
 // on the floor; the metals carry a metalness map. A year not in the table
 // takes a spare, in turn.
 const FLOORS = {
-	lacquer:         { colour: { light: 0x6e6f71, dark: 0x2a2a2c }, roughness: 0.25 },
+	lacquer:         { colour: { light: 0x56575a, dark: 0x232325 }, roughness: 0.3 },
 	warehouse:       { metres: 2 },        // worn planks, knots and nail holes
 	'planks-dark':   { metres: 2 },        // the darker old planks
 	checker:         { metres: 1, metal: true },   // diamond plate
@@ -172,13 +156,23 @@ function floorOf(year) { return FLOOR_OF_YEAR[year] || SPARE_FLOORS[Number(year)
 // mode the texture is dimmed through the material's colour (applyMode).
 function floorMaterial(slug, W, D) {
 	const f = FLOORS[slug];
-	if (!f.metres) return { material: new THREE.MeshStandardMaterial({ color: f.colour.light, roughness: f.roughness, metalness: 0, envMapIntensity: 1 }), colours: f.colour };
+	if (!f.metres) return { material: new THREE.MeshStandardMaterial({ color: f.colour.light, roughness: f.roughness, metalness: 0, envMapIntensity: 0.6 }), colours: f.colour };
 	const t = kind => tex(`floor-${slug}-${kind}.jpg`, kind === 'color', D / f.metres, W / f.metres);
 	const material = new THREE.MeshStandardMaterial({
 		map: t('color'), roughnessMap: t('rough'), normalMap: t('normal'), normalScale: new THREE.Vector2(0.7, 0.7),
 		metalnessMap: f.metal ? t('metalness') : null, metalness: f.metal ? 1 : 0, roughness: 1, envMapIntensity: f.metal ? 0.5 : 0.35,
 	});
-	return { material, colours: { light: 0xffffff, dark: 0x4a4a4a } };
+	// under the day's fills a texture at full colour washed out (Uli): two thirds
+	return { material, colours: { light: 0xa8a8a8, dark: 0x3a3a3a } };
+}
+const CEILING = { light: 0xffffff, dark: 0x141414 };
+// Proportions relative to the settings' room: as set, wider and shallower, deeper and narrower.
+const SHAPES = [[1, 1], [1.2, 0.85], [0.85, 1.25]];
+
+function hashKey(key) {
+	let h = 7;
+	for (const c of key) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+	return h;
 }
 function shapeOf(key) {
 	if (state.real) return { W: state.real.W, D: state.real.D };     // a real room is the room, for every year
@@ -234,14 +228,13 @@ function panelFrames(across) {
 const AMBIENT = { light: 1.9,  dark: 0.08 };
 const FILL    = { light: 1.4,  dark: 0.06 };
 
-function buildRoom(W, D, H, look = LOOKS[0], floor = 'lacquer', dadoCap = Infinity) {
+function buildRoom(W, D, H, floor = 'lacquer', dadoCap = Infinity) {
 	const room = new THREE.Group();
 	room.name = 'room';
-	room.userData.look = look.name;
 	const style = WALL_STYLES[floor] || WALL_STYLES.lacquer;
 
 	const mode = state.settings.dark ? 'dark' : 'light';
-	const COLOURS = { wall: wallColours(style.paint), floor: look.floor, ceiling: CEILING };
+	const COLOURS = { wall: wallColours(style.paint), ceiling: CEILING };
 	const mat = key => new THREE.MeshLambertMaterial({ color: COLOURS[key][mode] });
 
 	// Each surface: a plane sized to its span, rotated to face the room's
@@ -324,6 +317,7 @@ function applyModeF(f) {
 	const lamp = scene.getObjectByName('cabin-lamp');
 	if (lamp) lamp.intensity = mix(CABIN_LAMP.light, CABIN_LAMP.dark);
 	lightPanel.emissiveIntensity = mix(CABIN_PANEL.light, CABIN_PANEL.dark);
+	scene.environmentIntensity = mix(ENV_INTENSITY.light, ENV_INTENSITY.dark);
 }
 function stepMode(now) {
 	const target = state.settings.dark ? 1 : 0;
@@ -424,6 +418,10 @@ function makeEnvironment() {
 	return env;
 }
 scene.environment = makeEnvironment();
+// the environment's reflections — steel, walnut, caps — which no light
+// switches off: they fade with the night too (applyModeF)
+const ENV_INTENSITY = { light: 1, dark: 0.12 };
+scene.environmentIntensity = ENV_INTENSITY[state.settings.dark ? 'dark' : 'light'];
 scene.environmentIntensity = 0.6;
 
 // The warm pool a spot would throw on the wall around a piece, as a
@@ -757,7 +755,7 @@ function makePiece(spec) {
 	pool.name = 'pool';
 	pool.position.set(0, 0.1, -0.0005 + 0.0008);
 	piece.add(pool);
-	piece.userData = { n: photos[0].n, w, h };
+	Object.assign(piece.userData, { n: photos[0].n, w, h });   // the labels' block (addLabel) is already on it
 	return piece;
 }
 
@@ -841,34 +839,69 @@ function labelLines(photos) {
 	if (a.place) lines.push(a.place);
 	return lines;
 }
-function addLabel(piece, spec, w, h) {
-	const lines = labelLines(spec.photos);
-	// drawn at twice the size it was (Uli: sharper), 1536 px across a 24 cm card
+// One label card: the lines drawn at twice the size they were (Uli:
+// sharper), 1536 px across, `cw` metres wide. Named 'label' so the labels
+// switch and a press (doubling it) find it; x0/y0 remember its place.
+function makeCard(lines, cw) {
 	const c = document.createElement('canvas');
 	c.width = 1536; c.height = 2 * (80 + 64 * lines.length);
 	const g = c.getContext('2d');
-	g.fillStyle = '#fbfaf7'; g.fillRect(0, 0, c.width, c.height);
+	g.fillStyle = '#fdfcfa'; g.fillRect(0, 0, c.width, c.height);
 	g.textBaseline = 'middle';
+	// near-black, a weight up: what the headset's pixels can still resolve is contrast (Uli)
 	lines.forEach((line, i) => {
-		g.fillStyle = i === 0 ? '#3a3835' : '#6b6862';
-		g.font = `${i === 0 ? 500 : 400} ${i === 0 ? 80 : 72}px -apple-system, "Helvetica Neue", Arial, sans-serif`;
+		g.fillStyle = i === 0 ? '#141311' : '#3d3a36';
+		g.font = `${i === 0 ? 600 : 500} ${i === 0 ? 84 : 76}px -apple-system, "Helvetica Neue", Arial, sans-serif`;
 		g.fillText(line, 80, 2 * (40 + 32 + 64 * i));
 	});
 	const t = new THREE.CanvasTexture(c);
 	t.colorSpace = THREE.SRGBColorSpace;
-	t.anisotropy = 8;
-	const cw = 0.24, ch = cw * c.height / c.width;
-	const card = new THREE.Mesh(new THREE.PlaneGeometry(cw, ch), new THREE.MeshLambertMaterial({ map: t }));
+	t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+	const ch = cw * c.height / c.width;
+	// unlit: the paper is the paper, whatever the fills do
+	const card = new THREE.Mesh(new THREE.PlaneGeometry(cw, ch), new THREE.MeshBasicMaterial({ map: t }));
 	card.name = 'label';
-	// Lower right of the piece where the wall has room; when the pieces
-	// hang closer than the card needs, below the frame instead (Uli), so
-	// no card runs into the next frame.
-	const below = state.gap < cw + 0.05 + 0.05;
-	if (!below) card.position.set(w / 2 + 0.05 + cw / 2, -h / 2 + ch / 2, 0.002);
-	else card.position.set(w / 2 - cw / 2, -h / 2 - 0.03 - ch / 2, 0.002);
-	card.userData = { x0: card.position.x, y0: card.position.y, below };
 	card.visible = state.settings.labels;
-	piece.add(card);
+	card.userData.ch = ch;
+	return card;
+}
+// A single's card, lower right of the piece where the wall has room; when
+// the pieces hang closer than the card needs, below the frame instead
+// (Uli), so no card runs into the next frame. A grid's labels (Uli): one
+// card per print, laid out in the grid's own pattern, LABEL_GAP apart,
+// beside the group to its right — under it where the wall has no room,
+// and always under it in the middle of the room (placeLabels), where the
+// slab is made to hold them.
+const LABEL_GAP = 0.02, GRID_CARD = 0.16;
+function addLabel(piece, spec, w, h) {
+	if (spec.photos.length === 1) {
+		const cw = 0.24, card = makeCard(labelLines(spec.photos), cw), ch = card.userData.ch;
+		const below = state.gap < cw + 0.05 + 0.05;
+		if (!below) card.position.set(w / 2 + 0.05 + cw / 2, -h / 2 + ch / 2, 0.002);
+		else card.position.set(w / 2 - cw / 2, -h / 2 - 0.03 - ch / 2, 0.002);
+		Object.assign(card.userData, { x0: card.position.x, y0: card.position.y, below });
+		piece.add(card);
+		return;
+	}
+	const { cols, rows } = spec, cw = GRID_CARD;
+	const cards = spec.photos.map(p => makeCard(labelLines([p]), cw));
+	const ch = Math.max(...cards.map(c => c.userData.ch));
+	const bw = cols * cw + (cols - 1) * LABEL_GAP, bh = rows * ch + (rows - 1) * LABEL_GAP;
+	piece.userData.labels = { cards, cols, cw, ch, bw, bh };
+	for (const c of cards) piece.add(c);
+	placeLabels(piece, w, h, state.gap < bw + 0.05 + 0.05);
+}
+function placeLabels(piece, w, h, below) {
+	const L = piece.userData.labels;
+	if (!L) return;
+	// the block's top-left corner: right of the piece, level with its top; or under it, flush left
+	const x0 = below ? -w / 2 : w / 2 + 0.05, y0 = below ? -h / 2 - 0.03 : h / 2;
+	L.cards.forEach((card, i) => {
+		const col = i % L.cols, row = Math.floor(i / L.cols);
+		card.position.set(x0 + col * (L.cw + LABEL_GAP) + L.cw / 2, y0 - row * (L.ch + LABEL_GAP) - card.userData.ch / 2, 0.002);
+		Object.assign(card.userData, { x0: card.position.x, y0: card.position.y, below });
+	});
+	piece.userData.labelDrop = below ? 0.03 + L.bh : 0;   // what hangs under the frame, for the slab
 }
 
 // ---------------------------------------------------------------------------
@@ -926,6 +959,8 @@ const OFF_WALL = 0.001;     // a hair off the plaster, so the frame's back does 
 function wallRuns(W, D) {
 	const e = ELEVATOR.size;
 	return [
+		// the cabin's south face first (Uli): plastered like the walls, room for one print
+		{ name: 'cabin', start: [ W / 2, -D / 2 + e + 0.012], dir: [-1, 0], yaw: Math.PI, len: e, margin: 0.15 },
 		{ name: 'e', start: [ W / 2, -D / 2 + e], dir: [0,  1], yaw: -Math.PI / 2, len: D - e },
 		{ name: 's', start: [ W / 2,  D / 2],     dir: [-1, 0], yaw:  Math.PI,     len: W },
 		{ name: 'w', start: [-W / 2,  D / 2],     dir: [0, -1], yaw:  Math.PI / 2, len: D },
@@ -935,23 +970,32 @@ function wallRuns(W, D) {
 
 // Lay pieces (with their widths) along the walls at a given gap; whatever
 // does not fit comes back for the middle of the room.
+// How many of `pieces` (from `i`) fit on a run of `len` at `gap`, and
+// where they go: the ones that fit are spread evenly (Uli: the ways
+// between were uneven), the room left over shared out between them and
+// the two ends alike.
+function spread(pieces, i, len, gap, margin) {
+	let n = 0, total = 0;
+	while (i + n < pieces.length && (n ? total + gap : 0) + pieces[i + n].w <= len - 2 * margin) { total += (n ? gap : 0) + pieces[i + n].w; n++; }
+	const free = len - 2 * margin - total, even = n ? free / (n + 1) : 0;
+	const at = []; let cursor = margin + even;
+	for (let k = 0; k < n; k++) { at.push(cursor + pieces[i + k].w / 2); cursor += pieces[i + k].w + gap + even; }
+	return { n, at };
+}
 function layWalls(pieces, W, D, gap) {
 	const placed = [];
 	let i = 0;
 	for (const run of wallRuns(W, D)) {
-		let cursor = WALL_MARGIN;
-		while (i < pieces.length) {
-			const w = pieces[i].w;
-			if (cursor + w > run.len - WALL_MARGIN) break;
-			const t = cursor + w / 2;
+		const { n, at } = spread(pieces, i, run.len, gap, run.margin ?? WALL_MARGIN);
+		for (let k = 0; k < n; k++) {
+			const t = at[k];
 			const x = run.start[0] + run.dir[0] * t;
 			const z = run.start[1] + run.dir[1] * t;
 			// step off the wall along the piece's facing direction
 			const nx = Math.sin(run.yaw), nz = Math.cos(run.yaw);
-			placed.push({ piece: pieces[i], x: x + nx * OFF_WALL, z: z + nz * OFF_WALL, yaw: run.yaw, wall: run.name });
-			cursor += w + gap;
-			i++;
+			placed.push({ piece: pieces[i + k], x: x + nx * OFF_WALL, z: z + nz * OFF_WALL, yaw: run.yaw, wall: run.name });
 		}
+		i += n;
 	}
 	return { placed, rest: pieces.slice(i) };
 }
@@ -972,17 +1016,18 @@ function middleRows(D) {
 	return Array.from({ length: n }, (_, i) => D / 2 - NEAR - i * WALKWAY);
 }
 
-const SLAB = { thick: 0.08, wider: 0.08 };   // behind a middle-row grid: its thickness, and how much wider and taller than the group
+const SLAB = { thick: 0.08, edge: 0.08 };   // behind a middle-row grid: its thickness, and how far past the group on every edge (Uli)
 function layMiddle(pieces, W, D, gap) {
 	const placed = [];
 	let i = 0;
 	for (const z of middleRows(D)) {
-		let cursor = WALL_MARGIN;
-		while (i < pieces.length) {
+		// the slots of this row: each a pair, as wide as its wider piece, spread evenly
+		const slots = [];
+		for (let k = i; k < pieces.length; k += 2) slots.push({ w: Math.max(pieces[k].w, pieces[k + 1] ? pieces[k + 1].w : 0) });
+		const { n, at } = spread(slots, 0, W, gap, WALL_MARGIN);
+		for (let k = 0; k < n; k++) {
 			const a = pieces[i], b = pieces[i + 1];
-			const w = Math.max(a.w, b ? b.w : 0);
-			if (cursor + w > W - WALL_MARGIN) break;
-			const x = -W / 2 + cursor + w / 2;
+			const x = -W / 2 + at[k];
 			// a slot with a grid gets a slab (Uli): a wall-like block behind,
 			// SLAB thick, the pair hanging on its two faces so nothing shows
 			// through the grid's gaps; two singles hang back to back as before
@@ -990,7 +1035,6 @@ function layMiddle(pieces, W, D, gap) {
 			const off = slab ? SLAB.thick / 2 : FRAME.depth / 2;
 			placed.push({ piece: a, x, z: z + off, yaw: 0, wall: 'mid', slab });        // faces +z (south)
 			if (b) placed.push({ piece: b, x, z: z - off, yaw: Math.PI, wall: 'mid', slab });  // faces -z
-			cursor += w + gap;
 			i += 2;
 		}
 	}
@@ -1075,7 +1119,7 @@ function rooms() {
 		const one = shapeOf(m.years.join('_'));
 		if (!layout([...specs].reverse(), one.W, one.D).rest.length) {
 			const key = m.years.join('_');
-			roomList.push({ key, year, span, years: m.years, part: 0, of: 1, specs, shape: one, look: lookOf(key) });
+			roomList.push({ key, year, span, years: m.years, part: 0, of: 1, specs, shape: one });
 			continue;
 		}
 		// as many rooms as it takes: two, or more in a small real room
@@ -1091,7 +1135,7 @@ function rooms() {
 		for (let i = 0; i < parts; i++) {
 			const part = i + 1, key = `${year}-${part}`, slice = specs.slice(i * per, (i + 1) * per);
 			if (!slice.length) continue;
-			roomList.push({ key, year, span, years: m.years, part, of: parts, specs: slice, shape: shapeOf(key), look: lookOf(key) });
+			roomList.push({ key, year, span, years: m.years, part, of: parts, specs: slice, shape: shapeOf(key) });
 		}
 	}
 	// newest room first: by year, then the later part
@@ -1137,7 +1181,7 @@ function hangRoom(key) {
 	const style = WALL_STYLES[floor] || WALL_STYLES.lacquer;
 	const dadoCap = Math.max(0, Math.min(dadoTop(style), HANG_MAX - 0.15 - tallest / 2));
 	state.dadoCap = dadoCap;
-	if (!state.room || state.room.W !== W || state.room.D !== D || state.room.look !== room.look.name || state.room.floor !== floor || state.room.dadoCap !== dadoCap) {
+	if (!state.room || state.room.W !== W || state.room.D !== D || state.room.floor !== floor || state.room.dadoCap !== dadoCap) {
 		for (const name of ['room', 'elevator']) {
 			const old = scene.getObjectByName(name);
 			if (!old) continue;
@@ -1146,9 +1190,9 @@ function hangRoom(key) {
 			const f = old.getObjectByName('floor');
 			if (f) { for (const k of ['map', 'roughnessMap', 'normalMap', 'metalnessMap']) f.material[k]?.dispose(); f.material.dispose(); }
 		}
-		world.add(buildRoom(W, D, H, room.look, floor, dadoCap));
-		world.add(elevator.build(W, D, H));
-		state.room = { W, D, H, look: room.look.name, floor, dadoCap };
+		world.add(buildRoom(W, D, H, floor, dadoCap));
+		world.add(elevator.build(W, D, H, floor, dadoCap));
+		state.room = { W, D, H, floor, dadoCap };
 	}
 
 	state.gap = lay.gap;                           // the labels need it before the pieces exist
@@ -1161,11 +1205,12 @@ function hangRoom(key) {
 		piece.userData.wall = wall;
 		// a middle row stops the body (Uli): its footprint, the body's radius round it
 		if (wall === 'mid') state.obstacles.push({ x0: x - spec.w / 2 - BODY_R, x1: x + spec.w / 2 + BODY_R, z0: z - SLAB.thick / 2 - BODY_R, z1: z + SLAB.thick / 2 + BODY_R });
+		if (wall === 'mid' && piece.userData.labels) placeLabels(piece, piece.userData.w, piece.userData.h, true);
 		if (slab) {
 			const zc = yaw === 0 ? z - SLAB.thick / 2 : z + SLAB.thick / 2, k = `${x}|${zc}`;
-			const y = piece.position.y, h = piece.userData.h;
+			const y = piece.position.y, h = piece.userData.h, drop = piece.userData.labelDrop || 0;
 			const prev = slabs.get(k) || { x, z: zc, w: 0, bottom: Infinity, top: -Infinity };
-			slabs.set(k, { ...prev, w: Math.max(prev.w, piece.userData.w), bottom: Math.min(prev.bottom, y - h / 2), top: Math.max(prev.top, y + h / 2) });
+			slabs.set(k, { ...prev, w: Math.max(prev.w, piece.userData.w), bottom: Math.min(prev.bottom, y - h / 2 - drop), top: Math.max(prev.top, y + h / 2) });
 		}
 		// A piece in the middle of the room has no wall behind it: the warm
 		// pool a spot throws would hang in the air. The light stays, the
@@ -1179,7 +1224,7 @@ function hangRoom(key) {
 	// the slabs: the wall's colour, following day and night like a wall
 	for (const sl of slabs.values()) {
 		const paint = wallColours((WALL_STYLES[floor] || WALL_STYLES.lacquer).paint);
-		const m = new THREE.Mesh(new THREE.BoxGeometry(sl.w + SLAB.wider, sl.top - sl.bottom + SLAB.wider, SLAB.thick), new THREE.MeshLambertMaterial({ color: paint[state.settings.dark ? 'dark' : 'light'] }));
+		const m = new THREE.Mesh(new THREE.BoxGeometry(sl.w + 2 * SLAB.edge, sl.top - sl.bottom + 2 * SLAB.edge, SLAB.thick), new THREE.MeshLambertMaterial({ color: paint[state.settings.dark ? 'dark' : 'light'] }));
 		m.name = 'slab';
 		m.position.set(sl.x, (sl.top + sl.bottom) / 2, sl.z);
 		m.userData.colours = paint;
@@ -1241,7 +1286,7 @@ const walnut = (rx, ry) => new THREE.MeshStandardMaterial({
 });
 const pocketMat = new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.9 });   // the black gap round a button
 const lightPanel = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xfff6e8, emissiveIntensity: 1.6, roughness: 1 });
-const CABIN_LAMP = { light: 5, dark: 1.8 }, CABIN_PANEL = { light: 1.6, dark: 0.5 };   // the cabin at night: dimmer, not dark (Uli)
+const CABIN_LAMP = { light: 5, dark: 0.9 }, CABIN_PANEL = { light: 1.6, dark: 0.35 };   // the cabin at night: dimmer, not dark (Uli)
 
 // The print on a button: the year, left-aligned, in Jost Light (loaded
 // before the first room, see the start); a split year's floors are
@@ -1355,13 +1400,18 @@ const lift = {
 	// the stop — the recording's run played over again, overlapping a
 	// little, when the ride outlasts it — then the stop
 	run(seconds) {
-		if (!this.ready()) return;
-		const R = SOUND.ride, t = this.ctx.currentTime;
-		const seg = R.run[1] - R.run[0], runLen = Math.max(0.4, seconds - STOP_LEN);
-		for (let at = 0; at < runLen; at += seg - 0.3) {
-			const len = Math.min(seg, runLen - at);
-			this.play('ride', at === 0 ? R.run[0] : R.run[0] + 1.0, len, t + at, 1, at === 0 ? 0.03 : 0.3, 0.3);   // later passes skip the start's whirr
-		}
+		if (!this.ready() || !this.buf.ride) return;
+		const R = SOUND.ride, ctx = this.ctx, t = ctx.currentTime;
+		const runLen = Math.max(0.4, seconds - STOP_LEN);
+		// one source: the recording from its start, its steady middle looped
+		// for as long as the ride runs (Uli: a ride must not start over)
+		const src = ctx.createBufferSource(); src.buffer = this.buf.ride;
+		src.loop = true; src.loopStart = R.run[0] + 2.0; src.loopEnd = R.run[1] - 0.2;
+		const g = ctx.createGain();
+		g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(1, t + 0.03);
+		g.gain.setValueAtTime(1, t + runLen - 0.15); g.gain.exponentialRampToValueAtTime(0.0001, t + runLen);
+		src.connect(g); g.connect(this.master);
+		src.start(t, R.run[0]); src.stop(t + runLen + 0.02);
 		this.play('ride', R.stop[0], STOP_LEN, t + runLen - 0.1, 1, 0.1, 0.2);
 	},
 	// The doors: a lift has two, the cabin's and the shaft's, moving as
@@ -1550,7 +1600,7 @@ const elevator = {
 	doorAnim: null,     // { from, to, t0 } an idle open or close
 	leftAt: null,       // when the body last stepped out, for the doors to close behind
 
-	build(W, D, H) {
+	build(W, D, H, floor = 'lacquer', dadoCap = Infinity) {
 		const e = ELEVATOR.size, t = CABIN_WALL;
 		const g = new THREE.Group();
 		g.name = 'elevator';
@@ -1571,6 +1621,14 @@ const elevator = {
 		// 2 mm short of the room's ceiling and floor: a face flush with either
 		// shimmered along the cabin's top edge (Uli)
 		box('cabin-s', e, H - 0.004, t, W / 2 - e / 2, H / 2, z1 - t / 2, metal);
+		// the south face, the one side without the door, is plastered like the
+		// room's walls (Uli), dressed like them and hung like them (the 'cabin' run)
+		{
+			const style = WALL_STYLES[floor] || WALL_STYLES.lacquer, mode = state.settings.dark ? 'dark' : 'light', paint = wallColours(style.paint);
+			const face = new THREE.Mesh(new THREE.PlaneGeometry(e, H - 0.004), new THREE.MeshLambertMaterial({ color: paint[mode] }));
+			face.name = 'cabin-face'; face.userData.colours = paint; face.position.set(W / 2 - e / 2, H / 2, z1 + 0.011); g.add(face);
+			dressWall(face, style, H, Math.min(dadoCap, dadoTop(style)), mode);
+		}
 		box('cabin-n', e, H - 0.004, t, W / 2 - e / 2, H / 2, -D / 2 + t / 2, metal);
 		box('cabin-e', t, H - 0.004, e, W / 2 - t / 2, H / 2, -D / 2 + e / 2, metal);
 		box('cabin-floor', e, 0.01, e, W / 2 - e / 2, 0.007, -D / 2 + e / 2, cabinFloor);
@@ -1583,12 +1641,12 @@ const elevator = {
 		// West face: two jambs and a lintel around the door opening, and an
 		// architrave standing proud of the face round the door outside.
 		const jamb = (e - DOOR.w) / 2;
-		box('jamb-n', t, DOOR.h, jamb, x0 + t / 2, DOOR.h / 2, -D / 2 + jamb / 2, metal);
-		box('jamb-s', t, DOOR.h, jamb, x0 + t / 2, DOOR.h / 2, z1 - jamb / 2, metal);
-		box('lintel', t, H - DOOR.h, e, x0 + t / 2, DOOR.h + (H - DOOR.h) / 2, -D / 2 + e / 2, metal);
+		box('jamb-n', t, DOOR.h - 0.002, jamb, x0 + t / 2, 0.002 + (DOOR.h - 0.002) / 2, -D / 2 + jamb / 2, metal);
+		box('jamb-s', t, DOOR.h - 0.002, jamb, x0 + t / 2, 0.002 + (DOOR.h - 0.002) / 2, z1 - jamb / 2, metal);
+		box('lintel', t, H - DOOR.h - 0.002, e, x0 + t / 2, DOOR.h + (H - DOOR.h - 0.002) / 2, -D / 2 + e / 2, metal);
 		const zc = -D / 2 + e / 2, arch = 0.07, proud = 0.03;
-		box('arch-n', proud, DOOR.h + arch, arch, x0 - proud / 2, (DOOR.h + arch) / 2, zc - DOOR.w / 2 - arch / 2, metal);
-		box('arch-s', proud, DOOR.h + arch, arch, x0 - proud / 2, (DOOR.h + arch) / 2, zc + DOOR.w / 2 + arch / 2, metal);
+		box('arch-n', proud, DOOR.h + arch - 0.002, arch, x0 - proud / 2, 0.002 + (DOOR.h + arch - 0.002) / 2, zc - DOOR.w / 2 - arch / 2, metal);
+		box('arch-s', proud, DOOR.h + arch - 0.002, arch, x0 - proud / 2, 0.002 + (DOOR.h + arch - 0.002) / 2, zc + DOOR.w / 2 + arch / 2, metal);
 		box('arch-top', proud, arch, DOOR.w + 2 * arch, x0 - proud / 2, DOOR.h + arch / 2, zc, metal);
 
 		// The call station outside (Uli): a steel plate on the cabin's face
@@ -1630,12 +1688,13 @@ const elevator = {
 		// closed, they leave SLOT.gap between them at the centre, with the shaft in it
 		const dx = x0 + t + DOOR.thick / 2 + 0.005, leaf = DOOR.w / 2 - SLOT.gap / 2;
 		this.doors = [
-			box('door-n', DOOR.thick, DOOR.h, leaf, dx, DOOR.h / 2, zc - SLOT.gap / 2 - leaf / 2, metal),
-			box('door-s', DOOR.thick, DOOR.h, leaf, dx, DOOR.h / 2, zc + SLOT.gap / 2 + leaf / 2, metal),
+			box('door-n', DOOR.thick, DOOR.h - 0.004, leaf, dx, DOOR.h / 2, zc - SLOT.gap / 2 - leaf / 2, metal),
+			box('door-s', DOOR.thick, DOOR.h - 0.004, leaf, dx, DOOR.h / 2, zc + SLOT.gap / 2 + leaf / 2, metal),
 		];
 		for (const d of this.doors) d.userData.closedZ = d.position.z;
-		const seam = new THREE.Mesh(new THREE.PlaneGeometry(SLOT.gap, DOOR.h), new THREE.MeshBasicMaterial({ map: this.shaftTex, side: THREE.DoubleSide }));
+		const seam = new THREE.Mesh(new THREE.PlaneGeometry(SLOT.gap, DOOR.h - 0.004), new THREE.MeshBasicMaterial({ map: this.shaftTex, side: THREE.DoubleSide }));
 		seam.name = 'shaft-seam'; seam.position.set(dx, DOOR.h / 2, zc); seam.rotation.y = Math.PI / 2; g.add(seam);
+		this.seam = seam;
 
 		// Floor displays above the door, one facing into the cabin, one out.
 		this.displays = [];
@@ -1783,6 +1842,7 @@ const elevator = {
 		const [n, s] = this.doors;
 		n.position.z = n.userData.closedZ - open * DOOR.w / 2;
 		s.position.z = s.userData.closedZ + open * DOOR.w / 2;
+		if (this.seam) this.seam.visible = open < 0.02;   // the shaft shows only while the leaves are shut (Uli)
 	},
 
 	// Is the body in the cabin?
@@ -1884,6 +1944,11 @@ const elevator = {
 			const before = this.originWorld().clone(), off = new THREE.Vector3().subVectors(walk.pos, before);
 			hangRoom(r.key);                       // may rebuild the room and this cabin
 			if (!renderer.xr.isPresenting) { const o = this.originWorld(); walk.pos.set(o.x + off.x, walk.pos.y, o.z + off.z); }
+			// in the headset the visitor cannot be moved: the world is shifted
+			// so the new room's cabin stands where the old one stood — before,
+			// a room of another size left them outside the cabin, the doors
+			// closed behind them and a call brought the lift again (Uli)
+			else world.position.add(before.sub(this.originWorld()));
 			this.setDoors(0);
 			renderer.compile(scene, camera);
 			r.hung = true;
@@ -1933,7 +1998,7 @@ function pressAlong(rc, reach) {
 		const u = hit.object.userData;
 		if (u.action) { SWITCHES.find(sw => sw.key === u.action).press(); refreshSwitches(); }
 		else if (u.call) elevator.call();
-		else { elevator.press(u.key, hit.object); elevator.go(u.key); }
+		else if (elevator.inside()) { elevator.press(u.key, hit.object); elevator.go(u.key); }   // a floor is chosen from inside the cabin only (Uli)
 		return true;
 	}
 	// a label card: a press doubles it, the next press puts it back (Uli)
