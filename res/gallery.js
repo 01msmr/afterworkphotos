@@ -237,13 +237,16 @@ function applyMode(dark) {
 const _ca = new THREE.Color(), _cb = new THREE.Color();
 function applyModeF(f) {
 	const mix = (a, b) => a + (b - a) * f;
-	const room = scene.getObjectByName('room');
-	if (room) room.traverse(o => {
+	for (const name of ['room', 'pieces']) {   // the pieces group for the slabs behind the middle rows
+		const g = scene.getObjectByName(name);
+		if (!g) continue;
+		g.traverse(o => {
 		if (o.isMesh && o.userData.colours) o.material.color.copy(_ca.setHex(o.userData.colours.light).lerp(_cb.setHex(o.userData.colours.dark), f));
 		if (o.isAmbientLight) o.intensity = mix(AMBIENT.light, AMBIENT.dark);
 		if (o.isHemisphereLight) o.intensity = mix(FILL.light, FILL.dark);
 		if (o.isDirectionalLight) o.intensity = mix(1.1, 0.9);
-	});
+		});
+	}
 	const lamp = scene.getObjectByName('cabin-lamp');
 	if (lamp) lamp.intensity = mix(CABIN_LAMP.light, CABIN_LAMP.dark);
 	lightPanel.emissiveIntensity = mix(CABIN_PANEL.light, CABIN_PANEL.dark);
@@ -889,6 +892,7 @@ function middleRows(D) {
 	return Array.from({ length: n }, (_, i) => (i - (n - 1) / 2) * WALKWAY);
 }
 
+const SLAB = { thick: 0.08, wider: 0.08 };   // behind a middle-row grid: its thickness, and how much wider and taller than the group
 function layMiddle(pieces, W, D, gap) {
 	const placed = [];
 	let i = 0;
@@ -899,8 +903,13 @@ function layMiddle(pieces, W, D, gap) {
 			const w = Math.max(a.w, b ? b.w : 0);
 			if (cursor + w > W - WALL_MARGIN) break;
 			const x = -W / 2 + cursor + w / 2;
-			placed.push({ piece: a, x, z: z + FRAME.depth / 2, yaw: 0, wall: 'mid' });        // faces +z (south)
-			if (b) placed.push({ piece: b, x, z: z - FRAME.depth / 2, yaw: Math.PI, wall: 'mid' });  // faces -z
+			// a slot with a grid gets a slab (Uli): a wall-like block behind,
+			// SLAB thick, the pair hanging on its two faces so nothing shows
+			// through the grid's gaps; two singles hang back to back as before
+			const slab = a.photos.length > 1 || (b && b.photos.length > 1);
+			const off = slab ? SLAB.thick / 2 : FRAME.depth / 2;
+			placed.push({ piece: a, x, z: z + off, yaw: 0, wall: 'mid', slab });        // faces +z (south)
+			if (b) placed.push({ piece: b, x, z: z - off, yaw: Math.PI, wall: 'mid', slab });  // faces -z
 			cursor += w + gap;
 			i += 2;
 		}
@@ -1052,13 +1061,19 @@ function hangRoom(key) {
 
 	state.gap = lay.gap;                           // the labels need it before the pieces exist
 	state.obstacles = [];
-	for (const { piece: spec, x, z, yaw, wall } of lay.placed) {
+	const slabs = new Map();                       // a slot's slab: the larger of the pair's sizes
+	for (const { piece: spec, x, z, yaw, wall, slab } of lay.placed) {
 		const piece = makePiece(spec);
 		piece.position.set(x, HANG_Y, z);
 		piece.rotation.y = yaw;
 		piece.userData.wall = wall;
 		// a middle row stops the body (Uli): its footprint, the body's radius round it
-		if (wall === 'mid') state.obstacles.push({ x0: x - spec.w / 2 - BODY_R, x1: x + spec.w / 2 + BODY_R, z0: z - FRAME.depth - BODY_R, z1: z + FRAME.depth + BODY_R });
+		if (wall === 'mid') state.obstacles.push({ x0: x - spec.w / 2 - BODY_R, x1: x + spec.w / 2 + BODY_R, z0: z - SLAB.thick / 2 - BODY_R, z1: z + SLAB.thick / 2 + BODY_R });
+		if (slab) {
+			const zc = yaw === 0 ? z - SLAB.thick / 2 : z + SLAB.thick / 2, k = `${x}|${zc}`;
+			const prev = slabs.get(k) || { x, z: zc, w: 0, h: 0 };
+			slabs.set(k, { ...prev, w: Math.max(prev.w, piece.userData.w), h: Math.max(prev.h, piece.userData.h) });
+		}
 		// A piece in the middle of the room has no wall behind it: the warm
 		// pool a spot throws would hang in the air. The light stays, the
 		// pool goes (Uli, 2026-08-29).
@@ -1067,6 +1082,14 @@ function hangRoom(key) {
 			if (pool) { pool.geometry.dispose(); pool.parent.remove(pool); }
 		}
 		pieces.add(piece);
+	}
+	// the slabs: the wall's colour, following day and night like a wall
+	for (const sl of slabs.values()) {
+		const m = new THREE.Mesh(new THREE.BoxGeometry(sl.w + SLAB.wider, sl.h + SLAB.wider, SLAB.thick), new THREE.MeshLambertMaterial({ color: room.look.wall[state.settings.dark ? 'dark' : 'light'] }));
+		m.name = 'slab';
+		m.position.set(sl.x, HANG_Y, sl.z);
+		m.userData.colours = room.look.wall;
+		pieces.add(m);
 	}
 
 	world.add(pieces);
