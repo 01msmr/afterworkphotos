@@ -912,31 +912,49 @@ function placeLabels(piece, w, h, roomRight, forceBelow = false) {
 // one left hangs single at 60; everything judged single hangs at 90.
 
 // How to cut n group photos into grids of 9, 6, 4, a row of 3 or a pair
-// (Uli): the most covered, then the fewest grids. Only one can be left.
+// (Uli): the most covered, then — not everything into the largest (Uli)
+// — a mix: nines and sixes in balance, then the fewest grids. Only one
+// can be left.
 const GRIDS = { 9: [3, 3], 6: [3, 2], 4: [2, 2], 3: [3, 1], 2: [2, 1] };   // cols, rows
 function packRun(n) {
-	let best = { counts: {}, covered: -1, grids: 0 };
+	let best = null;
 	const sizes = [9, 6, 4, 3, 2];
+	const better = (a, b) => !b || a.covered > b.covered || (a.covered === b.covered && (a.skew < b.skew || (a.skew === b.skew && a.grids < b.grids)));
 	const walk = (k, left, counts, covered, grids) => {
-		if (k === sizes.length) { if (covered > best.covered || (covered === best.covered && grids < best.grids)) best = { counts: { ...counts }, covered, grids }; return; }
+		if (k === sizes.length) { const c = { counts: { ...counts }, covered, grids, skew: Math.abs((counts[9] || 0) - (counts[6] || 0)) }; if (better(c, best)) best = c; return; }
 		const g = sizes[k];
 		for (let c = Math.floor(left / g); c >= 0; c--) { counts[g] = c; walk(k + 1, left - g * c, counts, covered + g * c, grids + c); }
 	};
 	walk(0, n, {}, 0, 0);
 	return best.counts;
 }
+// A year's group photos in pools: cut where six weeks or more lie
+// between two of them, so a grid never spans a season — a pool too small
+// for a pair joins the one before.
+const POOL_GAP_DAYS = 45;
+function poolsOf(group) {
+	const pools = [];
+	for (const p of group) {
+		const last = pools[pools.length - 1];
+		if (last && (Date.parse(p.taken) - Date.parse(last[last.length - 1].taken)) / 86400000 < POOL_GAP_DAYS) last.push(p);
+		else pools.push([p]);
+	}
+	for (let i = 1; i < pools.length; i++) if (pools[i].length < 2) { pools[i - 1].push(...pools[i]); pools.splice(i, 1); i--; }
+	return pools;
+}
 
 function piecesOf(photos) {
 	const specs = photos.filter(p => p.hang !== 'group').map(p => ({ photos: [p], size: 0.9 }));
-	const pool = photos.filter(p => p.hang === 'group');
-	const counts = packRun(pool.length);
-	let i = 0;
-	for (const g of [9, 6, 4, 3, 2]) for (let c = 0; c < (counts[g] || 0); c++) {
-		const [cols, rows] = GRIDS[g];
-		specs.push({ photos: pool.slice(i, i + g), size: 0.4, cols, rows });
-		i += g;
+	for (const pool of poolsOf(photos.filter(p => p.hang === 'group'))) {
+		const counts = packRun(pool.length);
+		let i = 0;
+		for (const g of [9, 6, 4, 3, 2]) for (let c = 0; c < (counts[g] || 0); c++) {
+			const [cols, rows] = GRIDS[g];
+			specs.push({ photos: pool.slice(i, i + g), size: 0.4, cols, rows });
+			i += g;
+		}
+		for (; i < pool.length; i++) specs.push({ photos: [pool[i]], size: 0.6 });
 	}
-	for (; i < pool.length; i++) specs.push({ photos: [pool[i]], size: 0.6 });
 	return specs.sort((a, b) => a.photos[0].taken.localeCompare(b.photos[0].taken));
 }
 
@@ -966,34 +984,42 @@ function wallRuns(W, D) {
 
 // Lay pieces (with their widths) along the walls at a given gap; whatever
 // does not fit comes back for the middle of the room.
-// How many of `pieces` (from `i`) fit on a run of `len` at `gap`, and
-// where they go: the ones that fit are spread evenly (Uli: the ways
-// between were uneven), the room left over shared out between them and
-// the two ends alike.
-function spread(pieces, i, len, gap, margin) {
-	let n = 0, total = 0;
-	while (i + n < pieces.length && (n ? total + gap : 0) + pieces[i + n].w <= len - 2 * margin) { total += (n ? gap : 0) + pieces[i + n].w; n++; }
-	const free = len - 2 * margin - total, even = n ? free / (n + 1) : 0;
+// Which of the `pieces` still to hang go on a run of `len` at `gap`, and
+// where: taken in order, a grid ahead in the queue pulled forward when it
+// fits (Uli: grids on the walls, the order bent just so slightly —
+// LOOKAHEAD pieces at most), and the ones that fit spread evenly (Uli: the
+// ways between were uneven), the room left over shared out between them
+// and the two ends alike. Returns the pieces taken, in wall order.
+const LOOKAHEAD = 3;
+function spread(pieces, len, gap, margin, lookahead = LOOKAHEAD) {
+	const taken = []; let total = 0;
+	const fits = p => (taken.length ? total + gap : 0) + p.w <= len - 2 * margin;
+	for (;;) {
+		let pick = -1;
+		for (let k = 0; k < Math.min(lookahead + 1, pieces.length); k++) if (fits(pieces[k]) && (pieces[k].photos.length > 1 || pick < 0)) { pick = k; if (pieces[k].photos.length > 1) break; }
+		if (pick < 0) break;
+		const p = pieces.splice(pick, 1)[0];
+		total += (taken.length ? gap : 0) + p.w; taken.push(p);
+	}
+	const free = len - 2 * margin - total, even = taken.length ? free / (taken.length + 1) : 0;
 	const at = []; let cursor = margin + even;
-	for (let k = 0; k < n; k++) { at.push(cursor + pieces[i + k].w / 2); cursor += pieces[i + k].w + gap + even; }
-	return { n, at };
+	for (const p of taken) { at.push(cursor + p.w / 2); cursor += p.w + gap + even; }
+	return { taken, at };
 }
 function layWalls(pieces, W, D, gap) {
-	const placed = [];
-	let i = 0;
+	const placed = [], queue = [...pieces];
 	for (const run of wallRuns(W, D)) {
-		const { n, at } = spread(pieces, i, run.len, gap, run.margin ?? WALL_MARGIN);
-		for (let k = 0; k < n; k++) {
+		const { taken, at } = spread(queue, run.len, gap, run.margin ?? WALL_MARGIN);
+		taken.forEach((p, k) => {
 			const t = at[k];
 			const x = run.start[0] + run.dir[0] * t;
 			const z = run.start[1] + run.dir[1] * t;
 			// step off the wall along the piece's facing direction
 			const nx = Math.sin(run.yaw), nz = Math.cos(run.yaw);
-			placed.push({ piece: pieces[i + k], x: x + nx * OFF_WALL, z: z + nz * OFF_WALL, yaw: run.yaw, wall: run.name, roomRight: run.len - (t + pieces[i + k].w / 2) });
-		}
-		i += n;
+			placed.push({ piece: p, x: x + nx * OFF_WALL, z: z + nz * OFF_WALL, yaw: run.yaw, wall: run.name, roomRight: run.len - (t + p.w / 2) });
+		});
 	}
-	return { placed, rest: pieces.slice(i) };
+	return { placed, rest: queue };
 }
 
 // The middle of the room: rows down the long axis, pieces back to back so
@@ -1013,14 +1039,16 @@ function middleRows(D) {
 }
 
 const SLAB = { thick: 0.08, edge: 0.08 };   // behind a middle-row grid: its thickness, and how far past the group on every edge (Uli)
-function layMiddle(pieces, W, D, gap) {
+function layMiddle(rest, W, D, gap) {
 	const placed = [];
+	// grids first, so the grids that did not make a wall stand back to back (Uli), the singles after
+	const pieces = [...rest.filter(p => p.photos.length > 1), ...rest.filter(p => p.photos.length === 1)];
 	let i = 0;
 	for (const z of middleRows(D)) {
 		// the slots of this row: each a pair, as wide as its wider piece, spread evenly
 		const slots = [];
-		for (let k = i; k < pieces.length; k += 2) slots.push({ w: Math.max(pieces[k].w, pieces[k + 1] ? pieces[k + 1].w : 0) });
-		const { n, at } = spread(slots, 0, W, gap, WALL_MARGIN);
+		for (let k = i; k < pieces.length; k += 2) slots.push({ w: Math.max(pieces[k].w, pieces[k + 1] ? pieces[k + 1].w : 0), photos: [] });
+		const { taken, at } = spread(slots, W, gap, WALL_MARGIN, 0), n = taken.length;   // the slots in order: each is a pair of the queue
 		for (let k = 0; k < n; k++) {
 			const a = pieces[i], b = pieces[i + 1];
 			const x = -W / 2 + at[k];
@@ -1625,8 +1653,10 @@ const elevator = {
 			face.name = 'cabin-face'; face.userData.colours = paint; face.position.set(W / 2 - e / 2, H / 2, z1 + 0.011); g.add(face);
 			dressWall(face, style, H, Math.min(dadoCap, dadoTop(style)), mode);
 		}
-		box('cabin-n', e, H - 0.004, t, W / 2 - e / 2, H / 2, -D / 2 + t / 2, metal);
-		box('cabin-e', t, H - 0.004, e, W / 2 - t / 2, H / 2, -D / 2 + e / 2, metal);
+		// 5 mm off the room's north and east walls: a face flush with a wall
+		// shimmered along the cabin's edges too (Uli)
+		box('cabin-n', e, H - 0.004, t, W / 2 - e / 2, H / 2, -D / 2 + t / 2 + 0.005, metal);
+		box('cabin-e', t, H - 0.004, e, W / 2 - t / 2 - 0.005, H / 2, -D / 2 + e / 2, metal);
 		box('cabin-floor', e, 0.01, e, W / 2 - e / 2, 0.007, -D / 2 + e / 2, cabinFloor);
 		box('cabin-ceiling', e, 0.02, e, W / 2 - e / 2, H - 0.012, -D / 2 + e / 2, cabinInner);
 		// Inner skins so the inside reads as a cabin, not raw steel.
@@ -1670,7 +1700,10 @@ const elevator = {
 			cf.rotation.y = -Math.PI / 2;                    // faces -x, the room
 			g.add(cf);
 			cb.userData.face = cf;
-			this.callButtons.push(cb, cf);
+			// a wide unseen disc round it: a press near the button calls too (Uli)
+			const reach = new THREE.Mesh(new THREE.CircleGeometry(0.12, 16), new THREE.MeshBasicMaterial({ visible: false }));
+			reach.name = 'call-reach'; reach.userData.call = true; reach.position.set(x0 - 0.002, cy, cz); reach.rotation.y = -Math.PI / 2; g.add(reach);
+			this.callButtons.push(cb, cf, reach);
 		}
 
 		// The switchplate (Uli): on the room's north wall just west of the
@@ -1956,9 +1989,12 @@ const elevator = {
 			// the floor passed: the path's index by the fraction of the travel
 			const i = Math.min(r.path.length - 1, Math.floor(tt / r.travel * r.path.length));
 			this.show(roomLabel(r.path[i]), r.up ? '▲' : '▼');
-			// the shaft passes in the slot: one floor per floor, eased in and out
+			// the shaft passes in the seam: one storey per floor, eased in and
+			// out — and for the last storey the seam clears and the room the
+			// lift arrives at shows through the gap (Uli)
 			const p = tt / r.travel, e = p * p * (3 - 2 * p);
 			this.shaftTex.offset.y = (r.up ? 1 : -1) * e * r.floors;
+			if (this.seam) this.seam.visible = e * r.floors < r.floors - 1;
 			return;
 		}
 		if (!r.ready) {
