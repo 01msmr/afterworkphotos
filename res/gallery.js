@@ -1288,8 +1288,32 @@ const SWITCHES = [
 	{ key: 'dark',   label: 'light',  value: () => state.settings.dark ? 'night' : 'day',  press: () => setSetting('dark', !state.settings.dark) },
 	{ key: 'frame',  label: 'wood',   value: () => state.settings.frame,                   press: () => setSetting('frame', WOODS[(WOODS.indexOf(state.settings.frame) + 1) % WOODS.length]) },
 	{ key: 'labels', label: 'labels', value: () => state.settings.labels ? 'on' : 'off',   press: () => setSetting('labels', !state.settings.labels) },
-	{ key: 'wire',   label: 'wire',   value: () => wire ? 'on' : 'off',                    press: () => setWire(!wire) },
+	{ key: 'view',   label: 'view',   value: () => 'reset',                                press: () => recentre() },
+	{ key: 'wire',   label: 'wire',   value: () => wire ? 'on' : 'off',                    press: () => setWire(!wire), small: true },   // a smaller button centred under the rows (Uli)
 ];
+
+// Recentre (Uli): the room turned and shifted round the visitor so that
+// they stand a step outside the lift's doors looking down the long axis
+// — the way they look becomes the long axis, the lift is at their back.
+// In the headset the world moves, never the visitor; on the bench the
+// body is placed as on arrival. A room fitted to the Quest's boundary is
+// fitted again instead: its walls are the real ones.
+function recentre() {
+	const o = elevator.origin;
+	if (!o) return;
+	const arrival = new THREE.Vector3(o.x - ELEVATOR.size, 0, o.z);   // in the world's own frame
+	if (!renderer.xr.isPresenting) { placeBody(arrival.x, arrival.z, Math.PI / 2); return; }
+	if (state.bounded && state.bounded.boundsGeometry && state.bounded.boundsGeometry.length >= 3) {
+		fitRoom(state.bounded.boundsGeometry.map(q => new THREE.Vector3(q.x, 0, q.z)), [], [], 0, 'bounds');
+		return;
+	}
+	const h = head(), dir = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.getWorldQuaternion(new THREE.Quaternion()));
+	dir.y = 0; if (dir.lengthSq() < 1e-6) return; dir.normalize();
+	// the world's yaw R takes its west (-x, the arrival's look) onto the gaze: (-cos R, sin R) = (dir.x, dir.z)
+	const R = Math.atan2(dir.z, -dir.x);
+	world.rotation.set(0, R, 0);
+	world.position.set(h.x - (arrival.x * Math.cos(R) + arrival.z * Math.sin(R)), 0, h.z - (-arrival.x * Math.sin(R) + arrival.z * Math.cos(R)));
+}
 // A switch's face shows its state; its description is printed on the
 // plate under it (Uli).
 function switchFace(sw) {
@@ -1315,28 +1339,35 @@ function refreshSwitches() {
 // each a round button showing its state with its description printed
 // under it (Uli). Built into `parent` with its middle at (px, py, pz),
 // facing +z, the buttons proud that way. Returns what presses.
-const SWITCHPLATE = { cols: 2, pitchX: 0.07, pitchY: 0.085, margin: 0.015 };
+const SWITCHPLATE = { cols: 2, pitchX: 0.07, pitchY: 0.085, margin: 0.015, smallR: 0.013, smallPitch: 0.06 };
 function buildSwitchplate(parent, px, py, pz) {
-	const { cols, pitchX, pitchY, margin } = SWITCHPLATE, rows = Math.ceil(SWITCHES.length / cols);
-	const plateW = cols * pitchX + 2 * margin, plateH = rows * pitchY + 2 * margin;
+	const { cols, pitchX, pitchY, margin, smallR, smallPitch } = SWITCHPLATE;
+	const big = SWITCHES.filter(sw => !sw.small), small = SWITCHES.filter(sw => sw.small);
+	const rows = Math.ceil(big.length / cols);
+	const plateW = cols * pitchX + 2 * margin, plateH = rows * pitchY + small.length * smallPitch + 2 * margin;
 	const plate = new THREE.Mesh(new THREE.BoxGeometry(plateW, plateH, 0.024), panelPlate);
 	plate.name = 'switchplate'; plate.position.set(px, py, pz); parent.add(plate);
-	const bodyGeo = new THREE.CylinderGeometry(BUTTON.r, BUTTON.r, BUTTON.rise, 12, 1, true); bodyGeo.rotateX(Math.PI / 2);   // axis along z
-	const faceGeo = new THREE.CircleGeometry(BUTTON.r * 0.92, 12);
-	const labelGeo = new THREE.PlaneGeometry(0.056, 0.014);
-	const switches = [];
-	SWITCHES.forEach((sw, i) => {
-		const col = i % cols, row = Math.floor(i / cols);
-		const x = px - plateW / 2 + margin + pitchX * (col + 0.5);
-		const y = py + plateH / 2 - margin - pitchY * (row + 0.5) + 0.009;   // up a little: the label takes the room below
-		const z = pz + 0.012 + BUTTON.rise / 2;
-		const b = new THREE.Mesh(bodyGeo, metal); b.name = `switch-${sw.key}`; b.userData.action = sw.key; b.position.set(x, y, z); parent.add(b);
-		const f = new THREE.Mesh(faceGeo, new THREE.MeshStandardMaterial({ map: switchFace(sw), roughness: 0.6 }));
-		f.name = `switch-face-${sw.key}`; f.userData.action = sw.key; f.userData.sw = sw; f.position.set(x, y, z + BUTTON.rise / 2 + 0.0005); parent.add(f);
-		const l = new THREE.Mesh(labelGeo, new THREE.MeshBasicMaterial({ map: switchLabel(sw), transparent: true }));
-		l.name = `switch-label-${sw.key}`; l.position.set(x, y - BUTTON.r - 0.011, pz + 0.0125); parent.add(l);
-		switches.push(b, f);
+	const geo = r => ({
+		body: (g => { g.rotateX(Math.PI / 2); return g; })(new THREE.CylinderGeometry(r, r, BUTTON.rise, 12, 1, true)),   // axis along z
+		face: new THREE.CircleGeometry(r * 0.92, 12),
+		label: new THREE.PlaneGeometry(0.056 * r / BUTTON.r, 0.014 * r / BUTTON.r),
 	});
+	const G_big = geo(BUTTON.r), G_small = geo(smallR);
+	const switches = [];
+	const put = (sw, x, y, r, G) => {
+		const z = pz + 0.012 + BUTTON.rise / 2;
+		const b = new THREE.Mesh(G.body, metal); b.name = `switch-${sw.key}`; b.userData.action = sw.key; b.position.set(x, y, z); parent.add(b);
+		const f = new THREE.Mesh(G.face, new THREE.MeshStandardMaterial({ map: switchFace(sw), roughness: 0.6 }));
+		f.name = `switch-face-${sw.key}`; f.userData.action = sw.key; f.userData.sw = sw; f.position.set(x, y, z + BUTTON.rise / 2 + 0.0005); parent.add(f);
+		const l = new THREE.Mesh(G.label, new THREE.MeshBasicMaterial({ map: switchLabel(sw), transparent: true }));
+		l.name = `switch-label-${sw.key}`; l.position.set(x, y - r - 0.011 * r / BUTTON.r, pz + 0.0125); parent.add(l);
+		switches.push(b, f);
+	};
+	big.forEach((sw, i) => {
+		const col = i % cols, row = Math.floor(i / cols);
+		put(sw, px - plateW / 2 + margin + pitchX * (col + 0.5), py + plateH / 2 - margin - pitchY * (row + 0.5) + 0.009, BUTTON.r, G_big);   // up a little: the label takes the room below
+	});
+	small.forEach((sw, i) => put(sw, px, py + plateH / 2 - margin - pitchY * rows - smallPitch * (i + 0.5) + 0.006, smallR, G_small));
 	return switches;
 }
 
