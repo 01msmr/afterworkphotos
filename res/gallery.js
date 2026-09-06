@@ -944,9 +944,17 @@ function poolsOf(group) {
 	return pools;
 }
 
-function piecesOf(photos) {
+// `loose`: every LOOSE_EVERY-th group photo of the year hangs as a 60 cm
+// single instead of going into a grid — a room with space to spare shows
+// a few of them on their own (Uli); rooms() tries this first and keeps it
+// when the year still fits one floor.
+const LOOSE_EVERY = 5;
+function piecesOf(photos, loose = false) {
 	const specs = photos.filter(p => p.hang !== 'group').map(p => ({ photos: [p], size: 0.9 }));
-	for (const pool of poolsOf(photos.filter(p => p.hang === 'group'))) {
+	const group = photos.filter(p => p.hang === 'group');
+	if (loose) for (let i = LOOSE_EVERY - 1; i < group.length; i += LOOSE_EVERY) specs.push({ photos: [group[i]], size: 0.6 });
+	const pooled = loose ? group.filter((_, i) => (i + 1) % LOOSE_EVERY) : group;
+	for (const pool of poolsOf(pooled)) {
 		const counts = packRun(pool.length);
 		let i = 0;
 		for (const g of [9, 6, 4, 3, 2]) for (let c = 0; c < (counts[g] || 0); c++) {
@@ -1135,24 +1143,28 @@ function rooms() {
 	// (Uli): consecutive years of at most THIN pieces merge into one room,
 	// keyed "2009_2014", named by its first and last year.
 	const THIN = 5;
-	const years = [...byYear.entries()].map(([year, photos]) => ({ year, photos, specs: piecesOf(photos).map(s => ({ ...s, w: specWidth(s) })) }));
+	const pieces = (photos, loose) => piecesOf(photos, loose).map(s => ({ ...s, w: specWidth(s) }));
+	const years = [...byYear.entries()].map(([year, photos]) => ({ year, photos, specs: pieces(photos, false), loose: pieces(photos, true) }));
 	const merged = [];
 	for (const y of years) {
 		const last = merged[merged.length - 1];
 		if (last && last.thin && y.specs.length <= THIN) {
-			last.years.push(y.year); last.specs.push(...y.specs);
+			last.years.push(y.year); last.specs.push(...y.specs); last.loose.push(...y.loose);
 			continue;
 		}
-		merged.push({ years: [y.year], specs: y.specs, thin: y.specs.length <= THIN });
+		merged.push({ years: [y.year], specs: y.specs, loose: y.loose, thin: y.specs.length <= THIN });
 	}
 	roomList = [];
 	for (const m of merged) {
 		const year = m.years[0], span = m.years.length > 1 ? `${m.years[0]}\u2013${m.years[m.years.length - 1]}` : year;
 		const specs = m.specs;
 		const one = shapeOf(m.years.join('_'));
-		if (!layout([...specs].reverse(), one.W, one.D).rest.length) {
+		// one floor: the loose set where it fits, the packed one otherwise
+		const fitsOne = set => !layout([...set].reverse(), one.W, one.D).rest.length;
+		const single = fitsOne(m.loose) ? m.loose : fitsOne(specs) ? specs : null;
+		if (single) {
 			const key = m.years.join('_');
-			roomList.push({ key, year, span, years: m.years, part: 0, of: 1, specs, shape: one });
+			roomList.push({ key, year, span, years: m.years, part: 0, of: 1, specs: single, shape: one });
 			continue;
 		}
 		// as many rooms as it takes: two, or more in a small real room
