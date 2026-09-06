@@ -887,9 +887,15 @@ function layWalls(pieces, W, D, gap) {
 // and to the walls. A 4 m room takes one row; every further 1.5 m of
 // depth adds one.
 const WALKWAY = 1.5;
+// The rows stand to one side (Uli, 2026-09-06): the first NEAR off the
+// south wall — a passage to see that face from — the next WALKWAY apart
+// toward the north, and what is left of the room's depth is the walkway
+// on the north side, where the lift lets you out: wider than a centred
+// row left it.
+const NEAR = 1.1;
 function middleRows(D) {
 	const n = Math.max(1, Math.floor(D / WALKWAY) - 1);
-	return Array.from({ length: n }, (_, i) => (i - (n - 1) / 2) * WALKWAY);
+	return Array.from({ length: n }, (_, i) => D / 2 - NEAR - i * WALKWAY);
 }
 
 const SLAB = { thick: 0.08, wider: 0.08 };   // behind a middle-row grid: its thickness, and how much wider and taller than the group
