@@ -960,7 +960,7 @@ function wallRuns(W, D) {
 	const e = ELEVATOR.size;
 	return [
 		// the cabin's south face first (Uli): plastered like the walls, room for one print
-		{ name: 'cabin', start: [ W / 2, -D / 2 + e + 0.012], dir: [-1, 0], yaw: Math.PI, len: e, margin: 0.15 },
+		{ name: 'cabin', start: [ W / 2, -D / 2 + e + 0.012], dir: [-1, 0], yaw: 0, len: e, margin: 0.15 },   // faces +z, into the room, like the north wall
 		{ name: 'e', start: [ W / 2, -D / 2 + e], dir: [0,  1], yaw: -Math.PI / 2, len: D - e },
 		{ name: 's', start: [ W / 2,  D / 2],     dir: [-1, 0], yaw:  Math.PI,     len: W },
 		{ name: 'w', start: [-W / 2,  D / 2],     dir: [0, -1], yaw:  Math.PI / 2, len: D },
