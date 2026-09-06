@@ -909,32 +909,34 @@ function placeLabels(piece, w, h, below) {
 //
 // The pieces of a year, in date order. The year's group photos are
 // pooled (Uli, 2026-09-06 — before, only six or more in a row made a
-// grid) and packed into grids of nine, six and four, cut from the pool in
-// date order so neighbours stay together; a grid takes its place in the
-// sequence at its first photo's date. What will not fill a grid of four
-// hangs single at 60; everything judged single hangs at 90.
+// grid) and packed into grids of nine, six and four, a row of three or a
+// pair, cut from the pool in date order so neighbours stay together; a
+// grid takes its place in the sequence at its first photo's date. A lone
+// one left hangs single at 60; everything judged single hangs at 90.
 
-// How to cut n group photos into grids: the most covered, then the
-// fewest grids.
+// How to cut n group photos into grids of 9, 6, 4, a row of 3 or a pair
+// (Uli): the most covered, then the fewest grids. Only one can be left.
+const GRIDS = { 9: [3, 3], 6: [3, 2], 4: [2, 2], 3: [3, 1], 2: [2, 1] };   // cols, rows
 function packRun(n) {
-	let best = { nine: 0, six: 0, four: 0, covered: -1, grids: 0 };
-	for (let nine = Math.floor(n / 9); nine >= 0; nine--)
-		for (let six = Math.floor((n - 9 * nine) / 6); six >= 0; six--) {
-			const four = Math.floor((n - 9 * nine - 6 * six) / 4);
-			const covered = 9 * nine + 6 * six + 4 * four, grids = nine + six + four;
-			if (covered > best.covered || (covered === best.covered && grids < best.grids)) best = { nine, six, four, covered, grids };
-		}
-	return best;
+	let best = { counts: {}, covered: -1, grids: 0 };
+	const sizes = [9, 6, 4, 3, 2];
+	const walk = (k, left, counts, covered, grids) => {
+		if (k === sizes.length) { if (covered > best.covered || (covered === best.covered && grids < best.grids)) best = { counts: { ...counts }, covered, grids }; return; }
+		const g = sizes[k];
+		for (let c = Math.floor(left / g); c >= 0; c--) { counts[g] = c; walk(k + 1, left - g * c, counts, covered + g * c, grids + c); }
+	};
+	walk(0, n, {}, 0, 0);
+	return best.counts;
 }
 
 function piecesOf(photos) {
 	const specs = photos.filter(p => p.hang !== 'group').map(p => ({ photos: [p], size: 0.9 }));
 	const pool = photos.filter(p => p.hang === 'group');
-	const { nine, six, four } = packRun(pool.length);
+	const counts = packRun(pool.length);
 	let i = 0;
-	for (const g of [...Array(nine).fill(9), ...Array(six).fill(6), ...Array(four).fill(4)]) {
-		const cols = g === 4 ? 2 : 3;
-		specs.push({ photos: pool.slice(i, i + g), size: 0.4, cols, rows: g / cols });
+	for (const g of [9, 6, 4, 3, 2]) for (let c = 0; c < (counts[g] || 0); c++) {
+		const [cols, rows] = GRIDS[g];
+		specs.push({ photos: pool.slice(i, i + g), size: 0.4, cols, rows });
 		i += g;
 	}
 	for (; i < pool.length; i++) specs.push({ photos: [pool[i]], size: 0.6 });
