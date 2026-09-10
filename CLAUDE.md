@@ -5,6 +5,7 @@ A static page, no build step, no framework. The overview is `README.md`; **how e
 ## Rules
 
 - **Bump `?v=` on the CSS and JS links in `index.html` with every change to them.** The server sends no cache headers; without the bump the installed app keeps the old code.
+- **The gallery's modules carry that version in their import lines too** (`res/gallery.js` + `res/gallery/*.js`): a module is its URL, so bump them all in one go — `sed -i '' 's/?v=OLD/?v=NEW/g' gallery/index.html res/gallery.js res/gallery/*.js`.
 - **Never measure the viewport height from JS at load.** `--app-height` is `100lvh` in the CSS. iOS launches the home screen app's view one status bar short and extends it only past a taller document; `100dvh` or `innerHeight` freeze the short view and leave a black band under the sheets. Details: `docs/details.md`, *iOS home screen app*.
 - **Sheets stay `position: fixed` on the viewport** — never inside a transformed or clipping container (iOS sizes them wrong there).
 - Layout by CSS, not by measuring: shared tokens (`--side`, `--title-band`, `--top-gap`, `--inset`, `--settle`, `--shade-in`), not `getBoundingClientRect` for alignment.

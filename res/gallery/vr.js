@@ -1,0 +1,248 @@
+import * as THREE from '../vendor/three.module.js';
+import { BUTTON, elevator, pressAlong, settingsMap } from './elevator.js?v=20260910a';
+import { clearRooms, hangRoom, rooms } from './hang.js?v=20260910a';
+import { camera, head, renderer, rig, scene, world } from './scene.js?v=20260910a';
+import { loadSettings, state } from './state.js?v=20260910a';
+import { placeBody, walk } from './walk.js?v=20260910a';
+
+// ---------------------------------------------------------------------------
+// VR (phase 2, first step)
+//
+// Where the browser says it can do immersive-vr — the Quest — a button
+// offers it. In the headset you stand where the bench's camera stood, at
+// real floor height, and walk by feet; a controller's trigger presses the
+// lift button it points at — either hand. Nothing else of the bench
+// (mouse, keys, the DOM panels) applies in there.
+
+const vrButton = document.getElementById('vr');
+const controllers = [0, 1].map(i => {
+	const c = renderer.xr.getController(i);
+	c.addEventListener('selectstart', () => {
+		const rc = new THREE.Raycaster();
+		const origin = c.getWorldPosition(new THREE.Vector3());
+		const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(c.getWorldQuaternion(new THREE.Quaternion()));
+		rc.set(origin, dir);
+		pressAlong(rc, 3);
+	});
+	// a thin ray so you see what you point at
+	const ray = new THREE.Line(
+		new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -1)]),
+		new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35 }));
+	ray.scale.z = 2;
+	c.add(ray);
+	rig.add(c);
+	return c;
+});
+
+async function offerVR() {
+	if (!navigator.xr || !vrButton) return;
+	let ok = false;
+	try { ok = await navigator.xr.isSessionSupported('immersive-vr'); } catch (e) {}
+	if (!ok) return;
+	state.xrMode = 'immersive-vr';                       // no AR (Uli)
+	vrButton.hidden = false;
+	vrButton.addEventListener('click', async () => {
+		try {
+			// The room is set up at entry (Uli): the Guardian boundary gives the
+			// rectangle, the wall you look at becomes the north wall. Planes are
+			// still asked for, should a browser ever hand them over in VR.
+			// Sharpness on the Quest 3 (Uli, 2026-09-05): the view rendered at
+			// 1.3× the headset's default scale (set before the session), the
+			// fixed foveation eased from full to 0.3 so the edges of the view
+			// do not go soft where a print sits.
+			renderer.xr.setFramebufferScaleFactor(1.3);
+			const session = await navigator.xr.requestSession(state.xrMode, { requiredFeatures: ['local-floor'], optionalFeatures: ['bounded-floor', 'hand-tracking', 'plane-detection', 'mesh-detection'] });
+			state.sessionT0 = performance.now();
+			// Render in the boundary's own space: its polygon and the world then
+			// share one origin and yaw (read in bounded-floor, rendered in
+			// local-floor, the room landed turned and shifted).
+			try { state.bounded = await session.requestReferenceSpace('bounded-floor'); } catch (e) { state.bounded = null; }
+			if (state.bounded && state.bounded.boundsGeometry && state.bounded.boundsGeometry.length >= 3) renderer.xr.setReferenceSpace(state.bounded);
+			else state.bounded = null;
+			session.addEventListener('end', () => { vrButton.hidden = false; document.body.classList.remove('xr'); rig.position.set(0, 0, 0); rig.rotation.set(0, 0, 0); state.lookSet = false; if (state.real) { state.real = null; world.position.set(0, 0, 0); world.rotation.set(0, 0, 0); state.settings.H = loadSettings().H; clearRooms(); state.room = null; hangRoom(rooms()[0].key); } });
+			await renderer.xr.setSession(session);
+			renderer.xr.setFoveation(0.3);
+			scene.traverse(o => { if (o.isDirectionalLight && o.castShadow) { o.shadow.mapSize.set(1024, 1024); o.shadow.map?.dispose(); o.shadow.map = null; } });
+			document.body.classList.add('xr');
+			vrButton.hidden = true;
+			// stand where the bench stood, facing the same way
+			const x = walk.pos.x, z = walk.pos.z, yaw = walk.yaw;
+			walk.pos.set(0, 0, 0); walk.pitch = 0; camera.rotation.set(0, 0, 0);
+			placeBody(x, z, yaw);
+		} catch (e) { console.warn('VR session refused', e); }
+	});
+}
+offerVR();
+
+// Hands (Uli: by hand instead of the trigger, as an alternative): with
+// hand tracking on, the tip of an index finger touching a button, the
+// call button or a label presses it — one press per touch, then the
+// finger has to leave and come back.
+const hands = [0, 1].map(i => { const h = renderer.xr.getHand(i); h.userData.touching = null; rig.add(h); return h; });
+const TOUCH = 0.022;
+const tip = new THREE.Vector3();
+function stepHands() {
+	const pieces = scene.getObjectByName('pieces');
+	for (const h of hands) {
+		const j = h.joints && h.joints['index-finger-tip'];
+		if (!j || !j.visible) { h.userData.touching = null; continue; }
+		j.getWorldPosition(tip);
+		let hit = null;
+		for (const b of [...elevator.buttons, ...elevator.callButtons, ...elevator.switches, ...settingsMap.switches]) {
+			if (b.getWorldPosition(new THREE.Vector3()).distanceTo(tip) < TOUCH + BUTTON.r) { hit = b; break; }
+		}
+		if (!hit && pieces) pieces.traverse(o => {
+			if (hit || o.name !== 'label' || !o.visible) return;
+			const c = o.getWorldPosition(new THREE.Vector3());
+			const half = Math.max(o.geometry.parameters.width, o.geometry.parameters.height) * o.scale.x / 2;
+			if (c.distanceTo(tip) < half + TOUCH) hit = o;
+		});
+		if (hit && h.userData.touching !== hit) {
+			h.userData.touching = hit;
+			const rc = new THREE.Raycaster();
+			const dir = hit.getWorldPosition(new THREE.Vector3()).sub(tip).normalize();
+			rc.set(tip.clone().addScaledVector(dir, -0.05), dir);
+			pressAlong(rc, 0.3);
+		} else if (!hit) h.userData.touching = null;
+	}
+}
+
+// In VR you walk by feet (Uli); nothing moves the body but the elevator.
+// The controllers' B (right) and Y (left) — buttons[5] of the xr-standard
+// gamepad — summon and put away the settings map, on the press's edge.
+const bDown = new WeakMap();
+function stepGamepads() {
+	const session = renderer.xr.getSession();
+	if (!session) return;
+	for (const src of session.inputSources) {
+		const b = src.gamepad && src.gamepad.buttons[5];
+		if (!b) continue;
+		if (b.pressed && !bDown.get(src)) settingsMap.toggle();
+		bDown.set(src, b.pressed);
+	}
+}
+export function stepXR(dt) { stepHands(); stepGamepads(); }
+
+// ---------------------------------------------------------------------------
+// The real room (phase 3)
+//
+// With plane-detection the headset hands over the planes of the room it
+// scanned in Space Setup: the floor, the walls, the ceiling, as polygons
+// with a pose and a label. From them: the walls' dominant direction, the
+// floor's rectangle in that direction, the ceiling's height. The room is
+// rebuilt to that rectangle, `world` is moved and turned onto it, and
+// the lift takes the real corner nearest to where you stand. Every year
+// is re-planned for this one room. Done once per session, when the
+// floor and at least two walls have been seen.
+
+let planesShown = 0;
+export function stepPlanes(frame) {
+	if (state.real) return;
+	const ref = renderer.xr.getReferenceSpace();
+	const walls = [], floors = [], ceilings = [];
+	const planes = frame.detectedPlanes ? [...frame.detectedPlanes] : null;
+	// say what is arriving on the lift's display, once a second, until the room snaps
+	const now = performance.now();
+	if (now - planesShown > 1000 && elevator.displays.length && !elevator.ride) {
+		planesShown = now;
+		elevator.show(planes ? `${planes.length} planes` : 'no planes api', '');
+	}
+	// no planes: the Guardian's boundary gives the rectangle — at once, from
+	// where you stand and look (Uli: look straight at the middle of a wall)
+	// wait for a real head pose (the first frames report the origin)
+	const hp = head(); if (hp.lengthSq() < 1e-6 || Math.abs(hp.y) < 0.3) return;
+	if ((!planes || !planes.length) && state.bounded && state.bounded.boundsGeometry && now - state.sessionT0 > 300) {
+		const pts = state.bounded.boundsGeometry.map(q => new THREE.Vector3(q.x, 0, q.z));
+		if (pts.length >= 3) { fitRoom(pts, [], [], 0, 'bounds'); return; }
+	}
+	if (!planes || !planes.length) {
+		if (!state.bounded && now - state.sessionT0 > 300 && !state.lookSet) {
+			// no boundary either: turn the room to the look, its north wall 1.5 m ahead
+			state.lookSet = true;
+			const look = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.getWorldQuaternion(new THREE.Quaternion())); look.y = 0; look.normalize();
+			const yaw = Math.atan2(-look.x, -look.z);
+			const h = head(), D = state.room ? state.room.D : state.settings.D;
+			world.rotation.y = yaw;
+			world.position.set(h.x + look.x * (1.5 - D / 2), 0, h.z + look.z * (1.5 - D / 2));
+			if (elevator.displays.length) elevator.show('turned to you', '');
+		}
+		return;
+	}
+	for (const plane of planes) {
+		const pose = frame.getPose(plane.planeSpace, ref);
+		if (!pose) continue;
+		const m = new THREE.Matrix4().fromArray(pose.transform.matrix);
+		const pts = plane.polygon.map(q => new THREE.Vector3(q.x, q.y, q.z).applyMatrix4(m));
+		const label = plane.semanticLabel || '';
+		const normal = new THREE.Vector3(0, 1, 0).transformDirection(m);
+		const entry = { pts, normal, label };
+		if (plane.orientation === 'vertical' || label === 'wall') walls.push(entry);
+		else if (label === 'ceiling' || (plane.orientation === 'horizontal' && pts[0].y > 1.5)) ceilings.push(entry);
+		else if (label === 'floor' || plane.orientation === 'horizontal') floors.push(entry);
+	}
+	if (!floors.length || walls.length < 2) return;
+	const floor = floors.reduce((a, b) => a.pts.length >= b.pts.length ? a : b);
+	fitRoom(floor.pts, walls, ceilings, floor.pts.reduce((y, p) => y + p.y, 0) / floor.pts.length, 'planes');
+}
+
+// Fit the room to a floor polygon: the direction from the walls' normals
+// when there are walls, else from the polygon's longest edge; the
+// rectangle in that direction; the height from the ceiling or the walls.
+export function fitRoom(floorPts, walls, ceilings, floorY, source) {
+	let theta;
+	if (walls.length) {
+		// each wall's normal, folded into a quarter turn, weighted by length
+		let sx = 0, sy = 0;
+		for (const w of walls) {
+			const a = Math.atan2(w.normal.x, w.normal.z);
+			let len = 0; for (let i = 0; i < w.pts.length; i++) len += w.pts[i].distanceTo(w.pts[(i + 1) % w.pts.length]);
+			sx += Math.cos(4 * a) * len; sy += Math.sin(4 * a) * len;
+		}
+		theta = Math.atan2(sy, sx) / 4;
+	} else {
+		// a boundary drawn by hand is many short wobbly edges: the angle that
+		// gives the smallest box round the polygon is the walls' direction
+		let bestA = 0, bestArea = Infinity;
+		for (let deg = 0; deg < 90; deg += 0.5) {
+			const a = deg * Math.PI / 180, c = Math.cos(a), sn = Math.sin(a);
+			let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+			for (const p of floorPts) { const x = p.x * c - p.z * sn, z = p.x * sn + p.z * c; if (x < x0) x0 = x; if (x > x1) x1 = x; if (z < z0) z0 = z; if (z > z1) z1 = z; }
+			const area = (x1 - x0) * (z1 - z0);
+			if (area < bestArea) { bestArea = area; bestA = a; }
+		}
+		theta = bestA;                                    // the scan rotates as fitRoom does below, so the angle carries straight over
+	}
+	const rot = new THREE.Matrix4().makeRotationY(-theta);
+	let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+	for (const p of floorPts) { const q = p.clone().applyMatrix4(rot); minX = Math.min(minX, q.x); maxX = Math.max(maxX, q.x); minZ = Math.min(minZ, q.z); maxZ = Math.max(maxZ, q.z); }
+	let W = maxX - minX, D = maxZ - minZ;
+	if (W < 1.5 || D < 1.5) return;
+	const centreLocal = new THREE.Vector3((minX + maxX) / 2, 0, (minZ + maxZ) / 2);
+	const centre = centreLocal.applyMatrix4(new THREE.Matrix4().makeRotationY(theta));
+	const H = ceilings.length ? Math.max(2.2, ceilings[0].pts[0].y - floorY) : Math.max(2.2, Math.min(3.2, walls.reduce((h, w) => Math.max(h, ...w.pts.map(p => p.y)), 0) - floorY || 2.6));
+
+	// of the four turns that keep the walls on the walls, the one whose
+	// north wall is the wall you are looking at (the lift then stands in
+	// the corner to your front right)
+	const look = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.getWorldQuaternion(new THREE.Quaternion())); look.y = 0; look.normalize();
+	let best = null;
+	for (let k = 0; k < 4; k++) {
+		const yaw = theta + k * Math.PI / 2, odd = k % 2 === 1;
+		const w = odd ? D : W, d = odd ? W : D;
+		const north = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+		const dot = north.dot(look);
+		if (!best || dot > best.dot) best = { yaw, W: w, D: d, dot };
+	}
+	state.real = { W: Math.round(best.W * 20) / 20, D: Math.round(best.D * 20) / 20, H: Math.round(H * 20) / 20, yaw: best.yaw, centre, walls: walls.length, source };
+	console.info(`real room ${state.real.W} × ${state.real.D} × ${state.real.H} from ${source}, ${walls.length} walls, turned ${(best.yaw * 180 / Math.PI).toFixed(0)}°`);
+
+	world.position.set(centre.x, floorY, centre.z);
+	world.rotation.y = best.yaw;
+	state.settings.H = state.real.H;                    // for this session: the lines, the cabin
+	clearRooms();                                     // every year re-planned for this room
+	state.room = null;                                   // the room and cabin rebuilt
+	const key = rooms().some(r => r.key === state.roomKey) ? state.roomKey : (rooms().find(r => r.year === state.year) || rooms()[0]).key;
+	hangRoom(key);
+	elevator.setDoors(1); elevator.open = 1;
+	if (elevator.displays.length) elevator.show(`${state.real.W} × ${state.real.D} ${source === 'planes' ? 'walls' : 'boundary'}`, '');
+}
