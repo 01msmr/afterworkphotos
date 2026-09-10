@@ -1,10 +1,10 @@
 import * as THREE from '../vendor/three.module.js';
-import { BUTTON, elevator, pressAlong, settingsMap } from './elevator.js?v=20260911a';
-import { cornerFree, outlineOf, planOf, rotShape } from './plan.js?v=20260911a';
-import { ELEVATOR, clearRooms, hangRoom, rooms } from './hang.js?v=20260911a';
-import { camera, head, renderer, rig, scene, world } from './scene.js?v=20260911a';
-import { loadSettings, state } from './state.js?v=20260911a';
-import { placeBody, walk } from './walk.js?v=20260911a';
+import { BUTTON, elevator, pressAlong, settingsMap } from './elevator.js?v=20260911c';
+import { cornerFree, outlineOf, planOf, rotShape } from './plan.js?v=20260911c';
+import { ELEVATOR, clearRooms, hangRoom, rooms } from './hang.js?v=20260911c';
+import { camera, head, renderer, rig, scene, world } from './scene.js?v=20260911c';
+import { loadSettings, state } from './state.js?v=20260911c';
+import { placeBody, walk } from './walk.js?v=20260911c';
 
 // ---------------------------------------------------------------------------
 // VR (phase 2, first step)
@@ -249,17 +249,36 @@ export function fitRoom(floorPts, walls, ceilings, floorY, source) {
 	// so the lift stands to your front right. A plan with no such corner
 	// falls back to its main rectangle, which always has four.
 	const look = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.getWorldQuaternion(new THREE.Quaternion())); look.y = 0; look.normalize();
+	// Which way round the room stands: of the four turns that keep the walls
+	// on the walls, those with a free corner for the lift — and of those the
+	// one with the most wall to hang on, so the room finds its own front
+	// (Uli, 2026-09-10: it should not depend on facing a wall as you enter).
+	// Where two turns are as good as each other, a square room say, the one
+	// you are looking at wins.
 	const turn = shape => {
-		let best = null;
+		const ok = [];
 		for (let k = 0; k < 4; k++) {
 			const turned = rotShape(shape, k);
 			if (!cornerFree(turned, ELEVATOR.size)) continue;
 			const yaw = theta + k * Math.PI / 2;
 			const north = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
-			const dot = north.dot(look);
-			if (!best || dot > best.dot) best = { yaw, shape: turned, dot };
+			ok.push({ yaw, shape: turned, dot: north.dot(look) });
 		}
-		return best;
+		if (ok.length < 2) return ok[0] || null;
+		// The turns are worth different amounts: where the lift stands and
+		// which walls are long decide how much hangs on a floor. So each is
+		// planned through and the one that needs the fewest floors wins —
+		// the room finds its own front, without being faced on entry (Uli,
+		// 2026-09-10). A tie goes to the wall being looked at.
+		for (const t of ok) {
+			state.real = { W: t.shape.W, D: t.shape.D, H: 2.6, yaw: t.yaw, centre, walls: walls.length, source, shape: t.shape };
+			clearRooms();
+			t.floors = rooms().length;
+		}
+		state.real = null; clearRooms();
+		ok.sort((a, b) => a.floors - b.floors || b.dot - a.dot);
+		console.info('turns: ' + ok.map(t => `${Math.round(t.yaw * 180 / Math.PI)}° ${t.floors} floors`).join(', '));
+		return ok[0];
 	};
 	const best = turn(plan.shape) || turn(planOf(poly, 'inside').shape);
 	if (!best) return;
