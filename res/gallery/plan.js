@@ -111,8 +111,13 @@ function bandRects(poly, main, side) {
 		}
 		depth.push(d >= MIN_DEEP ? d : 0);
 	}
-	// runs of one depth shorter than MIN_CELLS take their smaller neighbour's
-	for (;;) {
+	// A run of one depth shorter than MIN_WIDE is no wall to speak of: it
+	// takes a neighbour's depth and merges into it — the shallower of the
+	// two where it has both, so the room is never invented. Every pass
+	// joins two runs, so it ends; the guard is there because a loop that
+	// cannot make progress froze the page (a run at the end with no
+	// neighbour before it kept its own depth for ever).
+	for (let guard = 0; guard < 100; guard++) {
 		const runs = [];
 		for (let i = 0; i < cols; i++) {
 			const last = runs[runs.length - 1];
@@ -120,10 +125,10 @@ function bandRects(poly, main, side) {
 		}
 		const bad = runs.find(r => r.i1 - r.i0 < MIN_WIDE);
 		if (!bad) break;
-		const before = runs[runs.indexOf(bad) - 1], after = runs[runs.indexOf(bad) + 1];
-		const d = Math.min(before ? before.d : 0, after ? after.d : 0);
+		const at = runs.indexOf(bad), before = runs[at - 1], after = runs[at + 1];
+		if (!before && !after) { depth.fill(0); break; }
+		const d = !before ? after.d : !after ? before.d : Math.min(before.d, after.d);
 		for (let i = bad.i0; i < bad.i1; i++) depth[i] = d;
-		if (runs.length === 1) { depth.fill(0); break; }
 	}
 	// each run of one depth is a rectangle
 	const rects = [];

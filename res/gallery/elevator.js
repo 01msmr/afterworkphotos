@@ -1,12 +1,12 @@
 import * as THREE from '../vendor/three.module.js';
-import { setWire, wire } from './bench.js?v=20260910t';
-import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260910t';
-import { ELEVATOR, clearRooms, hangRoom, roomByKey, rooms } from './hang.js?v=20260910t';
-import { WALL_STYLES, applyMode, dadoTop, dressWall, wallColours } from './room.js?v=20260910t';
-import { camera, head, renderer, scene, world } from './scene.js?v=20260910t';
-import { PLANS, state } from './state.js?v=20260910t';
-import { fitRoom, planAgain } from './vr.js?v=20260910t';
-import { placeBody, walk } from './walk.js?v=20260910t';
+import { setWire, wire } from './bench.js?v=20260910z';
+import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260910z';
+import { ELEVATOR, clearRooms, hangRoom, roomByKey, rooms } from './hang.js?v=20260910z';
+import { WALL_STYLES, applyMode, dadoTop, dressWall, wallColours } from './room.js?v=20260910z';
+import { camera, head, renderer, scene, world } from './scene.js?v=20260910z';
+import { PLANS, state } from './state.js?v=20260910z';
+import { fitRoom, planAgain } from './vr.js?v=20260910z';
+import { placeBody, walk } from './walk.js?v=20260910z';
 
 // ---------------------------------------------------------------------------
 // The elevator
@@ -479,6 +479,9 @@ export const elevator = {
 			this.displays.push({ tex, ctx });
 		};
 		display('display-in',  x0 + t + 0.015, Math.PI / 2);     // inside, on the door wall, facing +x into the cabin
+		display('display-out', x0 - 0.015,    -Math.PI / 2);     // outside, over the doors, facing -x into the room —
+		                                                         // it says what floor the lift is at, and what was made of
+		                                                         // the scan, to someone standing in the room (Uli, 2026-09-10)
 		// Light in the cabin: a glowing panel in the ceiling and the lamp
 		// behind it that actually lights the walls and the buttons.
 		const panelLight = box('cabin-light', e * 0.5, 0.005, e * 0.5, this.origin.x, H - 0.025, this.origin.z, lightPanel);

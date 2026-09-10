@@ -1,10 +1,10 @@
 import * as THREE from '../vendor/three.module.js';
-import { BUTTON, elevator, pressAlong, settingsMap } from './elevator.js?v=20260910t';
-import { cornerFree, outlineOf, planOf, rotShape } from './plan.js?v=20260910t';
-import { ELEVATOR, clearRooms, hangRoom, rooms } from './hang.js?v=20260910t';
-import { camera, head, renderer, rig, scene, world } from './scene.js?v=20260910t';
-import { loadSettings, state } from './state.js?v=20260910t';
-import { placeBody, walk } from './walk.js?v=20260910t';
+import { BUTTON, elevator, pressAlong, settingsMap } from './elevator.js?v=20260910z';
+import { cornerFree, outlineOf, planOf, rotShape } from './plan.js?v=20260910z';
+import { ELEVATOR, clearRooms, hangRoom, rooms } from './hang.js?v=20260910z';
+import { camera, head, renderer, rig, scene, world } from './scene.js?v=20260910z';
+import { loadSettings, state } from './state.js?v=20260910z';
+import { placeBody, walk } from './walk.js?v=20260910z';
 
 // ---------------------------------------------------------------------------
 // VR (phase 2, first step)
@@ -23,7 +23,8 @@ const controllers = [0, 1].map(i => {
 		const origin = c.getWorldPosition(new THREE.Vector3());
 		const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(c.getWorldQuaternion(new THREE.Quaternion()));
 		rc.set(origin, dir);
-		pressAlong(rc, 3);
+		if (pressAlong(rc, 3)) return;
+		aimRoom(dir);      // nothing to press under the ray: the wall pointed at becomes the room's front (Uli)
 	});
 	// a thin ray so you see what you point at
 	const ray = new THREE.Line(
@@ -160,7 +161,9 @@ export function stepPlanes(frame) {
 		if (!state.bounded && now - state.sessionT0 > 300 && !state.lookSet) {
 			// no boundary either: turn the room to the look, its north wall 1.5 m ahead
 			state.lookSet = true;
-			const look = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.getWorldQuaternion(new THREE.Quaternion())); look.y = 0; look.normalize();
+			const look = state.aim !== undefined
+		? new THREE.Vector3(-Math.sin(state.aim), 0, -Math.cos(state.aim))
+		: (() => { const v = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.getWorldQuaternion(new THREE.Quaternion())); v.y = 0; return v.normalize(); })();
 			const yaw = Math.atan2(-look.x, -look.z);
 			const h = head(), D = state.room ? state.room.D : state.settings.D;
 			world.rotation.y = yaw;
@@ -201,17 +204,24 @@ export function fitRoom(floorPts, walls, ceilings, floorY, source) {
 		}
 		theta = Math.atan2(sy, sx) / 4;
 	} else {
-		// a boundary drawn by hand is many short wobbly edges: the angle that
-		// gives the smallest box round the polygon is the walls' direction
-		let bestA = 0, bestArea = Infinity;
-		for (let deg = 0; deg < 90; deg += 0.5) {
-			const a = deg * Math.PI / 180, c = Math.cos(a), sn = Math.sin(a);
-			let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
-			for (const p of floorPts) { const x = p.x * c - p.z * sn, z = p.x * sn + p.z * c; if (x < x0) x0 = x; if (x > x1) x1 = x; if (z < z0) z0 = z; if (z > z1) z1 = z; }
-			const area = (x1 - x0) * (z1 - z0);
-			if (area < bestArea) { bestArea = area; bestA = a; }
+		// A boundary drawn by hand is many short edges, but the long runs of
+		// it lie along the walls: the length-weighted mean of the edges'
+		// directions, folded into a quarter turn, is where the walls point.
+		// (The smallest box round the polygon was the first try and it
+		// mis-turned a room with a swept corner or an alcove — Uli,
+		// 2026-09-10: the orientation was not good and the room came out
+		// small, which a wrong turn does.)
+		let sx = 0, sy = 0;
+		for (let i = 0; i < floorPts.length; i++) {
+			const p = floorPts[i], q = floorPts[(i + 1) % floorPts.length];
+			const dx = q.x - p.x, dz = q.z - p.z, len = Math.hypot(dx, dz);
+			if (len < 0.05) continue;                     // a stub says nothing about a wall
+			const a = Math.atan2(dz, dx);
+			sx += Math.cos(4 * a) * len; sy += Math.sin(4 * a) * len;
 		}
-		theta = bestA;                                    // the scan rotates as fitRoom does below, so the angle carries straight over
+		// minus: `theta` is what the scan is turned *by* below (rotationY(-theta)
+		// takes a direction at angle a to a + theta), not the walls' own angle
+		theta = sx || sy ? -Math.atan2(sy, sx) / 4 : 0;
 	}
 	// the scan in the walls' own frame, and the plan drawn on it: the
 	// biggest rectangle that fits, with the 50 cm extensions the scan
@@ -240,7 +250,9 @@ export function fitRoom(floorPts, walls, ceilings, floorY, source) {
 	// — of them the one whose north wall is the wall you are looking at,
 	// so the lift stands to your front right. A plan with no such corner
 	// falls back to its main rectangle, which always has four.
-	const look = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.getWorldQuaternion(new THREE.Quaternion())); look.y = 0; look.normalize();
+	const look = state.aim !== undefined
+		? new THREE.Vector3(-Math.sin(state.aim), 0, -Math.cos(state.aim))
+		: (() => { const v = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.getWorldQuaternion(new THREE.Quaternion())); v.y = 0; return v.normalize(); })();
 	const turn = shape => {
 		let best = null;
 		for (let k = 0; k < 4; k++) {
@@ -267,13 +279,15 @@ export function fitRoom(floorPts, walls, ceilings, floorY, source) {
 	const key = rooms().some(r => r.key === state.roomKey) ? state.roomKey : (rooms().find(r => r.year === state.year) || rooms()[0]).key;
 	hangRoom(key);
 	elevator.setDoors(1); elevator.open = 1;
-	if (elevator.displays.length) {
-		const b = { x0: Math.min(...poly.map(p => p[0])), x1: Math.max(...poly.map(p => p[0])), z0: Math.min(...poly.map(p => p[1])), z1: Math.max(...poly.map(p => p[1])) };
-		const scan = `${(b.x1 - b.x0).toFixed(1)}×${(b.z1 - b.z0).toFixed(1)}`, made = `${shape.W.toFixed(1)}×${shape.D.toFixed(1)}`;
-		const kept = plan.kept === undefined ? '' : ` ${Math.round(plan.kept * 100)}%`;
-		// the scan, what was made of it, and how much of the scan that holds
-		elevator.show(`${scan}\u2192${made}${kept}`, '');
-	}
+	// What the headset handed over, what was made of it, and how much of
+	// the scan that holds — on both displays, so it can be read from the
+	// room as well as from the cabin (Uli, 2026-09-10). It stays until the
+	// lift is called; the `plan` switch says it again.
+	const b = { x0: Math.min(...poly.map(p => p[0])), x1: Math.max(...poly.map(p => p[0])), z0: Math.min(...poly.map(p => p[1])), z1: Math.max(...poly.map(p => p[1])) };
+	state.scanSaid = `${(b.x1 - b.x0).toFixed(1)}×${(b.z1 - b.z0).toFixed(1)}\u2192${shape.W.toFixed(1)}×${shape.D.toFixed(1)}`
+		+ (plan.kept === undefined ? '' : ` ${Math.round(plan.kept * 100)}%`);
+	console.info(`scan ${state.scanSaid}`);
+	if (elevator.displays.length) elevator.show(state.scanSaid, '');
 }
 
 // The visitor's `plan` switch: the same scan planned again (Uli,
@@ -324,4 +338,20 @@ export function benchScan() {
 	state.real = null;
 	fitRoom(pts, [], [], 0, 'bench');
 	return true;
+}
+
+// Point at the middle of a wall and pull the trigger: that wall becomes
+// the room's north — the wall of the newest prints, with the lift to
+// your right — and the scan is planned again (Uli, 2026-09-10: the
+// automatic turn was not always the one you want). It picks among the
+// four quarter turns only; the walls' own angle stays as measured, since
+// a hand points a good ten degrees off and the room would come out thin.
+// Only in a room that came from a scan; the white cube has nothing to turn.
+export function aimRoom(dir) {
+	if (!state.scan) return false;
+	const d = dir.clone(); d.y = 0;
+	if (d.lengthSq() < 1e-6) return false;
+	d.normalize();
+	state.aim = Math.atan2(-d.x, -d.z);      // the yaw whose north (-z turned by it) looks along d
+	return planAgain();
 }
