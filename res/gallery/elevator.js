@@ -1,12 +1,12 @@
 import * as THREE from '../vendor/three.module.js';
-import { setWire, wire } from './bench.js?v=20260910z';
-import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260910z';
-import { ELEVATOR, clearRooms, hangRoom, roomByKey, rooms } from './hang.js?v=20260910z';
-import { WALL_STYLES, applyMode, dadoTop, dressWall, wallColours } from './room.js?v=20260910z';
-import { camera, head, renderer, scene, world } from './scene.js?v=20260910z';
-import { PLANS, state } from './state.js?v=20260910z';
-import { fitRoom, planAgain } from './vr.js?v=20260910z';
-import { placeBody, walk } from './walk.js?v=20260910z';
+import { setWire, wire } from './bench.js?v=20260911a';
+import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260911a';
+import { ELEVATOR, clearRooms, hangRoom, roomByKey, rooms } from './hang.js?v=20260911a';
+import { WALL_STYLES, applyMode, dadoTop, dressWall, wallColours } from './room.js?v=20260911a';
+import { camera, head, renderer, scene, world } from './scene.js?v=20260911a';
+import { PLANS, RAISES, state } from './state.js?v=20260911a';
+import { fitRoom, planAgain } from './vr.js?v=20260911a';
+import { placeBody, walk } from './walk.js?v=20260911a';
 
 // ---------------------------------------------------------------------------
 // The elevator
@@ -222,6 +222,7 @@ const SWITCHES = [
 	{ key: 'frame',  label: 'wood',   value: () => state.settings.frame,                   press: () => setSetting('frame', WOODS[(WOODS.indexOf(state.settings.frame) + 1) % WOODS.length]) },
 	{ key: 'labels', label: 'labels', value: () => state.settings.labels ? 'on' : 'off',   press: () => setSetting('labels', !state.settings.labels) },
 	{ key: 'plan',   label: 'plan',   value: () => state.settings.plan,                    press: () => setSetting('plan', PLANS[(PLANS.indexOf(state.settings.plan) + 1) % PLANS.length]) },   // what a scanned room is made of (Uli)
+	{ key: 'raise',  label: 'height', value: () => state.settings.raise ? '+1 m' : 'as is',        press: () => setSetting('raise', RAISES[(RAISES.indexOf(state.settings.raise) + 1) % RAISES.length]) },   // a metre more room, on every floor (Uli)
 	{ key: 'view',   label: 'view',   value: () => 'reset',                                press: () => recentre() },
 	{ key: 'wire',   label: 'wire',   value: () => wire ? 'on' : 'off',                    press: () => setWire(!wire), small: true },   // a smaller button centred under the rows (Uli)
 ];

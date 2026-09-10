@@ -1,16 +1,16 @@
 // three.js 0.180.0, vendored (MIT) — res/vendor/three.module.js, which in
 // turn imports res/vendor/three.core.js; both are pinned together.
-import { stats, stepStats } from './gallery/bench.js?v=20260910z';
-import { elevator, lift, pressAt, setSetting } from './gallery/elevator.js?v=20260910z';
-import { materials } from './gallery/frames.js?v=20260910z';
-import { ELEVATOR, hangRoom, packRun, piecesOf, replan, rooms, spread, upright } from './gallery/hang.js?v=20260910z';
-import { applyMode, buildRoom, stepMode } from './gallery/room.js?v=20260910z';
-import { planOf } from './gallery/plan.js?v=20260910z';
-import { camera, renderer, rig, scene, world } from './gallery/scene.js?v=20260910z';
-import { EYE, state } from './gallery/state.js?v=20260910z';
-import { makePiece, makeVideoPanel, stepVideos, videoCache } from './gallery/video.js?v=20260910z';
-import { aimRoom, benchScan, fitRoom, stepPlanes } from './gallery/vr.js?v=20260910z';
-import { applyLook, placeBody, stepWalk, walk } from './gallery/walk.js?v=20260910z';
+import { stats, stepStats } from './gallery/bench.js?v=20260911a';
+import { elevator, lift, pressAt, setSetting } from './gallery/elevator.js?v=20260911a';
+import { materials } from './gallery/frames.js?v=20260911a';
+import { ELEVATOR, hangRoom, packRun, piecesOf, replan, rooms, spread, upright } from './gallery/hang.js?v=20260911a';
+import { applyMode, buildRoom, stepMode } from './gallery/room.js?v=20260911a';
+import { planOf } from './gallery/plan.js?v=20260911a';
+import { camera, renderer, rig, scene, world } from './gallery/scene.js?v=20260911a';
+import { EYE, state } from './gallery/state.js?v=20260911a';
+import { makePiece, makeVideoPanel, stepVideos, videoCache } from './gallery/video.js?v=20260911a';
+import { benchScan, fitRoom, stepPlanes } from './gallery/vr.js?v=20260911a';
+import { applyLook, placeBody, stepWalk, walk } from './gallery/walk.js?v=20260911a';
 
 // ---------------------------------------------------------------------------
 // Boot
@@ -47,4 +47,4 @@ renderer.setAnimationLoop((now, frame) => {
 
 // Test-harness handle only: the plan's browser checks read the scene graph
 // and camera through this. Nothing on the page uses it.
-window.G = { scene, camera, renderer, state, buildRoom, applyMode, makePiece, rooms, hangRoom, walk, stepWalk, elevator, pressAt, setSetting, materials, rig, world, placeBody, lift, stepPlanes, stepVideos, videoCache, makeVideoPanel, replan, packRun, piecesOf, spread, upright, fitRoom, planOf, aimRoom };   // replan, packRun, piecesOf, spread, upright, fitRoom, planOf: for the bench's checks only
+window.G = { scene, camera, renderer, state, buildRoom, applyMode, makePiece, rooms, hangRoom, walk, stepWalk, elevator, pressAt, setSetting, materials, rig, world, placeBody, lift, stepPlanes, stepVideos, videoCache, makeVideoPanel, replan, packRun, piecesOf, spread, upright, fitRoom, planOf };   // replan, packRun, piecesOf, spread, upright, fitRoom, planOf: for the bench's checks only

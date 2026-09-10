@@ -1,10 +1,10 @@
 import * as THREE from '../vendor/three.module.js';
-import { BUTTON, elevator, pressAlong, settingsMap } from './elevator.js?v=20260910z';
-import { cornerFree, outlineOf, planOf, rotShape } from './plan.js?v=20260910z';
-import { ELEVATOR, clearRooms, hangRoom, rooms } from './hang.js?v=20260910z';
-import { camera, head, renderer, rig, scene, world } from './scene.js?v=20260910z';
-import { loadSettings, state } from './state.js?v=20260910z';
-import { placeBody, walk } from './walk.js?v=20260910z';
+import { BUTTON, elevator, pressAlong, settingsMap } from './elevator.js?v=20260911a';
+import { cornerFree, outlineOf, planOf, rotShape } from './plan.js?v=20260911a';
+import { ELEVATOR, clearRooms, hangRoom, rooms } from './hang.js?v=20260911a';
+import { camera, head, renderer, rig, scene, world } from './scene.js?v=20260911a';
+import { loadSettings, state } from './state.js?v=20260911a';
+import { placeBody, walk } from './walk.js?v=20260911a';
 
 // ---------------------------------------------------------------------------
 // VR (phase 2, first step)
@@ -23,8 +23,8 @@ const controllers = [0, 1].map(i => {
 		const origin = c.getWorldPosition(new THREE.Vector3());
 		const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(c.getWorldQuaternion(new THREE.Quaternion()));
 		rc.set(origin, dir);
-		if (pressAlong(rc, 3)) return;
-		aimRoom(dir);      // nothing to press under the ray: the wall pointed at becomes the room's front (Uli)
+		pressAlong(rc, 3);   // the trigger presses what it points at, nothing else (Uli, 2026-09-10:
+		                     // pointing at a wall must not turn the room — a switch for that first)
 	});
 	// a thin ray so you see what you point at
 	const ray = new THREE.Line(
@@ -161,9 +161,7 @@ export function stepPlanes(frame) {
 		if (!state.bounded && now - state.sessionT0 > 300 && !state.lookSet) {
 			// no boundary either: turn the room to the look, its north wall 1.5 m ahead
 			state.lookSet = true;
-			const look = state.aim !== undefined
-		? new THREE.Vector3(-Math.sin(state.aim), 0, -Math.cos(state.aim))
-		: (() => { const v = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.getWorldQuaternion(new THREE.Quaternion())); v.y = 0; return v.normalize(); })();
+			const look = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.getWorldQuaternion(new THREE.Quaternion())); look.y = 0; look.normalize();
 			const yaw = Math.atan2(-look.x, -look.z);
 			const h = head(), D = state.room ? state.room.D : state.settings.D;
 			world.rotation.y = yaw;
@@ -250,9 +248,7 @@ export function fitRoom(floorPts, walls, ceilings, floorY, source) {
 	// — of them the one whose north wall is the wall you are looking at,
 	// so the lift stands to your front right. A plan with no such corner
 	// falls back to its main rectangle, which always has four.
-	const look = state.aim !== undefined
-		? new THREE.Vector3(-Math.sin(state.aim), 0, -Math.cos(state.aim))
-		: (() => { const v = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.getWorldQuaternion(new THREE.Quaternion())); v.y = 0; return v.normalize(); })();
+	const look = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.getWorldQuaternion(new THREE.Quaternion())); look.y = 0; look.normalize();
 	const turn = shape => {
 		let best = null;
 		for (let k = 0; k < 4; k++) {
@@ -340,18 +336,3 @@ export function benchScan() {
 	return true;
 }
 
-// Point at the middle of a wall and pull the trigger: that wall becomes
-// the room's north — the wall of the newest prints, with the lift to
-// your right — and the scan is planned again (Uli, 2026-09-10: the
-// automatic turn was not always the one you want). It picks among the
-// four quarter turns only; the walls' own angle stays as measured, since
-// a hand points a good ten degrees off and the room would come out thin.
-// Only in a room that came from a scan; the white cube has nothing to turn.
-export function aimRoom(dir) {
-	if (!state.scan) return false;
-	const d = dir.clone(); d.y = 0;
-	if (d.lengthSq() < 1e-6) return false;
-	d.normalize();
-	state.aim = Math.atan2(-d.x, -d.z);      // the yaw whose north (-z turned by it) looks along d
-	return planAgain();
-}

@@ -1,13 +1,13 @@
 import * as THREE from '../vendor/three.module.js';
-import { bakeRoom, placeLabels } from './bake.js?v=20260910z';
-import { setWire, wire } from './bench.js?v=20260910z';
-import { elevator, roomLabel } from './elevator.js?v=20260910z';
-import { FRAME, GRID_GAP, sc, textureCache } from './frames.js?v=20260910z';
-import { WALL_STYLES, buildRoom, dadoTop, floorOf, rectRoom, shapeOf, wallColours } from './room.js?v=20260910z';
-import { scene, world } from './scene.js?v=20260910z';
-import { HANG_MAX, pieceY, state } from './state.js?v=20260910z';
-import { framedSize, freeTexturesExcept, freeVideosExcept, makePiece } from './video.js?v=20260910z';
-import { BODY_R } from './walk.js?v=20260910z';
+import { bakeRoom, placeLabels } from './bake.js?v=20260911a';
+import { setWire, wire } from './bench.js?v=20260911a';
+import { elevator, roomLabel } from './elevator.js?v=20260911a';
+import { FRAME, GRID_GAP, sc, textureCache } from './frames.js?v=20260911a';
+import { WALL_STYLES, buildRoom, dadoTop, floorOf, rectRoom, shapeOf, wallColours } from './room.js?v=20260911a';
+import { scene, world } from './scene.js?v=20260911a';
+import { HANG_MAX, pieceY, state } from './state.js?v=20260911a';
+import { framedSize, freeTexturesExcept, freeVideosExcept, makePiece } from './video.js?v=20260911a';
+import { BODY_R } from './walk.js?v=20260911a';
 
 // ---------------------------------------------------------------------------
 // Hanging a year
@@ -449,7 +449,7 @@ function clipPool(pool, w, h, left = Infinity, right = Infinity) {
 
 export function hangRoom(key) {
 	const room = roomByKey(key);
-	const H = state.settings.H;
+	const H = state.settings.H + state.settings.raise;   // the height switch: a metre more, over every floor (Uli)
 	for (const name of ['pieces', 'baked']) {
 		const old = scene.getObjectByName(name);
 		if (old) { old.traverse(o => { if (o.isMesh && o.parent === old) o.geometry.dispose(); }); old.parent.remove(old); }
