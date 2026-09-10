@@ -1,10 +1,10 @@
 import * as THREE from '../vendor/three.module.js';
-import { BUTTON, elevator, pressAlong, settingsMap } from './elevator.js?v=20260911d';
-import { cornerFree, outlineOf, planOf, rotShape } from './plan.js?v=20260911d';
-import { ELEVATOR, clearRooms, hangRoom, rooms } from './hang.js?v=20260911d';
-import { camera, head, renderer, rig, scene, world } from './scene.js?v=20260911d';
-import { loadSettings, state } from './state.js?v=20260911d';
-import { placeBody, walk } from './walk.js?v=20260911d';
+import { BUTTON, elevator, pressAlong, settingsMap } from './elevator.js?v=20260911f';
+import { cornerFree, outlineOf, planOf, rotShape } from './plan.js?v=20260911f';
+import { ELEVATOR, clearRooms, hangRoom, rooms } from './hang.js?v=20260911f';
+import { camera, head, renderer, rig, scene, world } from './scene.js?v=20260911f';
+import { loadSettings, state } from './state.js?v=20260911f';
+import { placeBody, walk } from './walk.js?v=20260911f';
 
 // ---------------------------------------------------------------------------
 // VR (phase 2, first step)
@@ -67,7 +67,11 @@ async function offerVR() {
 				// `reset` on the space: the boundary is read again in the new
 				// space and the room fitted to it afresh (Uli, 2026-09-10: the
 				// walls are not always parallel, or the view was reset).
-				state.bounded.addEventListener('reset', () => matchWalls());
+				state.bounded.addEventListener('reset', () => {
+					if (performance.now() - (state.matchedAt || 0) < 1000) return;   // a run that fires often must not refit every time
+					state.matchedAt = performance.now();
+					matchWalls();
+				});
 			} else state.bounded = null;
 			session.addEventListener('end', () => { vrButton.hidden = false; document.body.classList.remove('xr'); rig.position.set(0, 0, 0); rig.rotation.set(0, 0, 0); state.lookSet = false; if (state.real) { state.real = null; world.position.set(0, 0, 0); world.rotation.set(0, 0, 0); state.settings.H = loadSettings().H; clearRooms(); state.room = null; hangRoom(rooms()[0].key); } });
 			await renderer.xr.setSession(session);
@@ -148,6 +152,7 @@ export function stepXR(dt) { stepHands(); stepGamepads(); }
 let planesShown = 0;
 export function stepPlanes(frame) {
 	if (state.real) return;
+	if (state.fitFailed && performance.now() - state.fitFailed < 1000) return;   // a fit that did not take is not retried every frame
 	const ref = renderer.xr.getReferenceSpace();
 	const walls = [], floors = [], ceilings = [];
 	const planes = frame.detectedPlanes ? [...frame.detectedPlanes] : null;
@@ -264,32 +269,19 @@ export function fitRoom(floorPts, walls, ceilings, floorY, source) {
 	// Where two turns are as good as each other, a square room say, the one
 	// you are looking at wins.
 	const turn = shape => {
-		const ok = [];
+		let best = null;
 		for (let k = 0; k < 4; k++) {
 			const turned = rotShape(shape, k);
 			if (!cornerFree(turned, ELEVATOR.size)) continue;
 			const yaw = theta + k * Math.PI / 2;
 			const north = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
-			ok.push({ yaw, shape: turned, dot: north.dot(look) });
+			const dot = north.dot(look);
+			if (!best || dot > best.dot) best = { yaw, shape: turned, dot };
 		}
-		if (ok.length < 2) return ok[0] || null;
-		// The turns are worth different amounts: where the lift stands and
-		// which walls are long decide how much hangs on a floor. So each is
-		// planned through and the one that needs the fewest floors wins —
-		// the room finds its own front, without being faced on entry (Uli,
-		// 2026-09-10). A tie goes to the wall being looked at.
-		for (const t of ok) {
-			state.real = { W: t.shape.W, D: t.shape.D, H: 2.6, yaw: t.yaw, centre, walls: walls.length, source, shape: t.shape };
-			clearRooms();
-			t.floors = rooms().length;
-		}
-		state.real = null; clearRooms();
-		ok.sort((a, b) => a.floors - b.floors || b.dot - a.dot);
-		console.info('turns: ' + ok.map(t => `${Math.round(t.yaw * 180 / Math.PI)}° ${t.floors} floors`).join(', '));
-		return ok[0];
+		return best;
 	};
 	const best = turn(plan.shape) || turn(planOf(poly, 'inside').shape);
-	if (!best) return;
+	if (!best) { state.fitFailed = performance.now(); return; }   // and not again for a second: a fit tried every frame stops the room
 	const shape = best.shape;
 	state.real = { W: shape.W, D: shape.D, H: Math.round(H * 20) / 20, yaw: best.yaw, centre, walls: walls.length, source, shape };
 	console.info(`real room ${shape.W.toFixed(2)} × ${shape.D.toFixed(2)} × ${state.real.H} from ${source}, ${walls.length} walls, ${shape.rects.length} part${shape.rects.length > 1 ? 's' : ''}, ${shape.outline.length} corners, turned ${(best.yaw * 180 / Math.PI).toFixed(0)}°`);

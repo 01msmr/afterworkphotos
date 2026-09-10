@@ -1,8 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
-import { addLabel } from './bake.js?v=20260911d';
-import { FRAME, GRID_GAP, MAT_Z, PRINT_SCALE, matWidth, materials, photoTexture, poolMaterial, sc, textureCache } from './frames.js?v=20260911d';
-import { camera, scene } from './scene.js?v=20260911d';
-import { pieceY, state } from './state.js?v=20260911d';
+import { addLabel } from './bake.js?v=20260911f';
+import { FRAME, GRID_GAP, MAT_Z, PRINT_SCALE, matWidth, materials, photoTexture, poolMaterial, sc, textureCache } from './frames.js?v=20260911f';
+import { camera, scene } from './scene.js?v=20260911f';
+import { pieceY, state } from './state.js?v=20260911f';
 
 // ---------------------------------------------------------------------------
 // Videos — the LED panel

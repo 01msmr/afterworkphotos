@@ -1,16 +1,16 @@
 // three.js 0.180.0, vendored (MIT) — res/vendor/three.module.js, which in
 // turn imports res/vendor/three.core.js; both are pinned together.
-import { stats, stepStats } from './gallery/bench.js?v=20260911d';
-import { elevator, lift, pressAt, setSetting } from './gallery/elevator.js?v=20260911d';
-import { materials } from './gallery/frames.js?v=20260911d';
-import { ELEVATOR, hangRoom, packRun, piecesOf, replan, rooms, spread, upright } from './gallery/hang.js?v=20260911d';
-import { applyMode, buildRoom, stepMode } from './gallery/room.js?v=20260911d';
-import { planOf } from './gallery/plan.js?v=20260911d';
-import { camera, renderer, rig, scene, world } from './gallery/scene.js?v=20260911d';
-import { EYE, state } from './gallery/state.js?v=20260911d';
-import { makePiece, makeVideoPanel, stepVideos, videoCache } from './gallery/video.js?v=20260911d';
-import { benchScan, fitRoom, stepPlanes } from './gallery/vr.js?v=20260911d';
-import { applyLook, placeBody, stepWalk, walk } from './gallery/walk.js?v=20260911d';
+import { stats, stepStats } from './gallery/bench.js?v=20260911f';
+import { elevator, lift, pressAt, setSetting } from './gallery/elevator.js?v=20260911f';
+import { materials } from './gallery/frames.js?v=20260911f';
+import { ELEVATOR, hangRoom, packRun, piecesOf, replan, rooms, spread, upright } from './gallery/hang.js?v=20260911f';
+import { applyMode, buildRoom, stepMode } from './gallery/room.js?v=20260911f';
+import { planOf } from './gallery/plan.js?v=20260911f';
+import { camera, renderer, rig, scene, world } from './gallery/scene.js?v=20260911f';
+import { EYE, state } from './gallery/state.js?v=20260911f';
+import { makePiece, makeVideoPanel, stepVideos, videoCache } from './gallery/video.js?v=20260911f';
+import { benchScan, fitRoom, stepPlanes } from './gallery/vr.js?v=20260911f';
+import { applyLook, placeBody, stepWalk, walk } from './gallery/walk.js?v=20260911f';
 
 // ---------------------------------------------------------------------------
 // Boot
@@ -35,14 +35,29 @@ function init() {
 	applyLook();
 }
 
+// The frame. Anything that throws in here would end the loop for good —
+// three asks for the next frame only after the callback returns, so one
+// error leaves the room standing still and nothing answering (Uli,
+// 2026-09-10, in the headset). So each step is guarded on its own: a step
+// that fails is skipped, said once, and the room keeps rendering.
+const said = new Set();
+function step(name, fn) {
+	try { fn(); } catch (e) {
+		if (said.has(name)) return;
+		said.add(name);
+		console.error(`${name} failed, skipped from here on`, e);
+		// and say so where it can be read in the headset, on the lift's displays
+		try { elevator.show(`${name}: ${String(e.message || e).slice(0, 22)}`, ''); } catch (ignored) {}
+	}
+}
 renderer.setAnimationLoop((now, frame) => {
-	if (frame) stepPlanes(frame);
-	elevator.step(now);
-	stepWalk(now);
-	stepVideos(now);
-	stepMode(now);
-	renderer.render(scene, camera);
-	if (stats) stepStats(now);
+	if (frame) step('planes', () => stepPlanes(frame));
+	step('lift', () => elevator.step(now));
+	step('walk', () => stepWalk(now));
+	step('videos', () => stepVideos(now));
+	step('light', () => stepMode(now));
+	step('render', () => renderer.render(scene, camera));
+	if (stats) step('stats', () => stepStats(now));
 });
 
 // Test-harness handle only: the plan's browser checks read the scene graph
