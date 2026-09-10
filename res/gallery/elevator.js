@@ -1,12 +1,12 @@
 import * as THREE from '../vendor/three.module.js';
-import { setWire, wire } from './bench.js?v=20260911f';
-import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260911f';
-import { ELEVATOR, clearRooms, hangRoom, roomByKey, rooms } from './hang.js?v=20260911f';
-import { WALL_STYLES, applyMode, dadoTop, dressWall, wallColours } from './room.js?v=20260911f';
-import { camera, head, renderer, scene, world } from './scene.js?v=20260911f';
-import { PLANS, RAISES, state } from './state.js?v=20260911f';
-import { fitRoom, planAgain } from './vr.js?v=20260911f';
-import { placeBody, walk } from './walk.js?v=20260911f';
+import { setWire, wire } from './bench.js?v=20260911i';
+import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260911i';
+import { ELEVATOR, clearRooms, hangRoom, roomByKey, rooms } from './hang.js?v=20260911i';
+import { WALL_STYLES, applyMode, dadoTop, dressWall, wallColours } from './room.js?v=20260911i';
+import { camera, head, renderer, scene, world } from './scene.js?v=20260911i';
+import { PLANS, RAISES, state } from './state.js?v=20260911i';
+import { fitRoom, planAgain } from './vr.js?v=20260911i';
+import { placeBody, walk } from './walk.js?v=20260911i';
 
 // ---------------------------------------------------------------------------
 // The elevator
@@ -102,7 +102,7 @@ export function roomLabel(room) {
 // (15.4–18.6 s) stands in. The audio context has to be born of a press,
 // so it is made on the first ride; the files are fetched at load and
 // decoded then.
-const SOUND = {
+export const SOUND = {
 	ride:  { file: '/res/sound/ride.mp3', run: [0.6, 8.4], stop: [8.4, 11.7], door: [13.3, 15.3] },
 	bell:  { file: '/res/sound/bell.mp3' },
 	call:  { file: '/res/sound/call.mp3', hum: [1.0, 6.0] },        // the lift coming, heard from outside
