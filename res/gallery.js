@@ -1,15 +1,15 @@
 // three.js 0.180.0, vendored (MIT) — res/vendor/three.module.js, which in
 // turn imports res/vendor/three.core.js; both are pinned together.
-import { stats, stepStats } from './gallery/bench.js?v=20260910k';
-import { elevator, lift, pressAt, setSetting } from './gallery/elevator.js?v=20260910k';
-import { materials } from './gallery/frames.js?v=20260910k';
-import { ELEVATOR, hangRoom, packRun, piecesOf, replan, rooms, spread, upright } from './gallery/hang.js?v=20260910k';
-import { applyMode, buildRoom, stepMode } from './gallery/room.js?v=20260910k';
-import { camera, renderer, rig, scene, world } from './gallery/scene.js?v=20260910k';
-import { EYE, state } from './gallery/state.js?v=20260910k';
-import { makePiece, makeVideoPanel, stepVideos, videoCache } from './gallery/video.js?v=20260910k';
-import { benchScan, stepPlanes } from './gallery/vr.js?v=20260910k';
-import { applyLook, placeBody, stepWalk, walk } from './gallery/walk.js?v=20260910k';
+import { stats, stepStats } from './gallery/bench.js?v=20260910m';
+import { elevator, lift, pressAt, setSetting } from './gallery/elevator.js?v=20260910m';
+import { materials } from './gallery/frames.js?v=20260910m';
+import { ELEVATOR, hangRoom, packRun, piecesOf, replan, rooms, spread, upright } from './gallery/hang.js?v=20260910m';
+import { applyMode, buildRoom, stepMode } from './gallery/room.js?v=20260910m';
+import { camera, renderer, rig, scene, world } from './gallery/scene.js?v=20260910m';
+import { EYE, state } from './gallery/state.js?v=20260910m';
+import { makePiece, makeVideoPanel, stepVideos, videoCache } from './gallery/video.js?v=20260910m';
+import { benchScan, stepPlanes } from './gallery/vr.js?v=20260910m';
+import { applyLook, placeBody, stepWalk, walk } from './gallery/walk.js?v=20260910m';
 
 // ---------------------------------------------------------------------------
 // Boot
