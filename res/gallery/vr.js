@@ -1,10 +1,10 @@
 import * as THREE from '../vendor/three.module.js';
-import { BUTTON, elevator, pressAlong, settingsMap } from './elevator.js?v=20260910p';
-import { cornerFree, outlineOf, planOf, rotShape } from './plan.js?v=20260910p';
-import { ELEVATOR, clearRooms, hangRoom, rooms } from './hang.js?v=20260910p';
-import { camera, head, renderer, rig, scene, world } from './scene.js?v=20260910p';
-import { loadSettings, state } from './state.js?v=20260910p';
-import { placeBody, walk } from './walk.js?v=20260910p';
+import { BUTTON, elevator, pressAlong, settingsMap } from './elevator.js?v=20260910s';
+import { cornerFree, outlineOf, planOf, rotShape } from './plan.js?v=20260910s';
+import { ELEVATOR, clearRooms, hangRoom, rooms } from './hang.js?v=20260910s';
+import { camera, head, renderer, rig, scene, world } from './scene.js?v=20260910s';
+import { loadSettings, state } from './state.js?v=20260910s';
+import { placeBody, walk } from './walk.js?v=20260910s';
 
 // ---------------------------------------------------------------------------
 // VR (phase 2, first step)
@@ -223,6 +223,16 @@ export function fitRoom(floorPts, walls, ceilings, floorY, source) {
 	const plan = planOf(poly, state.settings.plan);
 	if (!plan || plan.shape.W < 1.5 || plan.shape.D < 1.5) return;
 	const centre = new THREE.Vector3(plan.cx, 0, plan.cz).applyMatrix4(new THREE.Matrix4().makeRotationY(theta));
+	// ?scanline=1: the boundary as it arrived, drawn on the floor in the
+	// session's own space, so the real room, the scan and the gallery's
+	// walls can be seen against each other (Uli, 2026-09-10: the scan was
+	// much bigger than the room that was built)
+	if (new URLSearchParams(location.search).get('scanline') === '1') {
+		const old = scene.getObjectByName('scanline'); if (old) { old.geometry.dispose(); old.parent.remove(old); }
+		const g = new THREE.BufferGeometry().setFromPoints([...floorPts, floorPts[0]].map(p => new THREE.Vector3(p.x, floorY + 0.02, p.z)));
+		const line = new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0x46ff7a }));
+		line.name = 'scanline'; scene.add(line);
+	}
 	const H = ceilings.length ? Math.max(2.2, ceilings[0].pts[0].y - floorY) : Math.max(2.2, Math.min(3.2, walls.reduce((h, w) => Math.max(h, ...w.pts.map(p => p.y)), 0) - floorY || 2.6));
 
 	// of the four turns that keep the walls on the walls, those with room
@@ -257,7 +267,13 @@ export function fitRoom(floorPts, walls, ceilings, floorY, source) {
 	const key = rooms().some(r => r.key === state.roomKey) ? state.roomKey : (rooms().find(r => r.year === state.year) || rooms()[0]).key;
 	hangRoom(key);
 	elevator.setDoors(1); elevator.open = 1;
-	if (elevator.displays.length) elevator.show(`${state.real.W.toFixed(1)} × ${state.real.D.toFixed(1)} ${source === 'planes' ? 'walls' : 'boundary'}`, '');
+	if (elevator.displays.length) {
+		const b = { x0: Math.min(...poly.map(p => p[0])), x1: Math.max(...poly.map(p => p[0])), z0: Math.min(...poly.map(p => p[1])), z1: Math.max(...poly.map(p => p[1])) };
+		const scan = `${(b.x1 - b.x0).toFixed(1)}×${(b.z1 - b.z0).toFixed(1)}`, made = `${shape.W.toFixed(1)}×${shape.D.toFixed(1)}`;
+		const kept = plan.kept === undefined ? '' : ` ${Math.round(plan.kept * 100)}%`;
+		// the scan, what was made of it, and how much of the scan that holds
+		elevator.show(`${scan}\u2192${made}${kept}`, '');
+	}
 }
 
 // The visitor's `plan` switch: the same scan planned again (Uli,

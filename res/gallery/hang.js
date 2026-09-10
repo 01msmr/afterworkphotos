@@ -1,13 +1,13 @@
 import * as THREE from '../vendor/three.module.js';
-import { bakeRoom, placeLabels } from './bake.js?v=20260910p';
-import { setWire, wire } from './bench.js?v=20260910p';
-import { elevator, roomLabel } from './elevator.js?v=20260910p';
-import { FRAME, GRID_GAP, sc, textureCache } from './frames.js?v=20260910p';
-import { WALL_STYLES, buildRoom, dadoTop, floorOf, rectRoom, shapeOf, wallColours } from './room.js?v=20260910p';
-import { scene, world } from './scene.js?v=20260910p';
-import { HANG_MAX, pieceY, state } from './state.js?v=20260910p';
-import { framedSize, freeTexturesExcept, freeVideosExcept, makePiece } from './video.js?v=20260910p';
-import { BODY_R } from './walk.js?v=20260910p';
+import { bakeRoom, placeLabels } from './bake.js?v=20260910s';
+import { setWire, wire } from './bench.js?v=20260910s';
+import { elevator, roomLabel } from './elevator.js?v=20260910s';
+import { FRAME, GRID_GAP, sc, textureCache } from './frames.js?v=20260910s';
+import { WALL_STYLES, buildRoom, dadoTop, floorOf, rectRoom, shapeOf, wallColours } from './room.js?v=20260910s';
+import { scene, world } from './scene.js?v=20260910s';
+import { HANG_MAX, pieceY, state } from './state.js?v=20260910s';
+import { framedSize, freeTexturesExcept, freeVideosExcept, makePiece } from './video.js?v=20260910s';
+import { BODY_R } from './walk.js?v=20260910s';
 
 // ---------------------------------------------------------------------------
 // Hanging a year
@@ -244,9 +244,10 @@ function nearEdge(p, q, c, m) {
 const SLAB = { thick: 0.08, edge: 0.08 };   // behind a middle-row grid: its thickness, and how far past the group on every edge (Uli)
 function layMiddle(rest, shape, gap) {
 	const placed = [], ko = keepOut(shape), m = WALL_MARGIN;
-	// what the walls did not take, in the walls' order: the grids that made
-	// no wall first, so they stand back to back, then the singles (Uli)
-	const pieces = [...rest];
+	// what the walls did not take — back into date order (Uli, 2026-09-10:
+	// neighbours in time side by side), since the walls take the grids
+	// first and the singles after, which leaves the rest shuffled
+	const pieces = [...rest].sort((a, b) => a.photos[0].taken.localeCompare(b.photos[0].taken));
 	let i = 0;
 	// rect by rect, largest first: rows along its longer side (an x-row's
 	// pieces face ±z, a z-row's ±x), spread over its length
@@ -266,12 +267,27 @@ function layMiddle(rest, shape, gap) {
 			for (const [lo, hi] of cuts) runs = runs.flatMap(([s0, s1]) => [[s0, Math.min(s1, lo)], [Math.max(s0, hi), s1]].filter(([u, v]) => v > u));
 			if (!runs.length) continue;
 			const [s0, s1] = runs.reduce((best, s) => s[1] - s[0] > best[1] - best[0] ? s : best);
-			// the slots of this row: each a pair, as wide as its wider piece, spread evenly
-			const slots = [];
-			for (let k = i; k < pieces.length; k += 2) slots.push({ w: Math.max(pieces[k].w, pieces[k + 1] ? pieces[k + 1].w : 0), photos: [] });
-			const { taken, at } = spread(slots, s1 - s0, gap, 0, 0), n = taken.length;   // the slots in order: each is a pair of the queue
-			for (let k = 0; k < n; k++) {
-				const a = pieces[i], b = pieces[i + 1], s = s0 + at[k];
+			// The row's slots, each a pair back to back, as wide as its wider
+			// piece and spread evenly. Which pair, though, follows the walk
+			// (Uli, 2026-09-10: neighbours in time side by side, not back to
+			// back): the front of the row carries one date after another as
+			// you walk along it, and the back carries the next ones in the
+			// order you meet them coming round the end — so the row reads on
+			// as a serpentine instead of hiding tomorrow behind today.
+			// How many slots: as many as the run takes, tried from the most
+			// down, since a slot is only as wide as the pair it ends up with.
+			const left = pieces.length - i;
+			if (!left) continue;
+			let fit = null;
+			for (let m = Math.ceil(left / 2); m >= 1 && !fit; m--) {
+				const front = pieces.slice(i, i + m), back = pieces.slice(i + m, i + 2 * m).reverse();
+				const slots = front.map((f, k) => ({ w: Math.max(f.w, back[k] ? back[k].w : 0), photos: [] }));
+				const { taken, at } = spread(slots, s1 - s0, gap, 0, 0);
+				if (taken.length === m) fit = { front, back, at };
+			}
+			if (!fit) continue;
+			fit.front.forEach((a, k) => {
+				const b = fit.back[k], s = s0 + fit.at[k];
 				// a slot with a grid gets a slab (Uli): a wall-like block behind,
 				// SLAB thick, the pair hanging on its two faces so nothing shows
 				// through the grid's gaps; two singles hang back to back as before
@@ -280,8 +296,8 @@ function layMiddle(rest, shape, gap) {
 				const put = (p, yaw, d) => placed.push({ piece: p, x: alongX ? s : c + d, z: alongX ? c + d : s, yaw, wall: 'mid', slab });
 				put(a, alongX ? 0 : Math.PI / 2, off);                 // faces +z (south), or +x (east) in a z-row
 				if (b) put(b, alongX ? Math.PI : -Math.PI / 2, -off);  // faces -z, or -x
-				i += 2;
-			}
+			});
+			i += fit.front.length + fit.back.length;
 		}
 	}
 	return { placed, rest: pieces.slice(i) };

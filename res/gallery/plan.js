@@ -224,7 +224,7 @@ function areaOf(poly) {
 	return Math.abs(a) / 2;
 }
 const rectsArea = rects => rects.reduce((s, r) => s + (r.x1 - r.x0) * (r.z1 - r.z0), 0);
-const KEEP = 0.8;        // a plan that holds less of the scan than this is not the room: the rectangle round it is (Uli)
+const KEEP = 0.85;        // a plan that holds less of the scan than this is not the room: the rectangle round it is (Uli)
 
 export function planOf(poly, mode = 'grid') {
 	const b = bboxOf(poly);
@@ -239,6 +239,9 @@ export function planOf(poly, mode = 'grid') {
 	// 2026-09-10: a very much smaller L than the room allows).
 	const plan = shapeOf(rects);
 	plan.kept = rectsArea(rects) / (areaOf(poly) || 1);
-	return plan.kept >= KEEP ? plan : around();
+	if (plan.kept >= KEEP) return plan;
+	const box = around();                                 // the plan lost too much of the scan: the rectangle round it
+	box.kept = plan.kept; box.fellBack = true;
+	return box;
 }
 export { largestRect, inPoly };
