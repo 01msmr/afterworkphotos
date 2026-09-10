@@ -1,8 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
-import { addLabel } from './bake.js?v=20260911y';
-import { FRAME, GRID_GAP, MAT_Z, PRINT_SCALE, matWidth, materials, photoTexture, poolMaterial, sc, textureCache } from './frames.js?v=20260911y';
-import { camera, scene } from './scene.js?v=20260911y';
-import { pieceY, state } from './state.js?v=20260911y';
+import { addLabel } from './bake.js?v=20260911z';
+import { FRAME, GRID_GAP, MAT_Z, PRINT_SCALE, matWidth, materials, photoTexture, poolMaterial, sc, textureCache } from './frames.js?v=20260911z';
+import { camera, scene } from './scene.js?v=20260911z';
+import { pieceY, state } from './state.js?v=20260911z';
 
 // ---------------------------------------------------------------------------
 // Videos — the LED panel
@@ -177,7 +177,6 @@ function makeFramedPrint(p, size) {
 	print.name = 'photo';
 	print.position.z = MAT_Z + 0.001;                // a millimetre proud of the mat (Uli)
 	print.userData.full = inner / printed;           // what it scales to when pressed: over the mat, edge to edge (Uli)
-	print.userData.inner = inner;                    // and the frame's inner edge, for the shadow it throws on a filled print
 	g.add(print);
 	// the shadow that millimetre throws: a faint dark rim just behind the
 	// print, a hair larger and pushed down and to the right
