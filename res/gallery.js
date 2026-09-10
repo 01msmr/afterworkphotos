@@ -907,24 +907,29 @@ function placeLabels(piece, w, h, roomRight, forceBelow = false) {
 //
 // The pieces of a year, in date order. The year's group photos are
 // pooled (Uli, 2026-09-06 — before, only six or more in a row made a
-// grid) and packed into grids of nine, six and four, a row of three or a
-// pair, cut from the pool in date order so neighbours stay together; a
-// grid takes its place in the sequence at its first photo's date. A lone
-// one left hangs single at 60; everything judged single hangs at 90.
+// grid) and packed into grids of six and four, a row of three or a pair
+// — a grid of nine only where one saves a room (Uli, 2026-09-10) — cut
+// from the pool in date order so neighbours stay together; a grid takes
+// its place in the sequence at its first photo's date. A lone one left
+// hangs single at 60; everything judged single hangs at 90.
 
-// How to cut n group photos into grids of 9, 6, 4, a row of 3 or a pair
+// How to cut n group photos into grids of 6 and 4, a row of 3 or a pair
 // (Uli): the most covered, then — not everything into the largest (Uli)
-// — a mix: nines and sixes in balance, then the fewest grids. Only one
-// can be left.
+// — a mix: sixes and fours in balance (one more of either still is),
+// then the fewest grids; on a full tie the walk's first, with the larger
+// sizes. So 6 → 6, 8 → 6+2, 9 → 6+3, 12 → 6+4+2. A grid of nine only
+// when `nines` allows one (Uli, 2026-09-10: fewer nines — one at most,
+// and only when it saves a room), and then it is taken when it costs no
+// coverage: 9 → 9, 10 → 6+4, 12 → 9+3, 15 → 9+6. Only one can be left.
 const GRIDS = { 9: [3, 3], 6: [3, 2], 4: [2, 2], 3: [3, 1], 2: [2, 1] };   // cols, rows
-function packRun(n) {
+const SIZES = [9, 6, 4, 3, 2];
+function packRun(n, nines = 0) {
 	let best = null;
-	const sizes = [9, 6, 4, 3, 2];
-	const better = (a, b) => !b || a.covered > b.covered || (a.covered === b.covered && (a.skew < b.skew || (a.skew === b.skew && a.grids < b.grids)));
+	const better = (a, b) => !b || a.covered > b.covered || (a.covered === b.covered && (a.c9 > b.c9 || (a.c9 === b.c9 && (a.skew < b.skew || (a.skew === b.skew && a.grids < b.grids)))));
 	const walk = (k, left, counts, covered, grids) => {
-		if (k === sizes.length) { const c = { counts: { ...counts }, covered, grids, skew: Math.abs((counts[9] || 0) - (counts[6] || 0)) }; if (better(c, best)) best = c; return; }
-		const g = sizes[k];
-		for (let c = Math.floor(left / g); c >= 0; c--) { counts[g] = c; walk(k + 1, left - g * c, counts, covered + g * c, grids + c); }
+		if (k === SIZES.length) { const c = { counts: { ...counts }, covered, grids, c9: counts[9], skew: Math.max(0, Math.abs(counts[6] - counts[4]) - 1) }; if (better(c, best)) best = c; return; }
+		const g = SIZES[k];
+		for (let c = Math.min(Math.floor(left / g), g === 9 ? nines : n); c >= 0; c--) { counts[g] = c; walk(k + 1, left - g * c, counts, covered + g * c, grids + c); }
 	};
 	walk(0, n, {}, 0, 0);
 	return best.counts;
@@ -947,17 +952,21 @@ function poolsOf(group) {
 // `loose`: every LOOSE_EVERY-th group photo of the year hangs as a 60 cm
 // single instead of going into a grid — a room with space to spare shows
 // a few of them on their own (Uli); rooms() tries this first and keeps it
-// when the year still fits one floor.
+// when the year still fits one floor. `nines`: how many grids of nine
+// the year may have — none, or one, which the first pool able to use it
+// takes (Uli, 2026-09-10: only the first nine, and only when it saves a
+// room; rooms() decides that).
 const LOOSE_EVERY = 5;
-function piecesOf(photos, loose = false) {
+function piecesOf(photos, loose = false, nines = 0) {
 	const specs = photos.filter(p => p.hang !== 'group').map(p => ({ photos: [p], size: 0.9 }));
 	const group = photos.filter(p => p.hang === 'group');
 	if (loose) for (let i = LOOSE_EVERY - 1; i < group.length; i += LOOSE_EVERY) specs.push({ photos: [group[i]], size: 0.6 });
 	const pooled = loose ? group.filter((_, i) => (i + 1) % LOOSE_EVERY) : group;
 	for (const pool of poolsOf(pooled)) {
-		const counts = packRun(pool.length);
+		const counts = packRun(pool.length, nines);
+		nines -= counts[9];
 		let i = 0;
-		for (const g of [9, 6, 4, 3, 2]) for (let c = 0; c < (counts[g] || 0); c++) {
+		for (const g of SIZES) for (let c = 0; c < counts[g]; c++) {
 			const [cols, rows] = GRIDS[g];
 			specs.push({ photos: pool.slice(i, i + g), size: 0.4, cols, rows });
 			i += g;
@@ -1143,39 +1152,49 @@ function rooms() {
 	// (Uli): consecutive years of at most THIN pieces merge into one room,
 	// keyed "2009_2014", named by its first and last year.
 	const THIN = 5;
-	const pieces = (photos, loose) => piecesOf(photos, loose).map(s => ({ ...s, w: specWidth(s) }));
-	const years = [...byYear.entries()].map(([year, photos]) => ({ year, photos, specs: pieces(photos, false), loose: pieces(photos, true) }));
+	// A year's four hangings, in the order they are tried for one floor:
+	// loose, packed, and each again with a grid of nine (Uli, 2026-09-10:
+	// a nine only when it saves a room). A thin year has a handful of
+	// pieces, never nine group photos; its sets with a nine are the same.
+	const SETS = { loose: [true, 0], packed: [false, 0], loose9: [true, 1], packed9: [false, 1] };
+	const setsOf = photos => Object.fromEntries(Object.entries(SETS).map(([k, [loose, nines]]) => [k, piecesOf(photos, loose, nines).map(s => ({ ...s, w: specWidth(s) }))]));
+	const years = [...byYear.entries()].map(([year, photos]) => ({ year, photos, sets: setsOf(photos) }));
 	const merged = [];
 	for (const y of years) {
 		const last = merged[merged.length - 1];
-		if (last && last.thin && y.specs.length <= THIN) {
-			last.years.push(y.year); last.specs.push(...y.specs); last.loose.push(...y.loose);
+		if (last && last.thin && y.sets.packed.length <= THIN) {
+			last.years.push(y.year); for (const k in SETS) last.sets[k].push(...y.sets[k]);
 			continue;
 		}
-		merged.push({ years: [y.year], specs: y.specs, loose: y.loose, thin: y.specs.length <= THIN });
+		merged.push({ years: [y.year], sets: y.sets, thin: y.sets.packed.length <= THIN });
 	}
 	roomList = [];
 	for (const m of merged) {
 		const year = m.years[0], span = m.years.length > 1 ? `${m.years[0]}\u2013${m.years[m.years.length - 1]}` : year;
-		const specs = m.specs;
 		const one = shapeOf(m.years.join('_'));
-		// one floor: the loose set where it fits, the packed one otherwise
+		// one floor: the first of the four sets that fits
 		const fitsOne = set => !layout([...set].reverse(), one.W, one.D).rest.length;
-		const single = fitsOne(m.loose) ? m.loose : fitsOne(specs) ? specs : null;
+		const single = Object.keys(SETS).map(k => m.sets[k]).find(fitsOne);
 		if (single) {
 			const key = m.years.join('_');
 			roomList.push({ key, year, span, years: m.years, part: 0, of: 1, specs: single, shape: one });
 			continue;
 		}
-		// as many rooms as it takes: two, or more in a small real room
-		let parts = 2;
-		for (; parts <= 8; parts++) {
-			const per = Math.ceil(specs.length / parts);
-			const fits = Array.from({ length: parts }, (_, i) => specs.slice(i * per, (i + 1) * per))
-				.every((slice, i) => !layout([...slice].reverse(), shapeOf(`${year}-${i + 1}`).W, shapeOf(`${year}-${i + 1}`).D).rest.length);
-			if (fits || !state.real) break;                   // a synthetic room may still grow; a real one must fit
-		}
-		parts = Math.min(parts, 8);
+		// as many rooms as it takes: two, or more in a small real room \u2014
+		// packed, with the nine only when that makes fewer of them
+		const partsOf = specs => {
+			let parts = 2;
+			for (; parts <= 8; parts++) {
+				const per = Math.ceil(specs.length / parts);
+				const fits = Array.from({ length: parts }, (_, i) => specs.slice(i * per, (i + 1) * per))
+					.every((slice, i) => !layout([...slice].reverse(), shapeOf(`${year}-${i + 1}`).W, shapeOf(`${year}-${i + 1}`).D).rest.length);
+				if (fits || !state.real) break;               // a synthetic room may still grow; a real one must fit
+			}
+			return Math.min(parts, 8);
+		};
+		let specs = m.sets.packed, parts = partsOf(specs);
+		const parts9 = partsOf(m.sets.packed9);
+		if (parts9 < parts) { specs = m.sets.packed9; parts = parts9; }
 		const per = Math.ceil(specs.length / parts);
 		for (let i = 0; i < parts; i++) {
 			const part = i + 1, key = `${year}-${part}`, slice = specs.slice(i * per, (i + 1) * per);
@@ -2632,4 +2651,4 @@ renderer.setAnimationLoop((now, frame) => {
 
 // Test-harness handle only: the plan's browser checks read the scene graph
 // and camera through this. Nothing on the page uses it.
-window.G = { scene, camera, renderer, state, buildRoom, applyMode, makePiece, rooms, hangRoom, walk, stepWalk, elevator, pressAt, setSetting, materials, rig, world, placeBody, lift, stepPlanes, stepVideos, videoCache, makeVideoPanel };
+window.G = { scene, camera, renderer, state, buildRoom, applyMode, makePiece, rooms, hangRoom, walk, stepWalk, elevator, pressAt, setSetting, materials, rig, world, placeBody, lift, stepPlanes, stepVideos, videoCache, makeVideoPanel, packRun, piecesOf };   // packRun, piecesOf: for the bench's checks only
