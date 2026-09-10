@@ -1,8 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
-import { jump } from './jump.js?v=20260911k';
-import { camera, head, rig, scene } from './scene.js?v=20260911k';
-import { state } from './state.js?v=20260911k';
-import { hands } from './vr.js?v=20260911k';
+import { jump } from './jump.js?v=20260911p';
+import { camera, head, rig, scene } from './scene.js?v=20260911p';
+import { state } from './state.js?v=20260911p';
+import { hands } from './vr.js?v=20260911p';
 
 // ---------------------------------------------------------------------------
 // The tablet on the open hand
@@ -25,7 +25,7 @@ const STRIP = { w: W / 2, h: H * 3, gap: 0.012, fill: 0.3 };   // the scrub zone
 const PX = 620;                             // the face's canvas, narrow side
 const LIFT = 0.06;                          // how far above the palm it lies
 
-let group = null, face = null, strip = null, ctx = null, tex = null, stripTex = null;
+let group = null, face = null, strip = null, jay = null, ctx = null, tex = null, stripTex = null;
 let at = 0;                                 // the first photo shown, an index into the pile
 let shown = false, bench = false;
 const thumbs = new Map();                   // src -> Image, only what is on the face
@@ -60,11 +60,6 @@ function draw() {
 		ctx.font = `300 ${Math.round(w * 0.05)}px Jost, Helvetica Neue, Arial, sans-serif`;
 		if (p.desc) ctx.fillText(p.desc, m, h * 0.82);
 		if (p.place) ctx.fillText(p.place, m, h * 0.87);
-		// the j: press it and the instant lift takes you to this print (Uli)
-		ctx.fillStyle = '#46ff7a';
-		ctx.font = `300 ${Math.round(w * 0.22)}px Jost, Helvetica Neue, Arial, sans-serif`;
-		ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
-		ctx.fillText('j', w - m, h - m * 0.6);
 	}
 	tex.needsUpdate = true;
 }
@@ -96,6 +91,38 @@ function thumbFor(p) {
 	return img;
 }
 
+// The jump letter, cut as a solid: a lower-case j standing off the
+// tablet's corner, as deep as it is wide (Uli, 2026-09-11) — the stem
+// with its hook drawn as one outline and the dot as another, both
+// extruded. No typeface is loaded for it; the letter is its own path.
+const JAY = { tall: 0.045, stem: 0.22, r: 0.3, top: 0.62, dot: 0.14, dotY: 0.82 };
+function jayMesh() {
+	const w = JAY.stem, R = JAY.r, r = R - w, cy = R, cx = w / 2 - R;
+	const S = new THREE.Shape();
+	S.moveTo(w / 2, JAY.top);
+	S.lineTo(w / 2, cy);
+	S.absarc(cx, cy, R, 0, -Math.PI, true);        // round the hook, under and to the left
+	S.lineTo(cx - r, cy);                          // across the hook's tip
+	S.absarc(cx, cy, r, -Math.PI, 0, false);       // and back up the inside
+	S.lineTo(-w / 2, JAY.top);
+	S.closePath();
+	const dot = new THREE.Shape();
+	dot.absarc(0, JAY.dotY, JAY.dot, 0, Math.PI * 2, false);
+	const wide = 2 * R;                            // the letter's width in its own units
+	const g = new THREE.ExtrudeGeometry([S, dot], { depth: wide, bevelEnabled: false, curveSegments: 16 });
+	g.center();
+	const tallLocal = JAY.dotY + JAY.dot - (cy - R);
+	g.scale(JAY.tall / tallLocal, JAY.tall / tallLocal, JAY.tall / tallLocal);
+	// as deep as it is wide, to the millimetre (Uli): the dot widens the
+	// letter a little past the outline the depth was cut from
+	g.computeBoundingBox();
+	const b = g.boundingBox;
+	g.scale(1, 1, (b.max.x - b.min.x) / (b.max.z - b.min.z));
+	const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: 0x46ff7a, roughness: 0.35, metalness: 0.1, emissive: 0x0d3f1f }));
+	m.name = 'tablet-j';
+	return m;
+}
+
 // ---------------------------------------------------------------------------
 // The thing itself
 
@@ -116,7 +143,11 @@ function build() {
 		new THREE.MeshBasicMaterial({ map: stripTex, transparent: true, depthWrite: false }));
 	strip.position.set(W / 2 + STRIP.gap + STRIP.w / 2, 0, 0.0035);
 	strip.name = 'tablet-strip';
-	group.add(body, face, strip);
+	jay = jayMesh();
+	// beside the scrub zone, not on the tablet's face (Uli, 2026-09-11):
+	// out past the strip, level with the middle of the tablet
+	jay.position.set(W / 2 + STRIP.gap + STRIP.w + 0.03, 0, 0.006 + JAY.tall * 0.35);
+	group.add(body, face, strip, jay);
 	scene.add(group);
 	draw(); drawStrip();
 }
@@ -191,12 +222,15 @@ export function tabletHit(rc) {
 		draw(); drawStrip();
 		return true;
 	}
+	// the letter stands off the face: it is hit before the glass under it
+	if (jay && rc.intersectObject(jay, false)[0]) {
+		const p = pile()[at];
+		group.visible = false; shown = false;
+		if (p) jump(p.n);
+		return true;
+	}
 	const f = rc.intersectObject(face, false)[0];
 	if (!f) return false;
-	const local = face.worldToLocal(f.point.clone());
-	const u = (local.x + W / 2) / W, v = 0.5 - local.y / H;
-	const p = pile()[at];
-	if (p && u > 0.6 && v > 0.84) { group.visible = false; shown = false; jump(p.n); }   // the j, in the lower corner
 	return true;
 }
 
