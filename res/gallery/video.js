@@ -1,8 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
-import { addLabel } from './bake.js?v=20260911z';
-import { FRAME, GRID_GAP, MAT_Z, PRINT_SCALE, matWidth, materials, photoTexture, poolMaterial, sc, textureCache } from './frames.js?v=20260911z';
-import { camera, scene } from './scene.js?v=20260911z';
-import { pieceY, state } from './state.js?v=20260911z';
+import { addLabel } from './bake.js?v=20260912a';
+import { FRAME, GRID_GAP, MAT_Z, PRINT_SCALE, matWidth, materials, photoTexture, poolMaterial, sc, textureCache } from './frames.js?v=20260912a';
+import { camera, scene } from './scene.js?v=20260912a';
+import { pieceY, state } from './state.js?v=20260912a';
 
 // ---------------------------------------------------------------------------
 // Videos — the LED panel
@@ -172,11 +172,20 @@ function makeFramedPrint(p, size) {
 	g.add(back);
 
 	const printed = size * (state.settings.mat === 'none' ? 1 : PRINT_SCALE) * k;
+	// The print is **lit**, not painted on (Uli, 2026-09-11: from the side
+	// they looked like glowing objects, which they are not). An unlit
+	// material keeps its full brightness whatever the light and whatever
+	// the angle, so a print seen edge-on stayed bright while its mat, its
+	// frame and the wall behind it fell away — the look of something that
+	// gives light rather than takes it. Lambert dims with the room and with
+	// the angle, as paper does; `emissive` keeps a little of the picture in
+	// the dark of a night room, where the pools are all there is.
 	const print = new THREE.Mesh(new THREE.PlaneGeometry(printed, printed),
-		new THREE.MeshBasicMaterial({ map: photoTexture(p, size) }));
+		new THREE.MeshLambertMaterial({ map: photoTexture(p, size), emissive: 0xffffff, emissiveMap: photoTexture(p, size), emissiveIntensity: 0.16 }));
 	print.name = 'photo';
 	print.position.z = MAT_Z + 0.001;                // a millimetre proud of the mat (Uli)
 	print.userData.full = inner / printed;           // what it scales to when pressed: over the mat, edge to edge (Uli)
+	if (state.settings.fill) print.scale.setScalar(print.userData.full);   // unless filling the frame is the way round it starts (Uli)
 	g.add(print);
 	// the shadow that millimetre throws: a faint dark rim just behind the
 	// print, a hair larger and pushed down and to the right

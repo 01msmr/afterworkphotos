@@ -1,5 +1,6 @@
 import * as THREE from '../vendor/three.module.js';
-import { camera, scene } from './scene.js?v=20260911z';
+import { camera, scene } from './scene.js?v=20260912a';
+import { state } from './state.js?v=20260912a';
 
 // ---------------------------------------------------------------------------
 // What a press makes bigger
@@ -17,14 +18,29 @@ const big = new Map();              // the thing -> when it was last in view
 const _p = new THREE.Vector3(), _v = new THREE.Vector3(), _d = new THREE.Vector3();
 
 
-// A print: pressed once it fills the frame, pressed again it sits back in
-// its mat.
+// A print pressed fills its frame; pressed again it sits back in its mat
+// — and **a group goes together** (Uli, 2026-09-11): press one of a
+// grid's prints and every print of that grid does the same, since they
+// are one picture hung in parts. The way round it rests in is the `fill`
+// setting: with the mat by default, or filled by default and the press
+// showing the mat.
+const rest = print => (state.settings.fill ? print.userData.full : 1);
+function groupOf(print) {
+	let g = print;
+	while (g.parent && !(g.name || '').startsWith('piece-')) g = g.parent;
+	const out = [];
+	(g.name || '').startsWith('piece-') ? g.traverse(o => { if (o.name === 'photo') out.push(o); }) : out.push(print);
+	return out;
+}
 export function zoomPrint(print, now = performance.now()) {
 	const full = print.userData.full;
 	if (!full) return false;
-	const out = print.scale.x < full - 0.001;
-	print.scale.setScalar(out ? full : 1);
-	if (out) big.set(print, now); else big.delete(print);
+	const out = print.scale.x < full - 0.001;                 // pressed while sitting in its mat
+	const prints = groupOf(print);
+	for (const p of prints) p.scale.setScalar(out ? p.userData.full : 1);
+	const away = prints.filter(p => Math.abs(p.scale.x - rest(p)) > 0.001);
+	for (const p of prints) big.delete(p);
+	for (const p of away) big.set(p, now);                    // only what is not the way it rests comes back by itself
 	return true;
 }
 
@@ -62,7 +78,8 @@ export function stepZoom(now) {
 		const to = p.sub(eye), len = to.length();
 		if (len < SEEN.range && to.normalize().dot(_v) > SEEN.angle) { big.set(thing, now); continue; }
 		if (now - seen < HOLD) continue;
-		if (thing.isObject3D) zoomPrint(thing, now); else zoomLabel(thing, now);   // pressed again, in effect: back to itself
+		if (thing.isObject3D) { thing.scale.setScalar(rest(thing)); big.delete(thing); }   // back to the way it rests
+		else zoomLabel(thing, now);
 	}
 }
 

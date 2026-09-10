@@ -5,7 +5,7 @@
 // centre at 1.5 m. Light mode is the white cube; dark mode is the same room
 // at night, ambient almost off, the spots alone.
 
-const DEFAULTS = { W: 6, D: 4, H: 3, dark: false, frame: 'maple', mat: 'white', scale: 1, labels: true, plan: 'grid', raise: 0 };   // plan: what a scanned room is made of (Uli, 2026-09-10) — see PLANS
+const DEFAULTS = { W: 6, D: 4, H: 3, dark: false, frame: 'maple', mat: 'white', scale: 1, labels: true, plan: 'grid', raise: 0, fill: false };   // plan: what a scanned room is made of (Uli, 2026-09-10) — see PLANS
 
 // Settings come from the defaults, then what the switchboard saved last
 // time (localStorage 'galleryS'), then the URL — /gallery/?frame=black
@@ -33,6 +33,7 @@ export function loadSettings() {
 	if (!['white', 'warm', 'none'].includes(s.mat)) s.mat = DEFAULTS.mat;
 	if (!PLANS.includes(s.plan)) s.plan = DEFAULTS.plan;
 	s.raise = RAISES.includes(Number(s.raise)) ? Number(s.raise) : DEFAULTS.raise;
+	s.fill = s.fill === true || s.fill === '1' || s.fill === 'true';   // which way round a print rests (Uli, 2026-09-11)
 	if (![1, 0.8].includes(s.scale)) s.scale = DEFAULTS.scale;
 	for (const k of ['W', 'D', 'H']) if (!(s[k] >= 2 && s[k] <= 40)) s[k] = DEFAULTS[k];
 	return s;
