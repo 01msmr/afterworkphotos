@@ -1,11 +1,11 @@
 import * as THREE from '../vendor/three.module.js';
-import { DOOR, elevator, floors, pressAt } from './elevator.js?v=20260910g';
-import { inPoly } from './plan.js?v=20260910g';
-import { rectRoom } from './room.js?v=20260910g';
-import { ELEVATOR, rooms } from './hang.js?v=20260910g';
-import { camera, renderer } from './scene.js?v=20260910g';
-import { EYE, state } from './state.js?v=20260910g';
-import { stepXR } from './vr.js?v=20260910g';
+import { DOOR, elevator, floors, pressAt } from './elevator.js?v=20260910h';
+import { inPoly } from './plan.js?v=20260910h';
+import { rectRoom } from './room.js?v=20260910h';
+import { ELEVATOR, rooms } from './hang.js?v=20260910h';
+import { camera, renderer } from './scene.js?v=20260910h';
+import { EYE, state } from './state.js?v=20260910h';
+import { stepXR } from './vr.js?v=20260910h';
 
 // ---------------------------------------------------------------------------
 // Walking (the bench)
@@ -80,8 +80,12 @@ addEventListener('mousemove', e => {
 
 const KEYS = {
 	KeyW: 'fwd', ArrowUp: 'fwd', KeyS: 'back', ArrowDown: 'back',
-	KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right',
-	KeyY: 'turnL', KeyC: 'turnR',        // turning on the spot, held (Uli: no jump, a smooth turn)
+	KeyA: 'left', KeyD: 'right',
+	// Turning on the spot, held (Uli: smooth, no jump). On the arrows: a
+	// browser's own single-key shortcuts are its, not the page's — Vivaldi
+	// swallowed Q, E and Y whatever the page did with them (Uli,
+	// 2026-09-10) — and no browser binds an arrow.
+	ArrowLeft: 'turnL', ArrowRight: 'turnR',
 };
 // The bench's own keys, so a check needs no mouse and never leaves the
 // view (Uli, 2026-09-10): the eye up and down, turning on the spot, and
@@ -90,7 +94,7 @@ const EYE_MIN = 0.5, EYE_MAX = 2.2, EYE_STEP = 0.1;
 const TURN_RATE = Math.PI / 2;         // radians a second: a quarter turn (Uli: smooth, not a jump)
 // A browser has keys of its own — Vivaldi takes Q and E (Uli, 2026-09-10)
 // — so every key the bench uses is caught here first and stopped.
-const BENCH_KEYS = new Set(['KeyV', 'KeyQ', 'KeyE', 'KeyY', 'KeyC', 'KeyR', 'Comma', 'Period']);
+const BENCH_KEYS = new Set(['KeyV', 'KeyQ', 'KeyE', 'KeyR', 'Comma', 'Period']);
 addEventListener('keydown', e => {
 	if (BENCH_KEYS.has(e.code) && !e.metaKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); e.stopPropagation(); }
 	if (KEYS[e.code]) { walk.keys.add(KEYS[e.code]); e.preventDefault(); }

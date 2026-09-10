@@ -1,5 +1,5 @@
-import { elevator, refreshSwitches } from './elevator.js?v=20260910g';
-import { renderer, scene } from './scene.js?v=20260910g';
+import { elevator, refreshSwitches } from './elevator.js?v=20260910h';
+import { renderer, scene } from './scene.js?v=20260910h';
 
 // P: wireframes (Uli). ?stats=1: frame time on the cabin's display and in
 // the hint, so the headset can report its own frame rate.
