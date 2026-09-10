@@ -224,7 +224,11 @@ function areaOf(poly) {
 	return Math.abs(a) / 2;
 }
 const rectsArea = rects => rects.reduce((s, r) => s + (r.x1 - r.x0) * (r.z1 - r.z0), 0);
-const KEEP = 0.85;        // a plan that holds less of the scan than this is not the room: the rectangle round it is (Uli)
+const KEEP = 0.85;       // a plan that holds less of the scan than this is not the room: the rectangle round it is (Uli)
+const SIMPLE = 0.93;     // when this much of the rectangle round the scan lies inside it, the room *is* that
+                         // rectangle — no corners invented, and none of the hand's wobble lost (Uli,
+                         // 2026-09-10: it need not be an L or a U, a rectangle is fine where it fits best)
+const WORTH = 0.08;      // and an extension has to add this much floor over the main rectangle to be worth its corners
 
 export function planOf(poly, mode = 'grid') {
 	const b = bboxOf(poly);
@@ -233,10 +237,19 @@ export function planOf(poly, mode = 'grid') {
 	const main = largestRect(poly);
 	if (!main) return around();
 	if (mode === 'inside') return shapeOf([main]);
+	// a room that all but fills the rectangle round it is that rectangle
+	if (cover(poly, b.x0, b.z0, b.x1 - b.x0, b.z1 - b.z0, 24) >= SIMPLE) { const r = around(); r.kept = 1; return r; }
 	const rects = [main, ...SIDES.flatMap(s => bandRects(poly, main, s))];
 	// A plan that leaves much of the scanned floor out is not the room —
 	// the rectangle round the scan is nearer the truth then (Uli,
 	// 2026-09-10: a very much smaller L than the room allows).
+	// corners that gain little floor are not worth having: the main
+	// rectangle alone is the quieter room (Uli)
+	if (rectsArea(rects) < rectsArea([main]) * (1 + WORTH)) {
+		const r = shapeOf([main]);
+		r.kept = rectsArea([main]) / (areaOf(poly) || 1);
+		if (r.kept >= KEEP) return r;
+	}
 	const plan = shapeOf(rects);
 	plan.kept = rectsArea(rects) / (areaOf(poly) || 1);
 	if (plan.kept >= KEEP) return plan;
