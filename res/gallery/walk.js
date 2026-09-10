@@ -1,11 +1,11 @@
 import * as THREE from '../vendor/three.module.js';
-import { DOOR, elevator, floors, pressAt } from './elevator.js?v=20260910e';
-import { inPoly } from './plan.js?v=20260910e';
-import { rectRoom } from './room.js?v=20260910e';
-import { ELEVATOR, rooms } from './hang.js?v=20260910e';
-import { camera, renderer } from './scene.js?v=20260910e';
-import { EYE, state } from './state.js?v=20260910e';
-import { stepXR } from './vr.js?v=20260910e';
+import { DOOR, elevator, floors, pressAt } from './elevator.js?v=20260910g';
+import { inPoly } from './plan.js?v=20260910g';
+import { rectRoom } from './room.js?v=20260910g';
+import { ELEVATOR, rooms } from './hang.js?v=20260910g';
+import { camera, renderer } from './scene.js?v=20260910g';
+import { EYE, state } from './state.js?v=20260910g';
+import { stepXR } from './vr.js?v=20260910g';
 
 // ---------------------------------------------------------------------------
 // Walking (the bench)
@@ -81,26 +81,30 @@ addEventListener('mousemove', e => {
 const KEYS = {
 	KeyW: 'fwd', ArrowUp: 'fwd', KeyS: 'back', ArrowDown: 'back',
 	KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right',
+	KeyY: 'turnL', KeyC: 'turnR',        // turning on the spot, held (Uli: no jump, a smooth turn)
 };
 // The bench's own keys, so a check needs no mouse and never leaves the
 // view (Uli, 2026-09-10): the eye up and down, turning on the spot, and
 // the lift — called from where one stands, ridden a floor at a time.
 const EYE_MIN = 0.5, EYE_MAX = 2.2, EYE_STEP = 0.1;
-const TURN_STEP = Math.PI / 18;        // 10° a press, held for more
+const TURN_RATE = Math.PI / 2;         // radians a second: a quarter turn (Uli: smooth, not a jump)
+// A browser has keys of its own — Vivaldi takes Q and E (Uli, 2026-09-10)
+// — so every key the bench uses is caught here first and stopped.
+const BENCH_KEYS = new Set(['KeyV', 'KeyQ', 'KeyE', 'KeyY', 'KeyC', 'KeyR', 'Comma', 'Period']);
 addEventListener('keydown', e => {
+	if (BENCH_KEYS.has(e.code) && !e.metaKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); e.stopPropagation(); }
 	if (KEYS[e.code]) { walk.keys.add(KEYS[e.code]); e.preventDefault(); }
 	if (e.code === 'KeyV' && !e.repeat) walk.eye = walk.eye === EYE ? KNEEL : EYE;   // kneel / stand
 	if (e.code === 'KeyQ' || e.code === 'KeyE')                                      // Q lower, E higher (Uli)
 		walk.eye = Math.max(EYE_MIN, Math.min(EYE_MAX, walk.eye + (e.code === 'KeyE' ? EYE_STEP : -EYE_STEP)));
-	if (e.code === 'KeyJ' || e.code === 'KeyK') { walk.yaw += e.code === 'KeyJ' ? TURN_STEP : -TURN_STEP; applyLook(); }   // J left, K right (Uli)
-	if (e.code === 'KeyC' && !e.repeat) elevator.call();                             // call the lift from where one stands
+	if (e.code === 'KeyR' && !e.repeat) elevator.call();                             // R rings for the lift from where one stands
 	if ((e.code === 'Comma' || e.code === 'Period') && !e.repeat && elevator.inside()) {
 		// inside the cabin: the floor below or above, the list newest first
 		const list = rooms(), i = list.findIndex(r => r.key === state.roomKey);
 		const to = list[i + (e.code === 'Period' ? -1 : 1)];
 		if (to) elevator.go(to.key);
 	}
-});
+}, true);
 // A dot in the middle of the view while the pointer is taken, so one can
 // see what a click is about to press (Uli: the lift without the mouse).
 const cross = document.body.appendChild(document.createElement('div'));
@@ -179,6 +183,9 @@ export function stepWalk(now) {
 	lastT = now;
 	if (renderer.xr.isPresenting) { stepXR(dt); return; }
 	const k = walk.keys;
+	// turning on the spot, as long as the key is held (Uli, 2026-09-10)
+	const turn = (k.has('turnL') ? 1 : 0) - (k.has('turnR') ? 1 : 0);
+	if (turn) walk.yaw += turn * TURN_RATE * dt;
 	let fwd = (k.has('fwd') ? 1 : 0) - (k.has('back') ? 1 : 0);
 	let side = (k.has('right') ? 1 : 0) - (k.has('left') ? 1 : 0);
 	if (fwd || side) {

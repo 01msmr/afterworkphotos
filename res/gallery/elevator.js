@@ -1,12 +1,12 @@
 import * as THREE from '../vendor/three.module.js';
-import { setWire, wire } from './bench.js?v=20260910e';
-import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260910e';
-import { ELEVATOR, clearRooms, hangRoom, roomByKey, rooms } from './hang.js?v=20260910e';
-import { WALL_STYLES, applyMode, dadoTop, dressWall, wallColours } from './room.js?v=20260910e';
-import { camera, head, renderer, scene, world } from './scene.js?v=20260910e';
-import { PLANS, state } from './state.js?v=20260910e';
-import { fitRoom, planAgain } from './vr.js?v=20260910e';
-import { placeBody, walk } from './walk.js?v=20260910e';
+import { setWire, wire } from './bench.js?v=20260910g';
+import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260910g';
+import { ELEVATOR, clearRooms, hangRoom, roomByKey, rooms } from './hang.js?v=20260910g';
+import { WALL_STYLES, applyMode, dadoTop, dressWall, wallColours } from './room.js?v=20260910g';
+import { camera, head, renderer, scene, world } from './scene.js?v=20260910g';
+import { PLANS, state } from './state.js?v=20260910g';
+import { fitRoom, planAgain } from './vr.js?v=20260910g';
+import { placeBody, walk } from './walk.js?v=20260910g';
 
 // ---------------------------------------------------------------------------
 // The elevator
@@ -809,7 +809,7 @@ floors.addEventListener('click', e => {
 	elevator.go(b.dataset.key);
 });
 addEventListener('keydown', e => {
-	if (e.code === 'KeyY') { floors.hidden = !floors.hidden; if (!floors.hidden) renderFloors(); }
+	if (e.code === 'KeyF') { floors.hidden = !floors.hidden; if (!floors.hidden) renderFloors(); }   // F lists the floors — Y turns now (Uli)
 	if (e.code === 'Escape') floors.hidden = true;
 });
 
