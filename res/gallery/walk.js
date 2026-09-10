@@ -1,9 +1,9 @@
 import * as THREE from '../vendor/three.module.js';
-import { DOOR, elevator, floors, pressAt } from './elevator.js?v=20260910a';
-import { ELEVATOR } from './hang.js?v=20260910a';
-import { camera, renderer } from './scene.js?v=20260910a';
-import { EYE, state } from './state.js?v=20260910a';
-import { stepXR } from './vr.js?v=20260910a';
+import { DOOR, elevator, floors, pressAt } from './elevator.js?v=20260910b';
+import { ELEVATOR } from './hang.js?v=20260910b';
+import { camera, renderer } from './scene.js?v=20260910b';
+import { EYE, state } from './state.js?v=20260910b';
+import { stepXR } from './vr.js?v=20260910b';
 
 // ---------------------------------------------------------------------------
 // Walking (the bench)

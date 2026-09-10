@@ -1,13 +1,13 @@
 import * as THREE from '../vendor/three.module.js';
-import { bakeRoom, placeLabels } from './bake.js?v=20260910a';
-import { setWire, wire } from './bench.js?v=20260910a';
-import { elevator, roomLabel } from './elevator.js?v=20260910a';
-import { FRAME, GRID_GAP, sc, textureCache } from './frames.js?v=20260910a';
-import { WALL_STYLES, buildRoom, dadoTop, floorOf, rectRoom, shapeOf, wallColours } from './room.js?v=20260910a';
-import { scene, world } from './scene.js?v=20260910a';
-import { HANG_MAX, pieceY, state } from './state.js?v=20260910a';
-import { framedSize, freeTexturesExcept, freeVideosExcept, makePiece } from './video.js?v=20260910a';
-import { BODY_R } from './walk.js?v=20260910a';
+import { bakeRoom, placeLabels } from './bake.js?v=20260910b';
+import { setWire, wire } from './bench.js?v=20260910b';
+import { elevator, roomLabel } from './elevator.js?v=20260910b';
+import { FRAME, GRID_GAP, sc, textureCache } from './frames.js?v=20260910b';
+import { WALL_STYLES, buildRoom, dadoTop, floorOf, rectRoom, shapeOf, wallColours } from './room.js?v=20260910b';
+import { scene, world } from './scene.js?v=20260910b';
+import { HANG_MAX, pieceY, state } from './state.js?v=20260910b';
+import { framedSize, freeTexturesExcept, freeVideosExcept, makePiece } from './video.js?v=20260910b';
+import { BODY_R } from './walk.js?v=20260910b';
 
 // ---------------------------------------------------------------------------
 // Hanging a year
@@ -169,10 +169,22 @@ function middleRows(depth) {
 	return Array.from({ length: Math.max(0, n) }, (_, i) => (i + 1) * depth / (n + 1));
 }
 // The keep-out at the lift (Uli, 2026-09-10: no frame where one steps out
-// of the elevator, least of all on the left, where the room is entered):
-// the cabin and the exit square west of it, a walkway round them — the
-// cabin's own print needs the viewing distance too. No middle piece in it.
-function keepOut({ W, D }) { const e = ELEVATOR.size, w = WALKWAY; return { x0: W / 2 - 2 * e - w, x1: W / 2 + w, z0: -D / 2 - w, z1: -D / 2 + e + w }; }
+// of the elevator, least of all on the left, where the room is entered) —
+// two rectangles, no middle piece in either:
+//   the cabin and the exit square west of it, a walkway to the south and
+//   the sides, so the left hand stays clear and the cabin's own print has
+//   its viewing distance;
+//   and, only straight out of the doors — in line with the exit square —
+//   a walkway west of it as well.
+// A row further south than the exit square keeps its length instead
+// (Uli, 2026-09-10, from the top views: the mix of the two).
+function keepOut({ W, D }) {
+	const e = ELEVATOR.size, w = WALKWAY;
+	return [
+		{ x0: W / 2 - 2 * e,     x1: W / 2 + w,       z0: -D / 2 - w, z1: -D / 2 + e + w },
+		{ x0: W / 2 - 2 * e - w, x1: W / 2 - 2 * e,   z0: -D / 2 - w, z1: -D / 2 + e     },
+	];
+}
 // Along a row's line — points (s, c) in the row's along/across
 // coordinates — the interval of s within `m` of the edge p→q (the edge's
 // points in the same coordinates), or null: the line's cut through the
@@ -198,7 +210,8 @@ function layMiddle(rest, shape, gap) {
 	// pieces face ±z, a z-row's ±x), spread over its length
 	for (const r of shape.rects) {
 		const alongX = r.x1 - r.x0 >= r.z1 - r.z0, ac = ([x, z]) => alongX ? [x, z] : [z, x];   // a point as (along, across)
-		const [a0, c0] = ac([r.x0, r.z0]), [a1, c1] = ac([r.x1, r.z1]), [k0, kc0] = ac([ko.x0, ko.z0]), [k1, kc1] = ac([ko.x1, ko.z1]);
+		const [a0, c0] = ac([r.x0, r.z0]), [a1, c1] = ac([r.x1, r.z1]);
+		const kos = ko.map(k => { const [k0, kc0] = ac([k.x0, k.z0]), [k1, kc1] = ac([k.x1, k.z1]); return { k0, k1, kc0, kc1 }; });
 		for (const across of middleRows(c1 - c0)) {
 			const c = c0 + across;
 			// the run: the rect's length less WALL_MARGIN at both ends, less
@@ -206,7 +219,7 @@ function layMiddle(rest, shape, gap) {
 			// wall), less the keep-out's span when the row's footprint reaches
 			// into it — the longest stretch left
 			const cuts = shape.outline.map((p, k) => nearEdge(ac(p), ac(shape.outline[(k + 1) % shape.outline.length]), c, m)).filter(Boolean);
-			if (c + SLAB.thick / 2 > kc0 && c - SLAB.thick / 2 < kc1) cuts.push([k0, k1]);
+			for (const k of kos) if (c + SLAB.thick / 2 > k.kc0 && c - SLAB.thick / 2 < k.kc1) cuts.push([k.k0, k.k1]);
 			let runs = [[a0 + m, a1 - m]];
 			for (const [lo, hi] of cuts) runs = runs.flatMap(([s0, s1]) => [[s0, Math.min(s1, lo)], [Math.max(s0, hi), s1]].filter(([u, v]) => v > u));
 			if (!runs.length) continue;
@@ -491,7 +504,7 @@ function drawTop(shape, placed) {
 	const pat = document.createElement('canvas'); pat.width = pat.height = 8;                      // the keep-out, hatched
 	const pc = pat.getContext('2d'); pc.strokeStyle = '#d3c4ad'; pc.beginPath(); pc.moveTo(0, 8); pc.lineTo(8, 0); pc.stroke();
 	ctx.save(); ctx.clip(); ctx.fillStyle = ctx.createPattern(pat, 'repeat');
-	ctx.fillRect(X(ko.x0), Z(ko.z0), (ko.x1 - ko.x0) * S, (ko.z1 - ko.z0) * S);
+	for (const k of ko) ctx.fillRect(X(k.x0), Z(k.z0), (k.x1 - k.x0) * S, (k.z1 - k.z0) * S);
 	ctx.restore();
 	ctx.fillStyle = '#bbb'; ctx.fillRect(X(W / 2 - e), Z(-D / 2), e * S, e * S);                   // the cabin
 	ctx.strokeStyle = '#888'; ctx.lineWidth = 1; ctx.setLineDash([4, 3]); ctx.strokeRect(X(W / 2 - 2 * e), Z(-D / 2), e * S, e * S); ctx.setLineDash([]);   // its exit
