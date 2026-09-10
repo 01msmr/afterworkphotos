@@ -1,10 +1,11 @@
 import * as THREE from '../vendor/three.module.js';
-import { BUTTON, elevator, pressAlong, settingsMap } from './elevator.js?v=20260911i';
-import { cornerFree, outlineOf, planOf, rotShape } from './plan.js?v=20260911i';
-import { ELEVATOR, clearRooms, hangRoom, rooms } from './hang.js?v=20260911i';
-import { camera, head, renderer, rig, scene, world } from './scene.js?v=20260911i';
-import { loadSettings, state } from './state.js?v=20260911i';
-import { placeBody, walk } from './walk.js?v=20260911i';
+import { BUTTON, elevator, pressAlong, settingsMap } from './elevator.js?v=20260911j';
+import { cornerFree, outlineOf, planOf, rotShape } from './plan.js?v=20260911j';
+import { tabletHit } from './tablet.js?v=20260911j';
+import { ELEVATOR, clearRooms, hangRoom, rooms } from './hang.js?v=20260911j';
+import { camera, head, renderer, rig, scene, world } from './scene.js?v=20260911j';
+import { loadSettings, state } from './state.js?v=20260911j';
+import { placeBody, walk } from './walk.js?v=20260911j';
 
 // ---------------------------------------------------------------------------
 // VR (phase 2, first step)
@@ -23,6 +24,7 @@ const controllers = [0, 1].map(i => {
 		const origin = c.getWorldPosition(new THREE.Vector3());
 		const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(c.getWorldQuaternion(new THREE.Quaternion()));
 		rc.set(origin, dir);
+		if (tabletHit(rc)) return;   // the tablet on the open hand takes the ray first (Uli, 2026-09-11)
 		pressAlong(rc, 3);   // the trigger presses what it points at, nothing else (Uli, 2026-09-10:
 		                     // pointing at a wall must not turn the room — a switch for that first)
 	});
@@ -92,7 +94,7 @@ offerVR();
 // hand tracking on, the tip of an index finger touching a button, the
 // call button or a label presses it — one press per touch, then the
 // finger has to leave and come back.
-const hands = [0, 1].map(i => { const h = renderer.xr.getHand(i); h.userData.touching = null; rig.add(h); return h; });
+export const hands = [0, 1].map(i => { const h = renderer.xr.getHand(i); h.userData.touching = null; rig.add(h); return h; });
 const TOUCH = 0.022;
 const tip = new THREE.Vector3();
 function stepHands() {

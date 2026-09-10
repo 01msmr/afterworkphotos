@@ -1,8 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
-import { CABIN_LAMP, lightPanel, metal } from './elevator.js?v=20260911i';
-import { ENV_INTENSITY, tex } from './frames.js?v=20260911i';
-import { camera, renderer, scene } from './scene.js?v=20260911i';
-import { state } from './state.js?v=20260911i';
+import { CABIN_LAMP, lightPanel, metal } from './elevator.js?v=20260911j';
+import { ENV_INTENSITY, tex } from './frames.js?v=20260911j';
+import { camera, renderer, scene } from './scene.js?v=20260911j';
+import { state } from './state.js?v=20260911j';
 
 // ---------------------------------------------------------------------------
 // The room

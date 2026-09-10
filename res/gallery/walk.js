@@ -1,11 +1,12 @@
 import * as THREE from '../vendor/three.module.js';
-import { DOOR, elevator, floors, pressAt } from './elevator.js?v=20260911i';
-import { inPoly } from './plan.js?v=20260911i';
-import { rectRoom } from './room.js?v=20260911i';
-import { ELEVATOR, rooms } from './hang.js?v=20260911i';
-import { camera, renderer } from './scene.js?v=20260911i';
-import { EYE, state } from './state.js?v=20260911i';
-import { stepXR } from './vr.js?v=20260911i';
+import { DOOR, elevator, floors, pressAt } from './elevator.js?v=20260911j';
+import { inPoly } from './plan.js?v=20260911j';
+import { tabletHit } from './tablet.js?v=20260911j';
+import { rectRoom } from './room.js?v=20260911j';
+import { ELEVATOR, rooms } from './hang.js?v=20260911j';
+import { camera, renderer } from './scene.js?v=20260911j';
+import { EYE, state } from './state.js?v=20260911j';
+import { stepXR } from './vr.js?v=20260911j';
 
 // ---------------------------------------------------------------------------
 // Walking (the bench)
@@ -30,6 +31,13 @@ function onSegment(p, q, x, z) {
 	return { x: cx, z: cz, d: Math.hypot(x - cx, z - cz) };
 }
 
+// the tablet takes a click before the room does (Uli, 2026-09-11)
+const _rc = new THREE.Raycaster();
+function tabletPress(ndcX = 0, ndcY = 0) {
+	_rc.setFromCamera(new THREE.Vector2(ndcX, ndcY), camera);
+	return tabletHit(_rc);
+}
+
 const KNEEL = 0.9;              // eye height kneeling, for the low prints of a grid
 
 export const walk = {
@@ -47,8 +55,9 @@ export const walk = {
 let drag = null, dragged = false;
 renderer.domElement.addEventListener('click', e => {
 	if (dragged) { dragged = false; return; }
-	if (walk.locked()) { pressAt(0, 0); return; }
+	if (walk.locked()) { if (!tabletPress()) pressAt(0, 0); return; }
 	// a button under the pointer is pressed; anywhere else takes the pointer
+	if (tabletPress((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1)) return;
 	if (pressAt((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1)) return;
 	let p = null;
 	try { p = renderer.domElement.requestPointerLock(); } catch (err) { lockFailed(err); }
