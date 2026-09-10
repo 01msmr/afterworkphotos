@@ -1,13 +1,13 @@
 import * as THREE from '../vendor/three.module.js';
-import { setWire, wire } from './bench.js?v=20260911r';
-import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260911r';
-import { ELEVATOR, clearRooms, hangRoom, roomByKey, rooms } from './hang.js?v=20260911r';
-import { WALL_STYLES, applyMode, dadoTop, dressWall, wallColours } from './room.js?v=20260911r';
-import { camera, head, renderer, scene, world } from './scene.js?v=20260911r';
-import { zoomLabel, zoomPrint } from './zoom.js?v=20260911r';
-import { PLANS, RAISES, state } from './state.js?v=20260911r';
-import { fitRoom, planAgain } from './vr.js?v=20260911r';
-import { placeBody, walk } from './walk.js?v=20260911r';
+import { setWire, wire } from './bench.js?v=20260911v';
+import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260911v';
+import { ELEVATOR, clearRooms, hangRoom, roomByKey, rooms } from './hang.js?v=20260911v';
+import { WALL_STYLES, applyMode, dadoTop, dressWall, wallColours } from './room.js?v=20260911v';
+import { camera, head, renderer, scene, world } from './scene.js?v=20260911v';
+import { zoomLabel, zoomPrint } from './zoom.js?v=20260911v';
+import { PLANS, RAISES, state } from './state.js?v=20260911v';
+import { fitRoom, planAgain } from './vr.js?v=20260911v';
+import { placeBody, walk } from './walk.js?v=20260911v';
 
 // ---------------------------------------------------------------------------
 // The elevator
@@ -363,6 +363,8 @@ export const elevator = {
 	open: 1,            // where the doors stand when idle, 0..1
 	doorAnim: null,     // { from, to, t0 } an idle open or close
 	leftAt: null,       // when the body last stepped out, for the doors to close behind
+	outAt: null,        // and when it left the cabin, for counting a floor seen
+	outOf: null,
 
 	build(W, D, H, floor = 'lacquer', dadoCap = Infinity) {
 		const e = ELEVATOR.size, t = CABIN_WALL;
@@ -571,14 +573,27 @@ export const elevator = {
 		for (const d of this.displays) { drawDisplay(d.ctx, text, arrow); d.tex.needsUpdate = true; }
 	},
 
+	// A floor is counted seen once you have been out of its cabin for
+	// twenty seconds — long enough that a step out and straight back in
+	// does not count (Uli, 2026-09-11). Its button then sits in a darker
+	// grey, so what is left to see stands out.
+	SEEN_AFTER: 20000,
+	stepSeen(now) {
+		if (this.inside() || !state.roomKey) { this.outAt = null; return; }
+		if (this.outAt === null || this.outAt === undefined) { this.outAt = now; this.outOf = state.roomKey; return; }
+		if (now - this.outAt < this.SEEN_AFTER || state.seen[this.outOf]) return;
+		state.seen[this.outOf] = true;
+		this.light(state.roomKey);                          // the greys are set with the lights
+	},
 	light(key) {
 		let lit = null;
 		for (const b of this.buttons) {
 			if (!b.userData.cap) continue;                  // the prints carry no light
 			const m = b.material, on = b.userData.key === key;
+			const seen = !on && state.seen[b.userData.key];
 			m.emissiveIntensity = on ? 1.3 : 0;
-			m.opacity = on ? 0.9 : 0.28;                    // lit, the cap fills with green light
-			m.color.set(on ? 0x2a5a38 : 0xffffff);
+			m.opacity = on ? 0.9 : seen ? 0.5 : 0.28;       // lit, the cap fills with green light; seen, it goes grey
+			m.color.set(on ? 0x2a5a38 : seen ? 0x6d6f72 : 0xffffff);
 			if (on && !lit) lit = b;
 		}
 		// the floor's lamp stands 2 cm off the (first) lit button
@@ -703,6 +718,7 @@ export const elevator = {
 	// shut until that room's pictures are in (Uli: no switching to be
 	// seen); then the bell, and half a second opening.
 	step(now) {
+		this.stepSeen(now);
 		this.stepPress(now);
 		if (!this.ride) { this.stepIdle(now); return; }
 		const r = this.ride;

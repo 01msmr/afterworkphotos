@@ -1,8 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
-import { CABIN_LAMP, lightPanel, metal } from './elevator.js?v=20260911r';
-import { ENV_INTENSITY, tex } from './frames.js?v=20260911r';
-import { camera, renderer, scene } from './scene.js?v=20260911r';
-import { state } from './state.js?v=20260911r';
+import { CABIN_LAMP, lightPanel, metal } from './elevator.js?v=20260911v';
+import { ENV_INTENSITY, poolMaterial, tex } from './frames.js?v=20260911v';
+import { camera, renderer, scene } from './scene.js?v=20260911v';
+import { state } from './state.js?v=20260911v';
 
 // ---------------------------------------------------------------------------
 // The room
@@ -159,6 +159,11 @@ function panelFrames(across) {
 	return t;
 }
 
+// The warm pool each print throws on the wall behind it. By day it is
+// turned down: at full strength the white walls read as glowing rather
+// than white (Uli, 2026-09-11). At night the pools are most of the light
+// there is, so they stay.
+const POOL = { light: 0.62, dark: 1 };
 const AMBIENT = { light: 1.9,  dark: 0.08 };
 const FILL    = { light: 1.4,  dark: 0.06 };
 
@@ -274,6 +279,7 @@ function applyModeF(f) {
 	if (lamp) lamp.intensity = mix(CABIN_LAMP.light, CABIN_LAMP.dark);
 	lightPanel.emissiveIntensity = mix(CABIN_PANEL.light, CABIN_PANEL.dark);
 	scene.environmentIntensity = mix(ENV_INTENSITY.light, ENV_INTENSITY.dark);
+	poolMaterial.opacity = mix(POOL.light, POOL.dark);
 }
 export function stepMode(now) {
 	const target = state.settings.dark ? 1 : 0;

@@ -1,5 +1,5 @@
 import * as THREE from '../vendor/three.module.js';
-import { camera, scene } from './scene.js?v=20260911r';
+import { camera, scene } from './scene.js?v=20260911v';
 
 // ---------------------------------------------------------------------------
 // What a press makes bigger

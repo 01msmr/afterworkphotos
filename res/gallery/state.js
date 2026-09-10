@@ -41,7 +41,9 @@ const FRAME_COLOURS_KEYS = { maple: 1, oak: 1, walnut: 1, black: 1, white: 1 };
 
 // settings.W/D is the smallest room; room.W/D is the one standing, which a
 // crowded year may have grown (see hangYear).
-export const state = { year: null, roomKey: null, settings: loadSettings(), room: null, real: null, photos: [], obstacles: [] };   // obstacles: the middle rows' footprints, for the bench's walk
+export const state = {
+	seen: {},           // floors already walked (Uli, 2026-09-11): their buttons go grey
+	year: null, roomKey: null, settings: loadSettings(), room: null, real: null, photos: [], obstacles: [] };   // obstacles: the middle rows' footprints, for the bench's walk
 
 export const EYE = 1.6;
 const HANG_Y = 1.5;   // a piece's centre, the gallery's line

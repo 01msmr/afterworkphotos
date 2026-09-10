@@ -1,7 +1,7 @@
 import * as THREE from '../vendor/three.module.js';
-import { walnut } from './elevator.js?v=20260911r';
-import { renderer, scene } from './scene.js?v=20260911r';
-import { state } from './state.js?v=20260911r';
+import { walnut } from './elevator.js?v=20260911v';
+import { renderer, scene } from './scene.js?v=20260911v';
+import { state } from './state.js?v=20260911v';
 
 // ---------------------------------------------------------------------------
 // The frames
@@ -112,7 +112,7 @@ function poolTexture() {
 	g.fillStyle = grad; g.fillRect(0, 0, 128, 128);
 	const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
 }
-export const poolMaterial = new THREE.MeshBasicMaterial({ map: poolTexture(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
+export const poolMaterial = new THREE.MeshBasicMaterial({ map: poolTexture(), transparent: true, opacity: 0.62, blending: THREE.AdditiveBlending, depthWrite: false });   // turned down by day (room.js, POOL)
 
 // A wood's colour map faded toward a flat colour: the image drawn on a
 // canvas and the colour laid over it at `fade`. Blank until the image is in.

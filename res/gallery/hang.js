@@ -1,14 +1,14 @@
 import * as THREE from '../vendor/three.module.js';
-import { bakeRoom, placeLabels } from './bake.js?v=20260911r';
-import { clearZoom } from './zoom.js?v=20260911r';
-import { setWire, wire } from './bench.js?v=20260911r';
-import { elevator, roomLabel } from './elevator.js?v=20260911r';
-import { FRAME, GRID_GAP, sc, textureCache } from './frames.js?v=20260911r';
-import { WALL_STYLES, buildRoom, dadoTop, floorOf, rectRoom, shapeOf, wallColours } from './room.js?v=20260911r';
-import { scene, world } from './scene.js?v=20260911r';
-import { HANG_MAX, pieceY, state } from './state.js?v=20260911r';
-import { framedSize, freeTexturesExcept, freeVideosExcept, makePiece } from './video.js?v=20260911r';
-import { BODY_R } from './walk.js?v=20260911r';
+import { bakeRoom, placeLabels } from './bake.js?v=20260911v';
+import { clearZoom } from './zoom.js?v=20260911v';
+import { setWire, wire } from './bench.js?v=20260911v';
+import { elevator, roomLabel } from './elevator.js?v=20260911v';
+import { FRAME, GRID_GAP, sc, textureCache } from './frames.js?v=20260911v';
+import { WALL_STYLES, buildRoom, dadoTop, floorOf, rectRoom, shapeOf, wallColours } from './room.js?v=20260911v';
+import { scene, world } from './scene.js?v=20260911v';
+import { HANG_MAX, pieceY, state } from './state.js?v=20260911v';
+import { framedSize, freeTexturesExcept, freeVideosExcept, makePiece } from './video.js?v=20260911v';
+import { BODY_R } from './walk.js?v=20260911v';
 
 // ---------------------------------------------------------------------------
 // Hanging a year
@@ -90,6 +90,7 @@ export const ELEVATOR = { size: 1.5 };
 const WALL_MARGIN = 0.6;    // from a wall's end or the elevator: the corners stay empty (Uli)
 const GAP = 1.2;            // gallery spacing between pieces
 const GAP_MIN = 0.6;        // how tight the walls go before the middle fills — never crammed side by side (Uli)
+const WALL_FULL = 0.9;      // and how tight they go before the middle is used at all (Uli: no long wall left empty)
 const SHORT_RUN = 2.2;      // a wall this short would hold nothing at 60 cm margins
 const SHORT_MARGIN = 0.25;  // what it keeps at its ends instead (Uli: use the small walls too)
 const SHORT_LOOKAHEAD = 12; // and how far down the queue it looks for something that fits
@@ -130,11 +131,16 @@ const LOOKAHEAD = 3;
 // 2026-09-10). Its width is then one print's, its height two. Only a
 // pair turns: a row of three upright would reach past the line.
 // A grid of four or more small prints wants air round it: 40 cm of bare
-// wall on either side (Uli, 2026-09-10), which is why one no longer
-// stands on the cabin's 1.5 m face — it goes to a wide wall instead.
+// wall on either side (Uli, 2026-09-10), which is why one cannot stand on
+// the cabin's 1.5 m face and goes to a wide wall instead. It is a
+// **minimum, not an addition** (Uli, 2026-09-11: long walls stood near
+// empty): the gallery's own spacing never goes under 60 cm, so on an
+// ordinary wall the air is already there and the grid asks for no more
+// room than it takes. Only where a wall's margin is tighter than that —
+// a short wall, the cabin's face — does it claim the difference.
 const SIDE_ROOM = 0.4;
 const sideRoom = p => (p.photos && p.photos.length >= 4 ? SIDE_ROOM : 0);
-const runWidth = p => p.w + 2 * sideRoom(p);
+const runWidth = (p, margin = WALL_MARGIN) => p.w + 2 * Math.max(0, sideRoom(p) - margin);
 function uprightWidth(p) {
 	return p.photos && p.photos.length === 2 && p.cols === 2 && p.rows === 1 ? specWidth({ ...p, cols: 1, rows: 2 }) : 0;
 }
@@ -149,11 +155,11 @@ export function spread(pieces, len, gap, margin, lookahead = LOOKAHEAD, budget =
 	for (;;) {
 		let pick = -1, stood = false;
 		for (let k = 0; k < Math.min(lookahead + 1, pieces.length); k++) {
-			if (fits(runWidth(pieces[k]))) { pick = k; stood = false; break; }
+			if (fits(runWidth(pieces[k], margin))) { pick = k; stood = false; break; }
 			if (fits(uprightWidth(pieces[k]))) { pick = k; stood = true; break; }
 		}
 		if (pick < 0) break;
-		const p = pieces.splice(pick, 1)[0], w = stood ? uprightWidth(p) : runWidth(p);
+		const p = pieces.splice(pick, 1)[0], w = stood ? uprightWidth(p) : runWidth(p, margin);
 		total += (taken.length ? gap : 0) + w; taken.push(p); up.push(stood); widths.push(w);
 	}
 	const free = len - 2 * margin - total, even = taken.length ? free / (taken.length + 1) : 0;
@@ -327,7 +333,14 @@ function layout(items, shape) {
 	for (;;) {
 		walls = layWalls(items, shape, gap);
 		middle = layMiddle(walls.rest, shape, gap);
-		if (!middle.rest.length || gap <= GAP_MIN) break;
+		// The walls come first. Before this, the middle rows took whatever
+		// the walls turned away at the gallery's own 1.2 m, and a seven-metre
+		// wall could stand with two prints on it while the room's groups
+		// filled the middle (Uli, 2026-09-11). So the spacing tightens — to
+		// WALL_FULL, no further, or they would be crammed — while anything is
+		// still being handed on, and only then does the middle take the rest.
+		const handedOn = walls.rest.length && gap > WALL_FULL;
+		if ((!middle.rest.length && !handedOn) || gap <= GAP_MIN) break;
 		gap = Math.max(GAP_MIN, gap - 0.1);
 	}
 	// An odd number in the middle leaves a slab with a bare back (Uli: no
