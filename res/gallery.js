@@ -1,15 +1,15 @@
 // three.js 0.180.0, vendored (MIT) — res/vendor/three.module.js, which in
 // turn imports res/vendor/three.core.js; both are pinned together.
-import { stats, stepStats } from './gallery/bench.js?v=20260910h';
-import { elevator, lift, pressAt, setSetting } from './gallery/elevator.js?v=20260910h';
-import { materials } from './gallery/frames.js?v=20260910h';
-import { ELEVATOR, hangRoom, packRun, piecesOf, replan, rooms } from './gallery/hang.js?v=20260910h';
-import { applyMode, buildRoom, stepMode } from './gallery/room.js?v=20260910h';
-import { camera, renderer, rig, scene, world } from './gallery/scene.js?v=20260910h';
-import { EYE, state } from './gallery/state.js?v=20260910h';
-import { makePiece, makeVideoPanel, stepVideos, videoCache } from './gallery/video.js?v=20260910h';
-import { benchScan, stepPlanes } from './gallery/vr.js?v=20260910h';
-import { applyLook, placeBody, stepWalk, walk } from './gallery/walk.js?v=20260910h';
+import { stats, stepStats } from './gallery/bench.js?v=20260910k';
+import { elevator, lift, pressAt, setSetting } from './gallery/elevator.js?v=20260910k';
+import { materials } from './gallery/frames.js?v=20260910k';
+import { ELEVATOR, hangRoom, packRun, piecesOf, replan, rooms, spread, upright } from './gallery/hang.js?v=20260910k';
+import { applyMode, buildRoom, stepMode } from './gallery/room.js?v=20260910k';
+import { camera, renderer, rig, scene, world } from './gallery/scene.js?v=20260910k';
+import { EYE, state } from './gallery/state.js?v=20260910k';
+import { makePiece, makeVideoPanel, stepVideos, videoCache } from './gallery/video.js?v=20260910k';
+import { benchScan, stepPlanes } from './gallery/vr.js?v=20260910k';
+import { applyLook, placeBody, stepWalk, walk } from './gallery/walk.js?v=20260910k';
 
 // ---------------------------------------------------------------------------
 // Boot
@@ -46,4 +46,4 @@ renderer.setAnimationLoop((now, frame) => {
 
 // Test-harness handle only: the plan's browser checks read the scene graph
 // and camera through this. Nothing on the page uses it.
-window.G = { scene, camera, renderer, state, buildRoom, applyMode, makePiece, rooms, hangRoom, walk, stepWalk, elevator, pressAt, setSetting, materials, rig, world, placeBody, lift, stepPlanes, stepVideos, videoCache, makeVideoPanel, replan, packRun, piecesOf };   // replan, packRun, piecesOf: for the bench's checks only   // packRun, piecesOf: for the bench's checks only
+window.G = { scene, camera, renderer, state, buildRoom, applyMode, makePiece, rooms, hangRoom, walk, stepWalk, elevator, pressAt, setSetting, materials, rig, world, placeBody, lift, stepPlanes, stepVideos, videoCache, makeVideoPanel, replan, packRun, piecesOf, spread, upright };   // replan, packRun, piecesOf, spread, upright: for the bench's checks only

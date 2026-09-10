@@ -1,13 +1,13 @@
 import * as THREE from '../vendor/three.module.js';
-import { bakeRoom, placeLabels } from './bake.js?v=20260910h';
-import { setWire, wire } from './bench.js?v=20260910h';
-import { elevator, roomLabel } from './elevator.js?v=20260910h';
-import { FRAME, GRID_GAP, sc, textureCache } from './frames.js?v=20260910h';
-import { WALL_STYLES, buildRoom, dadoTop, floorOf, rectRoom, shapeOf, wallColours } from './room.js?v=20260910h';
-import { scene, world } from './scene.js?v=20260910h';
-import { HANG_MAX, pieceY, state } from './state.js?v=20260910h';
-import { framedSize, freeTexturesExcept, freeVideosExcept, makePiece } from './video.js?v=20260910h';
-import { BODY_R } from './walk.js?v=20260910h';
+import { bakeRoom, placeLabels } from './bake.js?v=20260910k';
+import { setWire, wire } from './bench.js?v=20260910k';
+import { elevator, roomLabel } from './elevator.js?v=20260910k';
+import { FRAME, GRID_GAP, sc, textureCache } from './frames.js?v=20260910k';
+import { WALL_STYLES, buildRoom, dadoTop, floorOf, rectRoom, shapeOf, wallColours } from './room.js?v=20260910k';
+import { scene, world } from './scene.js?v=20260910k';
+import { HANG_MAX, pieceY, state } from './state.js?v=20260910k';
+import { framedSize, freeTexturesExcept, freeVideosExcept, makePiece } from './video.js?v=20260910k';
+import { BODY_R } from './walk.js?v=20260910k';
 
 // ---------------------------------------------------------------------------
 // Hanging a year
@@ -89,6 +89,9 @@ export const ELEVATOR = { size: 1.5 };
 const WALL_MARGIN = 0.6;    // from a wall's end or the elevator: the corners stay empty (Uli)
 const GAP = 1.2;            // gallery spacing between pieces
 const GAP_MIN = 0.6;        // how tight the walls go before the middle fills — never crammed side by side (Uli)
+const SHORT_RUN = 2.2;      // a wall this short would hold nothing at 60 cm margins
+const SHORT_MARGIN = 0.25;  // what it keeps at its ends instead (Uli: use the small walls too)
+const SHORT_LOOKAHEAD = 12; // and how far down the queue it looks for something that fits
 const OFF_WALL = 0.001;     // a hair off the plaster, so the frame's back does not z-fight
 
 // Each wall as a run the cursor walks along: the cabin's south face, then
@@ -121,20 +124,31 @@ function wallRuns(shape) {
 // left over shared out between them and the two ends alike. Returns the
 // pieces taken, in wall order.
 const LOOKAHEAD = 3;
-function spread(pieces, len, gap, margin, lookahead = LOOKAHEAD) {
-	const taken = []; let total = 0;
-	const fits = p => (taken.length ? total + gap : 0) + p.w <= len - 2 * margin;
+// A pair of small prints hangs side by side, but on a piece of wall too
+// narrow for that it stands upright instead — one over the other (Uli,
+// 2026-09-10). Its width is then one print's, its height two. Only a
+// pair turns: a row of three upright would reach past the line.
+function uprightWidth(p) {
+	return p.photos && p.photos.length === 2 && p.cols === 2 && p.rows === 1 ? specWidth({ ...p, cols: 1, rows: 2 }) : 0;
+}
+export function upright(p) { return { ...p, cols: 1, rows: 2, w: uprightWidth(p) }; }
+export function spread(pieces, len, gap, margin, lookahead = LOOKAHEAD) {
+	const taken = [], up = [], widths = []; let total = 0;
+	const fits = w => w > 0 && (taken.length ? total + gap : 0) + w <= len - 2 * margin;
 	for (;;) {
-		let pick = -1;
-		for (let k = 0; k < Math.min(lookahead + 1, pieces.length); k++) if (fits(pieces[k])) { pick = k; break; }
+		let pick = -1, stood = false;
+		for (let k = 0; k < Math.min(lookahead + 1, pieces.length); k++) {
+			if (fits(pieces[k].w)) { pick = k; stood = false; break; }
+			if (fits(uprightWidth(pieces[k]))) { pick = k; stood = true; break; }
+		}
 		if (pick < 0) break;
-		const p = pieces.splice(pick, 1)[0];
-		total += (taken.length ? gap : 0) + p.w; taken.push(p);
+		const p = pieces.splice(pick, 1)[0], w = stood ? uprightWidth(p) : p.w;
+		total += (taken.length ? gap : 0) + w; taken.push(p); up.push(stood); widths.push(w);
 	}
 	const free = len - 2 * margin - total, even = taken.length ? free / (taken.length + 1) : 0;
 	const at = []; let cursor = margin + even;
-	for (const p of taken) { at.push(cursor + p.w / 2); cursor += p.w + gap + even; }
-	return { taken, at };
+	widths.forEach(w => { at.push(cursor + w / 2); cursor += w + gap + even; });
+	return { taken, at, up };
 }
 // The walls take the grids first, then the singles, each in date order
 // (Uli: groups on the walls, the big prints back to back in the middle).
@@ -142,9 +156,17 @@ function spread(pieces, len, gap, margin, lookahead = LOOKAHEAD) {
 function layWalls(pieces, shape, gap, limit = Infinity) {
 	const placed = [], queue = [...pieces.filter(p => p.photos.length > 1), ...pieces.filter(p => p.photos.length === 1)];
 	for (const run of wallRuns(shape)) {
-		const { taken, at } = spread(queue.slice(0, Math.max(0, limit - placed.length)), run.len, gap, run.margin ?? WALL_MARGIN);
-		for (const p of taken) queue.splice(queue.indexOf(p), 1);
-		taken.forEach((p, k) => {
+		// a short wall keeps a smaller margin at its ends, or nothing at all
+		// would stand on it (Uli, 2026-09-10: a small wall edge takes two
+		// small frames, one over the other)
+		const short = run.len < SHORT_RUN;
+		const margin = run.margin ?? (short ? SHORT_MARGIN : WALL_MARGIN);
+		// and it looks further down the queue for what will fit there — a
+		// pair to stand upright, a small single — rather than stay empty
+		const { taken, at, up } = spread(queue.slice(0, Math.max(0, limit - placed.length)), run.len, gap, margin, short ? SHORT_LOOKAHEAD : LOOKAHEAD);
+		for (const q of taken) queue.splice(queue.indexOf(q), 1);
+		taken.forEach((q, k) => {
+			const p = up[k] ? upright(q) : q;
 			const t = at[k];
 			const x = run.start[0] + run.dir[0] * t;
 			const z = run.start[1] + run.dir[1] * t;
