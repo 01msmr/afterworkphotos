@@ -1,12 +1,12 @@
 import * as THREE from '../vendor/three.module.js';
-import { setWire, wire } from './bench.js?v=20260910b';
-import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260910b';
-import { ELEVATOR, clearRooms, hangRoom, roomByKey, rooms } from './hang.js?v=20260910b';
-import { WALL_STYLES, applyMode, dadoTop, dressWall, wallColours } from './room.js?v=20260910b';
-import { camera, head, renderer, scene, world } from './scene.js?v=20260910b';
-import { state } from './state.js?v=20260910b';
-import { fitRoom } from './vr.js?v=20260910b';
-import { placeBody, walk } from './walk.js?v=20260910b';
+import { setWire, wire } from './bench.js?v=20260910e';
+import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260910e';
+import { ELEVATOR, clearRooms, hangRoom, roomByKey, rooms } from './hang.js?v=20260910e';
+import { WALL_STYLES, applyMode, dadoTop, dressWall, wallColours } from './room.js?v=20260910e';
+import { camera, head, renderer, scene, world } from './scene.js?v=20260910e';
+import { PLANS, state } from './state.js?v=20260910e';
+import { fitRoom, planAgain } from './vr.js?v=20260910e';
+import { placeBody, walk } from './walk.js?v=20260910e';
 
 // ---------------------------------------------------------------------------
 // The elevator
@@ -221,6 +221,7 @@ const SWITCHES = [
 	{ key: 'dark',   label: 'light',  value: () => state.settings.dark ? 'night' : 'day',  press: () => setSetting('dark', !state.settings.dark) },
 	{ key: 'frame',  label: 'wood',   value: () => state.settings.frame,                   press: () => setSetting('frame', WOODS[(WOODS.indexOf(state.settings.frame) + 1) % WOODS.length]) },
 	{ key: 'labels', label: 'labels', value: () => state.settings.labels ? 'on' : 'off',   press: () => setSetting('labels', !state.settings.labels) },
+	{ key: 'plan',   label: 'plan',   value: () => state.settings.plan,                    press: () => setSetting('plan', PLANS[(PLANS.indexOf(state.settings.plan) + 1) % PLANS.length]) },   // what a scanned room is made of (Uli)
 	{ key: 'view',   label: 'view',   value: () => 'reset',                                press: () => recentre() },
 	{ key: 'wire',   label: 'wire',   value: () => wire ? 'on' : 'off',                    press: () => setWire(!wire), small: true },   // a smaller button centred under the rows (Uli)
 ];
@@ -844,6 +845,7 @@ export function setSetting(k, v) {
 		case 'dark':   applyMode(v); break;
 		case 'frame':  applyFrameLook(materials.frame, v); break;
 		case 'labels': scene.traverse(o => { if (o.name === 'label') o.visible = v; }); break;
+		case 'plan':   planAgain(); break;    // the scan planned again; with no scan the switch only shows its state
 		case 'mat':
 			materials.mat.color.setHex(MAT_COLOURS[v]);
 			rehang();                         // 'none' and back change the print's size

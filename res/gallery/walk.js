@@ -1,9 +1,11 @@
 import * as THREE from '../vendor/three.module.js';
-import { DOOR, elevator, floors, pressAt } from './elevator.js?v=20260910b';
-import { ELEVATOR } from './hang.js?v=20260910b';
-import { camera, renderer } from './scene.js?v=20260910b';
-import { EYE, state } from './state.js?v=20260910b';
-import { stepXR } from './vr.js?v=20260910b';
+import { DOOR, elevator, floors, pressAt } from './elevator.js?v=20260910e';
+import { inPoly } from './plan.js?v=20260910e';
+import { rectRoom } from './room.js?v=20260910e';
+import { ELEVATOR, rooms } from './hang.js?v=20260910e';
+import { camera, renderer } from './scene.js?v=20260910e';
+import { EYE, state } from './state.js?v=20260910e';
+import { stepXR } from './vr.js?v=20260910e';
 
 // ---------------------------------------------------------------------------
 // Walking (the bench)
@@ -19,6 +21,14 @@ const WALK_SPEED = 1.6;         // m/s, a gallery pace
 const LOOK_SPEED = 0.0022;      // radians per pixel
 const PITCH_MAX = Math.PI * 80 / 180;
 const WALL_KEEP = 0.3;
+
+// The point of the segment p→q nearest (x, z), and how far away it is.
+function onSegment(p, q, x, z) {
+	const dx = q[0] - p[0], dz = q[1] - p[1], l2 = dx * dx + dz * dz;
+	const t = l2 ? Math.max(0, Math.min(1, ((x - p[0]) * dx + (z - p[1]) * dz) / l2)) : 0;
+	const cx = p[0] + t * dx, cz = p[1] + t * dz;
+	return { x: cx, z: cz, d: Math.hypot(x - cx, z - cz) };
+}
 
 const KNEEL = 0.9;              // eye height kneeling, for the low prints of a grid
 
@@ -72,10 +82,30 @@ const KEYS = {
 	KeyW: 'fwd', ArrowUp: 'fwd', KeyS: 'back', ArrowDown: 'back',
 	KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right',
 };
+// The bench's own keys, so a check needs no mouse and never leaves the
+// view (Uli, 2026-09-10): the eye up and down, turning on the spot, and
+// the lift — called from where one stands, ridden a floor at a time.
+const EYE_MIN = 0.5, EYE_MAX = 2.2, EYE_STEP = 0.1;
+const TURN_STEP = Math.PI / 18;        // 10° a press, held for more
 addEventListener('keydown', e => {
 	if (KEYS[e.code]) { walk.keys.add(KEYS[e.code]); e.preventDefault(); }
 	if (e.code === 'KeyV' && !e.repeat) walk.eye = walk.eye === EYE ? KNEEL : EYE;   // kneel / stand
+	if (e.code === 'KeyQ' || e.code === 'KeyE')                                      // Q lower, E higher (Uli)
+		walk.eye = Math.max(EYE_MIN, Math.min(EYE_MAX, walk.eye + (e.code === 'KeyE' ? EYE_STEP : -EYE_STEP)));
+	if (e.code === 'KeyJ' || e.code === 'KeyK') { walk.yaw += e.code === 'KeyJ' ? TURN_STEP : -TURN_STEP; applyLook(); }   // J left, K right (Uli)
+	if (e.code === 'KeyC' && !e.repeat) elevator.call();                             // call the lift from where one stands
+	if ((e.code === 'Comma' || e.code === 'Period') && !e.repeat && elevator.inside()) {
+		// inside the cabin: the floor below or above, the list newest first
+		const list = rooms(), i = list.findIndex(r => r.key === state.roomKey);
+		const to = list[i + (e.code === 'Period' ? -1 : 1)];
+		if (to) elevator.go(to.key);
+	}
 });
+// A dot in the middle of the view while the pointer is taken, so one can
+// see what a click is about to press (Uli: the lift without the mouse).
+const cross = document.body.appendChild(document.createElement('div'));
+cross.style.cssText = 'position:fixed;left:50%;top:50%;width:7px;height:7px;margin:-3.5px 0 0 -3.5px;border-radius:50%;background:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.55);opacity:.55;pointer-events:none;display:none;z-index:5';
+addEventListener('pointerlockchange', () => { cross.style.display = walk.locked() ? 'block' : 'none'; });
 addEventListener('keyup',   e => { if (KEYS[e.code]) walk.keys.delete(KEYS[e.code]); });
 addEventListener('blur',    () => walk.keys.clear());
 
@@ -100,8 +130,30 @@ export function placeBody(x, z, yaw) {
 
 function clampToRoom(v) {
 	const { W, D } = state.room || state.settings;
-	v.x = Math.max(-W / 2 + WALL_KEEP, Math.min(W / 2 - WALL_KEEP, v.x));
-	v.z = Math.max(-D / 2 + WALL_KEEP, Math.min(D / 2 - WALL_KEEP, v.z));
+	// the plan's own walls, not a rectangle's (Uli, 2026-09-10: an L or a U
+	// room): inside the outline, and WALL_KEEP off every edge of it. A
+	// segment pushes only where it is near, so a room's inner corner lets
+	// one round it instead of walling off the other arm.
+	const shape = (state.room && state.room.shape) || rectRoom(W, D);
+	const out = shape.outline;
+	if (!inPoly(out, v.x, v.z)) {            // outside: back to the nearest wall first
+		let near = null;
+		out.forEach((p, i) => {
+			const c = onSegment(p, out[(i + 1) % out.length], v.x, v.z);
+			if (!near || c.d < near.d) near = c;
+		});
+		if (near) { v.x = near.x; v.z = near.z; }
+	}
+	for (let pass = 0; pass < 2; pass++) out.forEach((p, i) => {
+		const q = out[(i + 1) % out.length];
+		const c = onSegment(p, q, v.x, v.z);
+		if (c.d >= WALL_KEEP) return;
+		const len = Math.hypot(q[0] - p[0], q[1] - p[1]) || 1;
+		const nx = -(q[1] - p[1]) / len, nz = (q[0] - p[0]) / len;      // the edge's inward normal
+		const push = WALL_KEEP - c.d;
+		if (c.d > 1e-4) { v.x += (v.x - c.x) / c.d * push; v.z += (v.z - c.z) / c.d * push; }
+		else { v.x += nx * push; v.z += nz * push; }
+	});
 	return v;
 }
 

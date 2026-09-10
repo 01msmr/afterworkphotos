@@ -1,9 +1,10 @@
 import * as THREE from '../vendor/three.module.js';
-import { BUTTON, elevator, pressAlong, settingsMap } from './elevator.js?v=20260910b';
-import { clearRooms, hangRoom, rooms } from './hang.js?v=20260910b';
-import { camera, head, renderer, rig, scene, world } from './scene.js?v=20260910b';
-import { loadSettings, state } from './state.js?v=20260910b';
-import { placeBody, walk } from './walk.js?v=20260910b';
+import { BUTTON, elevator, pressAlong, settingsMap } from './elevator.js?v=20260910e';
+import { cornerFree, outlineOf, planOf, rotShape } from './plan.js?v=20260910e';
+import { ELEVATOR, clearRooms, hangRoom, rooms } from './hang.js?v=20260910e';
+import { camera, head, renderer, rig, scene, world } from './scene.js?v=20260910e';
+import { loadSettings, state } from './state.js?v=20260910e';
+import { placeBody, walk } from './walk.js?v=20260910e';
 
 // ---------------------------------------------------------------------------
 // VR (phase 2, first step)
@@ -212,29 +213,41 @@ export function fitRoom(floorPts, walls, ceilings, floorY, source) {
 		}
 		theta = bestA;                                    // the scan rotates as fitRoom does below, so the angle carries straight over
 	}
+	// the scan in the walls' own frame, and the plan drawn on it: the
+	// biggest rectangle that fits, with the 50 cm extensions the scan
+	// still holds (Uli, 2026-09-10 — an L or a U room keeps its arms),
+	// or one of the two plainer plans the visitor's `plan` switch asks for
 	const rot = new THREE.Matrix4().makeRotationY(-theta);
-	let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
-	for (const p of floorPts) { const q = p.clone().applyMatrix4(rot); minX = Math.min(minX, q.x); maxX = Math.max(maxX, q.x); minZ = Math.min(minZ, q.z); maxZ = Math.max(maxZ, q.z); }
-	let W = maxX - minX, D = maxZ - minZ;
-	if (W < 1.5 || D < 1.5) return;
-	const centreLocal = new THREE.Vector3((minX + maxX) / 2, 0, (minZ + maxZ) / 2);
-	const centre = centreLocal.applyMatrix4(new THREE.Matrix4().makeRotationY(theta));
+	const poly = floorPts.map(p => { const q = p.clone().applyMatrix4(rot); return [q.x, q.z]; });
+	state.scan = { pts: floorPts.map(p => p.clone()), walls, ceilings, floorY, source };   // kept, so the switch can plan again without a new scan
+	const plan = planOf(poly, state.settings.plan);
+	if (!plan || plan.shape.W < 1.5 || plan.shape.D < 1.5) return;
+	const centre = new THREE.Vector3(plan.cx, 0, plan.cz).applyMatrix4(new THREE.Matrix4().makeRotationY(theta));
 	const H = ceilings.length ? Math.max(2.2, ceilings[0].pts[0].y - floorY) : Math.max(2.2, Math.min(3.2, walls.reduce((h, w) => Math.max(h, ...w.pts.map(p => p.y)), 0) - floorY || 2.6));
 
-	// of the four turns that keep the walls on the walls, the one whose
-	// north wall is the wall you are looking at (the lift then stands in
-	// the corner to your front right)
+	// of the four turns that keep the walls on the walls, those with room
+	// for the lift in the north-east corner (Uli: never in a cut corner)
+	// — of them the one whose north wall is the wall you are looking at,
+	// so the lift stands to your front right. A plan with no such corner
+	// falls back to its main rectangle, which always has four.
 	const look = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.getWorldQuaternion(new THREE.Quaternion())); look.y = 0; look.normalize();
-	let best = null;
-	for (let k = 0; k < 4; k++) {
-		const yaw = theta + k * Math.PI / 2, odd = k % 2 === 1;
-		const w = odd ? D : W, d = odd ? W : D;
-		const north = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
-		const dot = north.dot(look);
-		if (!best || dot > best.dot) best = { yaw, W: w, D: d, dot };
-	}
-	state.real = { W: Math.round(best.W * 20) / 20, D: Math.round(best.D * 20) / 20, H: Math.round(H * 20) / 20, yaw: best.yaw, centre, walls: walls.length, source };
-	console.info(`real room ${state.real.W} × ${state.real.D} × ${state.real.H} from ${source}, ${walls.length} walls, turned ${(best.yaw * 180 / Math.PI).toFixed(0)}°`);
+	const turn = shape => {
+		let best = null;
+		for (let k = 0; k < 4; k++) {
+			const turned = rotShape(shape, k);
+			if (!cornerFree(turned, ELEVATOR.size)) continue;
+			const yaw = theta + k * Math.PI / 2;
+			const north = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+			const dot = north.dot(look);
+			if (!best || dot > best.dot) best = { yaw, shape: turned, dot };
+		}
+		return best;
+	};
+	const best = turn(plan.shape) || turn(planOf(poly, 'inside').shape);
+	if (!best) return;
+	const shape = best.shape;
+	state.real = { W: shape.W, D: shape.D, H: Math.round(H * 20) / 20, yaw: best.yaw, centre, walls: walls.length, source, shape };
+	console.info(`real room ${shape.W.toFixed(2)} × ${shape.D.toFixed(2)} × ${state.real.H} from ${source}, ${walls.length} walls, ${shape.rects.length} part${shape.rects.length > 1 ? 's' : ''}, ${shape.outline.length} corners, turned ${(best.yaw * 180 / Math.PI).toFixed(0)}°`);
 
 	world.position.set(centre.x, floorY, centre.z);
 	world.rotation.y = best.yaw;
@@ -244,5 +257,55 @@ export function fitRoom(floorPts, walls, ceilings, floorY, source) {
 	const key = rooms().some(r => r.key === state.roomKey) ? state.roomKey : (rooms().find(r => r.year === state.year) || rooms()[0]).key;
 	hangRoom(key);
 	elevator.setDoors(1); elevator.open = 1;
-	if (elevator.displays.length) elevator.show(`${state.real.W} × ${state.real.D} ${source === 'planes' ? 'walls' : 'boundary'}`, '');
+	if (elevator.displays.length) elevator.show(`${state.real.W.toFixed(1)} × ${state.real.D.toFixed(1)} ${source === 'planes' ? 'walls' : 'boundary'}`, '');
+}
+
+// The visitor's `plan` switch: the same scan planned again (Uli,
+// 2026-09-10). Nothing to do before a room has been scanned.
+export function planAgain() {
+	if (!state.scan) return false;
+	const { pts, walls, ceilings, floorY, source } = state.scan;
+	state.real = null;
+	fitRoom(pts, walls, ceilings, floorY, source);
+	return true;
+}
+
+// ---------------------------------------------------------------------------
+// The bench: a floor plan without a headset
+//
+// `?scan=L`, `?scan=U`, or rows of one character per 50 cm cell separated
+// by `/` — `#` inside the room, `.` outside — become a boundary polygon
+// as the Quest would hand one over: turned a few degrees and drawn by a
+// wobbly hand. The `plan` setting then makes a room of it, the same code
+// the headset runs.
+const SCANS = {
+	L: ['############', '############', '############', '############', '############', '############', '######......', '######......', '######......'],
+	U: ['############', '############', '############', '############', '############', '############', '####....####', '####....####', '####....####'],
+};
+const CELL = 0.5, TURN = 7 * Math.PI / 180, WOBBLE = 0.02, STEP = 0.4;
+export function benchScan() {
+	const q = new URLSearchParams(location.search).get('scan');
+	if (!q) return false;
+	const rows = SCANS[q.toUpperCase()] || q.split('/');
+	const cells = [];
+	rows.forEach((row, j) => [...row].forEach((c, i) => {
+		if (c === '#') cells.push({ x0: i * CELL, x1: (i + 1) * CELL, z0: j * CELL, z1: (j + 1) * CELL });
+	}));
+	if (cells.length < 4) return false;
+	const line = outlineOf(cells);
+	const cx = (Math.min(...line.map(p => p[0])) + Math.max(...line.map(p => p[0]))) / 2;
+	const cz = (Math.min(...line.map(p => p[1])) + Math.max(...line.map(p => p[1]))) / 2;
+	const pts = [];
+	line.forEach((p, i) => {
+		const n = line[(i + 1) % line.length], len = Math.hypot(n[0] - p[0], n[1] - p[1]);
+		for (let k = 0, steps = Math.max(1, Math.round(len / STEP)); k < steps; k++) {
+			const t = k / steps;
+			const x = p[0] + (n[0] - p[0]) * t - cx + (Math.random() - 0.5) * WOBBLE;
+			const z = p[1] + (n[1] - p[1]) * t - cz + (Math.random() - 0.5) * WOBBLE;
+			pts.push(new THREE.Vector3(x * Math.cos(TURN) - z * Math.sin(TURN), 0, x * Math.sin(TURN) + z * Math.cos(TURN)));
+		}
+	});
+	state.real = null;
+	fitRoom(pts, [], [], 0, 'bench');
+	return true;
 }

@@ -1,13 +1,13 @@
 import * as THREE from '../vendor/three.module.js';
-import { bakeRoom, placeLabels } from './bake.js?v=20260910b';
-import { setWire, wire } from './bench.js?v=20260910b';
-import { elevator, roomLabel } from './elevator.js?v=20260910b';
-import { FRAME, GRID_GAP, sc, textureCache } from './frames.js?v=20260910b';
-import { WALL_STYLES, buildRoom, dadoTop, floorOf, rectRoom, shapeOf, wallColours } from './room.js?v=20260910b';
-import { scene, world } from './scene.js?v=20260910b';
-import { HANG_MAX, pieceY, state } from './state.js?v=20260910b';
-import { framedSize, freeTexturesExcept, freeVideosExcept, makePiece } from './video.js?v=20260910b';
-import { BODY_R } from './walk.js?v=20260910b';
+import { bakeRoom, placeLabels } from './bake.js?v=20260910e';
+import { setWire, wire } from './bench.js?v=20260910e';
+import { elevator, roomLabel } from './elevator.js?v=20260910e';
+import { FRAME, GRID_GAP, sc, textureCache } from './frames.js?v=20260910e';
+import { WALL_STYLES, buildRoom, dadoTop, floorOf, rectRoom, shapeOf, wallColours } from './room.js?v=20260910e';
+import { scene, world } from './scene.js?v=20260910e';
+import { HANG_MAX, pieceY, state } from './state.js?v=20260910e';
+import { framedSize, freeTexturesExcept, freeVideosExcept, makePiece } from './video.js?v=20260910e';
+import { BODY_R } from './walk.js?v=20260910e';
 
 // ---------------------------------------------------------------------------
 // Hanging a year
@@ -150,7 +150,7 @@ function layWalls(pieces, shape, gap, limit = Infinity) {
 			const z = run.start[1] + run.dir[1] * t;
 			// step off the wall along the piece's facing direction
 			const nx = Math.sin(run.yaw), nz = Math.cos(run.yaw);
-			placed.push({ piece: p, x: x + nx * OFF_WALL, z: z + nz * OFF_WALL, yaw: run.yaw, wall: run.name, roomRight: run.len - (t + p.w / 2) });
+			placed.push({ piece: p, x: x + nx * OFF_WALL, z: z + nz * OFF_WALL, yaw: run.yaw, wall: run.name, roomLeft: t - p.w / 2, roomRight: run.len - (t + p.w / 2) });
 		});
 	}
 	return { placed, rest: queue };
@@ -377,6 +377,18 @@ export function roomByKey(key) {
 	return r;
 }
 
+// The pool a spot throws reaches POOL_SPILL past the piece on every side
+// (makePiece). Where the wall ends sooner — a corner, the cabin's face —
+// the pool ends with it, and moves over so it still sits under its piece.
+const POOL_SPILL = 0.7;
+function clipPool(pool, w, h, left = Infinity, right = Infinity) {
+	const l = Math.max(0, Math.min(POOL_SPILL, left)), r = Math.max(0, Math.min(POOL_SPILL, right));
+	if (l >= POOL_SPILL && r >= POOL_SPILL) return;
+	pool.geometry.dispose();
+	pool.geometry = new THREE.PlaneGeometry(w + l + r, h + 1.2);
+	pool.position.x = (r - l) / 2;
+}
+
 export function hangRoom(key) {
 	const room = roomByKey(key);
 	const H = state.settings.H;
@@ -419,7 +431,7 @@ export function hangRoom(key) {
 			const f = old.getObjectByName('floor');
 			if (f) { for (const k of ['map', 'roughnessMap', 'normalMap', 'metalnessMap']) f.material[k]?.dispose(); f.material.dispose(); }
 		}
-		world.add(buildRoom(W, D, H, floor, dadoCap));
+		world.add(buildRoom(W, D, H, floor, dadoCap, shape));
 		world.add(elevator.build(W, D, H, floor, dadoCap));
 		state.room = { W, D, H, floor, dadoCap, shape };
 	}
@@ -428,7 +440,7 @@ export function hangRoom(key) {
 	state.placed = lay.placed;
 	state.obstacles = [];
 	const slabs = new Map();                       // a slot's slab: the larger of the pair's sizes
-	for (const { piece: spec, x, z, yaw, wall, slab, roomRight } of lay.placed) {
+	for (const { piece: spec, x, z, yaw, wall, slab, roomLeft, roomRight } of lay.placed) {
 		const piece = makePiece(spec);
 		piece.position.set(x, pieceY(piece.userData.h), z);
 		piece.rotation.y = yaw;
@@ -444,13 +456,15 @@ export function hangRoom(key) {
 			const prev = slabs.get(k) || { x: xc, z: zc, yaw: alongX ? 0 : Math.PI / 2, w: 0, bottom: Infinity, top: -Infinity };
 			slabs.set(k, { ...prev, w: Math.max(prev.w, piece.userData.w), bottom: Math.min(prev.bottom, y - h / 2 - drop), top: Math.max(prev.top, y + h / 2) });
 		}
-		// A piece in the middle of the room has no wall behind it: the warm
-		// pool a spot throws would hang in the air. The light stays, the
-		// pool goes (Uli, 2026-08-29).
-		if (wall === 'mid') {
-			const pool = piece.getObjectByName('pool');
-			if (pool) { pool.geometry.dispose(); pool.parent.remove(pool); }
-		}
+		// The warm pool a spot throws lies on the wall behind the piece. In
+		// the middle of the room there is no wall, so it would hang in the
+		// air: the light stays, the pool goes (Uli, 2026-08-29). On a wall
+		// it now stops where the wall does (Uli, 2026-09-10: no shine on a
+		// wall that is not there) — at an L room's inner corner, and on the
+		// cabin's 1.5 m face, it had glowed past the plaster into the air.
+		const pool = piece.getObjectByName('pool');
+		if (pool && wall === 'mid') { pool.geometry.dispose(); pool.parent.remove(pool); }
+		else if (pool) clipPool(pool, piece.userData.w, piece.userData.h, roomLeft, roomRight);
 		pieces.add(piece);
 	}
 	// the slabs: the wall's colour, following day and night like a wall

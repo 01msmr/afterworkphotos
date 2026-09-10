@@ -1,8 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
-import { CABIN_LAMP, lightPanel, metal } from './elevator.js?v=20260910b';
-import { ENV_INTENSITY, tex } from './frames.js?v=20260910b';
-import { camera, renderer, scene } from './scene.js?v=20260910b';
-import { state } from './state.js?v=20260910b';
+import { CABIN_LAMP, lightPanel, metal } from './elevator.js?v=20260910e';
+import { ENV_INTENSITY, tex } from './frames.js?v=20260910e';
+import { camera, renderer, scene } from './scene.js?v=20260910e';
+import { state } from './state.js?v=20260910e';
 
 // ---------------------------------------------------------------------------
 // The room
@@ -80,10 +80,10 @@ export function floorOf(year) { return FLOOR_OF_YEAR[year] || SPARE_FLOORS[Numbe
 // The floor's material: the lacquer is a colour with the room mirrored
 // softly in it; a textured floor repeats its tile every `metres`. In dark
 // mode the texture is dimmed through the material's colour (applyMode).
-function floorMaterial(slug, W, D) {
+function floorMaterial(slug, W, D, perMetre = false) {
 	const f = FLOORS[slug];
 	if (!f.metres) return { material: new THREE.MeshStandardMaterial({ color: f.colour.light, roughness: f.roughness, metalness: 0, envMapIntensity: 0.6 }), colours: f.colour };
-	const t = kind => tex(`floor-${slug}-${kind}.jpg`, kind === 'color', D / f.metres, W / f.metres);
+	const t = kind => tex(`floor-${slug}-${kind}.jpg`, kind === 'color', (perMetre ? 1 : D) / f.metres, (perMetre ? 1 : W) / f.metres);
 	const material = new THREE.MeshStandardMaterial({
 		map: t('color'), roughnessMap: t('rough'), normalMap: t('normal'), normalScale: new THREE.Vector2(0.7, 0.7),
 		metalnessMap: f.metal ? t('metalness') : null, metalness: f.metal ? 1 : 0, roughness: 1, envMapIntensity: f.metal ? 0.5 : 0.35,
@@ -162,7 +162,8 @@ function panelFrames(across) {
 const AMBIENT = { light: 1.9,  dark: 0.08 };
 const FILL    = { light: 1.4,  dark: 0.06 };
 
-export function buildRoom(W, D, H, floor = 'lacquer', dadoCap = Infinity) {
+export function buildRoom(W, D, H, floor = 'lacquer', dadoCap = Infinity, shape = null) {
+	shape = shape || rectRoom(W, D);
 	const room = new THREE.Group();
 	room.name = 'room';
 	const style = WALL_STYLES[floor] || WALL_STYLES.lacquer;
@@ -185,14 +186,35 @@ export function buildRoom(W, D, H, floor = 'lacquer', dadoCap = Infinity) {
 		room.add(m);
 	};
 
-	const fl = floorMaterial(floor, W, D);
-	surface('floor',   'floor',   W, D, [0, 0, 0],       [-Math.PI / 2, 0, 0], fl.material, fl.colours);
-	surface('ceiling', 'ceiling', W, D, [0, H, 0],       [ Math.PI / 2, 0, 0]);
-	surface('wall-n',  'wall',    W, H, [0, H / 2, -D / 2], [0, 0, 0]);
-	surface('wall-s',  'wall',    W, H, [0, H / 2,  D / 2], [0, Math.PI, 0]);
-	surface('wall-e',  'wall',    D, H, [ W / 2, H / 2, 0], [0, -Math.PI / 2, 0]);
-	surface('wall-w',  'wall',    D, H, [-W / 2, H / 2, 0], [0,  Math.PI / 2, 0]);
-	for (const name of ['wall-n', 'wall-s', 'wall-e', 'wall-w']) dressWall(room.getObjectByName(name), style, H, Math.min(dadoCap, dadoTop(style)), mode);
+	// The floor and the ceiling are the plan itself — a rectangle, or the
+	// L or U of a scanned room (Uli, 2026-09-10). A ShapeGeometry's UVs are
+	// the plan's own metres, so the floor's texture repeats per metre
+	// rather than once over the room.
+	const plan = new THREE.Shape(shape.outline.map(([x, z]) => new THREE.Vector2(x, -z)));
+	const fl = floorMaterial(floor, W, D, true);
+	const floorGeo = new THREE.ShapeGeometry(plan); floorGeo.rotateX(-Math.PI / 2);
+	const ceilGeo = new THREE.ShapeGeometry(new THREE.Shape(shape.outline.map(([x, z]) => new THREE.Vector2(x, z)))); ceilGeo.rotateX(Math.PI / 2);
+	const face = (name, key, geo, y, material = mat(key), colours = COLOURS[key]) => {
+		const m = new THREE.Mesh(geo, material);
+		m.name = name; m.position.y = y; m.receiveShadow = true;
+		m.userData.surface = key; m.userData.colours = colours;
+		m.material.color.setHex(colours[mode]);
+		room.add(m);
+	};
+	face('floor', 'floor', floorGeo, 0, fl.material, fl.colours);
+	face('ceiling', 'ceiling', ceilGeo, H);
+
+	// A wall per edge of the plan, facing the room: the edge's inward
+	// normal is (−dz, dx), the plane turned to it.
+	shape.outline.forEach(([x, z], i) => {
+		const [qx, qz] = shape.outline[(i + 1) % shape.outline.length];
+		const len = Math.hypot(qx - x, qz - z);
+		if (len < 1e-4) return;
+		const dx = (qx - x) / len, dz = (qz - z) / len;
+		const name = `wall-${i}`;
+		surface(name, 'wall', len, H, [(x + qx) / 2, H / 2, (z + qz) / 2], [0, Math.atan2(-dz, dx || 0), 0]);
+		dressWall(room.getObjectByName(name), style, H, Math.min(dadoCap, dadoTop(style)), mode);
+	});
 
 	const ambient = new THREE.AmbientLight(0xffffff, AMBIENT[mode]);
 	ambient.name = 'ambient';

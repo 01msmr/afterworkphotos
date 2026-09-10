@@ -1,15 +1,15 @@
 // three.js 0.180.0, vendored (MIT) — res/vendor/three.module.js, which in
 // turn imports res/vendor/three.core.js; both are pinned together.
-import { stats, stepStats } from './gallery/bench.js?v=20260910b';
-import { elevator, lift, pressAt, setSetting } from './gallery/elevator.js?v=20260910b';
-import { materials } from './gallery/frames.js?v=20260910b';
-import { ELEVATOR, hangRoom, packRun, piecesOf, replan, rooms } from './gallery/hang.js?v=20260910b';
-import { applyMode, buildRoom, stepMode } from './gallery/room.js?v=20260910b';
-import { camera, renderer, rig, scene, world } from './gallery/scene.js?v=20260910b';
-import { EYE, state } from './gallery/state.js?v=20260910b';
-import { makePiece, makeVideoPanel, stepVideos, videoCache } from './gallery/video.js?v=20260910b';
-import { stepPlanes } from './gallery/vr.js?v=20260910b';
-import { applyLook, placeBody, stepWalk, walk } from './gallery/walk.js?v=20260910b';
+import { stats, stepStats } from './gallery/bench.js?v=20260910e';
+import { elevator, lift, pressAt, setSetting } from './gallery/elevator.js?v=20260910e';
+import { materials } from './gallery/frames.js?v=20260910e';
+import { ELEVATOR, hangRoom, packRun, piecesOf, replan, rooms } from './gallery/hang.js?v=20260910e';
+import { applyMode, buildRoom, stepMode } from './gallery/room.js?v=20260910e';
+import { camera, renderer, rig, scene, world } from './gallery/scene.js?v=20260910e';
+import { EYE, state } from './gallery/state.js?v=20260910e';
+import { makePiece, makeVideoPanel, stepVideos, videoCache } from './gallery/video.js?v=20260910e';
+import { benchScan, stepPlanes } from './gallery/vr.js?v=20260910e';
+import { applyLook, placeBody, stepWalk, walk } from './gallery/walk.js?v=20260910e';
 
 // ---------------------------------------------------------------------------
 // Boot
@@ -24,6 +24,7 @@ Promise.all([
 
 function init() {
 	hangRoom(rooms()[0].key);    // the newest room; builds the room around it
+	benchScan();                 // ?scan=L on the bench: a floor plan as the Quest would hand one over
 
 	// Arrival: you have just stepped out of the elevator, facing down the room.
 	const o = elevator.originWorld();
