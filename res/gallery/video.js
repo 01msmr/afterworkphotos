@@ -1,8 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
-import { addLabel } from './bake.js?v=20260911p';
-import { FRAME, GRID_GAP, MAT_Z, PRINT_SCALE, matWidth, materials, photoTexture, poolMaterial, sc, textureCache } from './frames.js?v=20260911p';
-import { camera, scene } from './scene.js?v=20260911p';
-import { pieceY, state } from './state.js?v=20260911p';
+import { addLabel } from './bake.js?v=20260911r';
+import { FRAME, GRID_GAP, MAT_Z, PRINT_SCALE, matWidth, materials, photoTexture, poolMaterial, sc, textureCache } from './frames.js?v=20260911r';
+import { camera, scene } from './scene.js?v=20260911r';
+import { pieceY, state } from './state.js?v=20260911r';
 
 // ---------------------------------------------------------------------------
 // Videos — the LED panel
@@ -176,6 +176,7 @@ function makeFramedPrint(p, size) {
 		new THREE.MeshBasicMaterial({ map: photoTexture(p, size) }));
 	print.name = 'photo';
 	print.position.z = MAT_Z + 0.001;                // a millimetre proud of the mat (Uli)
+	print.userData.full = inner / printed;           // what it scales to when pressed: over the mat, edge to edge (Uli)
 	g.add(print);
 	// the shadow that millimetre throws: a faint dark rim just behind the
 	// print, a hair larger and pushed down and to the right
@@ -213,15 +214,20 @@ function makeFramedPrint(p, size) {
 
 // Two 0.5 mm lines from a piece's top corners up to the ceiling. Their
 // length follows from where the piece hangs: centre at HANG_Y, ceiling at H.
-function addLines(piece, w, h) {
-	const drop = state.settings.H - (pieceY(h) + h / 2);
+// The wires to the ceiling. Every print has its own pair, a grid's as
+// well as a single's (Uli, 2026-09-11) — a group hung from two wires at
+// its outer edges looked like one board, not like prints. `top` is how
+// high the thing's top edge is above the floor; the wires are children of
+// it, so they carry its own width.
+function addLines(node, w, h, top) {
+	const drop = state.settings.H + state.settings.raise - top;
 	if (drop <= 0) return;
 	const geo = new THREE.PlaneGeometry(0.0012, drop);   // a ribbon: at 0.6 mm no one can tell it from a thread
 	for (const x of [-w / 2 + FRAME.face / 2, w / 2 - FRAME.face / 2]) {
 		const line = new THREE.Mesh(geo, materials.line);
 		line.name = 'line';
 		line.position.set(x, h / 2 + drop / 2, FRAME.depth / 2);
-		piece.add(line);
+		node.add(line);
 	}
 }
 
@@ -247,10 +253,11 @@ export function makePiece(spec) {
 			fp.position.set(-w / 2 + cell / 2 + c * (cell + gap),
 			                 h / 2 - cell / 2 - r * (cell + gap), 0);
 			piece.add(fp);
+			addLines(fp, fp.userData.w, fp.userData.h, pieceY(h) + fp.position.y + fp.userData.h / 2);   // its own wires
 		});
 	}
 
-	addLines(piece, w, h);
+	if (photos.length === 1) addLines(piece, w, h, pieceY(h) + h / 2);
 	addLabel(piece, spec, w, h);
 	// the warm pool on the wall behind, wider than the piece
 	const pool = new THREE.Mesh(new THREE.PlaneGeometry(w + 1.4, h + 1.2), poolMaterial);

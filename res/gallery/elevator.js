@@ -1,12 +1,13 @@
 import * as THREE from '../vendor/three.module.js';
-import { setWire, wire } from './bench.js?v=20260911p';
-import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260911p';
-import { ELEVATOR, clearRooms, hangRoom, roomByKey, rooms } from './hang.js?v=20260911p';
-import { WALL_STYLES, applyMode, dadoTop, dressWall, wallColours } from './room.js?v=20260911p';
-import { camera, head, renderer, scene, world } from './scene.js?v=20260911p';
-import { PLANS, RAISES, state } from './state.js?v=20260911p';
-import { fitRoom, planAgain } from './vr.js?v=20260911p';
-import { placeBody, walk } from './walk.js?v=20260911p';
+import { setWire, wire } from './bench.js?v=20260911r';
+import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260911r';
+import { ELEVATOR, clearRooms, hangRoom, roomByKey, rooms } from './hang.js?v=20260911r';
+import { WALL_STYLES, applyMode, dadoTop, dressWall, wallColours } from './room.js?v=20260911r';
+import { camera, head, renderer, scene, world } from './scene.js?v=20260911r';
+import { zoomLabel, zoomPrint } from './zoom.js?v=20260911r';
+import { PLANS, RAISES, state } from './state.js?v=20260911r';
+import { fitRoom, planAgain } from './vr.js?v=20260911r';
+import { placeBody, walk } from './walk.js?v=20260911r';
 
 // ---------------------------------------------------------------------------
 // The elevator
@@ -775,26 +776,21 @@ export function pressAlong(rc, reach) {
 		else if (elevator.inside()) { elevator.press(u.key, hit.object); elevator.go(u.key); }   // a floor is chosen from inside the cabin only (Uli)
 		return true;
 	}
-	// a label card: a press doubles it, the next press puts it back (Uli)
+	// a label card: a press doubles it, the next press puts it back; a
+	// print: a press fills its frame over the mat, the next puts it back
+	// (Uli, 2026-09-11). Both come back by themselves once out of sight —
+	// zoom.js keeps that.
 	const pieces = scene.getObjectByName('pieces');
 	if (pieces) {
-		const labels = [];
-		pieces.traverse(o => { if (o.name === 'label' && o.visible) labels.push(o); });
+		const labels = [], prints = [];
+		pieces.traverse(o => {
+			if (o.name === 'label' && o.visible) labels.push(o);
+			else if (o.name === 'photo' && o.visible) prints.push(o);
+		});
 		const l = rc.intersectObjects(labels, false)[0];
-		if (l && l.distance <= 4) {
-			// the whole block, a grid's cards together (Uli): it grows from the
-			// corner that sits by the frame — top-left beside the piece, top-right
-			// under it — so that corner stays and the block spreads down and out
-			const L = l.object.parent.userData.labels, k = l.object.scale.x > 1.5 ? 1 : 2;
-			const ax = L.cards[0].userData.below ? Math.max(...L.cards.map(c => c.userData.x0 + L.cw / 2)) : Math.min(...L.cards.map(c => c.userData.x0 - L.cw / 2));
-			const ay = Math.max(...L.cards.map(c => c.userData.y0 + c.userData.ch / 2));
-			for (const c of L.cards) {
-				c.scale.set(k, k, 1);
-				c.position.x = ax + (c.userData.x0 - ax) * k;
-				c.position.y = ay + (c.userData.y0 - ay) * k;
-			}
-			return true;
-		}
+		if (l && l.distance <= 4) return zoomLabel(l.object.parent.userData.labels);
+		const ph = rc.intersectObjects(prints, false)[0];
+		if (ph && ph.distance <= 6) return zoomPrint(ph.object);
 	}
 	return false;
 }
