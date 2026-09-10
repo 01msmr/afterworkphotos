@@ -19,7 +19,12 @@
 const CELL = 0.5;        // the extensions' grid (Uli: corners of 50 cm and multiples of it)
 const RASTER = 0.1;      // how finely the main rectangle is measured — it is not on the grid (Uli)
 const FILL = 0.6;        // how much of a cell must lie inside the scan to be kept
-const MIN_CELLS = 2;     // an extension is at least this many cells deep and wide: no wall under a metre (Uli)
+const SOLID = 0.85;      // and how much of a raster cell the main rectangle needs — not all of it: a
+                         // boundary is drawn by hand, and one inward wobble of a few centimetres
+                         // would otherwise cut a whole column off the room (Uli, 2026-09-10: the
+                         // room came out much smaller than it is)
+const MIN_WIDE = 2;      // an extension runs at least this many cells along the wall — no wall under a metre (Uli)
+const MIN_DEEP = 1;      // but may be one cell deep: a 50 cm return is still room (Uli: 50 cm and multiples)
 
 const EPS = 1e-6;
 
@@ -51,7 +56,7 @@ function largestRect(poly) {
 	const b = bboxOf(poly);
 	const nx = Math.floor((b.x1 - b.x0) / RASTER), nz = Math.floor((b.z1 - b.z0) / RASTER);
 	if (nx < 1 || nz < 1) return null;
-	const set = (i, j) => cover(poly, b.x0 + i * RASTER, b.z0 + j * RASTER, RASTER, RASTER, 2) === 1;
+	const set = (i, j) => cover(poly, b.x0 + i * RASTER, b.z0 + j * RASTER, RASTER, RASTER, 4) >= SOLID;
 	const h = new Array(nx).fill(0);
 	let best = null;
 	for (let j = 0; j < nz; j++) {
@@ -91,7 +96,7 @@ function bandRects(poly, main, side) {
 	const u0 = alongX ? main.x0 : main.z0, u1 = alongX ? main.x1 : main.z1;
 	const v0 = side.out > 0 ? (alongX ? main.z1 : main.x1) : (alongX ? main.z0 : main.x0);
 	const cols = Math.floor((u1 - u0) / CELL + EPS);
-	if (cols < MIN_CELLS) return [];
+	if (cols < MIN_WIDE) return [];
 	// how deep the scan reaches out of each column of the edge
 	const depth = [];
 	for (let i = 0; i < cols; i++) {
@@ -104,7 +109,7 @@ function bandRects(poly, main, side) {
 			if (cover(poly, box.x0, box.z0, CELL, CELL, 5) < FILL) break;
 			d++;
 		}
-		depth.push(d >= MIN_CELLS ? d : 0);
+		depth.push(d >= MIN_DEEP ? d : 0);
 	}
 	// runs of one depth shorter than MIN_CELLS take their smaller neighbour's
 	for (;;) {
@@ -113,7 +118,7 @@ function bandRects(poly, main, side) {
 			const last = runs[runs.length - 1];
 			if (last && last.d === depth[i]) last.i1 = i + 1; else runs.push({ d: depth[i], i0: i, i1: i + 1 });
 		}
-		const bad = runs.find(r => r.i1 - r.i0 < MIN_CELLS);
+		const bad = runs.find(r => r.i1 - r.i0 < MIN_WIDE);
 		if (!bad) break;
 		const before = runs[runs.indexOf(bad) - 1], after = runs[runs.indexOf(bad) + 1];
 		const d = Math.min(before ? before.d : 0, after ? after.d : 0);
@@ -212,6 +217,15 @@ export function cornerFree(shape, e) {
 // `plan` switch, Uli): `grid` the main rectangle with its extensions,
 // `inside` the main rectangle alone, `around` the rectangle round the
 // whole scan — what the gallery did before the shapes.
+// How much floor a polygon has, by the shoelace formula.
+function areaOf(poly) {
+	let a = 0;
+	for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) a += (poly[j][0] + poly[i][0]) * (poly[j][1] - poly[i][1]);
+	return Math.abs(a) / 2;
+}
+const rectsArea = rects => rects.reduce((s, r) => s + (r.x1 - r.x0) * (r.z1 - r.z0), 0);
+const KEEP = 0.8;        // a plan that holds less of the scan than this is not the room: the rectangle round it is (Uli)
+
 export function planOf(poly, mode = 'grid') {
 	const b = bboxOf(poly);
 	const around = () => shapeOf([{ x0: b.x0, x1: b.x1, z0: b.z0, z1: b.z1 }]);
@@ -220,6 +234,11 @@ export function planOf(poly, mode = 'grid') {
 	if (!main) return around();
 	if (mode === 'inside') return shapeOf([main]);
 	const rects = [main, ...SIDES.flatMap(s => bandRects(poly, main, s))];
-	return shapeOf(rects);
+	// A plan that leaves much of the scanned floor out is not the room —
+	// the rectangle round the scan is nearer the truth then (Uli,
+	// 2026-09-10: a very much smaller L than the room allows).
+	const plan = shapeOf(rects);
+	plan.kept = rectsArea(rects) / (areaOf(poly) || 1);
+	return plan.kept >= KEEP ? plan : around();
 }
 export { largestRect, inPoly };
