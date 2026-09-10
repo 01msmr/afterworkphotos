@@ -1,10 +1,10 @@
 import * as THREE from '../vendor/three.module.js';
-import { BUTTON, elevator, pressAlong, settingsMap } from './elevator.js?v=20260911c';
-import { cornerFree, outlineOf, planOf, rotShape } from './plan.js?v=20260911c';
-import { ELEVATOR, clearRooms, hangRoom, rooms } from './hang.js?v=20260911c';
-import { camera, head, renderer, rig, scene, world } from './scene.js?v=20260911c';
-import { loadSettings, state } from './state.js?v=20260911c';
-import { placeBody, walk } from './walk.js?v=20260911c';
+import { BUTTON, elevator, pressAlong, settingsMap } from './elevator.js?v=20260911d';
+import { cornerFree, outlineOf, planOf, rotShape } from './plan.js?v=20260911d';
+import { ELEVATOR, clearRooms, hangRoom, rooms } from './hang.js?v=20260911d';
+import { camera, head, renderer, rig, scene, world } from './scene.js?v=20260911d';
+import { loadSettings, state } from './state.js?v=20260911d';
+import { placeBody, walk } from './walk.js?v=20260911d';
 
 // ---------------------------------------------------------------------------
 // VR (phase 2, first step)
@@ -59,8 +59,16 @@ async function offerVR() {
 			// share one origin and yaw (read in bounded-floor, rendered in
 			// local-floor, the room landed turned and shifted).
 			try { state.bounded = await session.requestReferenceSpace('bounded-floor'); } catch (e) { state.bounded = null; }
-			if (state.bounded && state.bounded.boundsGeometry && state.bounded.boundsGeometry.length >= 3) renderer.xr.setReferenceSpace(state.bounded);
-			else state.bounded = null;
+			if (state.bounded && state.bounded.boundsGeometry && state.bounded.boundsGeometry.length >= 3) {
+				renderer.xr.setReferenceSpace(state.bounded);
+				// The headset's own recentre (holding the Oculus button) turns
+				// the space the boundary is given in, and the gallery's walls
+				// would then stand across the real ones. WebXR says so with a
+				// `reset` on the space: the boundary is read again in the new
+				// space and the room fitted to it afresh (Uli, 2026-09-10: the
+				// walls are not always parallel, or the view was reset).
+				state.bounded.addEventListener('reset', () => matchWalls());
+			} else state.bounded = null;
 			session.addEventListener('end', () => { vrButton.hidden = false; document.body.classList.remove('xr'); rig.position.set(0, 0, 0); rig.rotation.set(0, 0, 0); state.lookSet = false; if (state.real) { state.real = null; world.position.set(0, 0, 0); world.rotation.set(0, 0, 0); state.settings.H = loadSettings().H; clearRooms(); state.room = null; hangRoom(rooms()[0].key); } });
 			await renderer.xr.setSession(session);
 			renderer.xr.setFoveation(0.3);
@@ -355,3 +363,15 @@ export function benchScan() {
 	return true;
 }
 
+
+// Fit the room to the boundary as it stands now — after the headset's
+// view was reset, or whenever the walls are to be found again (the
+// `view` switch does it too, through recentre()). Returns false where
+// there is no boundary to match.
+export function matchWalls() {
+	const b = state.bounded;
+	if (!b || !b.boundsGeometry || b.boundsGeometry.length < 3) return false;
+	state.real = null;
+	fitRoom(b.boundsGeometry.map(q => new THREE.Vector3(q.x, 0, q.z)), [], [], 0, 'bounds');
+	return true;
+}
