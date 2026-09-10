@@ -1,5 +1,5 @@
 import * as THREE from '../vendor/three.module.js';
-import { camera, scene } from './scene.js?v=20260911v';
+import { camera, scene } from './scene.js?v=20260911w';
 
 // ---------------------------------------------------------------------------
 // What a press makes bigger
@@ -7,10 +7,10 @@ import { camera, scene } from './scene.js?v=20260911v';
 // A print pressed fills its frame: the photo grows over the passepartout,
 // edge to edge, and a second press puts it back (Uli, 2026-09-11). A
 // label pressed doubles, as it always has. Either way, **anything left
-// large goes back to itself once it has been out of sight for half a
-// minute** (Uli) — so a room walked away from is found as it was.
+// large goes back to itself once it has been out of sight for twenty
+// seconds** (Uli) — so a room walked away from is found as it was.
 
-const HOLD = 30000;                 // ms out of view before it goes back
+const HOLD = 20000;                 // ms out of view before it goes back (Uli, 2026-09-11)
 const SEEN = { angle: Math.cos(50 * Math.PI / 180), range: 14 };   // what counts as being looked at
 const big = new Map();              // the thing -> when it was last in view
 

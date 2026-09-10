@@ -1,20 +1,20 @@
 // three.js 0.180.0, vendored (MIT) — res/vendor/three.module.js, which in
 // turn imports res/vendor/three.core.js; both are pinned together.
-import { stats, stepStats } from './gallery/bench.js?v=20260911v';
-import { elevator, lift, pressAt, setSetting } from './gallery/elevator.js?v=20260911v';
-import { materials } from './gallery/frames.js?v=20260911v';
-import { ELEVATOR, hangRoom, packRun, piecesOf, replan, rooms, spread, upright } from './gallery/hang.js?v=20260911v';
-import { jump, stepJump } from './gallery/jump.js?v=20260911v';
-import { stepTablet, tabletHit, toggleTablet } from './gallery/tablet.js?v=20260911v';
-import { stepMusic } from './gallery/music.js?v=20260911v';
-import { stepZoom, zoomLabel, zoomPrint } from './gallery/zoom.js?v=20260911v';
-import { applyMode, buildRoom, stepMode } from './gallery/room.js?v=20260911v';
-import { planOf } from './gallery/plan.js?v=20260911v';
-import { camera, renderer, rig, scene, world } from './gallery/scene.js?v=20260911v';
-import { EYE, state } from './gallery/state.js?v=20260911v';
-import { makePiece, makeVideoPanel, stepVideos, videoCache } from './gallery/video.js?v=20260911v';
-import { benchScan, fitRoom, stepPlanes } from './gallery/vr.js?v=20260911v';
-import { applyLook, placeBody, stepWalk, walk } from './gallery/walk.js?v=20260911v';
+import { stats, stepStats } from './gallery/bench.js?v=20260911w';
+import { elevator, lift, pressAt, setSetting } from './gallery/elevator.js?v=20260911w';
+import { materials } from './gallery/frames.js?v=20260911w';
+import { ELEVATOR, hangRoom, packRun, piecesOf, replan, rooms, spread, upright } from './gallery/hang.js?v=20260911w';
+import { jump, stepJump } from './gallery/jump.js?v=20260911w';
+import { stepTablet, tabletHit, toggleTablet } from './gallery/tablet.js?v=20260911w';
+import { stepMusic } from './gallery/music.js?v=20260911w';
+import { stepZoom, zoomLabel, zoomPrint } from './gallery/zoom.js?v=20260911w';
+import { applyMode, buildRoom, stepMode } from './gallery/room.js?v=20260911w';
+import { planOf } from './gallery/plan.js?v=20260911w';
+import { camera, renderer, rig, scene, world } from './gallery/scene.js?v=20260911w';
+import { EYE, state } from './gallery/state.js?v=20260911w';
+import { makePiece, makeVideoPanel, stepVideos, videoCache } from './gallery/video.js?v=20260911w';
+import { benchScan, fitRoom, stepPlanes } from './gallery/vr.js?v=20260911w';
+import { applyLook, placeBody, stepWalk, walk } from './gallery/walk.js?v=20260911w';
 
 // ---------------------------------------------------------------------------
 // Boot
