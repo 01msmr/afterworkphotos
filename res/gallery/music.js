@@ -1,12 +1,12 @@
-import { elevator, lift } from './elevator.js?v=20260912s';
-import { head, world } from './scene.js?v=20260912s';
+import { elevator, lift } from './elevator.js?v=20260912t';
+import { head, world } from './scene.js?v=20260912t';
 
 // ---------------------------------------------------------------------------
 // The music in the lift
 //
-// Seven pieces of lounge jazz, one of them starting each time someone
-// steps into the cabin (Uli, 2026-09-11) — quiet ones, none of them harsh
-// or quick: Kevin MacLeod's, under Creative Commons Attribution, the
+// Seven pieces of lounge jazz, playing one after another in the cabin
+// from the first time anyone comes near it — quiet ones, none of them
+// harsh or quick: Kevin MacLeod's, under Creative Commons Attribution, the
 // credit in res/sound/LICENSE.txt. Ninety seconds of each, mono, so the
 // seven together weigh less than one of the gallery's photographs.
 //
@@ -30,10 +30,10 @@ const FAR = 4;              // metres: past this, nothing carries (Uli, 2026-09-
 const NEAR = 1.2;           // as good as inside the cabin
 const LOUD = 0.42;          // its loudest, against the lift's own sounds
 const RISE = 0.1;           // how fast the loudness follows you
-const QUIET = 8000;         // ms of silence before the piece is let go
+
 
 const buffers = new Map();  // file -> AudioBuffer
-let at = -1, gain = null, filter = null, source = null, has = 0, wasIn = false, silent = 0, starting = false;
+let at = -1, gain = null, filter = null, source = null, has = 0, starting = false;
 
 function open() {
 	if (gain || !lift.ctx) return gain;
@@ -56,7 +56,10 @@ async function load(file) {
 	} catch (e) { console.warn('music', file, e); return null; }
 }
 
-// The next piece in turn, from its top.
+// The next piece in turn, from its top. **Once it is playing it never
+// stops** (Uli, 2026-09-12: as in the real world) — the lift's music is
+// on whether anyone is listening or not; walking away only turns it down.
+// When a piece ends the next one begins, so the seven go round for ever.
 async function start() {
 	if (starting) return;
 	starting = true;
@@ -64,16 +67,12 @@ async function start() {
 	const b = await load(TRACKS[at].file);
 	starting = false;
 	if (!b || !gain) return;
-	stop();
+	if (source) { try { source.onended = null; source.stop(); } catch (e) {} source.disconnect(); }
 	source = lift.ctx.createBufferSource();
-	source.buffer = b; source.loop = true;
+	source.buffer = b; source.loop = false;
 	source.connect(filter);
+	source.onended = () => { source = null; start(); };     // straight on to the next
 	source.start();
-}
-function stop() {
-	if (!source) return;
-	try { source.stop(); } catch (e) {}
-	source.disconnect(); source = null;
 }
 
 // How loud it should be from where you stand: full in the cabin, less
@@ -89,21 +88,14 @@ function level() {
 
 export function stepMusic(now) {
 	if (!lift.ctx || lift.ctx.state !== 'running' || !open()) return;
-	const inside = elevator.inside();
 	const want = level();
-	// A piece starts whenever there is anything to hear and nothing
-	// playing — stepping in, and also **when the doors open again after a
-	// ride**, where before it stayed silent because the visitor had never
-	// left the cabin to step back into it (Uli, 2026-09-12).
-	if ((inside && !wasIn) || (want > 0.002 && !source && !starting)) start();
-	wasIn = inside;
+	// it begins the first time anyone comes near enough to hear it, and
+	// from then on it plays on, piece after piece
+	if (!source && !starting && want > 0.002) start();
 	if (!source && has < 0.001) return;
 
 	has += (want - has) * RISE;
 	gain.gain.setTargetAtTime(Math.max(0, has), lift.ctx.currentTime, 0.08);
-	// nothing to hear for a while: let the piece go; the next ride starts one
-	silent = want > 0.001 ? 0 : silent + 16;
-	if (silent > QUIET) { stop(); silent = 0; }
 }
 
 // What is playing and how loud, for the bench's checks.

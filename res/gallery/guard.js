@@ -1,8 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
-import { ELEVATOR } from './hang.js?v=20260912s';
-import { inPoly } from './plan.js?v=20260912s';
-import { head, world } from './scene.js?v=20260912s';
-import { state } from './state.js?v=20260912s';
+import { ELEVATOR } from './hang.js?v=20260912t';
+import { inPoly } from './plan.js?v=20260912t';
+import { head, world } from './scene.js?v=20260912t';
+import { state } from './state.js?v=20260912t';
 
 // ---------------------------------------------------------------------------
 // The guard
