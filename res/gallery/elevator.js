@@ -1,13 +1,13 @@
 import * as THREE from '../vendor/three.module.js';
-import { setWire, wire } from './bench.js?v=20260912j';
-import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260912j';
-import { ELEVATOR, clearRooms, hangRoom, roomByKey, rooms } from './hang.js?v=20260912j';
-import { WALL_STYLES, applyMode, dadoTop, dressWall, wallColours } from './room.js?v=20260912j';
-import { camera, head, renderer, scene, world } from './scene.js?v=20260912j';
-import { zoomLabel, zoomPrint } from './zoom.js?v=20260912j';
-import { PLANS, RAISES, state } from './state.js?v=20260912j';
-import { fitRoom, planAgain } from './vr.js?v=20260912j';
-import { placeBody, walk } from './walk.js?v=20260912j';
+import { setWire, wire } from './bench.js?v=20260912m';
+import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260912m';
+import { ELEVATOR, clearRooms, hangRoom, roomByKey, rooms } from './hang.js?v=20260912m';
+import { WALL_STYLES, applyMode, dadoTop, dressWall, wallColours } from './room.js?v=20260912m';
+import { camera, head, renderer, scene, world } from './scene.js?v=20260912m';
+import { zoomLabel, zoomPrint } from './zoom.js?v=20260912m';
+import { PLANS, RAISES, state } from './state.js?v=20260912m';
+import { fitRoom, planAgain } from './vr.js?v=20260912m';
+import { placeBody, walk } from './walk.js?v=20260912m';
 
 // ---------------------------------------------------------------------------
 // The elevator
@@ -223,6 +223,7 @@ const SWITCHES = [
 	{ key: 'frame',  label: 'wood',   value: () => state.settings.frame,                   press: () => setSetting('frame', WOODS[(WOODS.indexOf(state.settings.frame) + 1) % WOODS.length]) },
 	{ key: 'labels', label: 'labels', value: () => state.settings.labels ? 'on' : 'off',   press: () => setSetting('labels', !state.settings.labels) },
 	{ key: 'fill',   label: 'scale',  value: () => state.settings.fill ? 'full' : 'mat',   press: () => setSetting('fill', !state.settings.fill) },   // which way round a print rests (Uli)
+	{ key: 'talk',   label: 'guard',  value: () => state.settings.talk,                    press: () => setSetting('talk', state.settings.talk === 'light' ? 'heavy' : 'light') },   // how much it says (Uli)
 	{ key: 'raise',  label: 'height', value: () => state.settings.raise ? '+1 m' : 'as is',        press: () => setSetting('raise', RAISES[(RAISES.indexOf(state.settings.raise) + 1) % RAISES.length]) },   // a metre more room, on every floor (Uli)
 	{ key: 'wire',   label: 'wire',   value: () => wire ? 'on' : 'off',                    press: () => setWire(!wire), small: true },   // a smaller button centred under the rows (Uli)
 ];
