@@ -1,8 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
-import { ELEVATOR } from './hang.js?v=20260912v';
-import { inPoly } from './plan.js?v=20260912v';
-import { head, world } from './scene.js?v=20260912v';
-import { state } from './state.js?v=20260912v';
+import { ELEVATOR } from './hang.js?v=20260912w';
+import { inPoly } from './plan.js?v=20260912w';
+import { head, world } from './scene.js?v=20260912w';
+import { state } from './state.js?v=20260912w';
 
 // ---------------------------------------------------------------------------
 // The guard
@@ -14,8 +14,9 @@ import { state } from './state.js?v=20260912v';
 // — a silhouette, not a portrait, so nothing about it asks to be looked
 // at closely.
 //
-// It stands in the corner furthest from the lift, turns to face whoever
-// is in the room, and speaks aloud. It never speaks twice
+// It stands in the corner furthest from the lift, moves about the room
+// and speaks aloud — **and is not to be seen**: a voice in the room, and
+// the card only where a browser has none. It never speaks twice
 // about the same thing, and never within a quarter of a minute of itself.
 
 const GREY = 0x3c3f44, SEE = 0.75;        // a quarter transparent (Uli)
@@ -165,20 +166,13 @@ function build() {
 	card = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.124), new THREE.MeshBasicMaterial({ map: cardTex, transparent: true, depthWrite: false }));
 	card.position.set(0.44, TALL - 0.06, 0.02);
 	card.visible = false;
-	fig = new THREE.Mesh(new THREE.PlaneGeometry(TALL * WIDE, TALL),
-		new THREE.MeshBasicMaterial({ transparent: true, opacity: SEE, depthWrite: false }));
-	// the drawing arrives when it arrives; until then there is nothing to show
-	img = new Image();
-	img.onload = () => {
-		frames = POSES.map(figureTexture);
-		fig.material.map = frames[0]; fig.material.needsUpdate = true;
-		ready = true;
-		if (state.room) guard.visible = true;
-	};
-	img.src = SRC;
-	fig.position.y = TALL / 2;
-	fig.name = 'guard-figure';
-	guard.add(fig, card);
+	// **Nothing is drawn** (Uli, 2026-09-12: remove the silhouette, keep
+	// the voice). The guard is where it is, walks its round, watches how
+	// close you come and speaks — it is simply not to be seen. Everything
+	// that made a figure of it is kept below, unused, for the day it is
+	// wanted back.
+	ready = true;
+	guard.add(card);
 	// It belongs to the **room**, not to the session: its corner is given in
 	// the room's own coordinates, and in the headset the room is moved and
 	// turned onto the real walls. Hung on the scene instead, it stood
@@ -294,23 +288,18 @@ function stepRound(now, dt) {
 	const d = Math.hypot(dx, dz);
 	if (d < 0.05) {                                     // arrived: it stands again, feet together
 		walkTo = null; nextRound = now + EVERY;
-		fig.material.map = frames[0]; fig.position.y = TALL / 2; fig.rotation.z = 0;
 		return false;
 	}
 	const step = Math.min(d, PACE * dt);
 	guard.position.x += dx / d * step; guard.position.z += dz / d * step;
 	guard.rotation.y = Math.atan2(dx, dz);              // it faces the way it walks
 	// the legs scissor at two steps a second, and it rises a little on each
-	phase += step / 0.62;                                // a pace is about 62 cm
-	fig.material.map = frames[Math.floor(phase * frames.length) % frames.length];
-	fig.position.y = TALL / 2 + Math.abs(Math.sin(phase * Math.PI)) * 0.014;
-	fig.rotation.z = Math.sin(phase * Math.PI * 2) * 0.012;   // the body rolls a little over each pace
 	return true;
 }
 
 const _h = new THREE.Vector3();
 export function stepGuard(now) {
-	if (!guard || !guard.visible || !state.room || !ready) return;
+	if (!guard || !guard.visible || !state.room) return;
 	_h.copy(world.worldToLocal(head().clone()));            // the visitor, in the room's own frame — where the guard lives
 	_h.y = 0;
 	if (card.visible && now > until) card.visible = false;
@@ -328,11 +317,7 @@ export function stepGuard(now) {
 		while (turn < -Math.PI) turn += Math.PI * 2;
 		guard.rotation.y += turn * Math.min(1, dt * 2.2);  // it turns its head, it does not snap round
 	}
-	const s = now / 1000;
-	fig.scale.y = 1 + Math.sin(s * 1.35) * 0.004;          // breath
-	fig.position.y = TALL / 2 * fig.scale.y;
-	sway += ((Math.sin(s * 0.37) + Math.sin(s * 0.23)) * 0.006 - sway) * 0.04;
-	fig.rotation.z = sway;                                  // the weight going slowly from one foot to the other
+
 
 	// a floor entered for the first time: a word about the year
 	if (greeted !== state.roomKey) {

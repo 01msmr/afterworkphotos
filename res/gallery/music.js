@@ -1,5 +1,5 @@
-import { elevator, lift } from './elevator.js?v=20260912v';
-import { head, world } from './scene.js?v=20260912v';
+import { elevator, lift } from './elevator.js?v=20260912w';
+import { head, world } from './scene.js?v=20260912w';
 
 // ---------------------------------------------------------------------------
 // The music in the lift

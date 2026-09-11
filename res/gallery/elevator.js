@@ -1,13 +1,13 @@
 import * as THREE from '../vendor/three.module.js';
-import { setWire, wire } from './bench.js?v=20260912v';
-import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260912v';
-import { ELEVATOR, clearRooms, hangRoom, roomByKey, rooms } from './hang.js?v=20260912v';
-import { WALL_STYLES, applyMode, dadoTop, dressWall, wallColours } from './room.js?v=20260912v';
-import { camera, head, renderer, scene, world } from './scene.js?v=20260912v';
-import { zoomLabel, zoomPrint } from './zoom.js?v=20260912v';
-import { PLANS, RAISES, state } from './state.js?v=20260912v';
-import { fitRoom, planAgain } from './vr.js?v=20260912v';
-import { placeBody, walk } from './walk.js?v=20260912v';
+import { setWire, wire } from './bench.js?v=20260912w';
+import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260912w';
+import { ELEVATOR, clearRooms, hangRoom, roomByKey, rooms } from './hang.js?v=20260912w';
+import { WALL_STYLES, applyMode, dadoTop, dressWall, wallColours } from './room.js?v=20260912w';
+import { camera, head, renderer, scene, world } from './scene.js?v=20260912w';
+import { zoomLabel, zoomPrint } from './zoom.js?v=20260912w';
+import { PLANS, RAISES, state } from './state.js?v=20260912w';
+import { fitRoom, planAgain } from './vr.js?v=20260912w';
+import { placeBody, walk } from './walk.js?v=20260912w';
 
 // ---------------------------------------------------------------------------
 // The elevator
@@ -625,7 +625,15 @@ export const elevator = {
 	},
 
 	// Doors: 0 closed, 1 open.
+	// Every opening is heard (Uli, 2026-09-12: the lift's sound every time
+	// the doors open). The slide is played here, where the leaves actually
+	// part, rather than at each of the places that set them going — a ride
+	// arriving, a call answered, a room fitted to a scan — since one of
+	// those always got forgotten.
 	setDoors(open) {
+		const was = this.open;
+		if (open >= 0.5 && (was === undefined || was < 0.5)) lift.slide();
+		this.open = open;
 		const [n, s] = this.doors;
 		n.position.z = n.userData.closedZ - open * DOOR.w / 2;
 		s.position.z = s.userData.closedZ + open * DOOR.w / 2;
@@ -652,7 +660,6 @@ export const elevator = {
 		if (this.doorAnim) {                                  // closing: the lift is here, the doors come back
 			if (this.doorAnim.to === 1) return;
 			this.doorAnim = { from: this.open, to: 1, t0: performance.now(), dur: DOOR_T * (1 - this.open) };
-			lift.slide();
 			return;
 		}
 		this.coming = { t0: performance.now(), wait: 4500 };
@@ -673,8 +680,7 @@ export const elevator = {
 		}
 		if (this.doorAnim) {
 			const a = this.doorAnim, f = Math.max(0, Math.min(1, (now - a.t0) / (a.dur || DOOR_T)));
-			this.open = a.from + (a.to - a.from) * f;
-			this.setDoors(this.open);
+			this.setDoors(a.from + (a.to - a.from) * f);   // setDoors keeps `open` and sounds the slide
 			if (f >= 1) {
 				this.doorAnim = null;
 				if (a.to === 1) this.leftAt = now;     // opened on a call: time to walk in starts now
@@ -698,8 +704,8 @@ export const elevator = {
 		let fromOpen = 1;
 		if (this.ride) fromOpen = Math.max(0, Math.min(1, (performance.now() - this.ride.tOpen) / DOOR_T));   // caught while opening
 		else if (this.doorAnim || this.coming) fromOpen = this.open;
-		this.doorAnim = null; this.coming = null; this.open = 1; this.leftAt = null;
-		lift.slide();
+		this.doorAnim = null; this.coming = null; this.leftAt = null;
+		this.setDoors(1);
 		const list = rooms();
 		const from = list.findIndex(r => r.key === state.roomKey), to = list.findIndex(r => r.key === key);
 		const floors = Math.abs(to - from);
@@ -766,11 +772,11 @@ export const elevator = {
 			return;
 		}
 		if (now < r.tOpen) return;
-		if (!r.sliding) { r.sliding = true; lift.slide(); }
+		r.sliding = true;   // the slide is played by setDoors, as the leaves part
 		const o = (now - r.tOpen) / DOOR_T;
 		if (o < 1) { this.setDoors(o); return; }
 		this.setDoors(1);
-		this.open = 1; this.leftAt = null;
+		this.leftAt = null;
 		this.ride = null;
 	},
 };
