@@ -1,0 +1,24 @@
+The lift's music, res/sound/jazz-*.mp3
+--------------------------------------
+
+Seven pieces from the album "Teh Jazzes" (2017) by Kevin MacLeod, chosen
+for being quiet and unhurried and each a different colour:
+
+  jazz-backbay.mp3    Backbay Lounge
+  jazz-bossa.mp3      Bossa Antigua
+  jazz-apero.mp3      Apero Hour
+  jazz-crinoline.mp3  Crinoline Dreams
+  jazz-noel.mp3       Nouvelle Noel
+  jazz-deuces.mp3     Deuces
+  jazz-smooth.mp3     Smooth Lovin'
+
+Music by Kevin MacLeod (incompetech.com)
+Licensed under Creative Commons: By Attribution 4.0
+https://creativecommons.org/licenses/by/4.0/
+
+Each file here is the first 90 seconds of its track, faded in and out,
+mono at 32 kHz — it is heard through the wall of a lift cabin, and the
+whole set then weighs less than one of the gallery's photographs.
+
+The lift's own sounds (bell.mp3, call.mp3, motor.mp3, ride.mp3) are not
+part of this and carry their own provenance.
