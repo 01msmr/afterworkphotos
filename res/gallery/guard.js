@@ -1,8 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
-import { ELEVATOR } from './hang.js?v=20260912t';
-import { inPoly } from './plan.js?v=20260912t';
-import { head, world } from './scene.js?v=20260912t';
-import { state } from './state.js?v=20260912t';
+import { ELEVATOR } from './hang.js?v=20260912v';
+import { inPoly } from './plan.js?v=20260912v';
+import { head, world } from './scene.js?v=20260912v';
+import { state } from './state.js?v=20260912v';
 
 // ---------------------------------------------------------------------------
 // The guard
@@ -103,73 +103,51 @@ const MONTHS = 'Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec'.split(' ');
 // of it standing outside the fill, so it runs round the whole figure at
 // one thickness and shows no seam where the parts meet.
 const PX = 640;                            // the canvas is this tall; the figure is TALL metres
-const WIDE = 0.5;                          // and this fraction of its height across
+const WIDE = 0.33;                         // the drawing's own proportions: a person is this narrow
 
-// The path, drawn for a 512-wide canvas of 1024. A person, not a shape:
-// the head an oval, the shoulders sloped and not level with each other,
-// a waist, arms that hang a little away from the body with a gap at the
-// hip, legs that taper to small feet (Uli, 2026-09-12: more natural,
-// less geometric). `swing` runs -1 to 1 and scissors the legs; the arms
-// swing against them, as arms do.
-function silhouette(g, swing = 0) {
-	const foot = 30 * swing, knee = 14 * swing, arm = -10 * swing;
-	g.beginPath();
-	g.moveTo(256, 44);
-	// the head: an oval, a touch narrower at the jaw
-	g.bezierCurveTo(300, 44, 312, 88, 306, 132);
-	g.bezierCurveTo(302, 162, 292, 178, 284, 186);
-	// the neck, and the right shoulder sloping off it
-	g.bezierCurveTo(282, 200, 284, 208, 292, 214);
-	g.bezierCurveTo(330, 224, 360, 248, 374, 288);
-	// the arm: out, then in to the hand, with the body's line behind it
-	g.bezierCurveTo(384, 330, 390 + arm, 392, 388 + arm, 446);
-	g.bezierCurveTo(386 + arm, 512, 378 + arm, 566, 368 + arm, 596);
-	g.bezierCurveTo(362 + arm, 614, 348 + arm, 616, 342 + arm, 600);
-	g.bezierCurveTo(336, 578, 340, 546, 344, 508);
-	// the waist coming back in, and the hip
-	g.bezierCurveTo(348, 470, 346, 430, 340, 396);
-	g.bezierCurveTo(344, 452, 348, 508, 350, 560);
-	// the right leg: thigh, knee, calf, a small foot
-	g.bezierCurveTo(352 + knee, 620, 348 + knee, 700, 342 + foot, 772);
-	g.bezierCurveTo(336 + foot, 856, 330 + foot, 930, 326 + foot, 968);
-	g.bezierCurveTo(324 + foot, 986, 306 + foot, 992, 292 + foot, 986);
-	g.bezierCurveTo(282 + foot, 980, 280 + foot, 964, 282 + foot, 944);
-	g.bezierCurveTo(286 + foot, 890, 284 + knee, 812, 276, 740);
-	// up between the legs and down the left one
-	g.bezierCurveTo(270, 700, 262, 698, 256, 728);
-	g.bezierCurveTo(248, 800, 240 - knee, 878, 238 - foot, 944);
-	g.bezierCurveTo(238 - foot, 964, 234 - foot, 980, 222 - foot, 986);
-	g.bezierCurveTo(208 - foot, 992, 190 - foot, 986, 188 - foot, 968);
-	g.bezierCurveTo(184 - foot, 930, 178 - foot, 856, 172 - foot, 772);
-	g.bezierCurveTo(166 - knee, 700, 162 - knee, 620, 164, 560);
-	// the left hip, waist, arm and shoulder, and back to the head
-	g.bezierCurveTo(166, 508, 170, 452, 174, 396);
-	g.bezierCurveTo(168, 430, 166, 470, 170, 508);
-	g.bezierCurveTo(174, 546, 178, 578, 172, 600);
-	g.bezierCurveTo(166 - arm, 616, 152 - arm, 614, 146 - arm, 596);
-	g.bezierCurveTo(136 - arm, 566, 128 - arm, 512, 126 - arm, 446);
-	g.bezierCurveTo(124 - arm, 392, 130, 330, 140, 288);
-	g.bezierCurveTo(154, 248, 184, 224, 222, 214);
-	g.bezierCurveTo(230, 208, 232, 200, 230, 186);
-	g.bezierCurveTo(222, 178, 212, 162, 208, 132);
-	g.bezierCurveTo(202, 88, 212, 44, 256, 44);
-	g.closePath();
+// The figure is a real person's outline, not one I drew: a standing man
+// from openclipart by way of publicdomainvectors, CC0, and shaped like a
+// person actually is (Uli, 2026-09-12 — see res/textures/LICENSE.txt).
+// It arrives as an SVG, is tinted to the guard's grey, and gets its
+// outline the honest way: the same shape stamped eight times round a
+// small circle in the darker grey, with the grey one laid on top.
+const SRC = '/res/textures/guard-silhouette.svg';
+const HIP = 0.52;                          // how far down the figure its legs begin
+const STRIDE = 0.075;                      // how far a leg swings, as a share of the width
+let img = null, ready = false;
+
+// The silhouette in one colour, its own alpha kept.
+function tinted(colour, w, h) {
+	const c = document.createElement('canvas'); c.width = w; c.height = h;
+	const g = c.getContext('2d');
+	g.drawImage(img, 0, 0, w, h);
+	g.globalCompositeOperation = 'source-in';
+	g.fillStyle = colour; g.fillRect(0, 0, w, h);
+	return c;
+}
+// One pose: the body as it is, and the legs carried left and right, so a
+// still picture of a person becomes a person mid-stride.
+function pose(g, src, swing, dx, dy) {
+	const w = src.width, h = src.height, hip = h * HIP, foot = swing * STRIDE * w;
+	const part = (x0, y0, ww, hh, ox) => {
+		g.save(); g.beginPath(); g.rect(x0, y0, ww, hh); g.clip();
+		g.drawImage(src, dx + ox, dy);
+		g.restore();
+	};
+	part(0, 0, w, hip, 0);                                  // head, body, arms
+	part(0, hip, w / 2, h - hip, -foot);                    // the near leg
+	part(w / 2, hip, w / 2, h - hip, foot);                 // and the far one
 }
 
 function figureTexture(swing) {
-	const c = document.createElement('canvas');
-	c.width = Math.round(PX * WIDE); c.height = PX;
+	const w = Math.round(PX * WIDE), h = PX;
+	const c = document.createElement('canvas'); c.width = w; c.height = h;
 	const g = c.getContext('2d');
-	g.setTransform(c.width / 512, 0, 0, PX / 1024, 0, 0);   // the path above is drawn 512 by 1024
 	const hex = n => '#' + n.toString(16).padStart(6, '0');
-	silhouette(g, swing);
-	// the outline first: a stroke twice the width, half of it left outside
-	g.lineJoin = 'round'; g.lineCap = 'round';
-	g.lineWidth = 2 * EDGE / TALL * 1024;                  // 1.5 cm of a 1.8 m figure (Uli)
-	g.strokeStyle = hex(EDGE_GREY);
-	g.stroke();
-	g.fillStyle = hex(GREY);
-	g.fill();
+	const grey = tinted(hex(GREY), w, h), dark = tinted(hex(EDGE_GREY), w, h);
+	const r = EDGE / TALL * PX;                             // 1.5 cm of a 1.8 m figure (Uli)
+	for (let i = 0; i < 8; i++) pose(g, dark, swing, Math.cos(i / 8 * Math.PI * 2) * r, Math.sin(i / 8 * Math.PI * 2) * r);
+	pose(g, grey, swing, 0, 0);
 	const t = new THREE.CanvasTexture(c);
 	t.colorSpace = THREE.SRGBColorSpace;
 	return t;
@@ -177,19 +155,27 @@ function figureTexture(swing) {
 
 // Six poses across one stride, the swing following a sine, so the legs
 // pass through the middle quickly and linger at the ends, as legs do.
-const POSES = [0, 0.87, 0.87, 0, -0.87, -0.87].map((v, i) => Math.sin(i / 6 * Math.PI * 2));
+const POSES = [0, 1, 2, 3, 4, 5].map(i => Math.sin(i / 6 * Math.PI * 2));
 let frames = null, fig = null, phase = 0, sway = 0;
 
 function build() {
 	guard = new THREE.Group(); guard.name = 'guard'; guard.visible = false;
-	frames = POSES.map(figureTexture);
 	const c = document.createElement('canvas'); c.width = 640; c.height = 128;
 	cardTex = new THREE.CanvasTexture(c); cardTex.colorSpace = THREE.SRGBColorSpace;
 	card = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.124), new THREE.MeshBasicMaterial({ map: cardTex, transparent: true, depthWrite: false }));
 	card.position.set(0.44, TALL - 0.06, 0.02);
 	card.visible = false;
 	fig = new THREE.Mesh(new THREE.PlaneGeometry(TALL * WIDE, TALL),
-		new THREE.MeshBasicMaterial({ map: frames[0], transparent: true, opacity: SEE, depthWrite: false }));
+		new THREE.MeshBasicMaterial({ transparent: true, opacity: SEE, depthWrite: false }));
+	// the drawing arrives when it arrives; until then there is nothing to show
+	img = new Image();
+	img.onload = () => {
+		frames = POSES.map(figureTexture);
+		fig.material.map = frames[0]; fig.material.needsUpdate = true;
+		ready = true;
+		if (state.room) guard.visible = true;
+	};
+	img.src = SRC;
 	fig.position.y = TALL / 2;
 	fig.name = 'guard-figure';
 	guard.add(fig, card);
@@ -268,7 +254,7 @@ export function placeGuard() {
 		return !best || d > best.d ? { p, d } : best;
 	}, null);
 	guard.position.set(far ? far.p[0] : 0, 0, far ? far.p[1] : 0);
-	guard.visible = true;
+	guard.visible = ready;
 	saidAt = 0; warnedOf = null; if (card) card.visible = false;
 	stillSince = 0; walkTo = null;
 	cameAt = performance.now(); nextRound = cameAt + FIRST_ROUND;   // its first round, three minutes in
@@ -324,7 +310,7 @@ function stepRound(now, dt) {
 
 const _h = new THREE.Vector3();
 export function stepGuard(now) {
-	if (!guard || !guard.visible || !state.room) return;
+	if (!guard || !guard.visible || !state.room || !ready) return;
 	_h.copy(world.worldToLocal(head().clone()));            // the visitor, in the room's own frame — where the guard lives
 	_h.y = 0;
 	if (card.visible && now > until) card.visible = false;

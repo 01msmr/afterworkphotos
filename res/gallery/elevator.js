@@ -1,13 +1,13 @@
 import * as THREE from '../vendor/three.module.js';
-import { setWire, wire } from './bench.js?v=20260912t';
-import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260912t';
-import { ELEVATOR, clearRooms, hangRoom, roomByKey, rooms } from './hang.js?v=20260912t';
-import { WALL_STYLES, applyMode, dadoTop, dressWall, wallColours } from './room.js?v=20260912t';
-import { camera, head, renderer, scene, world } from './scene.js?v=20260912t';
-import { zoomLabel, zoomPrint } from './zoom.js?v=20260912t';
-import { PLANS, RAISES, state } from './state.js?v=20260912t';
-import { fitRoom, planAgain } from './vr.js?v=20260912t';
-import { placeBody, walk } from './walk.js?v=20260912t';
+import { setWire, wire } from './bench.js?v=20260912v';
+import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260912v';
+import { ELEVATOR, clearRooms, hangRoom, roomByKey, rooms } from './hang.js?v=20260912v';
+import { WALL_STYLES, applyMode, dadoTop, dressWall, wallColours } from './room.js?v=20260912v';
+import { camera, head, renderer, scene, world } from './scene.js?v=20260912v';
+import { zoomLabel, zoomPrint } from './zoom.js?v=20260912v';
+import { PLANS, RAISES, state } from './state.js?v=20260912v';
+import { fitRoom, planAgain } from './vr.js?v=20260912v';
+import { placeBody, walk } from './walk.js?v=20260912v';
 
 // ---------------------------------------------------------------------------
 // The elevator

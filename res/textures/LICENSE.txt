@@ -20,3 +20,10 @@ floor-marble-*  Marble012      https://ambientcg.com/a/Marble012
 floor-marble-tiles-*  Tiles074       https://ambientcg.com/a/Tiles074
 floor-checkered-*  Tiles139       https://ambientcg.com/a/Tiles139
 floor-rubber-*  Rubber004      https://ambientcg.com/a/Rubber004
+
+guard-silhouette.svg
+--------------------
+"Man standing silhouette" — publicdomainvectors.org, item 22367, from
+openclipart. Released into the public domain (CC0): no attribution is
+required, this note is here for the record. Used for the gallery's guard,
+tinted and outlined at run time (res/gallery/guard.js).
