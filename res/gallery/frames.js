@@ -1,7 +1,7 @@
 import * as THREE from '../vendor/three.module.js';
-import { walnut } from './elevator.js?v=20260912m';
-import { renderer, scene } from './scene.js?v=20260912m';
-import { state } from './state.js?v=20260912m';
+import { walnut } from './elevator.js?v=20260912s';
+import { renderer, scene } from './scene.js?v=20260912s';
+import { state } from './state.js?v=20260912s';
 
 // ---------------------------------------------------------------------------
 // The frames

@@ -1,5 +1,5 @@
-import { elevator, lift } from './elevator.js?v=20260912m';
-import { head, world } from './scene.js?v=20260912m';
+import { elevator, lift } from './elevator.js?v=20260912s';
+import { head, world } from './scene.js?v=20260912s';
 
 // ---------------------------------------------------------------------------
 // The music in the lift
@@ -25,14 +25,15 @@ const TRACKS = [
 	{ file: 'jazz-smooth.mp3',    name: "Smooth Lovin'" },
 ];
 
-const FAR = 7;              // metres: past this, nothing carries
+const FAR = 4;              // metres: past this, nothing carries (Uli, 2026-09-12: heard at two and
+                            // four metres, less loud, and gone after four)
 const NEAR = 1.2;           // as good as inside the cabin
 const LOUD = 0.42;          // its loudest, against the lift's own sounds
 const RISE = 0.1;           // how fast the loudness follows you
 const QUIET = 8000;         // ms of silence before the piece is let go
 
 const buffers = new Map();  // file -> AudioBuffer
-let at = -1, gain = null, filter = null, source = null, has = 0, wasIn = false, silent = 0;
+let at = -1, gain = null, filter = null, source = null, has = 0, wasIn = false, silent = 0, starting = false;
 
 function open() {
 	if (gain || !lift.ctx) return gain;
@@ -57,8 +58,11 @@ async function load(file) {
 
 // The next piece in turn, from its top.
 async function start() {
+	if (starting) return;
+	starting = true;
 	at = (at + 1) % TRACKS.length;
 	const b = await load(TRACKS[at].file);
+	starting = false;
 	if (!b || !gain) return;
 	stop();
 	source = lift.ctx.createBufferSource();
@@ -86,11 +90,15 @@ function level() {
 export function stepMusic(now) {
 	if (!lift.ctx || lift.ctx.state !== 'running' || !open()) return;
 	const inside = elevator.inside();
-	if (inside && !wasIn) start();                            // a new piece on stepping in (Uli)
+	const want = level();
+	// A piece starts whenever there is anything to hear and nothing
+	// playing — stepping in, and also **when the doors open again after a
+	// ride**, where before it stayed silent because the visitor had never
+	// left the cabin to step back into it (Uli, 2026-09-12).
+	if ((inside && !wasIn) || (want > 0.002 && !source && !starting)) start();
 	wasIn = inside;
 	if (!source && has < 0.001) return;
 
-	const want = level();
 	has += (want - has) * RISE;
 	gain.gain.setTargetAtTime(Math.max(0, has), lift.ctx.currentTime, 0.08);
 	// nothing to hear for a while: let the piece go; the next ride starts one
@@ -98,5 +106,6 @@ export function stepMusic(now) {
 	if (silent > QUIET) { stop(); silent = 0; }
 }
 
-// What is playing, for the bench's checks.
+// What is playing and how loud, for the bench's checks.
 export function playing() { return source ? TRACKS[at].name : null; }
+export function musicLevel() { return +has.toFixed(3); }

@@ -1,8 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
-import { ELEVATOR } from './hang.js?v=20260912m';
-import { inPoly } from './plan.js?v=20260912m';
-import { head, world } from './scene.js?v=20260912m';
-import { state } from './state.js?v=20260912m';
+import { ELEVATOR } from './hang.js?v=20260912s';
+import { inPoly } from './plan.js?v=20260912s';
+import { head, world } from './scene.js?v=20260912s';
+import { state } from './state.js?v=20260912s';
 
 // ---------------------------------------------------------------------------
 // The guard
@@ -91,7 +91,7 @@ const PACE = 0.45;                         // m/s — a guard is in no hurry
 // where a browser has no voice, it stays silent — there is no caption.
 const VOICE = { calm: 0.5, warn: 1, rate: 0.92, pitch: 0.92 };
 
-let guard = null, saidAt = 0;
+let guard = null, saidAt = 0, card = null, cardTex = null, until = 0;
 let stillSince = 0, last = new THREE.Vector3(), warnedOf = null, greeted = null;
 let cameAt = 0, nextRound = 0, walkTo = null, voice = null;
 const MONTHS = 'Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec'.split(' ');
@@ -183,11 +183,16 @@ let frames = null, fig = null, phase = 0, sway = 0;
 function build() {
 	guard = new THREE.Group(); guard.name = 'guard'; guard.visible = false;
 	frames = POSES.map(figureTexture);
+	const c = document.createElement('canvas'); c.width = 640; c.height = 128;
+	cardTex = new THREE.CanvasTexture(c); cardTex.colorSpace = THREE.SRGBColorSpace;
+	card = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.124), new THREE.MeshBasicMaterial({ map: cardTex, transparent: true, depthWrite: false }));
+	card.position.set(0.44, TALL - 0.06, 0.02);
+	card.visible = false;
 	fig = new THREE.Mesh(new THREE.PlaneGeometry(TALL * WIDE, TALL),
 		new THREE.MeshBasicMaterial({ map: frames[0], transparent: true, opacity: SEE, depthWrite: false }));
 	fig.position.y = TALL / 2;
 	fig.name = 'guard-figure';
-	guard.add(fig);
+	guard.add(fig, card);
 	// It belongs to the **room**, not to the session: its corner is given in
 	// the room's own coordinates, and in the headset the room is moved and
 	// turned onto the real walls. Hung on the scene instead, it stood
@@ -198,9 +203,15 @@ function build() {
 
 
 // The voice: whatever calm English one the browser has, said slowly.
+// **Not every browser has one** — a headset may carry no speech at all,
+// and then the guard stood there saying nothing (Uli, 2026-09-12, on the
+// Quest). So the first thing it says is timed: if nothing has begun
+// within a second and a half, there is no voice here, and from then on it
+// puts its words on a card instead. Words on a card beat silence.
+let mute = false, tried = false;
 function speak(text, loud) {
 	const S = window.speechSynthesis;
-	if (!S) return;
+	if (!S) { mute = true; return false; }
 	try {
 		if (!voice) {
 			const all = S.getVoices() || [];
@@ -211,14 +222,33 @@ function speak(text, loud) {
 		if (voice) u.voice = voice;
 		u.rate = VOICE.rate; u.pitch = VOICE.pitch;
 		u.volume = loud ? VOICE.warn : VOICE.calm;      // calm, unless a picture is in danger (Uli)
+		let began = false;
+		u.onstart = () => { began = true; };
+		u.onerror = () => { mute = true; };
 		S.speak(u);
-	} catch (e) {}
+		if (!tried) {                                    // the first one settles it
+			tried = true;
+			setTimeout(() => { if (!began) mute = true; }, 1500);
+		}
+		return true;
+	} catch (e) { mute = true; return false; }
 }
 // It speaks. There is no card and no bubble (Uli, 2026-09-12: real
 // speech): a guard says things, a museum does not caption them.
+function write(text) {
+	const c = cardTex.image, g = c.getContext('2d');
+	g.clearRect(0, 0, c.width, c.height);
+	g.fillStyle = 'rgba(24,25,27,0.82)';
+	g.beginPath(); g.roundRect(0, 20, c.width, 88, 10); g.fill();
+	g.fillStyle = '#e9e6e0'; g.textAlign = 'left'; g.textBaseline = 'middle';
+	g.font = '300 30px Jost, "Helvetica Neue", Arial, sans-serif';
+	g.fillText(text.slice(0, 52), 20, 64);
+	cardTex.needsUpdate = true;
+}
 function say(text, now, loud = false) {
 	if (now - saidAt < mood().rest) return false;
 	speak(text, loud);
+	if (mute) { write(text); card.visible = true; until = now + 7000; }   // no voice here: the words on a card
 	saidAt = now;
 	return true;
 }
@@ -239,7 +269,7 @@ export function placeGuard() {
 	}, null);
 	guard.position.set(far ? far.p[0] : 0, 0, far ? far.p[1] : 0);
 	guard.visible = true;
-	saidAt = 0; warnedOf = null;
+	saidAt = 0; warnedOf = null; if (card) card.visible = false;
 	stillSince = 0; walkTo = null;
 	cameAt = performance.now(); nextRound = cameAt + FIRST_ROUND;   // its first round, three minutes in
 }
@@ -297,6 +327,7 @@ export function stepGuard(now) {
 	if (!guard || !guard.visible || !state.room) return;
 	_h.copy(world.worldToLocal(head().clone()));            // the visitor, in the room's own frame — where the guard lives
 	_h.y = 0;
+	if (card.visible && now > until) card.visible = false;
 	// walking its round, it watches where it is going, not you
 	const dt = Math.min(0.05, (now - (stepGuard.last || now)) / 1000); stepGuard.last = now;
 	if (stepRound(now, dt)) return;
@@ -319,9 +350,8 @@ export function stepGuard(now) {
 
 	// a floor entered for the first time: a word about the year
 	if (greeted !== state.roomKey) {
-		greeted = state.roomKey;
 		const n = (state.placed || []).reduce((s, p) => s + p.piece.photos.length, 0);
-		if (say(pick('greet', { n, year: state.year }), now)) return;
+		if (say(pick('greet', { n, year: state.year }), now)) { greeted = state.roomKey; return; }
 	}
 	// too close to a print: the thing a guard is really for
 	let near = null;

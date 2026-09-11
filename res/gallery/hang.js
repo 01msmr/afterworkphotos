@@ -1,15 +1,15 @@
 import * as THREE from '../vendor/three.module.js';
-import { bakeRoom, placeLabels } from './bake.js?v=20260912m';
-import { placeGuard } from './guard.js?v=20260912m';
-import { clearZoom } from './zoom.js?v=20260912m';
-import { setWire, wire } from './bench.js?v=20260912m';
-import { elevator, roomLabel } from './elevator.js?v=20260912m';
-import { FRAME, GRID_GAP, sc, textureCache } from './frames.js?v=20260912m';
-import { WALL_STYLES, buildRoom, dadoTop, floorOf, rectRoom, shapeOf, wallColours } from './room.js?v=20260912m';
-import { scene, world } from './scene.js?v=20260912m';
-import { HANG_MAX, pieceY, state } from './state.js?v=20260912m';
-import { framedSize, freeTexturesExcept, freeVideosExcept, makePiece } from './video.js?v=20260912m';
-import { BODY_R } from './walk.js?v=20260912m';
+import { bakeRoom, placeLabels } from './bake.js?v=20260912s';
+import { placeGuard } from './guard.js?v=20260912s';
+import { clearZoom } from './zoom.js?v=20260912s';
+import { setWire, wire } from './bench.js?v=20260912s';
+import { elevator, roomLabel } from './elevator.js?v=20260912s';
+import { FRAME, GRID_GAP, sc, textureCache } from './frames.js?v=20260912s';
+import { WALL_STYLES, buildRoom, dadoTop, floorOf, rectRoom, shapeOf, wallColours } from './room.js?v=20260912s';
+import { scene, world } from './scene.js?v=20260912s';
+import { HANG_MAX, pieceY, state } from './state.js?v=20260912s';
+import { framedSize, freeTexturesExcept, freeVideosExcept, makePiece } from './video.js?v=20260912s';
+import { BODY_R } from './walk.js?v=20260912s';
 
 // ---------------------------------------------------------------------------
 // Hanging a year

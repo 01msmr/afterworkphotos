@@ -1,7 +1,7 @@
 import * as THREE from '../vendor/three.module.js';
-import { materials, poolMaterial } from './frames.js?v=20260912m';
-import { renderer, world } from './scene.js?v=20260912m';
-import { state } from './state.js?v=20260912m';
+import { materials, poolMaterial } from './frames.js?v=20260912s';
+import { renderer, world } from './scene.js?v=20260912s';
+import { state } from './state.js?v=20260912s';
 
 // ---------------------------------------------------------------------------
 // Baking a room
@@ -86,17 +86,27 @@ function labelLines(photos) {
 // One label card: the lines drawn at twice the size they were (Uli:
 // sharper), 1536 px across, `cw` metres wide. Named 'label' so the labels
 // switch and a press (doubling it) find it; x0/y0 remember its place.
+// Every card is the same card (Uli, 2026-09-12): three lines' worth of
+// paper whether a photograph has a place and a description or neither,
+// so a wall of labels is a wall of one size. A line too long for the
+// paper is squeezed to fit rather than running off it.
+const CARD_LINES = 3;
 function makeCard(lines, cw) {
 	const c = document.createElement('canvas');
-	c.width = 1536; c.height = 2 * (80 + 64 * lines.length);
+	c.width = 1536; c.height = 2 * (80 + 64 * CARD_LINES);
 	const g = c.getContext('2d');
 	g.fillStyle = '#fdfcfa'; g.fillRect(0, 0, c.width, c.height);
 	g.textBaseline = 'middle';
 	// near-black, a weight up: what the headset's pixels can still resolve is contrast (Uli)
-	lines.forEach((line, i) => {
+	lines.slice(0, CARD_LINES).forEach((line, i) => {
 		g.fillStyle = i === 0 ? '#141311' : '#3d3a36';
 		g.font = `${i === 0 ? 600 : 500} ${i === 0 ? 84 : 76}px -apple-system, "Helvetica Neue", Arial, sans-serif`;
-		g.fillText(line, 80, 2 * (40 + 32 + 64 * i));
+		const room = c.width - 160;
+		const wide = g.measureText(line).width;
+		g.save();
+		if (wide > room) { g.translate(80, 0); g.scale(room / wide, 1); g.fillText(line, 0, 2 * (40 + 32 + 64 * i)); }
+		else g.fillText(line, 80, 2 * (40 + 32 + 64 * i));
+		g.restore();
 	});
 	const t = new THREE.CanvasTexture(c);
 	t.colorSpace = THREE.SRGBColorSpace;
@@ -122,7 +132,9 @@ function makeCard(lines, cw) {
 const LABEL_GAP = 0.02, GRID_CARD = 0.16, SINGLE_CARD = 0.24, LABEL_OFF = 0.05;
 export function addLabel(piece, spec, w, h) {
 	// a row of three or a pair stacks its cards in a column (Uli); a grid keeps its pattern
-	const grid = spec.photos.length > 1, cw = grid ? GRID_CARD : SINGLE_CARD, cols = grid && spec.rows > 1 ? spec.cols : 1;
+	// one size of card for everything, a grid's as well as a single's
+	// (Uli, 2026-09-12: all the same, whatever is shown on them)
+	const grid = spec.photos.length > 1, cw = SINGLE_CARD, cols = grid && spec.rows > 1 ? spec.cols : 1;
 	const cards = spec.photos.map(p => makeCard(labelLines([p]), cw));
 	const ch = Math.max(...cards.map(c => c.userData.ch));
 	const rows = Math.ceil(cards.length / cols);
