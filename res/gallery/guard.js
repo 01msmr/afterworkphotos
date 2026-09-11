@@ -1,7 +1,7 @@
 import * as THREE from '../vendor/three.module.js';
-import { ELEVATOR } from './hang.js?v=20260912f';
-import { head, scene, world } from './scene.js?v=20260912f';
-import { state } from './state.js?v=20260912f';
+import { ELEVATOR } from './hang.js?v=20260912h';
+import { head, scene, world } from './scene.js?v=20260912h';
+import { state } from './state.js?v=20260912h';
 
 // ---------------------------------------------------------------------------
 // The guard
@@ -14,14 +14,13 @@ import { state } from './state.js?v=20260912f';
 // at closely.
 //
 // It stands in the corner furthest from the lift, turns to face whoever
-// is in the room, and speaks on a card beside it. It never speaks twice
+// is in the room, and speaks aloud. It never speaks twice
 // about the same thing, and never within a quarter of a minute of itself.
 
 const GREY = 0x3c3f44, SEE = 0.75;        // a quarter transparent (Uli)
 const EDGE = 0.015;                        // and drawn round with a 1.5 cm outline (Uli, 2026-09-12)
 const EDGE_GREY = 0x1b1d20;
 const TALL = 1.8;                          // a person's height, full size (Uli)
-const SAY_FOR = 7000;                      // ms a card stays up
 const REST = 15000;                        // ms before it will speak again
 const CLOSE = 0.55;                        // m from a print: too close
 const STILL = 45000;                       // ms unmoved before it offers something
@@ -32,57 +31,91 @@ const FIRST_ROUND = 180000, EVERY = 420000;
 const PACE = 0.45;                         // m/s — a guard is in no hurry
 // It speaks aloud, calmly; only a warning is raised (Uli). The browser's
 // own voice says it — nothing is fetched and no one is recorded — and
-// where there is no voice the card still carries the words.
+// where a browser has no voice, it stays silent — there is no caption.
 const VOICE = { calm: 0.5, warn: 1, rate: 0.92, pitch: 0.92 };
 
-let guard = null, card = null, cardTex = null, saidAt = 0, until = 0;
+let guard = null, saidAt = 0;
 let stillSince = 0, last = new THREE.Vector3(), warnedOf = null, greeted = null;
 let cameAt = 0, nextRound = 0, walkTo = null, voice = null;
 
-// The figure: a head, a body, two arms, two legs — boxes and a sphere,
-// nothing more. Detail would only draw the eye (Uli: not much details).
+// The figure is **flat and drawn, not built** (Uli, 2026-09-12): one
+// silhouette on a plane that turns to the visitor — soft all through,
+// nothing square about it, a coat-like body with the arms in it and the
+// legs suggested below. The outline is a stroke of the same path, half
+// of it standing outside the fill, so it runs round the whole figure at
+// one thickness and shows no seam where the parts meet.
+const PX = 1024;                           // the canvas is this tall; the figure is TALL metres
+const WIDE = 0.52;                         // and this fraction of its height across
+
+// The path, drawn for a 512-wide canvas. `swing` runs -1 to 1 and opens
+// the legs: seen head-on, a figure whose legs scissor is a figure
+// walking (Uli, 2026-09-12: let it walk like real).
+function silhouette(g, swing = 0) {
+	const foot = 26 * swing, knee = 12 * swing;
+	g.beginPath();
+	g.moveTo(256, 52);
+	// head, jaw and neck
+	g.bezierCurveTo(322, 52, 330, 128, 306, 172);
+	g.bezierCurveTo(300, 190, 302, 198, 312, 208);
+	// shoulder, and the arm lying in the coat
+	g.bezierCurveTo(352, 228, 380, 276, 390, 352);
+	g.bezierCurveTo(400, 440, 398, 520, 388, 596);
+	g.bezierCurveTo(384, 626, 374, 642, 356, 650);
+	// the right leg, its foot, and up the inside
+	g.bezierCurveTo(352 + knee, 720, 348 + foot, 840, 340 + foot, 964);
+	g.bezierCurveTo(338 + foot, 986, 320 + foot, 994, 300 + foot, 990);
+	g.bezierCurveTo(286 + foot, 986, 280 + foot, 972, 280 + foot, 950);
+	g.bezierCurveTo(278 + foot, 860, 272 + knee, 780, 262, 706);
+	// between the legs, and the left leg down and back up
+	g.bezierCurveTo(258, 690, 254, 690, 250, 706);
+	g.bezierCurveTo(240 - knee, 780, 234 - foot, 860, 232 - foot, 950);
+	g.bezierCurveTo(232 - foot, 972, 226 - foot, 986, 212 - foot, 990);
+	g.bezierCurveTo(192 - foot, 994, 174 - foot, 986, 172 - foot, 964);
+	g.bezierCurveTo(164 - foot, 840, 160 - knee, 720, 156, 650);
+	// the left side of the coat, the shoulder and the neck back to the head
+	g.bezierCurveTo(138, 642, 128, 626, 124, 596);
+	g.bezierCurveTo(114, 520, 112, 440, 122, 352);
+	g.bezierCurveTo(132, 276, 160, 228, 200, 208);
+	g.bezierCurveTo(210, 198, 212, 190, 206, 172);
+	g.bezierCurveTo(182, 128, 190, 52, 256, 52);
+	g.closePath();
+}
+
+function figureTexture(swing) {
+	const c = document.createElement('canvas');
+	c.width = Math.round(PX * WIDE); c.height = PX;
+	const g = c.getContext('2d');
+	g.setTransform(c.width / 512, 0, 0, 1, 0, 0);          // the path above is drawn 512 wide
+	const hex = n => '#' + n.toString(16).padStart(6, '0');
+	silhouette(g, swing);
+	// the outline first: a stroke twice the width, half of it left outside
+	g.lineJoin = 'round'; g.lineCap = 'round';
+	g.lineWidth = 2 * EDGE / TALL * PX;                   // 1.5 cm of a 1.8 m figure (Uli)
+	g.strokeStyle = hex(EDGE_GREY);
+	g.stroke();
+	g.fillStyle = hex(GREY);
+	g.fill();
+	const t = new THREE.CanvasTexture(c);
+	t.colorSpace = THREE.SRGBColorSpace;
+	return t;
+}
+
+// Four poses, the legs closed, open, closed, open the other way: the
+// oldest walk cycle there is.
+const POSES = [0, 1, 0, -1];
+let frames = null, fig = null, phase = 0;
+
 function build() {
 	guard = new THREE.Group(); guard.name = 'guard'; guard.visible = false;
-	const m = new THREE.MeshLambertMaterial({ color: GREY, transparent: true, opacity: SEE, depthWrite: false });
-	// Each part twice: the part itself, and the same shape 1.5 cm bigger
-	// turned inside out behind it — the old way to draw a line round a
-	// thing, and it costs no shader (Uli: a 1.5 cm outline).
-	const line = new THREE.MeshBasicMaterial({ color: EDGE_GREY, transparent: true, opacity: SEE, side: THREE.BackSide, depthWrite: false });
-	const put = (geo, x, y, z) => {
-		const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); guard.add(o);
-		geo.computeBoundingSphere();
-		const grow = 1 + EDGE / Math.max(0.05, geo.boundingSphere.radius);
-		const e = new THREE.Mesh(geo, line); e.position.set(x, y, z); e.scale.setScalar(grow); guard.add(e);
-		return o;
-	};
-	put(new THREE.SphereGeometry(0.105, 16, 12), 0, TALL - 0.11, 0);                        // head
-	put(new THREE.CylinderGeometry(0.052, 0.06, 0.1, 10), 0, TALL - 0.245, 0);              // neck
-	put(new THREE.BoxGeometry(0.42, 0.62, 0.21), 0, TALL - 0.6, 0);                         // chest and shoulders
-	put(new THREE.BoxGeometry(0.34, 0.22, 0.19), 0, TALL - 1.0, 0);                         // waist
-	for (const s of [-1, 1]) {
-		put(new THREE.CylinderGeometry(0.055, 0.05, 0.62, 8), s * 0.245, TALL - 0.62, 0);     // arms, at its sides
-		put(new THREE.CylinderGeometry(0.075, 0.062, 0.92, 8), s * 0.1, TALL - 1.55, 0);      // legs
-	}
-	// the card it speaks on, beside its head
-	const c = document.createElement('canvas'); c.width = 512; c.height = 128;
-	cardTex = new THREE.CanvasTexture(c); cardTex.colorSpace = THREE.SRGBColorSpace;
-	card = new THREE.Mesh(new THREE.PlaneGeometry(0.52, 0.13), new THREE.MeshBasicMaterial({ map: cardTex, transparent: true, depthWrite: false }));
-	card.position.set(0.42, TALL - 0.12, 0.02);
-	card.visible = false;
-	guard.add(card);
+	frames = POSES.map(figureTexture);
+	fig = new THREE.Mesh(new THREE.PlaneGeometry(TALL * WIDE, TALL),
+		new THREE.MeshBasicMaterial({ map: frames[0], transparent: true, opacity: SEE, depthWrite: false }));
+	fig.position.y = TALL / 2;
+	fig.name = 'guard-figure';
+	guard.add(fig);
 	scene.add(guard);
 }
 
-function write(text) {
-	const c = cardTex.image, g = c.getContext('2d');
-	g.clearRect(0, 0, c.width, c.height);
-	g.fillStyle = 'rgba(24,25,27,0.82)';
-	g.beginPath(); g.roundRect(0, 18, c.width, 92, 10); g.fill();
-	g.fillStyle = '#e9e6e0'; g.textAlign = 'left'; g.textBaseline = 'middle';
-	g.font = '300 34px Jost, "Helvetica Neue", Arial, sans-serif';
-	g.fillText(text.slice(0, 42), 22, 64);
-	cardTex.needsUpdate = true;
-}
 
 // The voice: whatever calm English one the browser has, said slowly.
 function speak(text, loud) {
@@ -101,11 +134,12 @@ function speak(text, loud) {
 		S.speak(u);
 	} catch (e) {}
 }
+// It speaks. There is no card and no bubble (Uli, 2026-09-12: real
+// speech): a guard says things, a museum does not caption them.
 function say(text, now, loud = false) {
 	if (now - saidAt < REST) return false;
-	write(text);
 	speak(text, loud);
-	card.visible = true; saidAt = now; until = now + SAY_FOR;
+	saidAt = now;
 	return true;
 }
 
@@ -118,7 +152,7 @@ export function placeGuard() {
 	const x = -r.W / 2 + 0.55, z = r.D / 2 - 0.55;          // the south-west corner; the lift has the north-east
 	guard.position.set(x, 0, z);
 	guard.visible = true;
-	card.visible = false; saidAt = 0; until = 0; warnedOf = null;
+	saidAt = 0; warnedOf = null;
 	stillSince = 0; walkTo = null;
 	cameAt = performance.now(); nextRound = cameAt + FIRST_ROUND;   // its first round, three minutes in
 }
@@ -141,10 +175,18 @@ function stepRound(now, dt) {
 	}
 	const dx = walkTo.x - guard.position.x, dz = walkTo.z - guard.position.z;
 	const d = Math.hypot(dx, dz);
-	if (d < 0.05) { walkTo = null; nextRound = now + EVERY; return false; }
+	if (d < 0.05) {                                     // arrived: it stands again, feet together
+		walkTo = null; nextRound = now + EVERY;
+		fig.material.map = frames[0]; fig.position.y = TALL / 2;
+		return false;
+	}
 	const step = Math.min(d, PACE * dt);
 	guard.position.x += dx / d * step; guard.position.z += dz / d * step;
 	guard.rotation.y = Math.atan2(dx, dz);              // it faces the way it walks
+	// the legs scissor at two steps a second, and it rises a little on each
+	phase += step / 0.62;                                // a pace is about 62 cm
+	fig.material.map = frames[Math.floor(phase * 2) % frames.length];
+	fig.position.y = TALL / 2 + Math.abs(Math.sin(phase * Math.PI)) * 0.012;
 	return true;
 }
 
@@ -153,7 +195,6 @@ export function stepGuard(now) {
 	if (!guard || !guard.visible || !state.room) return;
 	_h.copy(world.worldToLocal(head().clone()));            // the visitor, in the room's own frame
 	_h.y = 0;
-	if (card.visible && now > until) card.visible = false;
 	// walking its round, it watches where it is going, not you
 	const dt = Math.min(0.05, (now - (stepGuard.last || now)) / 1000); stepGuard.last = now;
 	if (stepRound(now, dt)) return;
