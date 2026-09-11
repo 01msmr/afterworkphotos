@@ -1,7 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
-import { ELEVATOR } from './hang.js?v=20260912h';
-import { head, scene, world } from './scene.js?v=20260912h';
-import { state } from './state.js?v=20260912h';
+import { ELEVATOR } from './hang.js?v=20260912j';
+import { inPoly } from './plan.js?v=20260912j';
+import { head, world } from './scene.js?v=20260912j';
+import { state } from './state.js?v=20260912j';
 
 // ---------------------------------------------------------------------------
 // The guard
@@ -113,7 +114,12 @@ function build() {
 	fig.position.y = TALL / 2;
 	fig.name = 'guard-figure';
 	guard.add(fig);
-	scene.add(guard);
+	// It belongs to the **room**, not to the session: its corner is given in
+	// the room's own coordinates, and in the headset the room is moved and
+	// turned onto the real walls. Hung on the scene instead, it stood
+	// wherever the room had been before — heard but never seen (Uli,
+	// 2026-09-12).
+	world.add(guard);
 }
 
 
@@ -149,24 +155,45 @@ export function placeGuard() {
 	if (!guard) build();
 	const r = state.room;
 	if (!r) { guard.visible = false; return; }
-	const x = -r.W / 2 + 0.55, z = r.D / 2 - 0.55;          // the south-west corner; the lift has the north-east
-	guard.position.set(x, 0, z);
+	// the corner furthest from the lift that is really floor: in an L or a
+	// U room the bounding box has corners the room does not
+	const spots = places();
+	const cab = [r.W / 2 - ELEVATOR.size / 2, -r.D / 2 + ELEVATOR.size / 2];
+	const far = spots.reduce((best, p) => {
+		const d = Math.hypot(p[0] - cab[0], p[1] - cab[1]);
+		return !best || d > best.d ? { p, d } : best;
+	}, null);
+	guard.position.set(far ? far.p[0] : 0, 0, far ? far.p[1] : 0);
 	guard.visible = true;
 	saidAt = 0; warnedOf = null;
 	stillSince = 0; walkTo = null;
 	cameAt = performance.now(); nextRound = cameAt + FIRST_ROUND;   // its first round, three minutes in
 }
 
-// Its round: the room's corners in turn, a little off the walls, at a
-// walking pace. The lift's corner is left alone.
-function corners() {
-	const r = state.room, e = ELEVATOR.size, m = 0.55;
-	return [[-r.W / 2 + m, r.D / 2 - m], [r.W / 2 - m, r.D / 2 - m], [r.W / 2 - m, -r.D / 2 + e + m], [-r.W / 2 + m, -r.D / 2 + m]];
+// Where it can stand: the corners of every part of the plan, a little off
+// the walls, and only those that are inside the room — the corner of a
+// bounding box is not floor in an L or a U. The lift's own square is left
+// alone.
+const M = 0.55;
+function places() {
+	const r = state.room, shape = r.shape, e = ELEVATOR.size;
+	const out = [], seen = new Set();
+	for (const q of shape ? shape.rects : [{ x0: -r.W / 2, x1: r.W / 2, z0: -r.D / 2, z1: r.D / 2 }]) {
+		for (const x of [q.x0 + M, q.x1 - M]) for (const z of [q.z0 + M, q.z1 - M]) {
+			if (x > r.W / 2 - 2 * e - M && z < -r.D / 2 + e + M) continue;    // the lift and the way out of it
+			if (shape && !inPoly(shape.outline, x, z)) continue;
+			const k = `${x.toFixed(2)}|${z.toFixed(2)}`;
+			if (seen.has(k)) continue;
+			seen.add(k); out.push([x, z]);
+		}
+	}
+	return out;
 }
 function stepRound(now, dt) {
 	if (!walkTo) {
 		if (now < nextRound) return false;
-		const c = corners();
+		const c = places();
+		if (c.length < 2) { nextRound = now + EVERY; return false; }
 		let at = 0, best = Infinity;
 		c.forEach(([x, z], i) => { const d = Math.hypot(x - guard.position.x, z - guard.position.z); if (d < best) { best = d; at = i; } });
 		const to = c[(at + 1) % c.length];
@@ -193,7 +220,7 @@ function stepRound(now, dt) {
 const _h = new THREE.Vector3();
 export function stepGuard(now) {
 	if (!guard || !guard.visible || !state.room) return;
-	_h.copy(world.worldToLocal(head().clone()));            // the visitor, in the room's own frame
+	_h.copy(world.worldToLocal(head().clone()));            // the visitor, in the room's own frame — where the guard lives
 	_h.y = 0;
 	// walking its round, it watches where it is going, not you
 	const dt = Math.min(0.05, (now - (stepGuard.last || now)) / 1000); stepGuard.last = now;
