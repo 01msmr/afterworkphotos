@@ -1,14 +1,15 @@
 import * as THREE from '../vendor/three.module.js';
-import { bakeRoom, placeLabels } from './bake.js?v=20260912c';
-import { clearZoom } from './zoom.js?v=20260912c';
-import { setWire, wire } from './bench.js?v=20260912c';
-import { elevator, roomLabel } from './elevator.js?v=20260912c';
-import { FRAME, GRID_GAP, sc, textureCache } from './frames.js?v=20260912c';
-import { WALL_STYLES, buildRoom, dadoTop, floorOf, rectRoom, shapeOf, wallColours } from './room.js?v=20260912c';
-import { scene, world } from './scene.js?v=20260912c';
-import { HANG_MAX, pieceY, state } from './state.js?v=20260912c';
-import { framedSize, freeTexturesExcept, freeVideosExcept, makePiece } from './video.js?v=20260912c';
-import { BODY_R } from './walk.js?v=20260912c';
+import { bakeRoom, placeLabels } from './bake.js?v=20260912f';
+import { placeGuard } from './guard.js?v=20260912f';
+import { clearZoom } from './zoom.js?v=20260912f';
+import { setWire, wire } from './bench.js?v=20260912f';
+import { elevator, roomLabel } from './elevator.js?v=20260912f';
+import { FRAME, GRID_GAP, sc, textureCache } from './frames.js?v=20260912f';
+import { WALL_STYLES, buildRoom, dadoTop, floorOf, rectRoom, shapeOf, wallColours } from './room.js?v=20260912f';
+import { scene, world } from './scene.js?v=20260912f';
+import { HANG_MAX, pieceY, state } from './state.js?v=20260912f';
+import { framedSize, freeTexturesExcept, freeVideosExcept, makePiece } from './video.js?v=20260912f';
+import { BODY_R } from './walk.js?v=20260912f';
 
 // ---------------------------------------------------------------------------
 // Hanging a year
@@ -564,6 +565,7 @@ export function hangRoom(key) {
 	state.gap = lay.gap;
 	elevator.light(key);
 	if (!elevator.ride) elevator.show(roomLabel(room), '');
+	placeGuard();                                  // the guard takes the far corner of the new room
 	if (TOP) drawTop(shape, lay.placed);
 	return pieces;
 }

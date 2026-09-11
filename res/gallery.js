@@ -1,20 +1,21 @@
 // three.js 0.180.0, vendored (MIT) — res/vendor/three.module.js, which in
 // turn imports res/vendor/three.core.js; both are pinned together.
-import { stats, stepStats } from './gallery/bench.js?v=20260912c';
-import { elevator, lift, pressAt, setSetting } from './gallery/elevator.js?v=20260912c';
-import { materials } from './gallery/frames.js?v=20260912c';
-import { ELEVATOR, hangRoom, packRun, piecesOf, replan, rooms, spread, upright } from './gallery/hang.js?v=20260912c';
-import { jump, stepJump } from './gallery/jump.js?v=20260912c';
-import { stepTablet, tabletHit, toggleTablet } from './gallery/tablet.js?v=20260912c';
-import { playing, stepMusic } from './gallery/music.js?v=20260912c';
-import { stepZoom, zoomLabel, zoomPrint } from './gallery/zoom.js?v=20260912c';
-import { applyMode, buildRoom, stepMode } from './gallery/room.js?v=20260912c';
-import { planOf } from './gallery/plan.js?v=20260912c';
-import { camera, renderer, rig, scene, world } from './gallery/scene.js?v=20260912c';
-import { EYE, state } from './gallery/state.js?v=20260912c';
-import { makePiece, makeVideoPanel, stepVideos, videoCache } from './gallery/video.js?v=20260912c';
-import { benchScan, fitRoom, stepPlanes } from './gallery/vr.js?v=20260912c';
-import { applyLook, placeBody, stepWalk, walk } from './gallery/walk.js?v=20260912c';
+import { stats, stepStats } from './gallery/bench.js?v=20260912f';
+import { elevator, lift, pressAt, setSetting } from './gallery/elevator.js?v=20260912f';
+import { materials } from './gallery/frames.js?v=20260912f';
+import { ELEVATOR, hangRoom, packRun, piecesOf, replan, rooms, spread, upright } from './gallery/hang.js?v=20260912f';
+import { jump, stepJump } from './gallery/jump.js?v=20260912f';
+import { stepTablet, tabletHit, toggleTablet } from './gallery/tablet.js?v=20260912f';
+import { placeGuard, stepGuard } from './gallery/guard.js?v=20260912f';
+import { playing, stepMusic } from './gallery/music.js?v=20260912f';
+import { stepZoom, zoomLabel, zoomPrint } from './gallery/zoom.js?v=20260912f';
+import { applyMode, buildRoom, stepMode } from './gallery/room.js?v=20260912f';
+import { planOf } from './gallery/plan.js?v=20260912f';
+import { camera, renderer, rig, scene, world } from './gallery/scene.js?v=20260912f';
+import { EYE, state } from './gallery/state.js?v=20260912f';
+import { makePiece, makeVideoPanel, stepVideos, videoCache } from './gallery/video.js?v=20260912f';
+import { benchScan, fitRoom, stepPlanes } from './gallery/vr.js?v=20260912f';
+import { applyLook, placeBody, stepWalk, walk } from './gallery/walk.js?v=20260912f';
 
 // ---------------------------------------------------------------------------
 // Boot
@@ -64,10 +65,11 @@ renderer.setAnimationLoop((now, frame) => {
 	step('tablet', () => stepTablet());
 	step('zoom', () => stepZoom(now));
 	step('music', () => stepMusic(now));
+	step('guard', () => stepGuard(now));
 	step('render', () => renderer.render(scene, camera));
 	if (stats) step('stats', () => stepStats(now));
 });
 
 // Test-harness handle only: the plan's browser checks read the scene graph
 // and camera through this. Nothing on the page uses it.
-window.G = { scene, camera, renderer, state, buildRoom, applyMode, makePiece, rooms, hangRoom, walk, stepWalk, elevator, pressAt, setSetting, materials, rig, world, placeBody, lift, stepPlanes, stepVideos, videoCache, makeVideoPanel, replan, packRun, piecesOf, spread, upright, fitRoom, planOf, jump, toggleTablet, tabletHit, stepZoom, zoomLabel, zoomPrint, playing };   // replan, packRun, piecesOf, spread, upright, fitRoom, planOf: for the bench's checks only
+window.G = { scene, camera, renderer, state, buildRoom, applyMode, makePiece, rooms, hangRoom, walk, stepWalk, elevator, pressAt, setSetting, materials, rig, world, placeBody, lift, stepPlanes, stepVideos, videoCache, makeVideoPanel, replan, packRun, piecesOf, spread, upright, fitRoom, planOf, jump, toggleTablet, tabletHit, stepZoom, zoomLabel, zoomPrint, playing, placeGuard, stepGuard };   // replan, packRun, piecesOf, spread, upright, fitRoom, planOf: for the bench's checks only
