@@ -1,8 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
-import { ELEVATOR } from './hang.js?v=20260912w';
-import { inPoly } from './plan.js?v=20260912w';
-import { head, world } from './scene.js?v=20260912w';
-import { state } from './state.js?v=20260912w';
+import { ELEVATOR } from './hang.js?v=20260912x';
+import { inPoly } from './plan.js?v=20260912x';
+import { head, world } from './scene.js?v=20260912x';
+import { state } from './state.js?v=20260912x';
 
 // ---------------------------------------------------------------------------
 // The guard
@@ -44,6 +44,19 @@ const LINES = {
 		'Please keep an arm\'s length from the prints.',
 		'Careful — that one is nearer than it looks.',
 		'Behind the line, if you would.',
+		'Sir. The print, please.',
+		'That is close enough, thank you.',
+	],
+	rush: [
+		'Not so fast in here, please.',
+		'Steady. There is a print right there.',
+		'Slowly, please — that one is glass to me.',
+		'Careful, you are coming at it rather quickly.',
+	],
+	row: [
+		'Mind the row, please.',
+		'There are prints on both sides of that.',
+		'Careful going round the row.',
 	],
 	tell: [
 		'{desc} — {place}.',
@@ -70,6 +83,12 @@ const MOOD = {
 	light: { rest: 40000, still: 90000, chat: 0 },
 	heavy: { rest: 12000, still: 30000, chat: 45000 },
 };
+// A guard interrupts himself for a picture. Anything about their safety
+// gets its own short rest and is said **most times it happens** (Uli,
+// 2026-09-12) — not every single time, which would be a machine.
+const WARN_REST = 4000, WARN_AGAIN = 20000, WARN_ODDS = 0.85;
+const FAST = 1.3;                          // m/s toward a print: too fast
+const ROW_NEAR = 0.45;                     // m from a middle row's slab
 const mood = () => MOOD[state.settings.talk] || MOOD.light;
 let lastLine = '';
 function pick(kind, fill) {
@@ -93,7 +112,9 @@ const PACE = 0.45;                         // m/s — a guard is in no hurry
 const VOICE = { calm: 0.5, warn: 1, rate: 0.92, pitch: 0.92 };
 
 let guard = null, saidAt = 0, card = null, cardTex = null, until = 0;
-let stillSince = 0, last = new THREE.Vector3(), warnedOf = null, greeted = null;
+let stillSince = 0, last = new THREE.Vector3(), greeted = null;
+const warnedAt = new Map();                // a print -> when it was last spoken about
+let wasAt = new THREE.Vector3(), lastT = 0;
 let cameAt = 0, nextRound = 0, walkTo = null, voice = null;
 const MONTHS = 'Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec'.split(' ');
 
@@ -226,7 +247,7 @@ function write(text) {
 	cardTex.needsUpdate = true;
 }
 function say(text, now, loud = false) {
-	if (now - saidAt < mood().rest) return false;
+	if (now - saidAt < (loud ? WARN_REST : mood().rest)) return false;
 	speak(text, loud);
 	if (mute) { write(text); card.visible = true; until = now + 7000; }   // no voice here: the words on a card
 	saidAt = now;
@@ -249,7 +270,7 @@ export function placeGuard() {
 	}, null);
 	guard.position.set(far ? far.p[0] : 0, 0, far ? far.p[1] : 0);
 	guard.visible = ready;
-	saidAt = 0; warnedOf = null; if (card) card.visible = false;
+	saidAt = 0; warnedAt.clear(); lastT = 0; if (card) card.visible = false;
 	stillSince = 0; walkTo = null;
 	cameAt = performance.now(); nextRound = cameAt + FIRST_ROUND;   // its first round, three minutes in
 }
@@ -324,15 +345,30 @@ export function stepGuard(now) {
 		const n = (state.placed || []).reduce((s, p) => s + p.piece.photos.length, 0);
 		if (say(pick('greet', { n, year: state.year }), now)) { greeted = state.roomKey; return; }
 	}
-	// too close to a print: the thing a guard is really for
-	let near = null;
+	// How fast, and toward what: a guard watches the room, not a clock.
+	const dt2 = Math.max(0.001, (now - (lastT || now)) / 1000);
+	const speed = lastT ? _h.distanceTo(wasAt) / dt2 : 0;
+	lastT = now; wasAt.copy(_h);
+
+	// anything that puts a print at risk — coming too close to one, coming
+	// at one quickly, or crowding a middle row — and it says so, most
+	// times (Uli, 2026-09-12)
+	let near = null, row = null;
 	for (const p of state.placed || []) {
 		const d = Math.hypot(p.x - _h.x, p.z - _h.z);
-		if (d < CLOSE + p.piece.w / 2 && (!near || d < near.d)) near = { p, d };
+		if (p.wall === 'mid') { if (d < ROW_NEAR + p.piece.w / 2 && (!row || d < row.d)) row = { p, d }; }
+		else if (d < CLOSE + p.piece.w / 2 && (!near || d < near.d)) near = { p, d };
 	}
-	if (near) {
-		if (warnedOf !== near.p && say(pick('warn'), now, true)) { warnedOf = near.p; return; }
-	} else warnedOf = null;
+	const fresh = p => now - (warnedAt.get(p) || -1e9) > WARN_AGAIN;
+	const mind = (p, kind) => {
+		if (!fresh(p) || Math.random() > WARN_ODDS) return false;
+		if (!say(pick(kind), now, true)) return false;
+		warnedAt.set(p, now);
+		return true;
+	};
+	if (near && speed > FAST && mind(near.p, 'rush')) return;
+	if (near && mind(near.p, 'warn')) return;
+	if (row && mind(row.p, 'row')) return;
 
 	// standing still a long while: something to look at
 	if (_h.distanceTo(last) > MOVED) { last.copy(_h); stillSince = now; return; }
