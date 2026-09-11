@@ -1,13 +1,13 @@
 import * as THREE from '../vendor/three.module.js';
-import { setWire, wire } from './bench.js?v=20260912b';
-import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260912b';
-import { ELEVATOR, clearRooms, hangRoom, roomByKey, rooms } from './hang.js?v=20260912b';
-import { WALL_STYLES, applyMode, dadoTop, dressWall, wallColours } from './room.js?v=20260912b';
-import { camera, head, renderer, scene, world } from './scene.js?v=20260912b';
-import { zoomLabel, zoomPrint } from './zoom.js?v=20260912b';
-import { PLANS, RAISES, state } from './state.js?v=20260912b';
-import { fitRoom, planAgain } from './vr.js?v=20260912b';
-import { placeBody, walk } from './walk.js?v=20260912b';
+import { setWire, wire } from './bench.js?v=20260912c';
+import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260912c';
+import { ELEVATOR, clearRooms, hangRoom, roomByKey, rooms } from './hang.js?v=20260912c';
+import { WALL_STYLES, applyMode, dadoTop, dressWall, wallColours } from './room.js?v=20260912c';
+import { camera, head, renderer, scene, world } from './scene.js?v=20260912c';
+import { zoomLabel, zoomPrint } from './zoom.js?v=20260912c';
+import { PLANS, RAISES, state } from './state.js?v=20260912c';
+import { fitRoom, planAgain } from './vr.js?v=20260912c';
+import { placeBody, walk } from './walk.js?v=20260912c';
 
 // ---------------------------------------------------------------------------
 // The elevator
@@ -591,8 +591,8 @@ export const elevator = {
 			const m = b.material, on = b.userData.key === key;
 			const seen = !on && state.seen[b.userData.key];
 			m.emissiveIntensity = on ? 1.3 : 0;
-			m.opacity = on ? 0.9 : seen ? 0.5 : 0.28;       // lit, the cap fills with green light; seen, it goes grey
-			m.color.set(on ? 0x2a5a38 : seen ? 0x6d6f72 : 0xffffff);
+			m.opacity = on ? 0.9 : seen ? 0.62 : 0.28;      // lit, the cap fills with green light; seen, it goes grey
+			m.color.set(on ? 0x2a5a38 : seen ? 0x45474a : 0xffffff);   // a darker grey than the first try (Uli, 2026-09-12)
 			if (on && !lit) lit = b;
 		}
 		// the floor's lamp stands 2 cm off the (first) lit button
