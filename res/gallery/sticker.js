@@ -1,6 +1,6 @@
 import * as THREE from '../vendor/three.module.js';
-import { camera, renderer, scene } from './scene.js?v=20260915f';
-import { isFav, toggleFav } from './state.js?v=20260915f';
+import { camera, renderer, scene } from './scene.js?v=20260915g';
+import { isFav, toggleFav } from './state.js?v=20260915g';
 
 // ---------------------------------------------------------------------------
 // Red dots
@@ -76,14 +76,13 @@ export function findSpots() {
 // the dot on the pointer, the cross that offers to take one off, and what
 // the pointer is currently over
 let held = null, cross = null, over = null;
-// **While the cross is up, the sticker under it is taken off the wall**
-// (Uli, 2026-09-13): the cross stands in its place, so what a press would
-// leave behind is what you are already looking at. Point away and it comes
-// back — it was never really gone until the press.
-let lifted = null;
-function putBack() {
-	if (lifted) { lifted.dot.visible = isFav(lifted.photo.id); lifted = null; }
-}
+// **A sticker goes only when the cross is pressed** (Uli, 2026-09-13) — it
+// does not step aside while the cross merely hovers over it. And once a
+// press has been made, the pointer **shows nothing at all** until it has
+// left the place and come back: the translucent dot that would otherwise
+// appear the instant a sticker is lifted reads as the sticker still being
+// there, half faded, rather than as an offer to put a new one on.
+let settled = null;
 // The cross: **twice the sticker across** (Uli, 2026-09-13), so what it
 // offers to lift is unmistakable. Its arms are longer than that span —
 // turned 45 degrees, an arm of length L only reaches L/sqrt(2) sideways —
@@ -245,7 +244,7 @@ export function stepSticker() {
 	const d = heldDot(), x = heldCross();
 	const rc = aimed();
 	const hit = rc && surfaceHit(rc);
-	if (!hit) { putBack(); d.visible = x.visible = false; if (expand) expand.visible = false; if (loupe) loupe.visible = false; over = null; return; }
+	if (!hit) { settled = null; d.visible = x.visible = false; if (expand) expand.visible = false; if (loupe) loupe.visible = false; over = null; return; }
 	// **how near the pointer comes to the place**, not how near the surface
 	// it happens to strike: the sticker is drawn to the ray itself (Uli,
 	// "adheres to the pointer in 12 cm range"). A place further along the
@@ -259,12 +258,14 @@ export function stepSticker() {
 	}
 	over = near ? near.s : null;
 	// exactly one cursor is up at a time
-	putBack();
+	if (over !== settled) settled = null;             // moved off: the pointer speaks again
 	const stuck = over && isFav(over.photo.id);
-	const showing = over ? (stuck ? x : d) : ({ print: expandIcon(), label: loupeIcon() }[overKind(hit)] || d);
+	const showing = settled ? null
+		: over ? (stuck ? x : d)
+		: ({ print: expandIcon(), label: loupeIcon() }[overKind(hit)] || d);
 	for (const c of [d, x, expand, loupe]) if (c && c !== showing) c.visible = false;
+	if (!showing) return;                             // just pressed here, and still here: say nothing
 	if (showing === x) {
-		over.dot.visible = false; lifted = over;      // the sticker steps aside for the cross
 		// A sticker already on: the cross, offering to lift it. It **keeps
 		// moving with the pointer** right up until the press (Uli,
 		// 2026-09-13) — it is a cursor, not a marker, and a cursor that
@@ -301,7 +302,7 @@ export function stickAt() {
 	if (!over) return false;
 	const on = toggleFav(over.photo.id);
 	over.dot.visible = on;
-	lifted = null;             // the press settles it; there is nothing held aside any more
+	settled = over;            // and the pointer holds its tongue until this place is left
 	return true;
 }
 export function stuckOn() { return over; }
