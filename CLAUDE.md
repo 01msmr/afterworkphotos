@@ -12,6 +12,8 @@ A static page, no build step, no framework. The overview is `README.md`; **how e
 - YAGNI (global rules apply): one token, no options, no abstractions on stock.
 - iOS findings that cost time go into `docs/details.md` under *iOS home screen app — what was learned the hard way*.
 
+- **The photographs are one set: `img/<name>.jpg` at 1200 px**, shown by the site and hung on the gallery's walls, with `img/2000/` for a print a visitor stands at and `img/thumb/` for the tablet. There is no 1600 set any more — it and a short-lived `img/1200/` were removed from the working tree and from git history on 2026-09-13 (1.8 GB → 337 MB). Backups: `../awp-before-rewrite-*.bundle`, `../awp-img1600-*.tgz`.
+
 ## Checking a change
 
 There is no unit test runner. The deck is checked in Chrome against the local server with synthetic touches:
