@@ -1,8 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
-import { addLabel } from './bake.js?v=20260915t';
-import { FRAME, GRID_GAP, MAT_Z, PRINT_GLOW, PRINT_SCALE, matWidth, materials, photoTexture, poolMaterial, sc, textureCache, dropNear, nearTexture } from './frames.js?v=20260915t';
-import { camera, scene } from './scene.js?v=20260915t';
-import { pieceY, state } from './state.js?v=20260915t';
+import { addLabel } from './bake.js?v=20260915w';
+import { FRAME, GRID_GAP, MAT_Z, PRINT_GLOW, PRINT_SCALE, matWidth, materials, photoTexture, poolMaterial, sc, textureCache, dropNear, nearTexture } from './frames.js?v=20260915w';
+import { camera, scene } from './scene.js?v=20260915w';
+import { pieceY, state } from './state.js?v=20260915w';
 
 // ---------------------------------------------------------------------------
 // Videos — the LED panel
@@ -288,8 +288,20 @@ function makeFramedPrint(p, size) {
 		print.userData.over = over;
 	}
 	print.userData.full = inner / printed;           // what it scales to when pressed: over the mat, edge to edge (Uli)
+	// **The whole inside of the frame answers to a press**, the passepartout
+	// as much as the picture (Uli, 2026-09-13). A pane over the frame's
+	// opening, never drawn, standing in for the print: three.js's raycaster
+	// does not test `visible`, so it is hit like anything else and costs not
+	// one draw call. It lies behind the print, so a press on the picture
+	// still meets the picture; only the mat around it reaches this.
+	const area = new THREE.Mesh(new THREE.PlaneGeometry(inner, inner), materials.mat);
+	area.name = 'photo-area';
+	area.visible = false;
+	area.position.z = MAT_Z + 0.0005;
+	area.userData.print = print;
 	if (state.settings.fill) print.scale.setScalar(print.userData.full);   // unless filling the frame is the way round it starts (Uli)
 	g.add(print);
+	g.add(area);
 	// the shadow that millimetre throws: a faint dark rim just behind the
 	// print, a hair larger and pushed down and to the right
 	const rim = new THREE.Mesh(new THREE.PlaneGeometry(printed + 0.003, printed + 0.003), materials.rim);

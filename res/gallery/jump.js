@@ -1,8 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
-import { SOUND, lift } from './elevator.js?v=20260915t';
-import { hangRoom, openRooms, rooms } from './hang.js?v=20260915t';
-import { head, scene, world } from './scene.js?v=20260915t';
-import { state } from './state.js?v=20260915t';
+import { SOUND, lift } from './elevator.js?v=20260915w';
+import { hangRoom, openRooms, rooms } from './hang.js?v=20260915w';
+import { head, scene, world } from './scene.js?v=20260915w';
+import { state } from './state.js?v=20260915w';
 
 // ---------------------------------------------------------------------------
 // The instant lift

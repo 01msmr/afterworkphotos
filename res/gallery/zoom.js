@@ -1,6 +1,7 @@
 import * as THREE from '../vendor/three.module.js';
-import { camera, scene } from './scene.js?v=20260915t';
-import { state } from './state.js?v=20260915t';
+import { camera, scene } from './scene.js?v=20260915w';
+import { state } from './state.js?v=20260915w';
+import { CARD_READ_Z, CARD_REST_Z } from './bake.js?v=20260915w';
 
 // ---------------------------------------------------------------------------
 // What a press makes bigger
@@ -58,6 +59,9 @@ export function zoomLabel(L, now = performance.now()) {
 		c.scale.set(k, k, 1);
 		c.position.x = ax + (c.userData.x0 - ax) * k;
 		c.position.y = ay + (c.userData.y0 - ay) * k;
+		// doubled, it stands clear of the dado, the rail, the skirting and
+		// the wainscot's cap; at rest, back on the wall (bake.js)
+		c.position.z = k > 1 ? CARD_READ_Z : CARD_REST_Z;
 	}
 	if (k > 1) big.set(L, now); else big.delete(L);
 	return true;
