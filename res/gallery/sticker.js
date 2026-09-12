@@ -1,6 +1,6 @@
 import * as THREE from '../vendor/three.module.js';
-import { camera, renderer, scene } from './scene.js?v=20260915b';
-import { isFav, toggleFav } from './state.js?v=20260915b';
+import { camera, renderer, scene } from './scene.js?v=20260915f';
+import { isFav, toggleFav } from './state.js?v=20260915f';
 
 // ---------------------------------------------------------------------------
 // Red dots
@@ -76,6 +76,14 @@ export function findSpots() {
 // the dot on the pointer, the cross that offers to take one off, and what
 // the pointer is currently over
 let held = null, cross = null, over = null;
+// **While the cross is up, the sticker under it is taken off the wall**
+// (Uli, 2026-09-13): the cross stands in its place, so what a press would
+// leave behind is what you are already looking at. Point away and it comes
+// back — it was never really gone until the press.
+let lifted = null;
+function putBack() {
+	if (lifted) { lifted.dot.visible = isFav(lifted.photo.id); lifted = null; }
+}
 // The cross: **twice the sticker across** (Uli, 2026-09-13), so what it
 // offers to lift is unmistakable. Its arms are longer than that span —
 // turned 45 degrees, an arm of length L only reaches L/sqrt(2) sideways —
@@ -154,6 +162,26 @@ function surfaceHit(rc) {
 // white one whole.
 const cursorMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, depthTest: false, side: THREE.DoubleSide });
 const inkCursorMat = new THREE.MeshBasicMaterial({ color: 0x141311, transparent: true, opacity: 0.85, depthTest: false, side: THREE.DoubleSide });
+// and a dark backing under the white, so the brackets hold against a pale
+// photograph as well as a dark one (Uli, 2026-09-13). **Soft**, not a
+// second rectangle: a blurred square, stretched behind each bar, so the
+// dark fades out into the picture instead of ending on an edge of its own.
+// Drawn first, so the white lies over it.
+let softTex = null;
+function soft() {
+	if (!softTex) {
+		const c = document.createElement('canvas');
+		c.width = c.height = 64;
+		const g = c.getContext('2d');
+		g.filter = 'blur(11px)';
+		g.fillStyle = '#fff';
+		g.fillRect(18, 18, 28, 28);
+		softTex = new THREE.CanvasTexture(c);
+	}
+	return softTex;
+}
+const haloMat = new THREE.MeshBasicMaterial({ map: soft(), color: 0x14120f, transparent: true, opacity: 0.25, depthTest: false, side: THREE.DoubleSide });   // 25% (Uli)
+const HALO = 0.006;              // the room the blur needs, well past the bar it backs
 const bar = (w, h, x, y, turn = 0, mat = cursorMat) => {
 	const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
 	m.position.set(x, y, 0); m.rotation.z = turn; return m;
@@ -165,10 +193,12 @@ function expandIcon() {
 		expand = new THREE.Group();
 		expand.name = 'cursor-expand';
 		const R = 0.03, ARM = 0.022, T = 0.004;      // 6 cm across
-		for (const sx of [-1, 1]) for (const sy of [-1, 1]) {
-			expand.add(bar(ARM, T, sx * (R - ARM / 2), sy * R));      // along the top or bottom
-			expand.add(bar(T, ARM, sx * R, sy * (R - ARM / 2)));      // and down the side
-		}
+		// the halo goes down first, all of it, then the white over all of it
+		for (const [grow, mat] of [[HALO, haloMat], [0, cursorMat]])
+			for (const sx of [-1, 1]) for (const sy of [-1, 1]) {
+				expand.add(bar(ARM + 2 * grow, T + 2 * grow, sx * (R - ARM / 2), sy * R, 0, mat));   // along the top or bottom
+				expand.add(bar(T + 2 * grow, ARM + 2 * grow, sx * R, sy * (R - ARM / 2), 0, mat));   // and down the side
+			}
 		expand.renderOrder = 3; expand.visible = false; scene.add(expand);
 	}
 	return expand;
@@ -215,7 +245,7 @@ export function stepSticker() {
 	const d = heldDot(), x = heldCross();
 	const rc = aimed();
 	const hit = rc && surfaceHit(rc);
-	if (!hit) { d.visible = x.visible = false; if (expand) expand.visible = false; if (loupe) loupe.visible = false; over = null; return; }
+	if (!hit) { putBack(); d.visible = x.visible = false; if (expand) expand.visible = false; if (loupe) loupe.visible = false; over = null; return; }
 	// **how near the pointer comes to the place**, not how near the surface
 	// it happens to strike: the sticker is drawn to the ray itself (Uli,
 	// "adheres to the pointer in 12 cm range"). A place further along the
@@ -229,9 +259,12 @@ export function stepSticker() {
 	}
 	over = near ? near.s : null;
 	// exactly one cursor is up at a time
-	const showing = over ? (over.dot.visible ? x : d) : ({ print: expandIcon(), label: loupeIcon() }[overKind(hit)] || d);
+	putBack();
+	const stuck = over && isFav(over.photo.id);
+	const showing = over ? (stuck ? x : d) : ({ print: expandIcon(), label: loupeIcon() }[overKind(hit)] || d);
 	for (const c of [d, x, expand, loupe]) if (c && c !== showing) c.visible = false;
 	if (showing === x) {
+		over.dot.visible = false; lifted = over;      // the sticker steps aside for the cross
 		// A sticker already on: the cross, offering to lift it. It **keeps
 		// moving with the pointer** right up until the press (Uli,
 		// 2026-09-13) — it is a cursor, not a marker, and a cursor that
@@ -268,6 +301,7 @@ export function stickAt() {
 	if (!over) return false;
 	const on = toggleFav(over.photo.id);
 	over.dot.visible = on;
+	lifted = null;             // the press settles it; there is nothing held aside any more
 	return true;
 }
 export function stuckOn() { return over; }
