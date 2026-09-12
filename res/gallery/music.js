@@ -1,5 +1,5 @@
-import { elevator, lift } from './elevator.js?v=20260912y';
-import { head, world } from './scene.js?v=20260912y';
+import { elevator, lift } from './elevator.js?v=20260913a';
+import { head, world } from './scene.js?v=20260913a';
 
 // ---------------------------------------------------------------------------
 // The music in the lift
@@ -30,6 +30,7 @@ const FAR = 4;              // metres: past this, nothing carries (Uli, 2026-09-
 const NEAR = 1.2;           // as good as inside the cabin
 const LOUD = 0.42;          // its loudest, against the lift's own sounds
 const RISE = 0.1;           // how fast the loudness follows you
+const DUCK = 0.33;          // what is left of it while the guard speaks
 
 
 const buffers = new Map();  // file -> AudioBuffer
@@ -88,7 +89,7 @@ function level() {
 
 export function stepMusic(now) {
 	if (!lift.ctx || lift.ctx.state !== 'running' || !open()) return;
-	const want = level();
+	const want = level() * (performance.now() < duckUntil ? DUCK : 1);
 	// it begins the first time anyone comes near enough to hear it, and
 	// from then on it plays on, piece after piece
 	if (!source && !starting && want > 0.002) start();
@@ -97,6 +98,12 @@ export function stepMusic(now) {
 	has += (want - has) * RISE;
 	gain.gain.setTargetAtTime(Math.max(0, has), lift.ctx.currentTime, 0.08);
 }
+
+// The guard talks over it: while he is speaking the music steps back to
+// a third and comes up again after (Uli, 2026-09-12 — both at once, which
+// is what a real lobby does). `seconds` is how long the line lasts.
+let duckUntil = 0;
+export function duckMusic(seconds) { duckUntil = Math.max(duckUntil, performance.now() + seconds * 1000 + 250); }
 
 // What is playing and how loud, for the bench's checks.
 export function playing() { return source ? TRACKS[at].name : null; }

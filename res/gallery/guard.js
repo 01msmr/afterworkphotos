@@ -1,8 +1,10 @@
 import * as THREE from '../vendor/three.module.js';
-import { ELEVATOR } from './hang.js?v=20260912y';
-import { inPoly } from './plan.js?v=20260912y';
-import { head, world } from './scene.js?v=20260912y';
-import { state } from './state.js?v=20260912y';
+import { lift } from './elevator.js?v=20260913a';   // its audio: the guard speaks through the same one
+import { ELEVATOR } from './hang.js?v=20260913a';
+import { duckMusic } from './music.js?v=20260913a';
+import { inPoly } from './plan.js?v=20260913a';
+import { head, world } from './scene.js?v=20260913a';
+import { state } from './state.js?v=20260913a';
 
 // ---------------------------------------------------------------------------
 // The guard
@@ -236,6 +238,7 @@ async function speak(kind, i, loud) {
 	g.gain.value = (loud ? 1 : 0.65) * heard();
 	src.connect(g); g.connect(vGain);
 	src.start();
+	duckMusic(b.duration);                   // the music steps back while he talks
 }
 
 function say(said, now, loud = false) {
