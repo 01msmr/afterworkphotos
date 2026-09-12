@@ -1,6 +1,6 @@
 import * as THREE from '../vendor/three.module.js';
-import { camera, renderer, scene } from './scene.js?v=20260915i';
-import { isFav, toggleFav } from './state.js?v=20260915i';
+import { camera, renderer, scene } from './scene.js?v=20260915j';
+import { isFav, toggleFav } from './state.js?v=20260915j';
 
 // ---------------------------------------------------------------------------
 // Red dots
@@ -76,13 +76,22 @@ export function findSpots() {
 // the dot on the pointer, the cross that offers to take one off, and what
 // the pointer is currently over
 let held = null, cross = null, over = null;
-// **A sticker goes only when the cross is pressed** (Uli, 2026-09-13) — it
-// does not step aside while the cross merely hovers over it. And once a
-// press has been made, the pointer **shows nothing at all** until it has
-// left the place and come back: the translucent dot that would otherwise
-// appear the instant a sticker is lifted reads as the sticker still being
-// there, half faded, rather than as an offer to put a new one on.
+// Once a press has been made, the pointer **shows nothing at all** until it
+// has left the place and come back (Uli, 2026-09-13): the translucent dot
+// that would otherwise appear the instant a sticker is lifted reads as the
+// sticker still being there, half faded, rather than as an offer to put a
+// new one on.
 let settled = null;
+// And while the cross is snapped over a sticker, **the sticker itself is
+// hidden** (Uli) — the two sit in the same place now, so the sticker would
+// otherwise peek out from behind a cross twice its size. It is back the
+// moment the pointer leaves; it was never gone, only covered. Which is why
+// stuck-ness is read off the favourites and not off whether the dot
+// happens to be drawn: it is hidden exactly when it is stuck.
+let lifted = null;
+function putBack() {
+	if (lifted) { lifted.dot.visible = isFav(lifted.photo.id); lifted = null; }
+}
 // The cross: **twice the sticker across** (Uli, 2026-09-13), so what it
 // offers to lift is unmistakable. Its arms are longer than that span —
 // turned 45 degrees, an arm of length L only reaches L/sqrt(2) sideways —
@@ -243,7 +252,7 @@ export function stepSticker() {
 	const d = heldDot(), x = heldCross();
 	const rc = aimed();
 	const hit = rc && surfaceHit(rc);
-	if (!hit) { settled = null; d.visible = x.visible = false; if (expand) expand.visible = false; if (loupe) loupe.visible = false; over = null; return; }
+	if (!hit) { putBack(); settled = null; d.visible = x.visible = false; if (expand) expand.visible = false; if (loupe) loupe.visible = false; over = null; return; }
 	// **how near the pointer comes to the place**, not how near the surface
 	// it happens to strike: the sticker is drawn to the ray itself (Uli,
 	// "adheres to the pointer in 12 cm range"). A place further along the
@@ -257,6 +266,7 @@ export function stepSticker() {
 	}
 	over = near ? near.s : null;
 	// exactly one cursor is up at a time
+	putBack();
 	if (over !== settled) settled = null;             // moved off: the pointer speaks again
 	const stuck = over && isFav(over.photo.id);
 	const showing = settled ? null
@@ -272,6 +282,7 @@ export function stepSticker() {
 		showing.position.copy(over.at);
 		showing.quaternion.copy(over.dot.getWorldQuaternion(_q));
 		showing.visible = true;
+		if (showing === x) { over.dot.visible = false; lifted = over; }   // the cross covers it
 	} else {
 		// not at a sticker's place: say what a press *here* would do instead
 		onSurface(showing, hit);
@@ -285,6 +296,7 @@ export function stickAt() {
 	if (!over) return false;
 	const on = toggleFav(over.photo.id);
 	over.dot.visible = on;
+	lifted = null;             // the press decides it; nothing is merely covered any more
 	settled = over;            // and the pointer holds its tongue until this place is left
 	return true;
 }
