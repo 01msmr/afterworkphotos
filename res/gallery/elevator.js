@@ -1,13 +1,13 @@
 import * as THREE from '../vendor/three.module.js';
-import { setWire, wire } from './bench.js?v=20260913h';
-import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260913h';
-import { ELEVATOR, clearRooms, hangRoom, roomByKey, rooms } from './hang.js?v=20260913h';
-import { WALL_STYLES, applyMode, dadoTop, dressWall, wallColours } from './room.js?v=20260913h';
-import { camera, head, renderer, scene, world } from './scene.js?v=20260913h';
-import { zoomLabel, zoomPrint } from './zoom.js?v=20260913h';
-import { PLANS, RAISES, state } from './state.js?v=20260913h';
-import { fitRoom, planAgain } from './vr.js?v=20260913h';
-import { placeBody, walk } from './walk.js?v=20260913h';
+import { setWire, wire } from './bench.js?v=20260913j';
+import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260913j';
+import { ELEVATOR, clearRooms, hangRoom, roomByKey, rooms } from './hang.js?v=20260913j';
+import { WALL_STYLES, applyMode, dadoTop, dressWall, wallColours } from './room.js?v=20260913j';
+import { camera, head, renderer, scene, world } from './scene.js?v=20260913j';
+import { zoomLabel, zoomPrint } from './zoom.js?v=20260913j';
+import { PLANS, RAISES, state } from './state.js?v=20260913j';
+import { fitRoom, planAgain } from './vr.js?v=20260913j';
+import { placeBody, walk } from './walk.js?v=20260913j';
 
 // ---------------------------------------------------------------------------
 // The elevator
@@ -611,12 +611,18 @@ export const elevator = {
 		const same = b => !at || (Math.abs(b.position.x - at.position.x) < 1e-4 && Math.abs(b.position.y - at.position.y) < 1e-4);
 		this.pressAnim = { meshes: this.buttons.filter(b => b.userData.key === key && same(b)), t0: performance.now() };
 	},
+	// The cap goes in and comes back. It used to run on two straight ramps
+	// and the turn between them read as a jiggle (Uli, 2026-09-12); now it
+	// is eased in and eased out, a little slower, so the cap moves as
+	// something with weight behind it does.
 	stepPress(now) {
 		const a = this.pressAnim;
 		if (!a) return;
-		const f = (now - a.t0) / 200, k = f < 0.35 ? f / 0.35 : Math.max(0, 1 - (f - 0.35) / 0.65);
+		const f = Math.min(1, (now - a.t0) / 260);
+		const ease = t => t * t * (3 - 2 * t);
+		const k = f < 0.4 ? ease(f / 0.4) : ease(1 - (f - 0.4) / 0.6);
 		for (const m of a.meshes) m.position.z = m.userData.z0 + k * BUTTON.rise * 0.7;
-		if (f >= 1) this.pressAnim = null;
+		if (f >= 1) { for (const m of a.meshes) m.position.z = m.userData.z0; this.pressAnim = null; }
 	},
 
 	placeInCabin() {

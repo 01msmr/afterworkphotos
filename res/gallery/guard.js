@@ -1,10 +1,10 @@
 import * as THREE from '../vendor/three.module.js';
-import { lift } from './elevator.js?v=20260913h';   // its audio: the guard speaks through the same one
-import { ELEVATOR } from './hang.js?v=20260913h';
-import { duckMusic } from './music.js?v=20260913h';
-import { inPoly } from './plan.js?v=20260913h';
-import { head, world } from './scene.js?v=20260913h';
-import { state } from './state.js?v=20260913h';
+import { elevator, lift } from './elevator.js?v=20260913j';   // its audio, and where the cabin stands
+import { ELEVATOR } from './hang.js?v=20260913j';
+import { duckMusic, pannerAt } from './music.js?v=20260913j';
+import { inPoly } from './plan.js?v=20260913j';
+import { head, world } from './scene.js?v=20260913j';
+import { state } from './state.js?v=20260913j';
 
 // ---------------------------------------------------------------------------
 // The guard
@@ -25,7 +25,7 @@ const GREY = 0x3c3f44, SEE = 0.75;        // a quarter transparent (Uli)
 const EDGE = 0.015;                        // and drawn round with a 1.5 cm outline (Uli, 2026-09-12)
 const EDGE_GREY = 0x1b1d20;
 const TALL = 1.8;                          // a person's height, full size (Uli)
-const CLOSE = 0.55;                        // m from a print: too close
+const CLOSE = 0.4;                         // m off a print before he says anything at all (Uli, 2026-09-12)
 
 // What it says. Several of everything, so it is never the same guard
 // twice (Uli, 2026-09-12), and **how much of it** is the visitor's
@@ -111,7 +111,8 @@ const ROW_PATIENCE = 5000;                 // and how long he lets you stand the
 // Persist and he stops being polite: the third time and after he simply
 // calls across the room, and inside VERY_CLOSE of a print he says stop.
 const SAY_TWICE = 2, THEN_WAIT = 15000, FORGET = 30000;
-const VERY_CLOSE = 0.32;                   // m off a print: near enough to put a hand on it
+const GREETS = 0.35;                       // how often he bothers to say hello at all
+const VERY_CLOSE = 0.15;                   // m off a print: a hand's breadth, and he says stop (Uli)
 const mood = () => MOOD[state.settings.talk] || MOOD.light;
 // Every line of a kind is used before any of them comes round again
 // (Uli, 2026-09-12: different phrases, not repeats): a shuffled bag per
@@ -271,7 +272,14 @@ async function speak(kind, i, loud) {
 	src.buffer = b;
 	const g = lift.ctx.createGain();
 	g.gain.value = (loud ? 1 : 0.65) * heard();
-	src.connect(g); g.connect(vGain);
+	// **out of the corner he stands in** (Uli, 2026-09-12), not out of the
+	// middle of your head: a panner where he is, asked for the direction
+	// only — the loudness is `heard()`, by the distance across the room
+	const p = lift.ctx.createPanner();
+	p.panningModel = 'HRTF'; p.distanceModel = 'linear';
+	p.refDistance = 1; p.maxDistance = 1000; p.rolloffFactor = 0;
+	pannerAt(p, guard.getWorldPosition(new THREE.Vector3()).setY(1.6));
+	src.connect(g); g.connect(p); p.connect(vGain);
 	src.start();
 	duckMusic(b.duration);                   // the music steps back while he talks
 }
@@ -388,17 +396,23 @@ export function stepGuard(now) {
 	for (const p of state.placed || []) {
 		const d = Math.hypot(p.x - _h.x, p.z - _h.z);
 		if (p.wall === 'mid') { if (d < ROW_NEAR + p.piece.w / 2 && (!row || d < row.d)) row = { p, d }; }
-		else if (d < CLOSE + p.piece.w / 2 && (!near || d < near.d)) near = { p, d };
+		else if (p.wall !== 'cabin' && d < CLOSE && (!near || d < near.d)) near = { p, d };   // the cabin's own print is the lift's business, not his
 	}
+	// he leaves you alone at the lift and inside it (Uli, 2026-09-12)
+	const o = elevator.origin;
+	const atLift = elevator.inside() || (o && Math.hypot(_h.x - o.x, _h.z - o.z) < ELEVATOR.size * 1.4);
+	if (atLift) { rowSince = 0; return; }
 	// behave for half a minute and he forgets you were ever told
 	if (strikes && now - lastStrike > FORGET) strikes = 0;
 	const fresh = p => now - (warnedAt.get(p) || -1e9) > WARN_AGAIN;
 	const mind = (p, kind, d) => {
-		if (now < quietUntil) return false;                  // he has said his piece; he is waiting
-		if (!fresh(p) || Math.random() > WARN_ODDS) return false;
+		// a hand's breadth off a print is not something to wait one's turn
+		// about: that one cuts through the quiet and through the rest (Uli)
+		const stop = d !== undefined && d < VERY_CLOSE;
+		if (!stop && now < quietUntil) return false;          // he has said his piece; he is waiting
+		if (!stop && (!fresh(p) || Math.random() > WARN_ODDS)) return false;
 		// the third time and after he does not repeat the sentence, he calls
-		const say_ = d !== undefined && d < VERY_CLOSE ? 'stop'   // all but touching it: the standoff itself, not the piece's width
-			: strikes >= SAY_TWICE ? 'call' : kind;
+		const say_ = stop ? 'stop' : strikes >= SAY_TWICE ? 'call' : kind;
 		if (!say(pick(say_), now, true)) return false;
 		warnedAt.set(p, now);
 		strikes++; lastStrike = now;

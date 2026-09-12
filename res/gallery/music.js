@@ -1,5 +1,6 @@
-import { elevator, lift } from './elevator.js?v=20260913h';
-import { head, world } from './scene.js?v=20260913h';
+import { elevator, lift } from './elevator.js?v=20260913j';
+import * as THREE from '../vendor/three.module.js';
+import { camera, head, world } from './scene.js?v=20260913j';
 
 // ---------------------------------------------------------------------------
 // The music in the lift
@@ -36,15 +37,47 @@ const DUCK = 0.33;          // what is left of it while the guard speaks
 const buffers = new Map();  // file -> AudioBuffer
 let at = -1, gain = null, filter = null, source = null, has = 0, starting = false;
 
+// It plays **out of the cabin**, not out of the middle of your head (Uli,
+// 2026-09-12): a panner set where the lift stands, so it comes from that
+// side of the room and swings round you as you turn. The panner is asked
+// only for the direction — its own distance rolloff is switched off and
+// the loudness stays with `level()`, which Uli tuned.
+let panner = null;
 function open() {
 	if (gain || !lift.ctx) return gain;
 	const ctx = lift.ctx;
 	filter = ctx.createBiquadFilter();
 	filter.type = 'lowpass'; filter.frequency.value = 2400; filter.Q.value = 0.3;   // heard through steel
 	gain = ctx.createGain(); gain.gain.value = 0;
-	filter.connect(gain); gain.connect(ctx.destination);
+	panner = ctx.createPanner();
+	panner.panningModel = 'HRTF'; panner.distanceModel = 'linear';
+	panner.refDistance = 1; panner.maxDistance = 1000; panner.rolloffFactor = 0;
+	filter.connect(gain); gain.connect(panner); panner.connect(ctx.destination);
 	return gain;
 }
+// Where the ears are, and where the cabin is. The listener follows the
+// head every frame; both the music and the guard's voice hang off it.
+const _e = new THREE.Vector3(), _f = new THREE.Vector3(), _u = new THREE.Vector3();
+export function earsAt(ctx) {
+	const l = ctx.listener, h = head();
+	camera.getWorldDirection(_f);
+	_u.set(0, 1, 0).applyQuaternion(camera.getWorldQuaternion(new THREE.Quaternion()));
+	if (l.positionX) {
+		const t = ctx.currentTime;
+		l.positionX.setValueAtTime(h.x, t); l.positionY.setValueAtTime(h.y, t); l.positionZ.setValueAtTime(h.z, t);
+		l.forwardX.setValueAtTime(_f.x, t); l.forwardY.setValueAtTime(_f.y, t); l.forwardZ.setValueAtTime(_f.z, t);
+		l.upX.setValueAtTime(_u.x, t); l.upY.setValueAtTime(_u.y, t); l.upZ.setValueAtTime(_u.z, t);
+	} else if (l.setPosition) {                              // the older way, still all some browsers have
+		l.setPosition(h.x, h.y, h.z);
+		l.setOrientation(_f.x, _f.y, _f.z, _u.x, _u.y, _u.z);
+	}
+}
+function pannerAt(p, v) {
+	if (!p) return;
+	if (p.positionX) { const t = lift.ctx.currentTime; p.positionX.setValueAtTime(v.x, t); p.positionY.setValueAtTime(v.y, t); p.positionZ.setValueAtTime(v.z, t); }
+	else p.setPosition(v.x, v.y, v.z);
+}
+export { pannerAt };
 
 async function load(file) {
 	if (buffers.has(file)) return buffers.get(file);
@@ -89,6 +122,8 @@ function level() {
 
 export function stepMusic(now) {
 	if (!lift.ctx || lift.ctx.state !== 'running' || !open()) return;
+	earsAt(lift.ctx);                                         // the listener rides with the head
+	if (elevator.origin) pannerAt(panner, world.localToWorld(new THREE.Vector3(elevator.origin.x, 1.4, elevator.origin.z)));
 	const want = level() * (performance.now() < duckUntil ? DUCK : 1);
 	// it begins the first time anyone comes near enough to hear it, and
 	// from then on it plays on, piece after piece
