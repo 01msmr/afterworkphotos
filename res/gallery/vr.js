@@ -1,11 +1,11 @@
 import * as THREE from '../vendor/three.module.js';
-import { BUTTON, elevator, pressAlong, settingsMap } from './elevator.js?v=20260914a';
-import { cornerFree, outlineOf, planOf, rotShape } from './plan.js?v=20260914a';
-import { tabletHit } from './tablet.js?v=20260914a';
-import { ELEVATOR, clearRooms, hangRoom, rooms } from './hang.js?v=20260914a';
-import { camera, head, renderer, rig, scene, world } from './scene.js?v=20260914a';
-import { loadSettings, state } from './state.js?v=20260914a';
-import { placeBody, walk } from './walk.js?v=20260914a';
+import { BUTTON, elevator, pressAlong, settingsMap } from './elevator.js?v=20260914c';
+import { cornerFree, outlineOf, planOf, rotShape } from './plan.js?v=20260914c';
+import { tabletHit } from './tablet.js?v=20260914c';
+import { ELEVATOR, clearRooms, hangRoom, rooms } from './hang.js?v=20260914c';
+import { camera, head, renderer, rig, scene, world } from './scene.js?v=20260914c';
+import { loadSettings, state } from './state.js?v=20260914c';
+import { placeBody, walk } from './walk.js?v=20260914c';
 
 // ---------------------------------------------------------------------------
 // VR (phase 2, first step)
@@ -75,7 +75,7 @@ async function offerVR() {
 					matchWalls();
 				});
 			} else state.bounded = null;
-			session.addEventListener('end', () => { vrButton.hidden = false; document.body.classList.remove('xr'); rig.position.set(0, 0, 0); rig.rotation.set(0, 0, 0); state.lookSet = false; if (state.real) { state.real = null; world.position.set(0, 0, 0); world.rotation.set(0, 0, 0); state.settings.H = loadSettings().H; clearRooms(); state.room = null; hangRoom(rooms()[0].key); } });
+			session.addEventListener('end', () => { vrButton.hidden = false; document.body.classList.remove('xr'); rig.position.set(0, 0, 0); rig.rotation.set(0, 0, 0); state.lookSet = false; if (state.real) { state.real = null; world.position.set(0, 0, 0); world.rotation.set(0, 0, 0); state.settings.H = loadSettings().H; clearRooms(); state.room = null; hangRoom(firstRoom().key); } });
 			await renderer.xr.setSession(session);
 			renderer.xr.setFoveation(0.3);
 			scene.traverse(o => { if (o.isDirectionalLight && o.castShadow) { o.shadow.mapSize.set(1024, 1024); o.shadow.map?.dispose(); o.shadow.map = null; } });
@@ -293,7 +293,7 @@ export function fitRoom(floorPts, walls, ceilings, floorY, source) {
 	state.settings.H = state.real.H;                    // for this session: the lines, the cabin
 	clearRooms();                                     // every year re-planned for this room
 	state.room = null;                                   // the room and cabin rebuilt
-	const key = rooms().some(r => r.key === state.roomKey) ? state.roomKey : (rooms().find(r => r.year === state.year) || rooms()[0]).key;
+	const key = rooms().some(r => r.key === state.roomKey) ? state.roomKey : (rooms().find(r => r.year === state.year) || firstRoom()).key;
 	hangRoom(key);
 	elevator.setDoors(1); elevator.open = 1;
 	// What the headset handed over, what was made of it, and how much of

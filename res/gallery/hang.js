@@ -1,15 +1,15 @@
 import * as THREE from '../vendor/three.module.js';
-import { bakeRoom, placeLabels } from './bake.js?v=20260914a';
-import { placeGuard } from './guard.js?v=20260914a';
-import { clearZoom } from './zoom.js?v=20260914a';
-import { setWire, wire } from './bench.js?v=20260914a';
-import { elevator, roomLabel } from './elevator.js?v=20260914a';
-import { FRAME, GRID_GAP, sc, textureCache } from './frames.js?v=20260914a';
-import { WALL_STYLES, buildRoom, dadoTop, floorOf, rectRoom, shapeOf, wallColours } from './room.js?v=20260914a';
-import { scene, world } from './scene.js?v=20260914a';
-import { HANG_MAX, pieceY, state } from './state.js?v=20260914a';
-import { framedSize, freeTexturesExcept, freeVideosExcept, makePiece } from './video.js?v=20260914a';
-import { BODY_R } from './walk.js?v=20260914a';
+import { bakeRoom, placeLabels } from './bake.js?v=20260914c';
+import { placeGuard } from './guard.js?v=20260914c';
+import { clearZoom } from './zoom.js?v=20260914c';
+import { setWire, wire } from './bench.js?v=20260914c';
+import { elevator, roomLabel } from './elevator.js?v=20260914c';
+import { FRAME, GRID_GAP, sc, textureCache } from './frames.js?v=20260914c';
+import { WALL_STYLES, buildRoom, dadoTop, floorOf, rectRoom, shapeOf, wallColours } from './room.js?v=20260914c';
+import { scene, world } from './scene.js?v=20260914c';
+import { HANG_MAX, pieceY, state } from './state.js?v=20260914c';
+import { framedSize, freeTexturesExcept, freeVideosExcept, makePiece } from './video.js?v=20260914c';
+import { BODY_R } from './walk.js?v=20260914c';
 
 // ---------------------------------------------------------------------------
 // Hanging a year
@@ -441,8 +441,27 @@ export function rooms() {
 	}
 	// newest room first: by year, then the later part
 	roomList.sort((a, b) => b.year.localeCompare(a.year) || b.part - a.part);
+	// **The favourites floor, one above the newest year** (Uli, 2026-09-13):
+	// the photographs the visitor has stuck a red dot on, hung like any
+	// other floor. It is always in the list — its button is there whether
+	// or not anything is on it, dark and dead until the first dot (Uli:
+	// darker than a visited floor, not lit; normal once there are any; and
+	// never shown as visited at all). `year` sorts it above every real one.
+	const favs = state.photos.filter(p => state.favs.has(p.id));
+	const fspecs = favs.length ? piecesOf(favs, false, 0).map(sp => ({ ...sp, w: specWidth(sp) })) : [];
+	roomList.unshift({ key: FAV_KEY, year: '9999', span: 'favourites', years: [], part: 0, of: 1,
+		specs: fspecs, shape: shapeOf(FAV_KEY), favs: true, empty: !favs.length });
 	return roomList;
 }
+// the favourites floor's key, known to the lift and the label stickers
+export const FAV_KEY = 'favorites';
+// Where a visitor lands, and what a step up or down may reach: the
+// newest **year**, never the favourites floor. It sorts to the top of
+// the list because it is the top floor, but it may hold nothing, and
+// arriving in an empty room is no arrival at all (Uli, 2026-09-13).
+export function firstRoom() { return rooms().find(r => !r.favs) || rooms()[0]; }
+// the floors you can actually go to: the favourites one only once a dot is on it
+export function openRooms() { return rooms().filter(r => !r.empty); }
 
 export function roomByKey(key) {
 	const r = rooms().find(r => r.key === key);
@@ -571,7 +590,7 @@ export function hangRoom(key) {
 }
 
 // Bench: plan every room afresh (state.real set by hand) and hang the newest.
-export function replan() { clearRooms(); state.room = null; hangRoom(rooms()[0].key); elevator.setDoors(1); }
+export function replan() { clearRooms(); state.room = null; hangRoom(firstRoom().key); elevator.setDoors(1); }
 
 // The bench's top view (?top=1, for checking and for Uli): a canvas in the
 // page's corner, 40 px a metre — the outline, the cabin and its exit

@@ -1,8 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
-import { SOUND, lift } from './elevator.js?v=20260914a';
-import { hangRoom, rooms } from './hang.js?v=20260914a';
-import { head, scene, world } from './scene.js?v=20260914a';
-import { state } from './state.js?v=20260914a';
+import { SOUND, lift } from './elevator.js?v=20260914c';
+import { hangRoom, openRooms, rooms } from './hang.js?v=20260914c';
+import { head, scene, world } from './scene.js?v=20260914c';
+import { state } from './state.js?v=20260914c';
 
 // ---------------------------------------------------------------------------
 // The instant lift
@@ -190,7 +190,7 @@ function stepGuide() {
 addEventListener('keydown', e => {
 	if (e.code !== 'KeyJ' || e.repeat) return;
 	e.preventDefault();
-	const list = rooms(), i = list.findIndex(r => r.key === state.roomKey);
+	const list = openRooms(), i = list.findIndex(r => r.key === state.roomKey);
 	const next = list[(i + 1) % list.length];
 	if (next) jump(next.specs[next.specs.length - 1].photos[0].n);   // its newest print, so the line has somewhere to lead
 });
