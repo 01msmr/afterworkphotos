@@ -18,7 +18,7 @@ function onePageScroll(element, options) {
   
   var defaults = {
 	    	sectionContainer: "section",
-	    	easing: "ease",
+	    	easing: "ease",that
 	    	animationTime: 1000,
 	    	pagination: true,
 	    	updateURL: false,
