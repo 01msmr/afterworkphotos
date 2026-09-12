@@ -1,8 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
-import { addLabel } from './bake.js?v=20260914e';
-import { FRAME, GRID_GAP, MAT_Z, PRINT_GLOW, PRINT_SCALE, matWidth, materials, photoTexture, poolMaterial, sc, textureCache, dropNear, nearTexture } from './frames.js?v=20260914e';
-import { camera, scene } from './scene.js?v=20260914e';
-import { pieceY, state } from './state.js?v=20260914e';
+import { addLabel } from './bake.js?v=20260914h';
+import { FRAME, GRID_GAP, MAT_Z, PRINT_GLOW, PRINT_SCALE, matWidth, materials, photoTexture, poolMaterial, sc, textureCache, dropNear, nearTexture } from './frames.js?v=20260914h';
+import { camera, scene } from './scene.js?v=20260914h';
+import { pieceY, state } from './state.js?v=20260914h';
 
 // ---------------------------------------------------------------------------
 // Videos — the LED panel
@@ -71,42 +71,49 @@ function ledGrid() {
 // distances are not the same on purpose — one threshold would swap back
 // and forth while somebody stood at the edge of it. Only the big and middling
 // prints bother; a 40 cm one in a grid has nothing more to show.
-// `warm` starts the 2000 loading well before it is wanted, and the swap
-// itself waits for the image to be there (Uli, 2026-09-13: the view
-// glitched on the swap and the picture flashed darker). A Texture handed
-// back by nearTexture() is empty until its JPEG has loaded and decoded —
-// assigning it the instant the visitor crossed the line put an empty map
-// on the print for a frame or more, which reads as a dark flash. Now the
-// fetch begins at `warm` and the map changes only once there is an image
-// to change it to; until then the print simply keeps its 1200 and the
-// next tick tries again. The texture is dropped past `warm`, not past
-// `far`, or stepping back a hand's breadth would throw away a file that
-// is about to be wanted again.
-const DETAIL = { warm: 2.4, near: 1.2, far: 1.7, every: 350, least: 0.6 };
+// **No swap at all any more** (Uli, 2026-09-13). Changing a print's map
+// when the visitor crossed a line still made the view jump, whatever was
+// done about the decode — so the 2000 is a second sheet lying over the
+// 1200 (makeFramedPrint, `photo-near`), and coming close only fades it
+// up. The picture under it never changes, so there is nothing to catch.
+// Full by 1 m, let go past 2.5 m, `fade` seconds either way; the sheet is
+// only shown once its image is really there, and its 16 MB is handed back
+// once it has faded out and the visitor has gone.
+const DETAIL = { near: 1.0, far: 2.5, fade: 0.06, least: 0.6 };   // fade: seconds end to end — very fast (Uli, 2026-09-13), about four frames in the headset
 let detailAt = 0;
 const _look = new THREE.Vector3(), _spot = new THREE.Vector3();
+let lastDetail = 0;
 export function stepDetail(now) {
-	if (now - detailAt < DETAIL.every) return;
-	detailAt = now;
 	const pieces = scene.getObjectByName('pieces');
 	if (!pieces) return;
+	const dt = Math.min(0.1, (now - (lastDetail || now)) / 1000);
+	lastDetail = now;
+	const step = Math.min(1, dt / DETAIL.fade);
 	camera.getWorldPosition(_look);
 	pieces.traverse(o => {
 		const u = o.userData;
-		if (o.name !== 'photo' || !u.photo || u.size < DETAIL.least) return;
+		if (o.name !== 'photo' || !u.over) return;
+		const over = u.over, m = over.material;
 		const d = o.getWorldPosition(_spot).distanceTo(_look);
-		if (d < DETAIL.warm && u.detail !== 'near') nearTexture(u.photo);   // on its way, quietly
-		const want = d < DETAIL.near ? 'near' : d > DETAIL.far ? 'wall' : u.detail;
-		if (want !== u.detail) {
-			if (want === 'near') {
-				const t = nearTexture(u.photo);
-				if (!t.image) return;                    // not in yet: keep the 1200, ask again next tick
-				o.material.map = t;
-			} else o.material.map = photoTexture(u.photo, u.size);
-			u.detail = want;
-			o.material.needsUpdate = true;
+		// the sheet is asked for as soon as it could be wanted, and only
+		// ever shown once its image is really there — an empty texture at
+		// no opacity shows nothing, which is the whole point of the layer
+		if (d < DETAIL.far) {
+			const t = nearTexture(u.photo);
+			if (t.image && m.map !== t) { m.map = m.emissiveMap = t; m.needsUpdate = true; }
 		}
-		if (u.detail !== 'near' && d > DETAIL.warm) dropNear(u.photo);
+		const want = d < DETAIL.near ? 1 : d > DETAIL.far ? 0 : m.opacity;
+		// straight, not eased: `fade` is then the time it actually takes.
+		// An exponential approach never arrives, and 0.08 s of it took near
+		// half a second to look finished.
+		if (m.map && m.opacity !== want) m.opacity = want > m.opacity ? Math.min(want, m.opacity + step) : Math.max(want, m.opacity - step);
+		if (m.opacity < 0.002) {
+			m.opacity = 0;
+			over.visible = false;
+			// past `far` and faded out: the 16 MB goes back
+			if (d > DETAIL.far && m.map) { m.map = m.emissiveMap = null; m.needsUpdate = true; dropNear(u.photo); }
+		} else over.visible = true;
+		m.emissiveIntensity = o.material.emissiveIntensity;   // it follows the day and the night with the sheet under it
 	});
 }
 
@@ -233,6 +240,23 @@ function makeFramedPrint(p, size) {
 	print.name = 'photo';
 	Object.assign(print.userData, { photo: p, size, detail: 'wall' });   // for the swap when someone comes close
 	print.position.z = MAT_Z + 0.001;                // a millimetre proud of the mat (Uli)
+	// **The big picture is a second sheet over the first, not a swap**
+	// (Uli, 2026-09-13). Changing a print's map put an undecoded texture on
+	// the wall for a frame and the view jumped; here the 1200 never moves,
+	// and the 2000 lies on top of it at no opacity at all until somebody
+	// comes near, then fades up. A child of the print, so a press that
+	// fills the frame carries it along. Only the prints that have more to
+	// show get one.
+	if (size >= DETAIL.least) {
+		const over = new THREE.Mesh(print.geometry,
+			new THREE.MeshLambertMaterial({ emissive: 0xffffff, emissiveIntensity: print.material.emissiveIntensity, transparent: true, opacity: 0, depthWrite: false }));
+		over.name = 'photo-near';
+		over.position.z = 0.0004;                      // local: a hair in front of the sheet under it
+		over.visible = false;
+		over.renderOrder = 1;
+		print.add(over);
+		print.userData.over = over;
+	}
 	print.userData.full = inner / printed;           // what it scales to when pressed: over the mat, edge to edge (Uli)
 	if (state.settings.fill) print.scale.setScalar(print.userData.full);   // unless filling the frame is the way round it starts (Uli)
 	g.add(print);

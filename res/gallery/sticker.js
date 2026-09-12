@@ -1,6 +1,6 @@
 import * as THREE from '../vendor/three.module.js';
-import { camera, renderer, scene } from './scene.js?v=20260914e';
-import { isFav, toggleFav } from './state.js?v=20260914e';
+import { camera, renderer, scene } from './scene.js?v=20260914h';
+import { isFav, toggleFav } from './state.js?v=20260914h';
 
 // ---------------------------------------------------------------------------
 // Red dots
@@ -11,30 +11,28 @@ import { isFav, toggleFav } from './state.js?v=20260914e';
 // place a dot belongs and it leaves the pointer and adheres there, and a
 // press sticks it on. A press on one already stuck peels it off.
 //
-// Where it belongs: **on the wall, DROP under the label**, since that is
-// where a wall exists behind a frame (Uli) — and on the card's own paper
-// for a piece in the middle of the room, where a slab hangs behind it and
-// there is no wall to stick to. Its place along the label is random over
-// SPREAD, but the same random every time: it comes from the photograph's
-// id, so a dot does not hop about the wall each time the room is hung.
+// Where it belongs: **just under the label's right corner**, on the wall,
+// since that is where a wall exists behind a frame (Uli) — and on the
+// card's own paper for a piece in the middle of the room, where a slab
+// hangs behind it and there is no wall to stick to.
+//
+// The place is **rolled afresh every time the room is hung** (Uli,
+// 2026-09-13: they were always in the same spot, and a sticker put on by
+// hand is not). It was a hash of the photograph's id, so a dot came back
+// to the millimetre it left; a new roll each hang is what a sheet of
+// stickers actually looks like on a wall.
 //
 // The dots are what the `favorites` floor is hung from (state.favs).
 export const DOT_R = 0.005;      // 1 cm across
-const SPREAD = 0.05;             // the 5 cm its place runs over
-const DROP = 0.10;               // how far under the label it sits, on the wall
+const LEFT = [-0.02, 0.05];      // how far left of the label's right corner (Uli: -2 to 5 cm)
+const UNDER = [0.005, 0.015];    // and how far under its bottom edge (Uli: 0.5 to 1.5 cm)
 const SNAP = 0.12;               // within this of that place, it leaves the pointer
 const RED = 0xc8322b;
+const between = ([a, b]) => a + Math.random() * (b - a);
 
 const dotGeo = new THREE.CircleGeometry(DOT_R, 20);
 const stuckMat = new THREE.MeshBasicMaterial({ color: RED });
 const heldMat = new THREE.MeshBasicMaterial({ color: RED, transparent: true, opacity: 0.5, depthTest: false });
-
-// the same random for the same photograph, for ever
-function offsetOf(id) {
-	let h = 0;
-	for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
-	return ((Math.abs(h) % 997) / 997 - 0.5) * SPREAD;
-}
 
 // A dot for every card of a piece, at its place, shown only if that
 // photograph carries one. Called once the labels are placed.
@@ -48,10 +46,9 @@ export function addDots(piece) {
 		const dot = new THREE.Mesh(dotGeo, stuckMat);
 		dot.name = 'dot';
 		dot.userData.photo = p;
-		const x = card.position.x + offsetOf(p.id);
-		dot.position.set(x, mid ? card.position.y - card.userData.ch / 2 + DOT_R + 0.004
-		                        : card.position.y - card.userData.ch / 2 - DROP,
-		                 mid ? 0.004 : 0.0006);   // on the paper, or a hair off the plaster
+		// from the card's bottom right corner, a fresh roll each hang
+		const right = card.position.x + L.cw / 2, bottom = card.position.y - card.userData.ch / 2;
+		dot.position.set(right - between(LEFT), bottom - between(UNDER), mid ? 0.004 : 0.0006);   // on the paper, or a hair off the plaster
 		dot.visible = isFav(p.id);
 		piece.add(dot);
 	});
