@@ -697,7 +697,13 @@ export const elevator = {
 	// those always got forgotten.
 	setDoors(open) {
 		const was = this.open;
-		if (open >= 0.5 && (was === undefined || was < 0.5)) lift.slide();
+		// **The slide is heard as the leaves start to move** (Uli,
+		// 2026-09-13: the sound was late). It waited for them to pass half
+		// open, which is halfway through the opening — and on the way shut
+		// it never played at all, since `open` only falls and the test only
+		// ever caught a rise. Now it goes off as they leave the jamb, either
+		// way round.
+		if (was !== undefined && ((was <= 0.001 && open > 0.001) || (was >= 0.999 && open < 0.999))) lift.slide();
 		this.open = open;
 		const [n, s] = this.doors;
 		n.position.z = n.userData.closedZ - open * DOOR.w / 2;
