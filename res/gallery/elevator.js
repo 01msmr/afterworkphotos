@@ -1,15 +1,15 @@
 import * as THREE from '../vendor/three.module.js';
-import { setWire, wire } from './bench.js?v=20260915t';
-import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260915t';
-import { ELEVATOR, FAV_KEY, clearRooms, firstRoom, hangRoom, roomByKey, rooms } from './hang.js?v=20260915t';
-import { WALL_STYLES, applyMode, dadoTop, dressWall, wallColours } from './room.js?v=20260915t';
-import { camera, head, renderer, scene, world } from './scene.js?v=20260915t';
-import { zoomLabel, zoomPrint } from './zoom.js?v=20260915t';
-import { DRAWN, measure, textMesh } from './text.js?v=20260915t';
-import { stickAt } from './sticker.js?v=20260915t';
-import { PLANS, RAISES, favCount, state } from './state.js?v=20260915t';
-import { fitRoom, planAgain } from './vr.js?v=20260915t';
-import { placeBody, walk } from './walk.js?v=20260915t';
+import { setWire, wire } from './bench.js?v=20260915w';
+import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260915w';
+import { ELEVATOR, FAV_KEY, clearRooms, firstRoom, hangRoom, roomByKey, rooms } from './hang.js?v=20260915w';
+import { WALL_STYLES, applyMode, dadoTop, dressWall, wallColours } from './room.js?v=20260915w';
+import { camera, head, renderer, scene, world } from './scene.js?v=20260915w';
+import { zoomLabel, zoomPrint } from './zoom.js?v=20260915w';
+import { DRAWN, measure, textMesh } from './text.js?v=20260915w';
+import { stickAt } from './sticker.js?v=20260915w';
+import { PLANS, RAISES, favCount, state } from './state.js?v=20260915w';
+import { fitRoom, planAgain } from './vr.js?v=20260915w';
+import { placeBody, walk } from './walk.js?v=20260915w';
 
 // ---------------------------------------------------------------------------
 // The elevator
@@ -904,11 +904,13 @@ export function pressAlong(rc, reach) {
 		pieces.traverse(o => {
 			if (o.name === 'label' && o.visible) labels.push(o);
 			else if (o.name === 'photo' && o.visible) prints.push(o);
+			// the pane over the frame's opening: never drawn, but pressed
+			else if (o.name === 'photo-area') prints.push(o);
 		});
 		const l = rc.intersectObjects(labels, false)[0];
 		if (l && l.distance <= 4) return zoomLabel(l.object.parent.userData.labels);
 		const ph = rc.intersectObjects(prints, false)[0];
-		if (ph && ph.distance <= 6) return zoomPrint(ph.object);
+		if (ph && ph.distance <= 6) return zoomPrint(ph.object.userData.print || ph.object);   // a press on the mat is a press on its picture
 	}
 	return false;
 }

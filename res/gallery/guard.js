@@ -1,10 +1,10 @@
 import * as THREE from '../vendor/three.module.js';
-import { elevator, lift } from './elevator.js?v=20260915t';   // its audio, and where the cabin stands
-import { ELEVATOR } from './hang.js?v=20260915t';
-import { musicLevel, pannerAt } from './music.js?v=20260915t';
-import { inPoly } from './plan.js?v=20260915t';
-import { head, scene, world } from './scene.js?v=20260915t';
-import { state } from './state.js?v=20260915t';
+import { elevator, lift } from './elevator.js?v=20260915w';   // its audio, and where the cabin stands
+import { ELEVATOR } from './hang.js?v=20260915w';
+import { musicLevel, pannerAt } from './music.js?v=20260915w';
+import { inPoly } from './plan.js?v=20260915w';
+import { head, scene, world } from './scene.js?v=20260915w';
+import { state } from './state.js?v=20260915w';
 
 // ---------------------------------------------------------------------------
 // The guard
@@ -159,9 +159,9 @@ const NARROW = 1.1;                        // m: something hanging this near on 
 // Persist and he stops being polite: the third time and after he simply
 // calls across the room, and inside VERY_CLOSE of a print he says stop.
 const SAY_TWICE = 2, THEN_WAIT = 15000, FORGET = 30000;
-const GREETS = 0.33;                       // how often he bothers to say hello at all (Uli, 0.25 -> 0.33 on 2026-09-13)
+const GREETS = 0.15;                       // how often he bothers to say hello at all (Uli: 0.25, then 0.33, and down to 0.15 on 2026-09-13 — he was greeting too much)
 const JOKES = 0.25;                        // and how often a first word is a joke rather than a rule
-const RAMBLES = 0.25;                      // and how often he runs on instead of saying the short thing (Uli, 2026-09-13)
+const RAMBLES = 0.12;                      // and how often he runs on instead of saying the short thing (Uli, 2026-09-13: 0.25 was too much of it — a long line is 15 s and they came round often)
 const VERY_CLOSE = 0.15;                   // m off a print: a hand's breadth, and he says stop (Uli)
 const mood = () => MOOD[state.settings.talk] || MOOD.light;
 // Every line of a kind is used before any of them comes round again

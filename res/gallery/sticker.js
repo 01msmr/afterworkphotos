@@ -1,7 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
-import { camera, renderer, scene } from './scene.js?v=20260915t';
-import { isFav, toggleFav } from './state.js?v=20260915t';
-import { elevator } from './elevator.js?v=20260915t';   // only to ask whether the visitor is in the cabin
+import { camera, renderer, scene } from './scene.js?v=20260915w';
+import { isFav, toggleFav } from './state.js?v=20260915w';
+import { elevator } from './elevator.js?v=20260915w';   // only to ask whether the visitor is in the cabin
+import { CARD_D } from './bake.js?v=20260915w';
 
 // ---------------------------------------------------------------------------
 // Red dots
@@ -50,11 +51,18 @@ export function addDots(piece) {
 		const dot = new THREE.Mesh(dotGeo, stuckMat);
 		dot.name = 'dot';
 		dot.userData.photo = p;
-		// from the card's bottom right corner, a fresh roll each hang
-		const right = card.position.x + L.cw / 2, bottom = card.position.y - card.userData.ch / 2;
-		dot.position.set(right - between(LEFT), bottom - between(UNDER), mid ? 0.004 : 0.0006);   // on the paper, or a hair off the plaster
+		// **A child of its card**, not of the piece (Uli, 2026-09-13): a
+		// doubled label used to leave its sticker behind on the wall. Held by
+		// the card, it doubles with it, comes forward with it, and travels
+		// with it — and so does the cross, which is drawn wherever it is.
+		// Its place is reckoned from the card's bottom right corner, a fresh
+		// roll each hang, and in the card's own frame that corner is
+		// (+cw/2, -ch/2).
+		const half = card.userData.ch / 2;
+		dot.position.set(L.cw / 2 - between(LEFT), -half - between(UNDER),
+			mid ? CARD_D / 2 + 0.001 : -CARD_D / 2 + 0.0006);   // on the paper, or a hair off the plaster behind it
 		dot.visible = isFav(p.id);
-		piece.add(dot);
+		card.add(dot);
 	});
 }
 
@@ -67,13 +75,24 @@ export function findSpots() {
 	if (!pieces) return;
 	pieces.traverse(o => {
 		if (o.name !== 'dot') return;
-		const at = o.getWorldPosition(new THREE.Vector3());
-		// the dot is drawn at `at`; it is **aimed at** from AIM_DROP lower
-		const aim = at.clone(); aim.y -= AIM_DROP;
-		spots.push({ dot: o, photo: o.userData.photo, at, aim });
+		spots.push({ dot: o, photo: o.userData.photo, at: new THREE.Vector3(), aim: new THREE.Vector3() });
 	});
+	freshen();
 }
 
+// Where every place stands **now** — asked afresh each look, not kept from
+// the hang: a card that has been doubled has carried its sticker up, out
+// and over with it, and a place remembered from before would leave the
+// cursor snapping at bare wall (Uli, 2026-09-13). The aim drops with the
+// card's own scale, so the reach grows with what it reaches for.
+function freshen() {
+	for (const s of spots) {
+		s.dot.getWorldPosition(s.at);
+		const k = s.dot.parent ? s.dot.parent.scale.x : 1;
+		s.aim.copy(s.at); s.aim.y -= AIM_DROP * k;
+		s.scale = k;
+	}
+}
 // the dot on the pointer, the cross that offers to take one off, and what
 // the pointer is currently over
 let held = null, cross = null, over = null;
@@ -264,7 +283,7 @@ function discIcon() {
 // what the ray is over, when it is not over a sticker's place
 function overKind(hit) {
 	for (let o = hit.object; o; o = o.parent) {
-		if (o.name === 'photo' || o.name === 'photo-near') return 'print';
+		if (o.name === 'photo' || o.name === 'photo-near' || o.name === 'photo-area') return 'print';
 		if (o.name === 'label') return 'label';
 		if (o.name.startsWith('cap-') || o.name.startsWith('print-') ||
 		    o.name.startsWith('steel-') || o.name.startsWith('pocket-')) return 'button';
@@ -298,6 +317,7 @@ export function stepSticker() {
 	// "adheres to the pointer in 12 cm range"). A place further along the
 	// ray than the surface in front of it is behind something, and is not
 	// on offer.
+	freshen();
 	let near = null;
 	for (const s of spots) {
 		const gap = rc.ray.distanceToPoint(s.aim);
@@ -327,10 +347,12 @@ export function stepSticker() {
 		// what they show is where the thing is, not where the hand is.
 		showing.position.copy(over.at);
 		showing.quaternion.copy(over.dot.getWorldQuaternion(_q));
+		showing.scale.setScalar(over.scale || 1);     // doubled with the card, as the sticker is
 		showing.visible = true;
 		if (showing === x) { over.dot.visible = false; lifted = over; }   // the cross covers it
 	} else {
 		// not at a sticker's place: say what a press *here* would do instead
+		showing.scale.setScalar(1);
 		onSurface(showing, hit, rc.ray.origin);
 		showing.visible = true;
 	}

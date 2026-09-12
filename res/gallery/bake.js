@@ -1,8 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
-import { materials, poolMaterial } from './frames.js?v=20260915t';
-import { renderer, world } from './scene.js?v=20260915t';
-import { state } from './state.js?v=20260915t';
-import { DRAWN, measure, textMesh } from './text.js?v=20260915t';
+import { materials, poolMaterial } from './frames.js?v=20260915w';
+import { renderer, world } from './scene.js?v=20260915w';
+import { state } from './state.js?v=20260915w';
+import { DRAWN, measure, textMesh } from './text.js?v=20260915w';
 
 // ---------------------------------------------------------------------------
 // Baking a room
@@ -110,7 +110,19 @@ const CARD_H = 2 * (80 + 64 * CARD_LINES);       // the paper, in that space
 // against its face and the thickness is actually seen — with enough
 // emissive that the paper stays paper in a night room, which is what the
 // unlit material was for before it had any sides to show.
-const CARD_D = 0.004, CARD_GLOW = 0.5;
+export const CARD_D = 0.004;
+const CARD_GLOW = 0.5;
+// Where a card rests, and where it stands when it is doubled to be read.
+// **A doubled card must never end up buried in the wall's own dressing**
+// (Uli, 2026-09-13). Measured off the plaster, a wall carries: the dado
+// panel at 2 mm, the wainscot at 6, its rail at 12, the skirting at 15 and
+// the wainscot's cap at 20 — while a card's back sits on the wall itself.
+// A card at rest hangs above all that, but doubled it grows downward and
+// reaches into it, and the cap alone is five times the card's thickness.
+// It does not have to be moved out of the way: it comes **forward** of the
+// lot, 26 mm out, which clears the deepest of them by 5 mm and reads as a
+// card lifted toward you to be read — which is what it is.
+export const CARD_REST_Z = CARD_D / 2, CARD_READ_Z = 0.026;
 const PAPER = 0xfdfcfa, INK = [0x141311, 0x3d3a36];
 const FACE = ['bold', 'medium'];                 // the first line heavier, as it was at 600 against 500
 const SIZE = [84, 76];
@@ -133,6 +145,15 @@ function makeCard(lines, cw) {
 	const text = textMesh(rows, unit, CARD_H);
 	text.position.z = CARD_D / 2 + 0.0002;        // on the board's face, a breath proud of it
 	card.add(text);
+	// The shadow those 4 mm throw. **Painted, not cast**: real shadows have
+	// been off since 2026-09-05 (Uli — the hard cut-outs looked wrong), and
+	// a print fakes its own the same way, a faint plane a hair larger nudged
+	// down and to the right. A board standing off the wall with nothing
+	// under it reads as printed on the wall rather than laid against it.
+	const rim = new THREE.Mesh(new THREE.PlaneGeometry(cw + 0.004, ch + 0.004), materials.rim);
+	rim.name = 'label-shadow';
+	rim.position.set(0.0012, -0.0012, -CARD_D / 2 - 0.0004);
+	card.add(rim);
 	return card;
 }
 // A piece's labels: a single's one card, a grid's one card per print laid
@@ -168,7 +189,7 @@ export function placeLabels(piece, w, h, roomRight, forceBelow = false) {
 	const x0 = below ? w / 2 - L.bw : w / 2 + LABEL_OFF, y0 = below ? -h / 2 - 0.03 : -h / 2 + L.bh;
 	L.cards.forEach((card, i) => {
 		const col = i % L.cols, row = Math.floor(i / L.cols);
-		card.position.set(x0 + col * (L.cw + LABEL_GAP) + L.cw / 2, y0 - row * (L.ch + LABEL_GAP) - card.userData.ch / 2, CARD_D / 2);   // its back on the wall, its face 4 mm out
+		card.position.set(x0 + col * (L.cw + LABEL_GAP) + L.cw / 2, y0 - row * (L.ch + LABEL_GAP) - card.userData.ch / 2, CARD_REST_Z);   // its back on the wall, its face 4 mm out
 		Object.assign(card.userData, { x0: card.position.x, y0: card.position.y, below });
 	});
 	piece.userData.labelDrop = below ? 0.03 + L.bh : 0;   // what hangs under the frame, for the slab
