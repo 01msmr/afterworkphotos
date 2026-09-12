@@ -1,6 +1,6 @@
 import * as THREE from '../vendor/three.module.js';
-import { camera, renderer, scene } from './scene.js?v=20260914w';
-import { isFav, toggleFav } from './state.js?v=20260914w';
+import { camera, renderer, scene } from './scene.js?v=20260914x';
+import { isFav, toggleFav } from './state.js?v=20260914x';
 
 // ---------------------------------------------------------------------------
 // Red dots
@@ -115,6 +115,7 @@ function heldDot() {
 // The ray the visitor is pointing: a controller in the headset (whichever
 // hand is aimed at something nearer), the middle of the view on the bench.
 const _rc = new THREE.Raycaster(), _o = new THREE.Vector3(), _d = new THREE.Vector3(), _q = new THREE.Quaternion();
+const _n = new THREE.Vector3(), _on = new THREE.Vector3(), _plane = new THREE.Plane();
 function aimed() {
 	if (!renderer.xr.isPresenting) {
 		_rc.setFromCamera(new THREE.Vector2(0, 0), camera);
@@ -168,14 +169,25 @@ export function stepSticker() {
 	}
 	over = near ? near.s : null;
 	if (over && over.dot.visible) {
-		// A sticker already on: the cross, offering to lift it. It sits on
-		// **the cursor** (Uli, 2026-09-13), which once the pointer has taken
-		// hold of a place is that place's own aiming spot — not the raw point
-		// the ray struck. For a middle row that point can be a wall a metre
-		// and a half behind, and the cross would hang out there on its own.
-		x.position.copy(over.aim);
-		x.quaternion.copy(over.dot.getWorldQuaternion(_q));
-		x.visible = true; d.visible = false;
+		// A sticker already on: the cross, offering to lift it. It **keeps
+		// moving with the pointer** right up until the press (Uli,
+		// 2026-09-13) — it is a cursor, not a marker, and a cursor that
+		// stops moving reads as though the press has already happened.
+		//
+		// It rides the sticker's **own plane** rather than whatever the ray
+		// happens to strike: for a middle row the strike can be a wall a
+		// metre and a half behind the picture, and the cross went out there
+		// with it. So the ray is met with the plane the place lies in, which
+		// tracks the hand exactly and always stays where the sticker is.
+		over.dot.getWorldQuaternion(_q);
+		_n.set(0, 0, 1).applyQuaternion(_q);
+		_plane.setFromNormalAndCoplanarPoint(_n, over.aim);
+		if (rc.ray.intersectPlane(_plane, _on)) {
+			x.position.copy(_on).addScaledVector(_n, 0.0008);
+			x.quaternion.copy(_q);
+			x.visible = true;
+		} else x.visible = false;
+		d.visible = false;
 	} else if (over) {
 		// an empty place: the dot it would put there, shown where it will go
 		d.position.copy(over.at);
