@@ -25,7 +25,13 @@ ROOT = Path(__file__).resolve().parent.parent
 TTC = '/System/Library/Fonts/HelveticaNeue.ttc'
 FACES = {'bold': 1, 'medium': 10, 'light': 7}     # weight 600 / 500 / 300
 EM = 96                  # the size each glyph is drawn at before the field is measured
-CELL = 48                # and the size of its cell in the atlas
+CELL = 64                # the size of its cell in the atlas
+GUTTER = 8               # **empty field around each glyph inside its cell.** Without it the
+                         # cells touch, and a mipmap of the atlas — which is what a label
+                         # across the room is read from — averages a letter together with
+                         # its neighbours in the sheet. Text at distance turned to mush
+                         # (Uli, 2026-09-13). The glyph is drawn at CELL - 2*GUTTER and the
+                         # UVs point at that inner square.
 SPREAD = 12.0            # how far from an edge the field still says something, in EM pixels
 COLS = 20
 CHARS = ''.join(chr(c) for c in range(32, 127)) + 'ÄÖÜäöüßÀÁÂÈÉÊÍÎÑÓÔÚàáâçèéêíîñóôöúû–—·’‘“”…'
@@ -110,7 +116,10 @@ def main():
                 glyphs[f'{face}|{ch}'] = {'adv': font.getlength(ch) / EM, 'w': 0, 'h': 0, 'bx': 0, 'by': 0, 'cell': -1}
                 continue
             sdf = np.clip(field(mask) / SPREAD, -1, 1) * 0.5 + 0.5      # 0..1, the edge at 0.5
-            cell = Image.fromarray((sdf * 255).astype(np.uint8)).resize((CELL, CELL), Image.BILINEAR)
+            inner = CELL - 2 * GUTTER
+            small = Image.fromarray((sdf * 255).astype(np.uint8)).resize((inner, inner), Image.BILINEAR)
+            cell = Image.new('L', (CELL, CELL), 0)      # 0 = far outside any letter
+            cell.paste(small, (GUTTER, GUTTER))
             glyphs[f'{face}|{ch}'] = {
                 'adv': font.getlength(ch) / EM,
                 'w': w / EM, 'h': h / EM,                       # the quad, in em
@@ -127,7 +136,7 @@ def main():
         atlas.paste(cell, ((i % COLS) * CELL, (i // COLS) * CELL))
     out_png, out_json = ROOT / 'res' / 'sdf-font.png', ROOT / 'res' / 'sdf-font.json'
     atlas.save(out_png, optimize=True)
-    json.dump({'cell': CELL, 'cols': COLS, 'rows': rows, 'spread': SPREAD / EM,
+    json.dump({'cell': CELL, 'gutter': GUTTER, 'cols': COLS, 'rows': rows, 'spread': SPREAD / EM,
                'em': EM, 'faces': faces, 'glyphs': glyphs}, open(out_json, 'w'), separators=(',', ':'))
     print(f'\n{len(cells)} cells, atlas {atlas.width}x{atlas.height} -> {out_png.name} '
           f'({out_png.stat().st_size // 1024} KB on disk, {atlas.width * atlas.height / 1048576:.2f} MB as one channel in memory)')

@@ -1,15 +1,15 @@
 import * as THREE from '../vendor/three.module.js';
-import { setWire, wire } from './bench.js?v=20260915x';
-import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260915x';
-import { ELEVATOR, FAV_KEY, clearRooms, firstRoom, hangRoom, roomByKey, rooms } from './hang.js?v=20260915x';
-import { WALL_STYLES, applyMode, dadoTop, dressWall, wallColours } from './room.js?v=20260915x';
-import { camera, head, renderer, scene, world } from './scene.js?v=20260915x';
-import { zoomLabel, zoomPrint } from './zoom.js?v=20260915x';
-import { DRAWN, measure, textMesh } from './text.js?v=20260915x';
-import { stickAt } from './sticker.js?v=20260915x';
-import { PLANS, RAISES, favCount, state } from './state.js?v=20260915x';
-import { fitRoom, planAgain } from './vr.js?v=20260915x';
-import { placeBody, walk } from './walk.js?v=20260915x';
+import { setWire, wire } from './bench.js?v=20260916b';
+import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260916b';
+import { ELEVATOR, FAV_KEY, clearRooms, firstRoom, hangRoom, roomByKey, rooms } from './hang.js?v=20260916b';
+import { WALL_STYLES, applyMode, dadoTop, dressWall, wallColours } from './room.js?v=20260916b';
+import { camera, head, renderer, scene, world } from './scene.js?v=20260916b';
+import { zoomLabel, zoomPrint } from './zoom.js?v=20260916b';
+import { DRAWN, measure, textMesh } from './text.js?v=20260916b';
+import { stickAt } from './sticker.js?v=20260916b';
+import { PLANS, RAISES, favCount, state } from './state.js?v=20260916b';
+import { fitRoom, planAgain } from './vr.js?v=20260916b';
+import { placeBody, walk } from './walk.js?v=20260916b';
 
 // ---------------------------------------------------------------------------
 // The elevator
@@ -596,7 +596,9 @@ export const elevator = {
 			// own letters standing a hair in front of it
 			const print = put('print', printGeo, faceMat, -0.003 - rise - 0.0012);
 			print.rotation.y = Math.PI;
-			print.add(buttonText(year, room));
+			const yr = buttonText(year, room);
+			yr.position.z = 0.0008;              // off the face it is written on, or it crawls
+			print.add(yr);
 			this.buttons.push(cap, print);              // both press
 		}
 		// the favourites button: the same parts, its own line, the dot on it
