@@ -1,7 +1,7 @@
 import * as THREE from '../vendor/three.module.js';
-import { materials, poolMaterial } from './frames.js?v=20260914h';
-import { renderer, world } from './scene.js?v=20260914h';
-import { state } from './state.js?v=20260914h';
+import { materials, poolMaterial } from './frames.js?v=20260914j';
+import { renderer, world } from './scene.js?v=20260914j';
+import { state } from './state.js?v=20260914j';
 
 // ---------------------------------------------------------------------------
 // Baking a room
@@ -91,17 +91,30 @@ function labelLines(photos) {
 // so a wall of labels is a wall of one size. A line too long for the
 // paper is squeezed to fit rather than running off it.
 const CARD_LINES = 3;
+// **1024 across, not 1536** (Uli, 2026-09-13). The cards were the biggest
+// thing in a room's memory — 3.2 MB apiece, one per photograph, 236 MB in
+// a 74-frame room, as much as every photograph put together — and far
+// more resolution than the Quest's panel can show. 1024 halves it to
+// 105 MB and is still above the panel everywhere it is read: a 24 cm card
+// is 3.0x at a metre, and a **doubled** one — which is the sharpest thing
+// asked of it — is 1.5x at a metre and 1.1x at 0.7 m. 512 was tried on
+// paper and is 0.5x on a doubled card at 0.7 m: that would have softened
+// the very thing the doubling is for. The layout below is written in the
+// old 1536 space and scaled, so the numbers still mean what they did.
+const CARD_PX = 1024, CARD_DRAWN = 1536;
 function makeCard(lines, cw) {
 	const c = document.createElement('canvas');
-	c.width = 1536; c.height = 2 * (80 + 64 * CARD_LINES);
+	const k = CARD_PX / CARD_DRAWN;
+	c.width = CARD_PX; c.height = Math.round(2 * (80 + 64 * CARD_LINES) * k);
 	const g = c.getContext('2d');
-	g.fillStyle = '#fdfcfa'; g.fillRect(0, 0, c.width, c.height);
+	g.scale(k, k);
+	g.fillStyle = '#fdfcfa'; g.fillRect(0, 0, CARD_DRAWN, c.height / k);
 	g.textBaseline = 'middle';
 	// near-black, a weight up: what the headset's pixels can still resolve is contrast (Uli)
 	lines.slice(0, CARD_LINES).forEach((line, i) => {
 		g.fillStyle = i === 0 ? '#141311' : '#3d3a36';
 		g.font = `${i === 0 ? 600 : 500} ${i === 0 ? 84 : 76}px -apple-system, "Helvetica Neue", Arial, sans-serif`;
-		const room = c.width - 160;
+		const room = CARD_DRAWN - 160;
 		const wide = g.measureText(line).width;
 		g.save();
 		if (wide > room) { g.translate(80, 0); g.scale(room / wide, 1); g.fillText(line, 0, 2 * (40 + 32 + 64 * i)); }
