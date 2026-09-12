@@ -1,6 +1,6 @@
 import * as THREE from '../vendor/three.module.js';
-import { camera, renderer, scene } from './scene.js?v=20260914s';
-import { isFav, toggleFav } from './state.js?v=20260914s';
+import { camera, renderer, scene } from './scene.js?v=20260914w';
+import { isFav, toggleFav } from './state.js?v=20260914w';
 
 // ---------------------------------------------------------------------------
 // Red dots
@@ -73,8 +73,34 @@ export function findSpots() {
 	});
 }
 
-// the dot on the pointer, and what it is currently over
-let held = null, over = null;
+// the dot on the pointer, the cross that offers to take one off, and what
+// the pointer is currently over
+let held = null, cross = null, over = null;
+// The cross: **twice the sticker across** (Uli, 2026-09-13), so what it
+// offers to lift is unmistakable. Its arms are longer than that span —
+// turned 45 degrees, an arm of length L only reaches L/sqrt(2) sideways —
+// so the arm is worked back out of the width wanted rather than guessed.
+const X_SPAN = 2 * 2 * 0.0065, X_BAR = 0.0045;
+const X_ARM = X_SPAN / Math.SQRT1_2 - X_BAR;
+// **A red cross where a press would take a sticker off** (Uli,
+// 2026-09-13). Pointing at bare wall offers a dot; pointing at a sticker
+// already stuck offered nothing at all before, so there was no way to see
+// that the press would undo rather than do.
+function heldCross() {
+	if (!cross) {
+		cross = new THREE.Group();
+		cross.name = 'held-cross';
+		for (const turn of [Math.PI / 4, -Math.PI / 4]) {
+			const bar = new THREE.Mesh(new THREE.PlaneGeometry(X_ARM, X_BAR), heldMat);
+			bar.rotation.z = turn;
+			cross.add(bar);
+		}
+		cross.renderOrder = 3;
+		cross.visible = false;
+		scene.add(cross);
+	}
+	return cross;
+}
 function heldDot() {
 	if (!held) {
 		held = new THREE.Mesh(dotGeo, heldMat);
@@ -116,13 +142,19 @@ function surfaceHit(rc) {
 	return targets.length ? rc.intersectObjects(targets, true)[0] : null;
 }
 
+// laid on whatever the ray struck, a breath proud of it and facing out
+function onSurface(obj, hit) {
+	const n = hit.face.normal.clone().transformDirection(hit.object.matrixWorld);
+	obj.position.copy(hit.point).addScaledVector(n, 0.0008);
+	obj.lookAt(obj.position.clone().add(n));
+}
 // Each frame: the dot rides the wall under the pointer, and adheres to a
 // place when the pointer comes near one.
 export function stepSticker() {
-	const d = heldDot();
+	const d = heldDot(), x = heldCross();
 	const rc = aimed();
 	const hit = rc && surfaceHit(rc);
-	if (!hit) { d.visible = false; over = null; return; }
+	if (!hit) { d.visible = x.visible = false; over = null; return; }
 	// **how near the pointer comes to the place**, not how near the surface
 	// it happens to strike: the sticker is drawn to the ray itself (Uli,
 	// "adheres to the pointer in 12 cm range"). A place further along the
@@ -135,14 +167,23 @@ export function stepSticker() {
 		if (!near || gap < near.gap) near = { s, gap };
 	}
 	over = near ? near.s : null;
-	if (over) {
+	if (over && over.dot.visible) {
+		// A sticker already on: the cross, offering to lift it. It sits on
+		// **the cursor** (Uli, 2026-09-13), which once the pointer has taken
+		// hold of a place is that place's own aiming spot — not the raw point
+		// the ray struck. For a middle row that point can be a wall a metre
+		// and a half behind, and the cross would hang out there on its own.
+		x.position.copy(over.aim);
+		x.quaternion.copy(over.dot.getWorldQuaternion(_q));
+		x.visible = true; d.visible = false;
+	} else if (over) {
+		// an empty place: the dot it would put there, shown where it will go
 		d.position.copy(over.at);
 		d.quaternion.copy(over.dot.getWorldQuaternion(_q));
-		d.visible = !over.dot.visible;        // no second dot over one already stuck
+		d.visible = true; x.visible = false;
 	} else {
-		d.position.copy(hit.point).addScaledVector(hit.face.normal.clone().transformDirection(hit.object.matrixWorld), 0.0006);
-		d.lookAt(d.position.clone().add(hit.face.normal.clone().transformDirection(hit.object.matrixWorld)));
-		d.visible = true;
+		onSurface(d, hit);
+		d.visible = true; x.visible = false;
 	}
 }
 
