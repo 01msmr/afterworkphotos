@@ -1,7 +1,7 @@
 import * as THREE from '../vendor/three.module.js';
-import { walnut } from './elevator.js?v=20260913w';
-import { renderer, scene } from './scene.js?v=20260913w';
-import { state } from './state.js?v=20260913w';
+import { walnut } from './elevator.js?v=20260913x';
+import { renderer, scene } from './scene.js?v=20260913x';
+import { state } from './state.js?v=20260913x';
 
 // ---------------------------------------------------------------------------
 // The frames
@@ -149,15 +149,15 @@ export const textureCache = new Map();
 // stays empty until loaded, which is what the lift waits for. Textures
 // of a room you have left are freed.
 // What a print carries as it hangs, and what it swaps to when someone
-// comes up to it (Uli, 2026-09-13): 1200 on the wall, the largest file
-// there is within a metre and a half. A 2000 px square costs 16 MB of
+// comes up to it (Uli, 2026-09-13): **the photograph's own file, which is
+// now 1200** — the site shows the same one, so there is one set and not
+// two — and the largest file there is within a metre and a half. A 2000 px square costs 16 MB of
 // video memory against 6 MB at 1200, so it is worth having for the one
 // or two prints a visitor is actually standing at, and ruinous for a
 // whole room at once.
-const PHOTO_PX = { 0.9: 1200, 0.6: 1000, 0.4: 512 };
+const PHOTO_PX = { 0.9: 1200, 0.6: 1200, 0.4: 512 };
 const NEAR_PX = 2000;
 const name = p => p.file.slice(p.file.lastIndexOf('/') + 1);
-const hdFile = p => 'img/1200/' + name(p);
 export function photoTexture(p, size) {
 	const px = PHOTO_PX[size] || 1000;
 	const key = `${p.n}@${px}`;
@@ -166,7 +166,6 @@ export function photoTexture(p, size) {
 		t.colorSpace = THREE.SRGBColorSpace;
 		t.anisotropy = 8;                        // prints seen at an angle stay sharp; the Quest 3 affords it (Uli, 2026-09-05)
 		const img = new Image();
-		img.onerror = () => { if (img.src.includes('/img/1600/')) img.src = '/' + p.file; };
 		// decoded off the main thread, then sent to the GPU at once: each
 		// print costs its frame as it arrives during the ride, not all of
 		// them the frame the doors open (Uli: the view lagged a second or two)
@@ -180,7 +179,7 @@ export function photoTexture(p, size) {
 			t.needsUpdate = true;
 			renderer.initTexture(t);
 		});
-		img.src = '/' + (px > 1000 ? hdFile(p) : p.file);   // photos.json paths are relative to the site root
+		img.src = '/' + p.file;                  // photos.json paths are relative to the site root; the file itself is the 1200
 		textureCache.set(key, t);
 	}
 	return textureCache.get(key);

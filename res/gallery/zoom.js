@@ -1,6 +1,6 @@
 import * as THREE from '../vendor/three.module.js';
-import { camera, scene } from './scene.js?v=20260913w';
-import { state } from './state.js?v=20260913w';
+import { camera, scene } from './scene.js?v=20260913x';
+import { state } from './state.js?v=20260913x';
 
 // ---------------------------------------------------------------------------
 // What a press makes bigger

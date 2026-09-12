@@ -3,10 +3,11 @@
 # current.
 #
 # Every photo lives under a date name, awp-YYYY-MM-DD-NN (NN counts the
-# photos of that day in time order): img/<name>.jpg is the 1000px square
-# derivative, img/1600/<name>.jpg the 1600px one for the VR gallery's
-# prints (never enlarged), img/thumb/<name>.jpg the 200px thumbnail, "img originals/
-# <name>.<ext>" the full-size original cropped to the same square, and for a
+# photos of that day in time order): img/<name>.jpg is the 1200px square
+# derivative the site and the gallery's walls share, img/2000/<name>.jpg the
+# one a print swaps to up close (never enlarged), img/thumb/<name>.jpg the
+# 200px thumbnail, "img originals/<name>.<ext>" the full-size original
+# cropped to the same square, and for a
 # video img/<name>.mp4 as well. The site never shows these names; it numbers
 # the photos 1..N in date order through photos.json.
 #
@@ -308,18 +309,16 @@ for f in ${files[@]+"${files[@]}"}; do
     read -r w h < <(identify -format '%w %h\n' "$tmp")
     s=$(( w < h ? w : h ))
     convert "$tmp" -gravity center -crop "${s}x${s}+0+0" +repage \
-      -resize 1000x1000 -quality 85 -strip "img/$id.jpg"
+      -resize '1200x1200>' -quality 86 -strip "img/$id.jpg"     # the site's own file, and the gallery's wall print
     git add "img/$id.jpg"
-    # the gallery's derivatives (never enlarged): 1200 is what a print
-    # hangs at, 2000 what it swaps to when a visitor comes within a metre
-    # and a half (res/gallery/video.js, stepDetail), 1600 the older set
-    # the swap falls back to where no 2000 exists
-    mkdir -p img/1200 img/1600 img/2000
-    for px in 1200 1600 2000; do
-      convert "$tmp" -gravity center -crop "${s}x${s}+0+0" +repage \
-        -resize "${px}x${px}>" -quality 85 -strip "img/$px/$id.jpg"
-      git add "img/$px/$id.jpg"
-    done
+    # and the one a print swaps to when a visitor comes within a metre and
+    # a half (res/gallery/video.js, stepDetail). The 1200 above is what
+    # hangs on the wall and what the site shows; nothing between them is
+    # kept any more (Uli, 2026-09-13).
+    mkdir -p img/2000
+    convert "$tmp" -gravity center -crop "${s}x${s}+0+0" +repage \
+      -resize '2000x2000>' -quality 85 -strip "img/2000/$id.jpg"
+    git add "img/2000/$id.jpg"
     if (( w == h )); then
       move "$f" "img originals/$id.$ext"
     else
