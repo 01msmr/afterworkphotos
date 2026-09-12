@@ -1,6 +1,6 @@
-import { elevator, lift } from './elevator.js?v=20260913z';
+import { elevator, lift } from './elevator.js?v=20260914a';
 import * as THREE from '../vendor/three.module.js';
-import { camera, head, world } from './scene.js?v=20260913z';
+import { camera, head, world } from './scene.js?v=20260914a';
 
 // ---------------------------------------------------------------------------
 // The music in the lift
@@ -31,7 +31,6 @@ const FAR = 4;              // metres: past this, nothing carries (Uli, 2026-09-
 const NEAR = 1.2;           // as good as inside the cabin
 const LOUD = 0.42;          // its loudest, against the lift's own sounds
 const RISE = 0.1;           // how fast the loudness follows you
-const DUCK = 0.33;          // what is left of it while the guard speaks
 
 
 const buffers = new Map();  // file -> AudioBuffer
@@ -134,7 +133,7 @@ export function stepMusic(now) {
 	earsAt(lift.ctx);                                         // the listener rides with the head
 	// out of the **seam between the doors**, not the middle of the cabin (Uli, 2026-09-12)
 	if (elevator.origin && elevator.doorsWorld) pannerAt(panner, elevator.doorsWorld().clone().setY(1.3));   // the cabin is not there on the first frames
-	const want = level() * (performance.now() < duckUntil ? DUCK : 1);
+	const want = level();
 	// it begins the first time anyone comes near enough to hear it, and
 	// from then on it plays on, piece after piece
 	if (!source && !starting && want > 0.002) start();
@@ -144,11 +143,12 @@ export function stepMusic(now) {
 	gain.gain.setTargetAtTime(Math.max(0, has), lift.ctx.currentTime, 0.08);
 }
 
-// The guard talks over it: while he is speaking the music steps back to
-// a third and comes up again after (Uli, 2026-09-12 — both at once, which
-// is what a real lobby does). `seconds` is how long the line lasts.
-let duckUntil = 0;
-export function duckMusic(seconds) { duckUntil = Math.max(duckUntil, performance.now() + seconds * 1000 + 250); }
+// **The music is never turned down for him** (Uli, 2026-09-13). It stepped
+// back to a third while he spoke, from 2026-09-12; a lobby does do that,
+// but the dip itself was the thing you heard. He picks his moment instead
+// — guard.js will not start a line while the music is up — and once he has
+// started he finishes, music or no music (QUIET, and his longest line is
+// under 15 s, so he never runs on over it for longer than that).
 
 // What is playing and how loud, for the bench's checks.
 export function playing() { return source ? TRACKS[at].name : null; }
