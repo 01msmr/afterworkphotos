@@ -1,8 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
-import { addLabel } from './bake.js?v=20260914m';
-import { FRAME, GRID_GAP, MAT_Z, PRINT_GLOW, PRINT_SCALE, matWidth, materials, photoTexture, poolMaterial, sc, textureCache, dropNear, nearTexture } from './frames.js?v=20260914m';
-import { camera, scene } from './scene.js?v=20260914m';
-import { pieceY, state } from './state.js?v=20260914m';
+import { addLabel } from './bake.js?v=20260914n';
+import { FRAME, GRID_GAP, MAT_Z, PRINT_GLOW, PRINT_SCALE, matWidth, materials, photoTexture, poolMaterial, sc, textureCache, dropNear, nearTexture } from './frames.js?v=20260914n';
+import { camera, scene } from './scene.js?v=20260914n';
+import { pieceY, state } from './state.js?v=20260914n';
 
 // ---------------------------------------------------------------------------
 // Videos — the LED panel
@@ -76,7 +76,7 @@ function ledGrid() {
 // done about the decode — so the 2000 is a second sheet lying over the
 // 1200 (makeFramedPrint, `photo-near`), and coming close only fades it
 // up. The picture under it never changes, so there is nothing to catch.
-// On at 1.3 m, off past 3.5 m (Uli, 2026-09-13); the overlay is only ever
+// On at 1.3 m, off past 3.2 m (Uli, 2026-09-13); the overlay is only ever
 // shown once its image is really there, and its 16 MB is handed back once
 // the visitor has gone. The two distances are far apart on purpose — one
 // threshold would flick on and off while somebody stood at the edge of it,
@@ -88,7 +88,7 @@ function ledGrid() {
 // 255 between them, five hundredths of a percent. What made the old swap
 // jump was putting an undecoded texture on the wall, not the change
 // itself. `fade` is still the knob if the pop ever wants softening.
-const DETAIL = { near: 1.3, far: 3.5, least: 0.6 };   // shown inside 1.3 m, let go past 3.5 m (Uli, 2026-09-13)
+const DETAIL = { near: 1.3, far: 3.2, least: 0.6 };   // shown inside 1.3 m, let go past 3.2 m (Uli, 2026-09-13)
 // the 1x1 a near sheet carries until its own picture lands, so its shader
 // is compiled once, at hang time, and never rebuilt mid-walk
 const BLANK = new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1);
