@@ -1,8 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
-import { SOUND, lift } from './elevator.js?v=20260913g';
-import { hangRoom, rooms } from './hang.js?v=20260913g';
-import { head, scene, world } from './scene.js?v=20260913g';
-import { state } from './state.js?v=20260913g';
+import { SOUND, lift } from './elevator.js?v=20260913h';
+import { hangRoom, rooms } from './hang.js?v=20260913h';
+import { head, scene, world } from './scene.js?v=20260913h';
+import { state } from './state.js?v=20260913h';
 
 // ---------------------------------------------------------------------------
 // The instant lift
@@ -104,13 +104,42 @@ function buildGuide() {
 	g.rotateX(-Math.PI / 2); g.translate(0, 0, -0.5);      // a strip running from its origin to -z, one metre
 	const skin = () => new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: GUIDE.opacity, depthWrite: false });
 	guide = new THREE.Group(); guide.name = 'jump-guide';
-	for (const name of ['leg-1', 'leg-2']) {
+	for (const name of ['leg-1', 'leg-2', 'leg-3']) {
 		const m = new THREE.Mesh(g, skin());
 		m.name = name; m.renderOrder = 2;
 		guide.add(m);
 	}
 	scene.add(guide);
 }
+// The aisle to walk: the middle rows cut the floor into walkways, and
+// the line takes the one whose centre lies nearest the print. Returns
+// the axis it runs along and where its middle is, in the session's own
+// frame — or null where the room has no rows and the floor is all aisle.
+function walkway(target, me) {
+	const mid = (state.placed || []).filter(p => p.wall === 'mid');
+	if (!mid.length || !state.room) return null;
+	const alongX = Math.abs(Math.cos(mid[0].yaw)) > 0.5;    // an x-row faces ±z, so its aisles run along x
+	const { W, D } = state.room, keep = 0.55;
+	const span = alongX ? D : W;
+	// the lines the rows stand on, and the walls, in the room's own frame
+	const cuts = [...new Set(mid.map(p => +( alongX ? p.z : p.x).toFixed(2)))].sort((a, b) => a - b);
+	const edges = [-span / 2 + keep, ...cuts, span / 2 - keep];
+	const centres = [];
+	for (let i = 0; i < edges.length - 1; i++) {
+		const c = (edges[i] + edges[i + 1]) / 2;
+		if (edges[i + 1] - edges[i] > 0.9) centres.push(c);   // wide enough to walk
+	}
+	if (!centres.length) return null;
+	// the print's own across-coordinate, back in the room's frame
+	const t = world.worldToLocal(target.clone());
+	const want = alongX ? t.z : t.x;
+	let best = centres[0];
+	for (const c of centres) if (Math.abs(c - want) < Math.abs(best - want)) best = c;
+	// and out again into the session's frame, where the line is drawn
+	const p = world.localToWorld(new THREE.Vector3(alongX ? 0 : best, 0, alongX ? best : 0));
+	return [alongX ? 'x' : 'z', alongX ? p.z : p.x];
+}
+
 // one leg of the way: from (x0,z0) to (x1,z1), along an axis
 function layLeg(m, x0, z0, x1, z1, y) {
 	const dx = x1 - x0, dz = z1 - z0, len = Math.hypot(dx, dz);
@@ -133,10 +162,28 @@ function stepGuide() {
 	if (len < GUIDE.arrived) { guideTo = null; guide.visible = false; return; }
 	guide.visible = true;
 	const y = world.position.y + GUIDE.y;
-	// the corner: the longer leg walked first, then the turn
-	const corner = Math.abs(dx) > Math.abs(dz) ? [_a.x, _b.z] : [_b.x, _a.z];
-	layLeg(guide.getObjectByName('leg-1'), _b.x, _b.z, corner[0], corner[1], y);
-	layLeg(guide.getObjectByName('leg-2'), corner[0], corner[1], _a.x, _a.z, y);
+	// **Down the middle of a walkway** (Uli, 2026-09-12), not across the
+	// room: step out to the centre line of the aisle that runs toward the
+	// print, walk it, and turn in at the end. Where a room has no middle
+	// rows the floor is one walkway and two legs are the whole of it.
+	const aisle = walkway(_a, _b);
+	if (aisle === null) {
+		const corner = Math.abs(dx) > Math.abs(dz) ? [_a.x, _b.z] : [_b.x, _a.z];
+		layLeg(guide.getObjectByName('leg-1'), _b.x, _b.z, corner[0], corner[1], y);
+		layLeg(guide.getObjectByName('leg-2'), corner[0], corner[1], _a.x, _a.z, y);
+		guide.getObjectByName('leg-3').visible = false;
+		return;
+	}
+	const [axis, mid] = aisle;                              // 'x': the aisle runs along x at z = mid
+	if (axis === 'x') {
+		layLeg(guide.getObjectByName('leg-1'), _b.x, _b.z, _b.x, mid, y);
+		layLeg(guide.getObjectByName('leg-2'), _b.x, mid, _a.x, mid, y);
+		layLeg(guide.getObjectByName('leg-3'), _a.x, mid, _a.x, _a.z, y);
+	} else {
+		layLeg(guide.getObjectByName('leg-1'), _b.x, _b.z, mid, _b.z, y);
+		layLeg(guide.getObjectByName('leg-2'), mid, _b.z, mid, _a.z, y);
+		layLeg(guide.getObjectByName('leg-3'), mid, _a.z, _a.x, _a.z, y);
+	}
 }
 
 // The bench: J jumps to the next room down the list, to see the ride.
