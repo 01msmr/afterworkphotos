@@ -1,7 +1,13 @@
 #!/usr/bin/env python3
-"""Fill img/2000/ from a folder of original photographs.
+"""Fill a photograph's files from a folder of original photographs.
 
-    python3 scripts/backfill-2000.py ~/Pictures/whatever [--write]
+    python3 scripts/backfill.py ~/Pictures/whatever [--write]
+
+Two files are made for each photograph the folder holds: img/2000/<id>.jpg,
+the one a print swaps to when a visitor comes close, and img/<id>.jpg, the
+1200 px square the site shows and the gallery hangs — the latter only where
+the original has more to give than the file already there (a photograph
+imported when 1000 px was the size). Neither is ever enlarged.
 
 The folder may hold anything: the gallery's photographs, other people's,
 duplicates, screenshots, videos, a whole camera roll. **Names do not
@@ -9,8 +15,8 @@ matter** — the gallery's files are called awp-2009-06-12-01.jpg and an
 original is called IMG_4312.HEIC, and neither tells you anything. Each
 candidate is matched to a photograph by what it looks like:
 
-  * every gallery photograph already has a 1000 px square in img/, made
-    from the original by a centre crop and a resize;
+  * every gallery photograph already has a square in img/, made from the
+    original by a centre crop and a resize;
   * so each candidate is centre-cropped, resized to 32x32, turned grey
     and normalised, and compared with the same of every gallery photo;
   * the best match counts only when it is **clearly** the best — under
@@ -20,16 +26,17 @@ candidate is matched to a photograph by what it looks like:
   * where a candidate carries an EXIF capture time and a photograph's
     `taken` matches it to the second, that settles it on its own.
 
-Nothing is written without --write, and nothing that already exists in
-img/2000/ is touched unless --force is given. Every photograph still
-without a 2000 px file is listed at the end, so it is plain what is left.
+Nothing is written without --write, and nothing already good enough is
+touched unless --force is given. Every photograph still without a 2000 px
+file is listed at the end, so it is plain what is left.
 """
 import json, sys
 from pathlib import Path
 from PIL import Image, ImageOps
 
 ROOT = Path(__file__).resolve().parent.parent
-SIDE = 2000                      # what is written
+BIG = 2000                       # img/2000/<id>.jpg — the print up close
+SITE = 1200                      # img/<id>.jpg — the site, and the wall
 FP = 32                          # the fingerprint's side
 NEAR = 9.0                       # mean grey difference a resize can explain (0-255)
 CLEAR = 1.6                      # and how much better the best must be than the next
@@ -65,6 +72,25 @@ def fingerprint(path):
 
 def distance(a, b):
     return sum(abs(x - y) for x, y in zip(a, b)) / len(a)
+
+
+def width_of(path):
+    """The width of a file that may not be there, 0 when it is not."""
+    try:
+        with Image.open(path) as im:
+            return im.size[0]
+    except Exception:
+        return 0
+
+
+def save(sq, dst, side, quality):
+    """The square, shrunk to `side` if it is larger, written as a JPEG.
+
+    No metadata is carried over — the public files keep none of the GPS
+    the originals hold.
+    """
+    im = sq.resize((side, side), Image.LANCZOS) if min(sq.size) > side else sq
+    im.convert('RGB').save(dst, 'JPEG', quality=quality, optimize=True)
 
 
 def main():
@@ -121,28 +147,36 @@ def main():
     for row in ambiguous[:20]:
         print('  ambiguous:', row)
 
-    made = skipped = small = 0
+    big = site = skipped = small = 0
     for pid, (c, d) in sorted(taken_by.items()):
-        dst = out / f'{pid}.jpg'
-        if dst.exists() and not force:
+        dst_big, dst_site = out / f'{pid}.jpg', ROOT / 'img' / f'{pid}.jpg'
+        with Image.open(c) as im:
+            native = min(im.size)
+        if native < BIG:
+            small += 1
+        want_big = force or not dst_big.exists()
+        # the site's file is rewritten only where the original has more to
+        # give than what hangs there now — the 1200s already made stay put
+        want_site = force or min(native, SITE) > width_of(dst_site)
+        if not (want_big or want_site):
             skipped += 1
             continue
-        with Image.open(c) as im:
-            if min(im.size) < SIDE:
-                small += 1
+        big += want_big
+        site += want_site
         if not write:
             continue
         with Image.open(c) as im:
-            im = ImageOps.exif_transpose(im)
-            im = square(im)
-            if min(im.size) > SIDE:
-                im = im.resize((SIDE, SIDE), Image.LANCZOS)
-            im.convert('RGB').save(dst, 'JPEG', quality=85, optimize=True)
-        made += 1
+            sq = square(ImageOps.exif_transpose(im))
+            if want_big:
+                save(sq, dst_big, BIG, 85)
+            if want_site:
+                save(sq, dst_site, SITE, 86)
 
-    print(f'{"wrote" if write else "would write"} {made}, already there {skipped}, smaller than {SIDE}px {small}')
+    verb = 'wrote' if write else 'would write'
+    print(f'{verb} {big} at {BIG}px and {site} at {SITE}px, '
+          f'nothing to do for {skipped}, originals smaller than {BIG}px {small}')
     missing = [p['id'] for p in photos if not (out / f"{p['id']}.jpg").exists()]
-    print(f'still without a {SIDE}px file: {len(missing)}')
+    print(f'still without a {BIG}px file: {len(missing)}')
     for m in missing[:15]:
         print('  ', m)
     if len(missing) > 15:
