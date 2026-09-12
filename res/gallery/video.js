@@ -1,8 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
-import { addLabel } from './bake.js?v=20260914h';
-import { FRAME, GRID_GAP, MAT_Z, PRINT_GLOW, PRINT_SCALE, matWidth, materials, photoTexture, poolMaterial, sc, textureCache, dropNear, nearTexture } from './frames.js?v=20260914h';
-import { camera, scene } from './scene.js?v=20260914h';
-import { pieceY, state } from './state.js?v=20260914h';
+import { addLabel } from './bake.js?v=20260914j';
+import { FRAME, GRID_GAP, MAT_Z, PRINT_GLOW, PRINT_SCALE, matWidth, materials, photoTexture, poolMaterial, sc, textureCache, dropNear, nearTexture } from './frames.js?v=20260914j';
+import { camera, scene } from './scene.js?v=20260914j';
+import { pieceY, state } from './state.js?v=20260914j';
 
 // ---------------------------------------------------------------------------
 // Videos — the LED panel
@@ -76,10 +76,15 @@ function ledGrid() {
 // done about the decode — so the 2000 is a second sheet lying over the
 // 1200 (makeFramedPrint, `photo-near`), and coming close only fades it
 // up. The picture under it never changes, so there is nothing to catch.
-// Full by 1 m, let go past 2.5 m, `fade` seconds either way; the sheet is
-// only shown once its image is really there, and its 16 MB is handed back
-// once it has faded out and the visitor has gone.
-const DETAIL = { near: 1.0, far: 2.5, fade: 0.06, least: 0.6 };   // fade: seconds end to end — very fast (Uli, 2026-09-13), about four frames in the headset
+// On at 1 m, off past 2.5 m; the sheet is only ever shown once its image
+// is really there, and its 16 MB is handed back once the visitor has gone.
+// **It comes on at once, with no fade** (Uli, 2026-09-13): a blend was
+// there to hide the change, but there is nothing to hide — the two files
+// are the same photograph, and the brightest of twelve differs by 0.13 of
+// 255 between them, five hundredths of a percent. What made the old swap
+// jump was putting an undecoded texture on the wall, not the change
+// itself. `fade` is still the knob if the pop ever wants softening.
+const DETAIL = { near: 1.0, far: 2.5, fade: 0, least: 0.6 };   // fade: seconds end to end. 0 — the sheet is simply there (Uli, 2026-09-13)
 let detailAt = 0;
 const _look = new THREE.Vector3(), _spot = new THREE.Vector3();
 let lastDetail = 0;
@@ -88,7 +93,7 @@ export function stepDetail(now) {
 	if (!pieces) return;
 	const dt = Math.min(0.1, (now - (lastDetail || now)) / 1000);
 	lastDetail = now;
-	const step = Math.min(1, dt / DETAIL.fade);
+	const step = DETAIL.fade > 0 ? Math.min(1, dt / DETAIL.fade) : 1;   // 0 is instant, and 0/0 must not become NaN
 	camera.getWorldPosition(_look);
 	pieces.traverse(o => {
 		const u = o.userData;
