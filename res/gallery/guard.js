@@ -1,10 +1,10 @@
 import * as THREE from '../vendor/three.module.js';
-import { elevator, lift } from './elevator.js?v=20260915w';   // its audio, and where the cabin stands
-import { ELEVATOR } from './hang.js?v=20260915w';
-import { musicLevel, pannerAt } from './music.js?v=20260915w';
-import { inPoly } from './plan.js?v=20260915w';
-import { head, scene, world } from './scene.js?v=20260915w';
-import { state } from './state.js?v=20260915w';
+import { elevator, lift } from './elevator.js?v=20260915x';   // its audio, and where the cabin stands
+import { ELEVATOR } from './hang.js?v=20260915x';
+import { pannerAt } from './music.js?v=20260915x';
+import { inPoly } from './plan.js?v=20260915x';
+import { head, scene, world } from './scene.js?v=20260915x';
+import { state } from './state.js?v=20260915x';
 
 // ---------------------------------------------------------------------------
 // The guard
@@ -353,15 +353,12 @@ async function speak(kind, i, loud) {
 	src.start();
 }
 
-// He waits for a gap in the music rather than talking it down (Uli,
-// 2026-09-13: no silencing of the music). A line begins only while the
-// music is quiet where you stand — and then it is finished, whether the
-// music comes up under him or not; his longest is under 15 s. Anything
-// about a print's safety is said over anything at all.
-const QUIET = 0.02;
+// **He speaks over the music** (Uli, 2026-09-13). The music is never turned
+// down for him either — both simply play, as in a real lobby. He waited for
+// a gap earlier the same day, which kept him quiet through whole rooms:
+// the music reaches most of the floor from an open cabin.
 function say(said, now, loud = false) {
 	if (now - saidAt < (loud ? WARN_REST : mood().rest)) return false;
-	if (!loud && musicLevel() > QUIET) return false;
 	speak(said.kind, said.i, loud);
 	saidAt = now;
 	return true;
