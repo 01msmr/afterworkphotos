@@ -310,11 +310,16 @@ for f in ${files[@]+"${files[@]}"}; do
     convert "$tmp" -gravity center -crop "${s}x${s}+0+0" +repage \
       -resize 1000x1000 -quality 85 -strip "img/$id.jpg"
     git add "img/$id.jpg"
-    # the gallery's 1600px derivative (never enlarged): the VR prints
-    mkdir -p img/1600
-    convert "$tmp" -gravity center -crop "${s}x${s}+0+0" +repage \
-      -resize '1600x1600>' -quality 85 -strip "img/1600/$id.jpg"
-    git add "img/1600/$id.jpg"
+    # the gallery's derivatives (never enlarged): 1200 is what a print
+    # hangs at, 2000 what it swaps to when a visitor comes within a metre
+    # and a half (res/gallery/video.js, stepDetail), 1600 the older set
+    # the swap falls back to where no 2000 exists
+    mkdir -p img/1200 img/1600 img/2000
+    for px in 1200 1600 2000; do
+      convert "$tmp" -gravity center -crop "${s}x${s}+0+0" +repage \
+        -resize "${px}x${px}>" -quality 85 -strip "img/$px/$id.jpg"
+      git add "img/$px/$id.jpg"
+    done
     if (( w == h )); then
       move "$f" "img originals/$id.$ext"
     else
