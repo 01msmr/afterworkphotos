@@ -3,3 +3,4 @@ secret.php
 .superpowers/
 # the originals are local: full size, metadata intact (GPS!), never pushed
 img originals/
+.claude/
