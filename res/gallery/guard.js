@@ -1,10 +1,10 @@
 import * as THREE from '../vendor/three.module.js';
-import { lift } from './elevator.js?v=20260913a';   // its audio: the guard speaks through the same one
-import { ELEVATOR } from './hang.js?v=20260913a';
-import { duckMusic } from './music.js?v=20260913a';
-import { inPoly } from './plan.js?v=20260913a';
-import { head, world } from './scene.js?v=20260913a';
-import { state } from './state.js?v=20260913a';
+import { lift } from './elevator.js?v=20260913d';   // its audio: the guard speaks through the same one
+import { ELEVATOR } from './hang.js?v=20260913d';
+import { duckMusic } from './music.js?v=20260913d';
+import { inPoly } from './plan.js?v=20260913d';
+import { head, world } from './scene.js?v=20260913d';
+import { state } from './state.js?v=20260913d';
 
 // ---------------------------------------------------------------------------
 // The guard
@@ -60,6 +60,22 @@ const LINES = {
 		'There are prints on both sides of that.',
 		'Careful going round the row.',
 	],
+	// what he calls across the room when the polite line went unheeded
+	call: [
+		'Hey.',
+		'Hello?',
+		'Mister!',
+		'Please\u2026',
+		'Did I not ask you?',
+		'Excuse me!',
+		'I am talking to you.',
+	],
+	// and what he says when someone is all but touching a print
+	stop: [
+		'Stop!',
+		'Stop, please! Not that close!',
+		'Away from the print. Now.',
+	],
 	tell: [
 		'Take your time. Nobody is waiting.',
 		'The lift is behind you when you are ready.',
@@ -89,6 +105,13 @@ const MOOD = {
 const WARN_REST = 4000, WARN_AGAIN = 20000, WARN_ODDS = 0.85;
 const FAST = 1.3;                          // m/s toward a print: too fast
 const ROW_NEAR = 0.45;                     // m from a middle row's slab
+const ROW_PATIENCE = 5000;                 // and how long he lets you stand there first (Uli)
+// He says his piece twice and then holds his tongue for a while — a guard
+// who repeats himself every four seconds is a nag (Uli, 2026-09-12).
+// Persist and he stops being polite: the third time and after he simply
+// calls across the room, and inside VERY_CLOSE of a print he says stop.
+const SAY_TWICE = 2, THEN_WAIT = 15000, FORGET = 30000;
+const VERY_CLOSE = 0.32;                   // m off a print: near enough to put a hand on it
 const mood = () => MOOD[state.settings.talk] || MOOD.light;
 let lastLine = -1;
 function pick(kind) {
@@ -111,6 +134,7 @@ let guard = null, saidAt = 0;
 let stillSince = 0, last = new THREE.Vector3(), greeted = null;
 const warnedAt = new Map();                // a print -> when it was last spoken about
 let wasAt = new THREE.Vector3(), lastT = 0;
+let strikes = 0, lastStrike = 0, quietUntil = 0, rowSince = 0;
 let cameAt = 0, nextRound = 0, walkTo = null, voice = null;
 const MONTHS = 'Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec'.split(' ');
 
@@ -265,6 +289,7 @@ export function placeGuard() {
 	guard.position.set(far ? far.p[0] : 0, 0, far ? far.p[1] : 0);
 	guard.visible = ready;
 	saidAt = 0; warnedAt.clear(); lastT = 0;
+	strikes = 0; quietUntil = 0; rowSince = 0;   // a new floor, a fresh start for whoever walks in
 	stillSince = 0; walkTo = null;
 	cameAt = performance.now(); nextRound = cameAt + FIRST_ROUND;   // its first round, three minutes in
 }
@@ -351,16 +376,26 @@ export function stepGuard(now) {
 		if (p.wall === 'mid') { if (d < ROW_NEAR + p.piece.w / 2 && (!row || d < row.d)) row = { p, d }; }
 		else if (d < CLOSE + p.piece.w / 2 && (!near || d < near.d)) near = { p, d };
 	}
+	// behave for half a minute and he forgets you were ever told
+	if (strikes && now - lastStrike > FORGET) strikes = 0;
 	const fresh = p => now - (warnedAt.get(p) || -1e9) > WARN_AGAIN;
-	const mind = (p, kind) => {
+	const mind = (p, kind, d) => {
+		if (now < quietUntil) return false;                  // he has said his piece; he is waiting
 		if (!fresh(p) || Math.random() > WARN_ODDS) return false;
-		if (!say(pick(kind), now, true)) return false;
+		// the third time and after he does not repeat the sentence, he calls
+		const say_ = d !== undefined && d < VERY_CLOSE ? 'stop'   // all but touching it: the standoff itself, not the piece's width
+			: strikes >= SAY_TWICE ? 'call' : kind;
+		if (!say(pick(say_), now, true)) return false;
 		warnedAt.set(p, now);
+		strikes++; lastStrike = now;
+		if (strikes % SAY_TWICE === 0) quietUntil = now + THEN_WAIT;
 		return true;
 	};
-	if (near && speed > FAST && mind(near.p, 'rush')) return;
-	if (near && mind(near.p, 'warn')) return;
-	if (row && mind(row.p, 'row')) return;
+	if (near && speed > FAST && mind(near.p, 'rush', near.d)) return;
+	if (near && mind(near.p, 'warn', near.d)) return;
+	// a row is only worth a word if you have been crowding it a while (Uli)
+	rowSince = row ? (rowSince || now) : 0;
+	if (row && now - rowSince > ROW_PATIENCE && mind(row.p, 'row')) return;
 
 	// standing still a long while: something to look at
 	if (_h.distanceTo(last) > MOVED) { last.copy(_h); stillSince = now; return; }
