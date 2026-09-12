@@ -1,21 +1,21 @@
 // three.js 0.180.0, vendored (MIT) — res/vendor/three.module.js, which in
 // turn imports res/vendor/three.core.js; both are pinned together.
-import { stats, stepStats } from './gallery/bench.js?v=20260914a';
-import { elevator, lift, pressAt, setSetting } from './gallery/elevator.js?v=20260914a';
-import { materials } from './gallery/frames.js?v=20260914a';
-import { ELEVATOR, hangRoom, packRun, piecesOf, replan, rooms, spread, upright } from './gallery/hang.js?v=20260914a';
-import { jump, stepJump } from './gallery/jump.js?v=20260914a';
-import { stepTablet, tabletHit, toggleTablet } from './gallery/tablet.js?v=20260914a';
-import { nextLine, placeGuard, stepGuard } from './gallery/guard.js?v=20260914a';
-import { musicLevel, playing, stepMusic } from './gallery/music.js?v=20260914a';
-import { stepZoom, zoomLabel, zoomPrint } from './gallery/zoom.js?v=20260914a';
-import { applyMode, buildRoom, stepMode } from './gallery/room.js?v=20260914a';
-import { planOf } from './gallery/plan.js?v=20260914a';
-import { camera, renderer, rig, scene, world } from './gallery/scene.js?v=20260914a';
-import { EYE, state } from './gallery/state.js?v=20260914a';
-import { makePiece, makeVideoPanel, stepDetail, stepVideos, videoCache } from './gallery/video.js?v=20260914a';
-import { benchScan, fitRoom, stepPlanes } from './gallery/vr.js?v=20260914a';
-import { applyLook, placeBody, stepWalk, walk } from './gallery/walk.js?v=20260914a';
+import { stats, stepStats } from './gallery/bench.js?v=20260914c';
+import { elevator, lift, pressAt, setSetting } from './gallery/elevator.js?v=20260914c';
+import { materials } from './gallery/frames.js?v=20260914c';
+import { ELEVATOR, hangRoom, packRun, piecesOf, replan, firstRoom, rooms, spread, upright } from './gallery/hang.js?v=20260914c';
+import { jump, stepJump } from './gallery/jump.js?v=20260914c';
+import { stepTablet, tabletHit, toggleTablet } from './gallery/tablet.js?v=20260914c';
+import { nextLine, placeGuard, stepGuard } from './gallery/guard.js?v=20260914c';
+import { musicLevel, playing, stepMusic } from './gallery/music.js?v=20260914c';
+import { stepZoom, zoomLabel, zoomPrint } from './gallery/zoom.js?v=20260914c';
+import { applyMode, buildRoom, stepMode } from './gallery/room.js?v=20260914c';
+import { planOf } from './gallery/plan.js?v=20260914c';
+import { camera, renderer, rig, scene, world } from './gallery/scene.js?v=20260914c';
+import { EYE, state } from './gallery/state.js?v=20260914c';
+import { makePiece, makeVideoPanel, stepDetail, stepVideos, videoCache } from './gallery/video.js?v=20260914c';
+import { benchScan, fitRoom, stepPlanes } from './gallery/vr.js?v=20260914c';
+import { applyLook, placeBody, stepWalk, walk } from './gallery/walk.js?v=20260914c';
 
 // ---------------------------------------------------------------------------
 // Boot
@@ -29,7 +29,7 @@ Promise.all([
 ]).then(([d]) => { state.photos = d.photos; init(); });
 
 function init() {
-	hangRoom(rooms()[0].key);    // the newest room; builds the room around it
+	hangRoom(firstRoom().key);   // the newest year; builds the room around it (never the favourites floor, which may be empty)
 	benchScan();                 // ?scan=L on the bench: a floor plan as the Quest would hand one over
 
 	// Arrival: you have just stepped out of the elevator, facing down the room.

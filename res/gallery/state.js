@@ -43,8 +43,26 @@ const FRAME_COLOURS_KEYS = { maple: 1, oak: 1, walnut: 1, black: 1, white: 1 };
 
 // settings.W/D is the smallest room; room.W/D is the one standing, which a
 // crowded year may have grown (see hangYear).
+// The red dots a visitor has stuck on (Uli, 2026-09-13). Theirs alone —
+// kept in localStorage beside the settings, never sent anywhere — and the
+// `favorites` floor is hung from them. A photograph is remembered by its
+// id, not its number, so adding an older photograph to the site does not
+// shift somebody's favourites onto other pictures.
+export const FAVS_KEY = 'galleryF';
+function loadFavs() {
+	try { const a = JSON.parse(localStorage.getItem(FAVS_KEY)); return new Set(Array.isArray(a) ? a : []); } catch (e) { return new Set(); }
+}
+export function isFav(id) { return state.favs.has(id); }
+export function favCount() { return state.favs.size; }
+export function toggleFav(id) {
+	state.favs.has(id) ? state.favs.delete(id) : state.favs.add(id);
+	try { localStorage.setItem(FAVS_KEY, JSON.stringify([...state.favs])); } catch (e) {}
+	return state.favs.has(id);
+}
+
 export const state = {
 	seen: {},           // floors already walked (Uli, 2026-09-11): their buttons go grey
+	favs: loadFavs(),   // the photographs with a red dot on them (Uli, 2026-09-13)
 	year: null, roomKey: null, settings: loadSettings(), room: null, real: null, photos: [], obstacles: [] };   // obstacles: the middle rows' footprints, for the bench's walk
 
 export const EYE = 1.6;

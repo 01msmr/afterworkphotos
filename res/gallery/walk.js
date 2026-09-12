@@ -1,12 +1,12 @@
 import * as THREE from '../vendor/three.module.js';
-import { DOOR, elevator, floors, pressAt } from './elevator.js?v=20260914a';
-import { inPoly } from './plan.js?v=20260914a';
-import { tabletHit } from './tablet.js?v=20260914a';
-import { rectRoom } from './room.js?v=20260914a';
-import { ELEVATOR, rooms } from './hang.js?v=20260914a';
-import { camera, renderer } from './scene.js?v=20260914a';
-import { EYE, state } from './state.js?v=20260914a';
-import { stepXR } from './vr.js?v=20260914a';
+import { DOOR, elevator, floors, pressAt } from './elevator.js?v=20260914c';
+import { inPoly } from './plan.js?v=20260914c';
+import { tabletHit } from './tablet.js?v=20260914c';
+import { rectRoom } from './room.js?v=20260914c';
+import { ELEVATOR, openRooms, rooms } from './hang.js?v=20260914c';
+import { camera, renderer } from './scene.js?v=20260914c';
+import { EYE, state } from './state.js?v=20260914c';
+import { stepXR } from './vr.js?v=20260914c';
 
 // ---------------------------------------------------------------------------
 // Walking (the bench)
@@ -113,7 +113,7 @@ addEventListener('keydown', e => {
 	if (e.code === 'KeyR' && !e.repeat) elevator.call();                             // R rings for the lift from where one stands
 	if ((e.code === 'Comma' || e.code === 'Period') && !e.repeat && elevator.inside()) {
 		// inside the cabin: the floor below or above, the list newest first
-		const list = rooms(), i = list.findIndex(r => r.key === state.roomKey);
+		const list = openRooms(), i = list.findIndex(r => r.key === state.roomKey);
 		const to = list[i + (e.code === 'Period' ? -1 : 1)];
 		if (to) elevator.go(to.key);
 	}

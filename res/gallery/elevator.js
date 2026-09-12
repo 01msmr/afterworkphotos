@@ -1,13 +1,13 @@
 import * as THREE from '../vendor/three.module.js';
-import { setWire, wire } from './bench.js?v=20260914a';
-import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260914a';
-import { ELEVATOR, clearRooms, hangRoom, roomByKey, rooms } from './hang.js?v=20260914a';
-import { WALL_STYLES, applyMode, dadoTop, dressWall, wallColours } from './room.js?v=20260914a';
-import { camera, head, renderer, scene, world } from './scene.js?v=20260914a';
-import { zoomLabel, zoomPrint } from './zoom.js?v=20260914a';
-import { PLANS, RAISES, state } from './state.js?v=20260914a';
-import { fitRoom, planAgain } from './vr.js?v=20260914a';
-import { placeBody, walk } from './walk.js?v=20260914a';
+import { setWire, wire } from './bench.js?v=20260914c';
+import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260914c';
+import { ELEVATOR, FAV_KEY, clearRooms, firstRoom, hangRoom, roomByKey, rooms } from './hang.js?v=20260914c';
+import { WALL_STYLES, applyMode, dadoTop, dressWall, wallColours } from './room.js?v=20260914c';
+import { camera, head, renderer, scene, world } from './scene.js?v=20260914c';
+import { zoomLabel, zoomPrint } from './zoom.js?v=20260914c';
+import { PLANS, RAISES, favCount, state } from './state.js?v=20260914c';
+import { fitRoom, planAgain } from './vr.js?v=20260914c';
+import { placeBody, walk } from './walk.js?v=20260914c';
 
 // ---------------------------------------------------------------------------
 // The elevator
@@ -54,6 +54,21 @@ export const CABIN_LAMP = { light: 5, dark: 0.9 }, CABIN_PANEL = { light: 1.6, d
 // before the first room, see the start); a split year's floors are
 // "2018.1", "2018.2", the suffix smaller on the same baseline (Uli).
 // Drawn on a clear canvas: the cap under it shows through.
+// The favourites button carries **the sticker**, not a year — it is the one
+// floor without one, and the dot says both what the floor is and what fills
+// it (Uli, 2026-09-13). The cap behind it does the empty/normal work, so
+// this face never changes.
+const FAV_RED = '#c8322b';
+function favFace() {
+	const c = document.createElement('canvas');
+	c.width = 256; c.height = 128;
+	const g = c.getContext('2d');
+	g.fillStyle = FAV_RED;
+	g.beginPath(); g.arc(c.width / 2, c.height / 2, 30, 0, Math.PI * 2); g.fill();
+	const t = new THREE.CanvasTexture(c);
+	t.colorSpace = THREE.SRGBColorSpace;
+	return t;
+}
 function buttonFace(year, room) {
 	const c = document.createElement('canvas');
 	c.width = 256; c.height = 128;
@@ -510,7 +525,9 @@ export const elevator = {
 		const deep = new Map();                        // decade -> lines it takes
 		for (const r of list) for (const y of r.years) { const d = decade(y); deep.set(d, Math.max(deep.get(d) || 1, r.of || 1)); }
 		const top = Math.max(...deep.keys()), bottom = Math.min(...deep.keys());
-		const start = new Map(); let rows = 0;
+		// the favourites floor takes the top line, on its own, above every
+		// decade — one above the newest year, in that year's column (Uli)
+		const start = new Map(); let rows = 1;
 		for (let d = top; d >= bottom; d--) { start.set(d, rows); rows += deep.get(d) || 1; }
 		const cols = PANEL.cols, margin = PANEL.margin;
 		const plateW = cols * BUTTON.pitchX + 2 * margin, plateH = rows * BUTTON.pitchY + 2 * margin;
@@ -565,6 +582,32 @@ export const elevator = {
 			print.renderOrder = 2;
 			this.buttons.push(cap, print);              // both press
 		}
+		// the favourites button: the same parts, its own line, the dot on it
+		const favRoom = list.find(r => r.favs);
+		if (favRoom) {
+			const newest = list.find(r => r.years.length);
+			const ny = newest ? Number(newest.years[newest.years.length - 1]) : 1;
+			const fx = plateW / 2 - margin - BUTTON.pitchX * ((ny - 1) % 10 + 0.5);
+			const fy = plateH / 2 - margin - BUTTON.pitchY * 0.5;
+			const put = (name, geo, material, z) => {
+				const m = new THREE.Mesh(geo, material);
+				m.name = `${name}-${favRoom.key}`;
+				m.userData.key = favRoom.key;
+				m.userData.z0 = z;
+				m.position.set(fx, fy, z);
+				panel.add(m);
+				return m;
+			};
+			put('pocket', pocketGeo, pocketMat, -0.0005);
+			put('steel', steelGeo, metal, -0.002);
+			const cap = put('cap', capGeo, new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.28, roughness: 0.3, metalness: 0, emissive: GREEN, emissiveIntensity: 0, envMapIntensity: 0.5 }), -0.003 - rise / 2);
+			cap.userData.cap = true;
+			cap.userData.fav = true;
+			const print = put('print', printGeo, new THREE.MeshBasicMaterial({ map: favFace(), transparent: true, depthWrite: false }), -0.003 - rise - 0.0003);
+			print.rotation.y = Math.PI;
+			print.renderOrder = 2;
+			this.buttons.push(cap, print);
+		}
 		this.group = g;
 		return g;
 	},
@@ -585,11 +628,26 @@ export const elevator = {
 		state.seen[this.outOf] = true;
 		this.light(state.roomKey);                          // the greys are set with the lights
 	},
+	// The favourites floor's cap has its own three (Uli, 2026-09-13): dark
+	// and dead while nothing is stuck on it — **darker than a visited
+	// floor**, and not lit — plain white like any unvisited floor once
+	// there is a dot, and green when you are standing on it. It is **never
+	// shown as visited**: a floor of your own favourites is not somewhere
+	// you have got out of the way.
+	FAV_DEAD: { colour: 0x26282a, opacity: 0.7 },
 	light(key) {
 		let lit = null;
 		for (const b of this.buttons) {
 			if (!b.userData.cap) continue;                  // the prints carry no light
 			const m = b.material, on = b.userData.key === key;
+			if (b.userData.fav) {
+				const empty = !favCount();
+				m.emissiveIntensity = on ? 1.3 : 0;
+				m.opacity = on ? 0.9 : empty ? this.FAV_DEAD.opacity : 0.28;
+				m.color.set(on ? 0x2a5a38 : empty ? this.FAV_DEAD.colour : 0xffffff);
+				if (on && !lit) lit = b;
+				continue;
+			}
 			const seen = !on && state.seen[b.userData.key];
 			m.emissiveIntensity = on ? 1.3 : 0;
 			m.opacity = on ? 0.9 : seen ? 0.62 : 0.28;      // lit, the cap fills with green light; seen, it goes grey
@@ -801,6 +859,9 @@ export function pressAlong(rc, reach) {
 		const u = hit.object.userData;
 		if (u.action) { SWITCHES.find(sw => sw.key === u.action).press(); refreshSwitches(); }
 		else if (u.call) elevator.call();
+		// a dead favourites button takes the press and does nothing with it:
+		// no dip, no bell, the lift stays where it is (Uli, 2026-09-13)
+		else if (u.key === FAV_KEY && !favCount()) return true;
 		else if (elevator.inside()) { elevator.press(u.key, hit.object); elevator.go(u.key); }   // a floor is chosen from inside the cabin only (Uli)
 		return true;
 	}
@@ -858,7 +919,7 @@ function saveSettings() {
 function rehang() {
 	clearRooms();                         // sizes may have changed which years split
 	const wanted = state.roomKey;
-	const key = rooms().some(r => r.key === wanted) ? wanted : rooms().find(r => r.year === state.year)?.key || rooms()[0].key;
+	const key = rooms().some(r => r.key === wanted) ? wanted : rooms().find(r => r.year === state.year)?.key || firstRoom().key;
 	state.room = null;                       // force the room and the cabin to rebuild
 	hangRoom(key);
 	elevator.setDoors(1);
