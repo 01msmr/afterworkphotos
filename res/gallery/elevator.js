@@ -1,13 +1,14 @@
 import * as THREE from '../vendor/three.module.js';
-import { setWire, wire } from './bench.js?v=20260914c';
-import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260914c';
-import { ELEVATOR, FAV_KEY, clearRooms, firstRoom, hangRoom, roomByKey, rooms } from './hang.js?v=20260914c';
-import { WALL_STYLES, applyMode, dadoTop, dressWall, wallColours } from './room.js?v=20260914c';
-import { camera, head, renderer, scene, world } from './scene.js?v=20260914c';
-import { zoomLabel, zoomPrint } from './zoom.js?v=20260914c';
-import { PLANS, RAISES, favCount, state } from './state.js?v=20260914c';
-import { fitRoom, planAgain } from './vr.js?v=20260914c';
-import { placeBody, walk } from './walk.js?v=20260914c';
+import { setWire, wire } from './bench.js?v=20260914e';
+import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260914e';
+import { ELEVATOR, FAV_KEY, clearRooms, firstRoom, hangRoom, roomByKey, rooms } from './hang.js?v=20260914e';
+import { WALL_STYLES, applyMode, dadoTop, dressWall, wallColours } from './room.js?v=20260914e';
+import { camera, head, renderer, scene, world } from './scene.js?v=20260914e';
+import { zoomLabel, zoomPrint } from './zoom.js?v=20260914e';
+import { stickAt } from './sticker.js?v=20260914e';
+import { PLANS, RAISES, favCount, state } from './state.js?v=20260914e';
+import { fitRoom, planAgain } from './vr.js?v=20260914e';
+import { placeBody, walk } from './walk.js?v=20260914e';
 
 // ---------------------------------------------------------------------------
 // The elevator
@@ -865,6 +866,12 @@ export function pressAlong(rc, reach) {
 		else if (elevator.inside()) { elevator.press(u.key, hit.object); elevator.go(u.key); }   // a floor is chosen from inside the cabin only (Uli)
 		return true;
 	}
+	// **a red dot first** (Uli, 2026-09-13): where the pointer has come
+	// within reach of the place a sticker goes, the press sticks one on —
+	// or takes off the one already there — and gets no further.
+	// the floor list and the button follow at once: a first dot lights the
+	// favourites button, the last one taken off puts it out again
+	if (stickAt()) { clearRooms(); rooms(); elevator.light(state.roomKey); return true; }
 	// a label card: a press doubles it, the next press puts it back; a
 	// print: a press fills its frame over the mat, the next puts it back
 	// (Uli, 2026-09-11). Both come back by themselves once out of sight —
