@@ -1,10 +1,10 @@
 import * as THREE from '../vendor/three.module.js';
-import { elevator, lift } from './elevator.js?v=20260913y';   // its audio, and where the cabin stands
-import { ELEVATOR } from './hang.js?v=20260913y';
-import { duckMusic, pannerAt } from './music.js?v=20260913y';
-import { inPoly } from './plan.js?v=20260913y';
-import { head, scene, world } from './scene.js?v=20260913y';
-import { state } from './state.js?v=20260913y';
+import { elevator, lift } from './elevator.js?v=20260913z';   // its audio, and where the cabin stands
+import { ELEVATOR } from './hang.js?v=20260913z';
+import { duckMusic, pannerAt } from './music.js?v=20260913z';
+import { inPoly } from './plan.js?v=20260913z';
+import { head, scene, world } from './scene.js?v=20260913z';
+import { state } from './state.js?v=20260913z';
 
 // ---------------------------------------------------------------------------
 // The guard
@@ -129,6 +129,16 @@ const LINES = {
 		'The lift takes its time. It always has.',
 		'There is another floor above this one.',
 	],
+	// and now and then he runs on a bit. It is a boring job and it shows:
+	// long sentences, and a little put out about something (Uli, 2026-09-13)
+	ramble: [
+		'I have stood in this corner since they opened the doors, and in all that time not one visitor has asked me which of them is any good, which is just as well, because after all these years I have not settled on an answer.',
+		'They hang them, they light them, they put a little card underneath, and then they leave a man standing here for eight hours to make sure nobody touches the glass, of which, I might point out, there is none.',
+		'People come up in the lift, walk the whole room in about four minutes, and go back down again, and I am left standing here wondering what it was exactly they came all this way to see.',
+		'Every one of these was taken after work, which means somebody was tired and stopped anyway to look at something, and I have had a great deal of time to think about that, rather more than is strictly necessary.',
+		'It is not a difficult job, this one, only a very long one, and I have come to understand that those are not at all the same thing.',
+		'The lift takes its time, the pictures do not move, and I am told the light in here never changes, which is the sort of thing people say when they have been in the room for about a minute.',
+	],
 };
 // light: it warns you and leaves you alone. heavy: it talks.
 export const TALK = ['light', 'heavy'];
@@ -149,8 +159,9 @@ const NARROW = 1.1;                        // m: something hanging this near on 
 // Persist and he stops being polite: the third time and after he simply
 // calls across the room, and inside VERY_CLOSE of a print he says stop.
 const SAY_TWICE = 2, THEN_WAIT = 15000, FORGET = 30000;
-const GREETS = 0.25;                       // how often he bothers to say hello at all (Uli)
+const GREETS = 0.33;                       // how often he bothers to say hello at all (Uli, 0.25 -> 0.33 on 2026-09-13)
 const JOKES = 0.25;                        // and how often a first word is a joke rather than a rule
+const RAMBLES = 0.25;                      // and how often he runs on instead of saying the short thing (Uli, 2026-09-13)
 const VERY_CLOSE = 0.15;                   // m off a print: a hand's breadth, and he says stop (Uli)
 const mood = () => MOOD[state.settings.talk] || MOOD.light;
 // Every line of a kind is used before any of them comes round again
@@ -290,7 +301,7 @@ function build() {
 const SAY_FAR = 9;                         // metres: past this he is not heard
 // how loud each kind is said
 const TEMPER = {
-	greet: 0.6, tell: 0.6, chat: 0.55, joke: 0.6, humble: 0.62,
+	greet: 0.6, tell: 0.6, chat: 0.55, ramble: 0.52, joke: 0.6, humble: 0.62,   // he mutters the long ones
 	warn: 0.72, row: 0.7, rush: 0.9, call: 1, harsh: 1.15, stop: 1.25, last: 1.3, closed: 1.05, open: 0.75,
 };
 const RAGE = 3, RAGE_IN = 30000, SHUT_FOR = 45000;   // three in half a minute and the room is shut
@@ -451,8 +462,14 @@ export function stepGuard(now) {
 
 
 	// a word on arriving, but only sometimes — a guard does not greet
-	// every entrance (Uli, 2026-09-12)
-	if (greeted !== state.roomKey) {
+	// every entrance (Uli, 2026-09-12) — and **not until the visitor is
+	// out in the room** (Uli, 2026-09-13: the greeting came as the doors
+	// closed on the way out). The next floor is hung during the ride, so
+	// state.roomKey turns over while the old room is still around you and
+	// you are still in the cabin; the new room's guard was greeting a
+	// closing door. He waits now until the lift has stopped and you have
+	// stepped out of it.
+	if (greeted !== state.roomKey && !elevator.ride && !elevator.inside()) {
 		greeted = state.roomKey;
 		if (Math.random() < GREETS && say(pick('greet'), now)) return;
 	}
@@ -557,9 +574,9 @@ export function stepGuard(now) {
 	const m = mood();
 	if (now - stillSince > m.still) {
 		stillSince = now;
-		say(pick('tell'), now);
+		say(pick(Math.random() < RAMBLES ? 'ramble' : 'tell'), now);
 		return;
 	}
 	// heavy: it finds something to say now and then, whether or not you move
-	if (m.chat && now - saidAt > m.chat) say(pick('chat'), now);
+	if (m.chat && now - saidAt > m.chat) say(pick(Math.random() < RAMBLES ? 'ramble' : 'chat'), now);
 }

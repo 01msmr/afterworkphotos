@@ -1,8 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
-import { CABIN_LAMP, lightPanel, metal } from './elevator.js?v=20260913y';
-import { ENV_INTENSITY, poolMaterial, tex } from './frames.js?v=20260913y';
-import { camera, renderer, scene } from './scene.js?v=20260913y';
-import { state } from './state.js?v=20260913y';
+import { CABIN_LAMP, lightPanel, metal } from './elevator.js?v=20260913z';
+import { ENV_INTENSITY, PRINT_GLOW, poolMaterial, tex } from './frames.js?v=20260913z';
+import { camera, renderer, scene } from './scene.js?v=20260913z';
+import { state } from './state.js?v=20260913z';
 
 // ---------------------------------------------------------------------------
 // The room
@@ -265,11 +265,16 @@ export function applyMode(dark) {
 const _ca = new THREE.Color(), _cb = new THREE.Color();
 function applyModeF(f) {
 	const mix = (a, b) => a + (b - a) * f;
-	for (const name of ['room', 'pieces']) {   // the pieces group for the slabs behind the middle rows
+	// 'elevator' too (Uli, 2026-09-13: the outer wall kept the night on it in
+	// day): the cabin's south face is plastered like the room's walls and
+	// carries their colours, but it hangs in the lift's own group, not the
+	// room's, so the day never reached it
+	for (const name of ['room', 'pieces', 'elevator']) {   // the pieces group for the slabs behind the middle rows
 		const g = scene.getObjectByName(name);
 		if (!g) continue;
 		g.traverse(o => {
 		if (o.isMesh && o.userData.colours) o.material.color.copy(_ca.setHex(o.userData.colours.light).lerp(_cb.setHex(o.userData.colours.dark), f));
+		if (o.name === 'photo' && o.material.emissiveMap) o.material.emissiveIntensity = mix(PRINT_GLOW.light, PRINT_GLOW.dark);   // the pictures keep their daylight face
 		if (o.isAmbientLight) o.intensity = mix(AMBIENT.light, AMBIENT.dark);
 		if (o.isHemisphereLight) o.intensity = mix(FILL.light, FILL.dark);
 		if (o.isDirectionalLight) o.intensity = mix(1.1, 0.9);

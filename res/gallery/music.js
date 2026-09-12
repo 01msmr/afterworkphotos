@@ -1,6 +1,6 @@
-import { elevator, lift } from './elevator.js?v=20260913y';
+import { elevator, lift } from './elevator.js?v=20260913z';
 import * as THREE from '../vendor/three.module.js';
-import { camera, head, world } from './scene.js?v=20260913y';
+import { camera, head, world } from './scene.js?v=20260913z';
 
 // ---------------------------------------------------------------------------
 // The music in the lift
@@ -110,14 +110,23 @@ async function start() {
 }
 
 // How loud it should be from where you stand: full in the cabin, less
-// across the room, nothing at all outside a shut one.
+// across the room, a trace through shut doors, and nothing at all once
+// the cabin has left the floor you are standing on.
+const SHUT = 0.05;          // through a shut door, the cabin still here (Uli, 2026-09-13: 5%)
 function level() {
 	if (!elevator.origin) return 0;
 	const o = elevator.origin, h = world.worldToLocal(head().clone());   // the cabin stands in the room's own frame
 	const d = Math.hypot(h.x - o.x, h.z - o.z);
 	if (elevator.inside()) return LOUD;
-	if (elevator.open < 0.5) return 0;                        // the doors are shut: a sealed box
-	return LOUD * Math.max(0, 1 - Math.max(0, d - NEAR) / (FAR - NEAR));
+	// **the cabin is not on this floor** — travelling without you, or away
+	// and humming its way back after a call. There is nothing behind those
+	// doors to hear (Uli, 2026-09-13)
+	if (elevator.ride || elevator.coming) return 0;
+	const near = LOUD * Math.max(0, 1 - Math.max(0, d - NEAR) / (FAR - NEAR));
+	// shut, but standing right there: it was a sealed box until 2026-09-13,
+	// and a lift with music in it is not silent from outside — you hear it
+	// the way you hear a lobby through a door (Uli)
+	return elevator.open < 0.5 ? near * SHUT : near;
 }
 
 export function stepMusic(now) {

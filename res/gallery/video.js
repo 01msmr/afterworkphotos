@@ -1,8 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
-import { addLabel } from './bake.js?v=20260913y';
-import { FRAME, GRID_GAP, MAT_Z, PRINT_SCALE, matWidth, materials, photoTexture, poolMaterial, sc, textureCache, dropNear, nearTexture } from './frames.js?v=20260913y';
-import { camera, scene } from './scene.js?v=20260913y';
-import { pieceY, state } from './state.js?v=20260913y';
+import { addLabel } from './bake.js?v=20260913z';
+import { FRAME, GRID_GAP, MAT_Z, PRINT_GLOW, PRINT_SCALE, matWidth, materials, photoTexture, poolMaterial, sc, textureCache, dropNear, nearTexture } from './frames.js?v=20260913z';
+import { camera, scene } from './scene.js?v=20260913z';
+import { pieceY, state } from './state.js?v=20260913z';
 
 // ---------------------------------------------------------------------------
 // Videos — the LED panel
@@ -71,7 +71,18 @@ function ledGrid() {
 // distances are not the same on purpose — one threshold would swap back
 // and forth while somebody stood at the edge of it. Only the big and middling
 // prints bother; a 40 cm one in a grid has nothing more to show.
-const DETAIL = { near: 1.2, far: 1.7, every: 350, least: 0.6 };
+// `warm` starts the 2000 loading well before it is wanted, and the swap
+// itself waits for the image to be there (Uli, 2026-09-13: the view
+// glitched on the swap and the picture flashed darker). A Texture handed
+// back by nearTexture() is empty until its JPEG has loaded and decoded —
+// assigning it the instant the visitor crossed the line put an empty map
+// on the print for a frame or more, which reads as a dark flash. Now the
+// fetch begins at `warm` and the map changes only once there is an image
+// to change it to; until then the print simply keeps its 1200 and the
+// next tick tries again. The texture is dropped past `warm`, not past
+// `far`, or stepping back a hand's breadth would throw away a file that
+// is about to be wanted again.
+const DETAIL = { warm: 2.4, near: 1.2, far: 1.7, every: 350, least: 0.6 };
 let detailAt = 0;
 const _look = new THREE.Vector3(), _spot = new THREE.Vector3();
 export function stepDetail(now) {
@@ -84,12 +95,18 @@ export function stepDetail(now) {
 		const u = o.userData;
 		if (o.name !== 'photo' || !u.photo || u.size < DETAIL.least) return;
 		const d = o.getWorldPosition(_spot).distanceTo(_look);
+		if (d < DETAIL.warm && u.detail !== 'near') nearTexture(u.photo);   // on its way, quietly
 		const want = d < DETAIL.near ? 'near' : d > DETAIL.far ? 'wall' : u.detail;
-		if (want === u.detail) return;
-		u.detail = want;
-		if (want === 'near') o.material.map = nearTexture(u.photo);
-		else { o.material.map = photoTexture(u.photo, u.size); dropNear(u.photo); }
-		o.material.needsUpdate = true;
+		if (want !== u.detail) {
+			if (want === 'near') {
+				const t = nearTexture(u.photo);
+				if (!t.image) return;                    // not in yet: keep the 1200, ask again next tick
+				o.material.map = t;
+			} else o.material.map = photoTexture(u.photo, u.size);
+			u.detail = want;
+			o.material.needsUpdate = true;
+		}
+		if (u.detail !== 'near' && d > DETAIL.warm) dropNear(u.photo);
 	});
 }
 
@@ -212,7 +229,7 @@ function makeFramedPrint(p, size) {
 	// the angle, as paper does; `emissive` keeps a little of the picture in
 	// the dark of a night room, where the pools are all there is.
 	const print = new THREE.Mesh(new THREE.PlaneGeometry(printed, printed),
-		new THREE.MeshLambertMaterial({ map: photoTexture(p, size), emissive: 0xffffff, emissiveMap: photoTexture(p, size), emissiveIntensity: 0.16 }));
+		new THREE.MeshLambertMaterial({ map: photoTexture(p, size), emissive: 0xffffff, emissiveMap: photoTexture(p, size), emissiveIntensity: PRINT_GLOW[state.settings.dark ? 'dark' : 'light'] }));
 	print.name = 'photo';
 	Object.assign(print.userData, { photo: p, size, detail: 'wall' });   // for the swap when someone comes close
 	print.position.z = MAT_Z + 0.001;                // a millimetre proud of the mat (Uli)

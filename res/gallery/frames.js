@@ -1,7 +1,7 @@
 import * as THREE from '../vendor/three.module.js';
-import { walnut } from './elevator.js?v=20260913y';
-import { renderer, scene } from './scene.js?v=20260913y';
-import { state } from './state.js?v=20260913y';
+import { walnut } from './elevator.js?v=20260913z';
+import { renderer, scene } from './scene.js?v=20260913z';
+import { state } from './state.js?v=20260913z';
 
 // ---------------------------------------------------------------------------
 // The frames
@@ -96,6 +96,24 @@ scene.environment = makeEnvironment();
 // the environment's reflections — steel, walnut, caps — which no light
 // switches off: they fade with the night too (applyModeF)
 export const ENV_INTENSITY = { light: 1, dark: 0.12 };
+// A print keeps its daylight face at night (Uli, 2026-09-13: the pictures
+// were too dark in dark mode — make them look as they do by day, without
+// making them shine like a light source). The room's ambient and fill go
+// from 1.9/1.4 to 0.08/0.06, which takes about four fifths of the light
+// off a print, and there is no way to light one alone: three.js tests a
+// light's layers against the **camera's**, not the object's, so a light
+// for the prints only would light everything or nothing. What is left is
+// the print's own emissive, mixed with the mode like everything else.
+// The dark value is **measured, not guessed**: a 90 cm print rendered to
+// an offscreen target from a metre away, straight on, reads 65.7 by day
+// and read 12.5 at night on the old 0.16 — a fifth of daylight, which is
+// what Uli saw. 1.02 brings it to 65.6, within a fifth of a percent of
+// its own daylight face. 1.6 was tried first and reads 100.8, half again
+// brighter than day: that is a lamp, and is exactly what not to do.
+// The Lambert term still carries the rest, so a print goes on dimming as
+// you come at it from the side, which is what kept them from reading as
+// lamps in the first place (Uli, 2026-09-11).
+export const PRINT_GLOW = { light: 0.16, dark: 1.02 };
 scene.environmentIntensity = ENV_INTENSITY[state.settings.dark ? 'dark' : 'light'];
 scene.environmentIntensity = 0.6;
 
