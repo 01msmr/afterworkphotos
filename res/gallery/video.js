@@ -1,8 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
-import { addLabel } from './bake.js?v=20260913s';
-import { FRAME, GRID_GAP, MAT_Z, PRINT_SCALE, matWidth, materials, photoTexture, poolMaterial, sc, textureCache } from './frames.js?v=20260913s';
-import { camera, scene } from './scene.js?v=20260913s';
-import { pieceY, state } from './state.js?v=20260913s';
+import { addLabel } from './bake.js?v=20260913w';
+import { FRAME, GRID_GAP, MAT_Z, PRINT_SCALE, matWidth, materials, photoTexture, poolMaterial, sc, textureCache, dropNear, nearTexture } from './frames.js?v=20260913w';
+import { camera, scene } from './scene.js?v=20260913w';
+import { pieceY, state } from './state.js?v=20260913w';
 
 // ---------------------------------------------------------------------------
 // Videos — the LED panel
@@ -60,6 +60,34 @@ function ledGrid() {
 	ledTex.wrapS = ledTex.wrapT = THREE.RepeatWrapping;
 	ledTex.colorSpace = THREE.SRGBColorSpace;
 	return ledTex;
+}
+
+// A print a visitor is standing at carries its largest file; hung on the
+// wall it carries the small one (Uli, 2026-09-13: 1200 on the wall, 2000
+// within a metre and a half, back again at two). The two distances are
+// not the same on purpose — one threshold would swap back and forth
+// while somebody stood at the edge of it. Only the big and middling
+// prints bother; a 40 cm one in a grid has nothing more to show.
+const DETAIL = { near: 1.5, far: 2, every: 350, least: 0.6 };
+let detailAt = 0;
+const _look = new THREE.Vector3(), _spot = new THREE.Vector3();
+export function stepDetail(now) {
+	if (now - detailAt < DETAIL.every) return;
+	detailAt = now;
+	const pieces = scene.getObjectByName('pieces');
+	if (!pieces) return;
+	camera.getWorldPosition(_look);
+	pieces.traverse(o => {
+		const u = o.userData;
+		if (o.name !== 'photo' || !u.photo || u.size < DETAIL.least) return;
+		const d = o.getWorldPosition(_spot).distanceTo(_look);
+		const want = d < DETAIL.near ? 'near' : d > DETAIL.far ? 'wall' : u.detail;
+		if (want === u.detail) return;
+		u.detail = want;
+		if (want === 'near') o.material.map = nearTexture(u.photo);
+		else { o.material.map = photoTexture(u.photo, u.size); dropNear(u.photo); }
+		o.material.needsUpdate = true;
+	});
 }
 
 // A video panel, in place of makeFramedPrint for a video: the picture,
@@ -183,6 +211,7 @@ function makeFramedPrint(p, size) {
 	const print = new THREE.Mesh(new THREE.PlaneGeometry(printed, printed),
 		new THREE.MeshLambertMaterial({ map: photoTexture(p, size), emissive: 0xffffff, emissiveMap: photoTexture(p, size), emissiveIntensity: 0.16 }));
 	print.name = 'photo';
+	Object.assign(print.userData, { photo: p, size, detail: 'wall' });   // for the swap when someone comes close
 	print.position.z = MAT_Z + 0.001;                // a millimetre proud of the mat (Uli)
 	print.userData.full = inner / printed;           // what it scales to when pressed: over the mat, edge to edge (Uli)
 	if (state.settings.fill) print.scale.setScalar(print.userData.full);   // unless filling the frame is the way round it starts (Uli)

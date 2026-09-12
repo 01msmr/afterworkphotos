@@ -1,7 +1,7 @@
 import * as THREE from '../vendor/three.module.js';
-import { walnut } from './elevator.js?v=20260913s';
-import { renderer, scene } from './scene.js?v=20260913s';
-import { state } from './state.js?v=20260913s';
+import { walnut } from './elevator.js?v=20260913w';
+import { renderer, scene } from './scene.js?v=20260913w';
+import { state } from './state.js?v=20260913w';
 
 // ---------------------------------------------------------------------------
 // The frames
@@ -148,8 +148,16 @@ export const textureCache = new Map();
 // one, a video's still) falls back to its 1000. The texture's image
 // stays empty until loaded, which is what the lift waits for. Textures
 // of a room you have left are freed.
-const PHOTO_PX = { 0.9: 1600, 0.6: 1000, 0.4: 512 };
-const hdFile = p => 'img/1600/' + p.file.slice(p.file.lastIndexOf('/') + 1);
+// What a print carries as it hangs, and what it swaps to when someone
+// comes up to it (Uli, 2026-09-13): 1200 on the wall, the largest file
+// there is within a metre and a half. A 2000 px square costs 16 MB of
+// video memory against 6 MB at 1200, so it is worth having for the one
+// or two prints a visitor is actually standing at, and ruinous for a
+// whole room at once.
+const PHOTO_PX = { 0.9: 1200, 0.6: 1000, 0.4: 512 };
+const NEAR_PX = 2000;
+const name = p => p.file.slice(p.file.lastIndexOf('/') + 1);
+const hdFile = p => 'img/1200/' + name(p);
 export function photoTexture(p, size) {
 	const px = PHOTO_PX[size] || 1000;
 	const key = `${p.n}@${px}`;
@@ -176,4 +184,31 @@ export function photoTexture(p, size) {
 		textureCache.set(key, t);
 	}
 	return textureCache.get(key);
+}
+
+// The same photograph at its largest, for a visitor standing close. It
+// tries the 2000 px set, falls back to the 1600 and then to the plain
+// file — so it is always the best that exists, whatever has been made.
+export function nearTexture(p) {
+	const key = `${p.n}@near`;
+	if (!textureCache.has(key)) {
+		const t = new THREE.Texture();
+		t.colorSpace = THREE.SRGBColorSpace;
+		t.anisotropy = 8;
+		const img = new Image();
+		const tries = [`img/${NEAR_PX}/${name(p)}`, `img/1600/${name(p)}`, p.file];
+		let at = 0;
+		img.onerror = () => { if (++at < tries.length) img.src = '/' + tries[at]; };
+		img.onload = () => img.decode().catch(() => {}).then(() => {
+			t.image = img; t.needsUpdate = true; renderer.initTexture(t);
+		});
+		img.src = '/' + tries[0];
+		textureCache.set(key, t);
+	}
+	return textureCache.get(key);
+}
+export function dropNear(p) {
+	const key = `${p.n}@near`;
+	const t = textureCache.get(key);
+	if (t) { t.dispose(); textureCache.delete(key); }
 }
