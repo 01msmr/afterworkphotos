@@ -1,6 +1,6 @@
 import * as THREE from '../vendor/three.module.js';
-import { camera, renderer, scene } from './scene.js?v=20260915a';
-import { isFav, toggleFav } from './state.js?v=20260915a';
+import { camera, renderer, scene } from './scene.js?v=20260915b';
+import { isFav, toggleFav } from './state.js?v=20260915b';
 
 // ---------------------------------------------------------------------------
 // Red dots
@@ -179,11 +179,18 @@ function loupeIcon() {
 	if (!loupe) {
 		loupe = new THREE.Group();
 		loupe.name = 'cursor-loupe';
-		const ring = new THREE.Mesh(new THREE.RingGeometry(0.0095, 0.0125, 28), inkCursorMat);
-		ring.position.set(-0.002, 0.002, 0);
+		// The glass, and a handle long enough to be one: the first try left
+		// 5.6 mm of handle beyond a 25 mm ring and read as a bare circle
+		// (Uli, 2026-09-13). It runs from the ring's edge outwards now, its
+		// own length again clear of the glass.
+		const R_IN = 0.0095, R_OUT = 0.0125, HANDLE = 0.018, THICK = 0.004;
+		const cx = -0.003, cy = 0.003, diag = Math.SQRT1_2;
+		const ring = new THREE.Mesh(new THREE.RingGeometry(R_IN, R_OUT, 32), inkCursorMat);
+		ring.position.set(cx, cy, 0);
 		loupe.add(ring);
-		const h = bar(0.0125, 0.0035, 0.008, -0.008, -Math.PI / 4, inkCursorMat);   // the handle, off the ring's lower right
-		loupe.add(h);
+		// its middle sits half a handle out along the diagonal from the rim
+		const reach = R_OUT + HANDLE / 2 - 0.002;
+		loupe.add(bar(HANDLE, THICK, cx + reach * diag, cy - reach * diag, -Math.PI / 4, inkCursorMat));
 		loupe.renderOrder = 3; loupe.visible = false; scene.add(loupe);
 	}
 	return loupe;
