@@ -1,6 +1,6 @@
 import * as THREE from '../vendor/three.module.js';
-import { camera, renderer, scene } from './scene.js?v=20260915k';
-import { isFav, toggleFav } from './state.js?v=20260915k';
+import { camera, renderer, scene } from './scene.js?v=20260915o';
+import { isFav, toggleFav } from './state.js?v=20260915o';
 
 // ---------------------------------------------------------------------------
 // Red dots
@@ -174,32 +174,27 @@ const inkCursorMat = new THREE.MeshBasicMaterial({ color: 0x141311, transparent:
 // second rectangle: a blurred square, stretched behind each bar, so the
 // dark fades out into the picture instead of ending on an edge of its own.
 // Drawn first, so the white lies over it.
-// **One backdrop under the whole icon** — much more of it, darker, and
-// softer (Uli, 2026-09-13). It was a small halo behind each of the eight
-// bars; grown this far those would have overlapped at the corners and
-// pooled darker there than along the arms, so it is one disc instead,
-// even everywhere. A radial fall-off held near full across the middle and
-// let go slowly, so it has no edge anywhere.
+// A dark backing under the white, so the brackets hold against a pale
+// photograph as well as a dark one. It follows **the icon's own shape** —
+// one soft patch behind each bar (Uli, 2026-09-13): a disc under the whole
+// thing was a rectangle of shade with the brackets floating in it, too
+// much of it and too soft. A blurred square stretched behind each bar
+// instead, so the dark hugs the arms and fades off their edges.
 let softTex = null;
 function soft() {
 	if (!softTex) {
 		const c = document.createElement('canvas');
-		c.width = c.height = 128;
+		c.width = c.height = 64;
 		const g = c.getContext('2d');
-		const grad = g.createRadialGradient(64, 64, 0, 64, 64, 64);
-		grad.addColorStop(0, 'rgba(255,255,255,1)');
-		grad.addColorStop(0.42, 'rgba(255,255,255,0.94)');
-		grad.addColorStop(0.68, 'rgba(255,255,255,0.55)');
-		grad.addColorStop(0.86, 'rgba(255,255,255,0.18)');
-		grad.addColorStop(1, 'rgba(255,255,255,0)');
-		g.fillStyle = grad;
-		g.fillRect(0, 0, 128, 128);
+		g.filter = 'blur(12px)';
+		g.fillStyle = '#fff';
+		g.fillRect(17, 17, 30, 30);
 		softTex = new THREE.CanvasTexture(c);
 	}
 	return softTex;
 }
-const haloMat = new THREE.MeshBasicMaterial({ map: soft(), color: 0x14120f, transparent: true, opacity: 0.4, depthTest: false, side: THREE.DoubleSide });
-const BACKDROP = 0.115;          // across — the brackets span 6.8 cm, so it reaches well past them
+const haloMat = new THREE.MeshBasicMaterial({ map: soft(), color: 0x14120f, transparent: true, opacity: 0.3, depthTest: false, side: THREE.DoubleSide });
+const HALO = 0.014;              // how far the shade reaches past the bar it backs (Uli: bigger, softer)
 const bar = (w, h, x, y, turn = 0, mat = cursorMat) => {
 	const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
 	m.position.set(x, y, 0); m.rotation.z = turn; return m;
@@ -210,15 +205,13 @@ function expandIcon() {
 	if (!expand) {
 		expand = new THREE.Group();
 		expand.name = 'cursor-expand';
-		const R = 0.03, ARM = 0.022, T = 0.004;      // 6 cm across
-		// the backdrop goes down first, then the brackets over it
-		const back = new THREE.Mesh(new THREE.PlaneGeometry(BACKDROP, BACKDROP), haloMat);
-		back.name = 'cursor-backdrop';
-		expand.add(back);
-		for (const sx of [-1, 1]) for (const sy of [-1, 1]) {
-			expand.add(bar(ARM, T, sx * (R - ARM / 2), sy * R));      // along the top or bottom
-			expand.add(bar(T, ARM, sx * R, sy * (R - ARM / 2)));      // and down the side
-		}
+		const R = 0.048, ARM = 0.0352, T = 0.0064;   // 9.6 cm across — 1.6x the first size (Uli, 2026-09-13)
+		// every halo goes down first, then every bracket over them
+		for (const [grow, mat] of [[HALO, haloMat], [0, cursorMat]])
+			for (const sx of [-1, 1]) for (const sy of [-1, 1]) {
+				expand.add(bar(ARM + 2 * grow, T + 2 * grow, sx * (R - ARM / 2), sy * R, 0, mat));   // along the top or bottom
+				expand.add(bar(T + 2 * grow, ARM + 2 * grow, sx * R, sy * (R - ARM / 2), 0, mat));   // and down the side
+			}
 		expand.renderOrder = 3; expand.visible = false; scene.add(expand);
 	}
 	return expand;
