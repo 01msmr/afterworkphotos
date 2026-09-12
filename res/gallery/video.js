@@ -1,8 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
-import { addLabel } from './bake.js?v=20260914k';
-import { FRAME, GRID_GAP, MAT_Z, PRINT_GLOW, PRINT_SCALE, matWidth, materials, photoTexture, poolMaterial, sc, textureCache, dropNear, nearTexture } from './frames.js?v=20260914k';
-import { camera, scene } from './scene.js?v=20260914k';
-import { pieceY, state } from './state.js?v=20260914k';
+import { addLabel } from './bake.js?v=20260914l';
+import { FRAME, GRID_GAP, MAT_Z, PRINT_GLOW, PRINT_SCALE, matWidth, materials, photoTexture, poolMaterial, sc, textureCache, dropNear, nearTexture } from './frames.js?v=20260914l';
+import { camera, scene } from './scene.js?v=20260914l';
+import { pieceY, state } from './state.js?v=20260914l';
 
 // ---------------------------------------------------------------------------
 // Videos — the LED panel
@@ -85,13 +85,6 @@ function ledGrid() {
 // jump was putting an undecoded texture on the wall, not the change
 // itself. `fade` is still the knob if the pop ever wants softening.
 const DETAIL = { near: 1.0, far: 2.5, least: 0.6 };
-// **Only where there is room to stand back** (Uli, 2026-09-13): 6 x 6 m and
-// up. In a small room a visitor is never far from anything, so the sheets
-// load constantly — four of them sat in memory at once in 2018-1 — and a
-// room you cross in three steps never shows the 1200 from far enough away
-// for the second sheet to be the point. A small room hangs the 1200 and
-// leaves it at that.
-const BIG_ROOM = 6;
 // the 1x1 a near sheet carries until its own picture lands, so its shader
 // is compiled once, at hang time, and never rebuilt mid-walk
 const BLANK = new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1);
@@ -252,7 +245,7 @@ function makeFramedPrint(p, size) {
 	// comes near, then fades up. A child of the print, so a press that
 	// fills the frame carries it along. Only the prints that have more to
 	// show get one.
-	if (size >= DETAIL.least && state.room && state.room.W >= BIG_ROOM && state.room.D >= BIG_ROOM) {
+	if (size >= DETAIL.least) {
 		// **It is built with a map already on it** (Uli, 2026-09-13: the room
 		// stuttered on the swap). A material compiled with no map is a
 		// different shader from one with a map, so hanging the 2000 on an
