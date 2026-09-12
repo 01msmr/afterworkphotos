@@ -1,21 +1,21 @@
 // three.js 0.180.0, vendored (MIT) — res/vendor/three.module.js, which in
 // turn imports res/vendor/three.core.js; both are pinned together.
-import { stats, stepStats } from './gallery/bench.js?v=20260913d';
-import { elevator, lift, pressAt, setSetting } from './gallery/elevator.js?v=20260913d';
-import { materials } from './gallery/frames.js?v=20260913d';
-import { ELEVATOR, hangRoom, packRun, piecesOf, replan, rooms, spread, upright } from './gallery/hang.js?v=20260913d';
-import { jump, stepJump } from './gallery/jump.js?v=20260913d';
-import { stepTablet, tabletHit, toggleTablet } from './gallery/tablet.js?v=20260913d';
-import { placeGuard, stepGuard } from './gallery/guard.js?v=20260913d';
-import { musicLevel, playing, stepMusic } from './gallery/music.js?v=20260913d';
-import { stepZoom, zoomLabel, zoomPrint } from './gallery/zoom.js?v=20260913d';
-import { applyMode, buildRoom, stepMode } from './gallery/room.js?v=20260913d';
-import { planOf } from './gallery/plan.js?v=20260913d';
-import { camera, renderer, rig, scene, world } from './gallery/scene.js?v=20260913d';
-import { EYE, state } from './gallery/state.js?v=20260913d';
-import { makePiece, makeVideoPanel, stepVideos, videoCache } from './gallery/video.js?v=20260913d';
-import { benchScan, fitRoom, stepPlanes } from './gallery/vr.js?v=20260913d';
-import { applyLook, placeBody, stepWalk, walk } from './gallery/walk.js?v=20260913d';
+import { stats, stepStats } from './gallery/bench.js?v=20260913g';
+import { elevator, lift, pressAt, setSetting } from './gallery/elevator.js?v=20260913g';
+import { materials } from './gallery/frames.js?v=20260913g';
+import { ELEVATOR, hangRoom, packRun, piecesOf, replan, rooms, spread, upright } from './gallery/hang.js?v=20260913g';
+import { jump, stepJump } from './gallery/jump.js?v=20260913g';
+import { stepTablet, tabletHit, toggleTablet } from './gallery/tablet.js?v=20260913g';
+import { nextLine, placeGuard, stepGuard } from './gallery/guard.js?v=20260913g';
+import { musicLevel, playing, stepMusic } from './gallery/music.js?v=20260913g';
+import { stepZoom, zoomLabel, zoomPrint } from './gallery/zoom.js?v=20260913g';
+import { applyMode, buildRoom, stepMode } from './gallery/room.js?v=20260913g';
+import { planOf } from './gallery/plan.js?v=20260913g';
+import { camera, renderer, rig, scene, world } from './gallery/scene.js?v=20260913g';
+import { EYE, state } from './gallery/state.js?v=20260913g';
+import { makePiece, makeVideoPanel, stepVideos, videoCache } from './gallery/video.js?v=20260913g';
+import { benchScan, fitRoom, stepPlanes } from './gallery/vr.js?v=20260913g';
+import { applyLook, placeBody, stepWalk, walk } from './gallery/walk.js?v=20260913g';
 
 // ---------------------------------------------------------------------------
 // Boot
@@ -72,4 +72,4 @@ renderer.setAnimationLoop((now, frame) => {
 
 // Test-harness handle only: the plan's browser checks read the scene graph
 // and camera through this. Nothing on the page uses it.
-window.G = { scene, camera, renderer, state, buildRoom, applyMode, makePiece, rooms, hangRoom, walk, stepWalk, elevator, pressAt, setSetting, materials, rig, world, placeBody, lift, stepPlanes, stepVideos, videoCache, makeVideoPanel, replan, packRun, piecesOf, spread, upright, fitRoom, planOf, jump, toggleTablet, tabletHit, stepZoom, zoomLabel, zoomPrint, playing, musicLevel, stepMusic, placeGuard, stepGuard };   // replan, packRun, piecesOf, spread, upright, fitRoom, planOf: for the bench's checks only
+window.G = { scene, camera, renderer, state, buildRoom, applyMode, makePiece, rooms, hangRoom, walk, stepWalk, elevator, pressAt, setSetting, materials, rig, world, placeBody, lift, stepPlanes, stepVideos, videoCache, makeVideoPanel, replan, packRun, piecesOf, spread, upright, fitRoom, planOf, jump, toggleTablet, tabletHit, stepZoom, zoomLabel, zoomPrint, playing, musicLevel, stepMusic, placeGuard, stepGuard, nextLine };   // replan, packRun, piecesOf, spread, upright, fitRoom, planOf: for the bench's checks only

@@ -1,10 +1,10 @@
 import * as THREE from '../vendor/three.module.js';
-import { lift } from './elevator.js?v=20260913d';   // its audio: the guard speaks through the same one
-import { ELEVATOR } from './hang.js?v=20260913d';
-import { duckMusic } from './music.js?v=20260913d';
-import { inPoly } from './plan.js?v=20260913d';
-import { head, world } from './scene.js?v=20260913d';
-import { state } from './state.js?v=20260913d';
+import { lift } from './elevator.js?v=20260913g';   // its audio: the guard speaks through the same one
+import { ELEVATOR } from './hang.js?v=20260913g';
+import { duckMusic } from './music.js?v=20260913g';
+import { inPoly } from './plan.js?v=20260913g';
+import { head, world } from './scene.js?v=20260913g';
+import { state } from './state.js?v=20260913g';
 
 // ---------------------------------------------------------------------------
 // The guard
@@ -113,12 +113,23 @@ const ROW_PATIENCE = 5000;                 // and how long he lets you stand the
 const SAY_TWICE = 2, THEN_WAIT = 15000, FORGET = 30000;
 const VERY_CLOSE = 0.32;                   // m off a print: near enough to put a hand on it
 const mood = () => MOOD[state.settings.talk] || MOOD.light;
-let lastLine = -1;
+// Every line of a kind is used before any of them comes round again
+// (Uli, 2026-09-12: different phrases, not repeats): a shuffled bag per
+// kind, drawn from until it is empty and then shuffled afresh — and never
+// so that the last of one bag is the first of the next.
+const bags = new Map();
 function pick(kind) {
 	const all = LINES[kind];
-	let i = Math.floor(Math.random() * all.length);
-	if (all.length > 1 && i === lastLine) i = (i + 1) % all.length;
-	lastLine = i;
+	let bag = bags.get(kind);
+	if (!bag || !bag.left.length) {
+		const order = all.map((_, i) => i);
+		for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+		if (bag && order.length > 1 && order[0] === bag.last) [order[0], order[1]] = [order[1], order[0]];
+		bag = { left: order, last: bag ? bag.last : -1 };
+		bags.set(kind, bag);
+	}
+	const i = bag.left.shift();
+	bag.last = i;
 	return { kind, i, text: all[i] };
 }
 const MOVED = 0.4;                         // m that counts as having moved
@@ -271,6 +282,9 @@ function say(said, now, loud = false) {
 	saidAt = now;
 	return true;
 }
+
+// For the bench's checks: what the picker would say next.
+export function nextLine(kind) { return pick(kind).text; }
 
 // Where it stands: the corner of the room furthest from the lift, a
 // little off both walls, facing the room.

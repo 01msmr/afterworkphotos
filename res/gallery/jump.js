@@ -1,8 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
-import { SOUND, lift } from './elevator.js?v=20260913d';
-import { hangRoom, rooms } from './hang.js?v=20260913d';
-import { head, scene, world } from './scene.js?v=20260913d';
-import { state } from './state.js?v=20260913d';
+import { SOUND, lift } from './elevator.js?v=20260913g';
+import { hangRoom, rooms } from './hang.js?v=20260913g';
+import { head, scene, world } from './scene.js?v=20260913g';
+import { state } from './state.js?v=20260913g';
 
 // ---------------------------------------------------------------------------
 // The instant lift
@@ -96,13 +96,29 @@ export function stepJump(now) {
 // goes out when you are there.
 const GUIDE = { w: 0.06, y: 0.012, opacity: 0.7, arrived: 1.1 };
 const _a = new THREE.Vector3(), _b = new THREE.Vector3();
+// The way is laid **rectangular** (Uli, 2026-09-12): two strips at a
+// right angle, the long leg first and the turn onto the print after, the
+// way a floor is marked in a building rather than cut across.
 function buildGuide() {
 	const g = new THREE.PlaneGeometry(GUIDE.w, 1);
 	g.rotateX(-Math.PI / 2); g.translate(0, 0, -0.5);      // a strip running from its origin to -z, one metre
-	guide = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: GUIDE.opacity, depthWrite: false }));
-	guide.name = 'jump-guide';
-	guide.renderOrder = 2;
+	const skin = () => new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: GUIDE.opacity, depthWrite: false });
+	guide = new THREE.Group(); guide.name = 'jump-guide';
+	for (const name of ['leg-1', 'leg-2']) {
+		const m = new THREE.Mesh(g, skin());
+		m.name = name; m.renderOrder = 2;
+		guide.add(m);
+	}
 	scene.add(guide);
+}
+// one leg of the way: from (x0,z0) to (x1,z1), along an axis
+function layLeg(m, x0, z0, x1, z1, y) {
+	const dx = x1 - x0, dz = z1 - z0, len = Math.hypot(dx, dz);
+	m.visible = len > 0.02;
+	if (!m.visible) return;
+	m.position.set(x0, y, z0);
+	m.rotation.y = Math.atan2(dx, dz) + Math.PI;
+	m.scale.z = len;
 }
 function leadTo(n) {
 	const p = state.placed && state.placed.find(q => q.piece.photos.some(ph => ph.n === n));
@@ -116,9 +132,11 @@ function stepGuide() {
 	const dx = _a.x - _b.x, dz = _a.z - _b.z, len = Math.hypot(dx, dz);
 	if (len < GUIDE.arrived) { guideTo = null; guide.visible = false; return; }
 	guide.visible = true;
-	guide.position.set(_b.x, world.position.y + GUIDE.y, _b.z);
-	guide.rotation.y = Math.atan2(dx, dz) + Math.PI;       // the strip runs to -z, so it is turned onto the print
-	guide.scale.z = len;
+	const y = world.position.y + GUIDE.y;
+	// the corner: the longer leg walked first, then the turn
+	const corner = Math.abs(dx) > Math.abs(dz) ? [_a.x, _b.z] : [_b.x, _a.z];
+	layLeg(guide.getObjectByName('leg-1'), _b.x, _b.z, corner[0], corner[1], y);
+	layLeg(guide.getObjectByName('leg-2'), corner[0], corner[1], _a.x, _a.z, y);
 }
 
 // The bench: J jumps to the next room down the list, to see the ride.
