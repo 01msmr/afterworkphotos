@@ -1,8 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
-import { addLabel } from './bake.js?v=20260915p';
-import { FRAME, GRID_GAP, MAT_Z, PRINT_GLOW, PRINT_SCALE, matWidth, materials, photoTexture, poolMaterial, sc, textureCache, dropNear, nearTexture } from './frames.js?v=20260915p';
-import { camera, scene } from './scene.js?v=20260915p';
-import { pieceY, state } from './state.js?v=20260915p';
+import { addLabel } from './bake.js?v=20260915t';
+import { FRAME, GRID_GAP, MAT_Z, PRINT_GLOW, PRINT_SCALE, matWidth, materials, photoTexture, poolMaterial, sc, textureCache, dropNear, nearTexture } from './frames.js?v=20260915t';
+import { camera, scene } from './scene.js?v=20260915t';
+import { pieceY, state } from './state.js?v=20260915t';
 
 // ---------------------------------------------------------------------------
 // Videos — the LED panel
@@ -181,20 +181,38 @@ const barCache = new Map();
 function barGeometry(length, face, depth, horizontal) {
 	const key = `${length.toFixed(4)}|${face.toFixed(4)}|${depth.toFixed(4)}|${horizontal}`;
 	if (barCache.has(key)) return barCache.get(key);
-	const c = Math.min(FRAME.chamfer, face / 3), fw = face / 2, L = length / 2;
-	// the section, anticlockwise seen from +x, starting at the outer back corner
-	const prof = [[fw, c], [fw, depth - c], [fw - c, depth], [-fw + c, depth], [-fw, depth - c], [-fw, c], [-fw + c, 0], [fw - c, 0]];
+	const fw = face / 2, L = length / 2;
+	// **The section's four long edges are rounded, not chamfered** (Uli,
+	// 2026-09-13): a 2 mm radius. Mitred together the four bars carry it
+	// right round the assembled frame — outer and inner, front and back —
+	// as one continuous edge, which is the point; it is not each bar
+	// rounded off as a stick of its own.
+	//
+	// Every point carries its own normal, so an arc shades as a curve
+	// while the flat faces stay flat: at the junctions the arc's end
+	// normal already equals the face's, so nothing has to be doubled.
+	const r = Math.min(FRAME.radius, face / 3, depth / 3), SEG = 3;
+	const prof = [];
+	// anticlockwise seen from +x, the same way round as the chamfer was:
+	// up the outer face, over the front, down the inner, back along behind
+	for (const [cy, cz, a0] of [[fw - r, depth - r, 0], [-fw + r, depth - r, Math.PI / 2],
+	                            [-fw + r, r, Math.PI], [fw - r, r, -Math.PI / 2]])
+		for (let i = 0; i <= SEG; i++) {
+			const a = a0 + (Math.PI / 2) * i / SEG, ny = Math.cos(a), nz = Math.sin(a);
+			prof.push([cy + r * ny, cz + r * nz, ny, nz]);
+		}
 	// the mitre: the outer edge (y = +fw) runs the full length, the inner (y = -fw) is shorter by the face
 	const xEnd = (y, sign) => sign * (L - (fw - y));
 	const pos = [], nor = [], uv = [];
 	let v = 0;
 	for (let i = 0; i < prof.length; i++) {
-		const [y0, z0] = prof[i], [y1, z1] = prof[(i + 1) % prof.length];
+		const [y0, z0, n0y, n0z] = prof[i], [y1, z1, n1y, n1z] = prof[(i + 1) % prof.length];
 		const len = Math.hypot(y1 - y0, z1 - z0);
-		const ny = (z1 - z0) / len, nz = -(y1 - y0) / len;
-		const quad = [[xEnd(y0, -1), y0, z0, 0, v], [xEnd(y0, 1), y0, z0, length, v], [xEnd(y1, 1), y1, z1, length, v + len], [xEnd(y1, -1), y1, z1, 0, v + len]];
+		if (len < 1e-6) continue;
+		const quad = [[xEnd(y0, -1), y0, z0, 0, v, n0y, n0z], [xEnd(y0, 1), y0, z0, length, v, n0y, n0z],
+		              [xEnd(y1, 1), y1, z1, length, v + len, n1y, n1z], [xEnd(y1, -1), y1, z1, 0, v + len, n1y, n1z]];
 		// wound anticlockwise seen from outside, so the faces are front faces (they were back faces: see-through from the side)
-		for (const t of [[0, 2, 1], [0, 3, 2]]) for (const k of t) { const q = quad[k]; pos.push(q[0], q[1], q[2]); nor.push(0, ny, nz); uv.push(q[3], q[4]); }
+		for (const t of [[0, 2, 1], [0, 3, 2]]) for (const k of t) { const q = quad[k]; pos.push(q[0], q[1], q[2]); nor.push(0, q[5], q[6]); uv.push(q[3], q[4]); }
 		v += len;
 	}
 	const g = new THREE.BufferGeometry();

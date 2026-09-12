@@ -1,6 +1,7 @@
 import * as THREE from '../vendor/three.module.js';
-import { camera, renderer, scene } from './scene.js?v=20260915p';
-import { isFav, toggleFav } from './state.js?v=20260915p';
+import { camera, renderer, scene } from './scene.js?v=20260915t';
+import { isFav, toggleFav } from './state.js?v=20260915t';
+import { elevator } from './elevator.js?v=20260915t';   // only to ask whether the visitor is in the cabin
 
 // ---------------------------------------------------------------------------
 // Red dots
@@ -154,7 +155,11 @@ function aimed() {
 // away (found on the bench, 2026-09-13).
 function surfaceHit(rc) {
 	const targets = [];
-	for (const n of ['room', 'pieces']) { const g = scene.getObjectByName(n); if (g) targets.push(g); }
+	// 'elevator' too (Uli, 2026-09-13: a circle on the plate, a filled one
+	// on a button) — the cabin is its own group beside the room, so a ray
+	// aimed at the button plate went straight through it to a print on the
+	// wall behind, and the lift's cursors could never come up at all.
+	for (const n of ['room', 'pieces', 'elevator']) { const g = scene.getObjectByName(n); if (g) targets.push(g); }
 	return targets.length ? rc.intersectObjects(targets, true)[0] : null;
 }
 
@@ -238,19 +243,48 @@ function loupeIcon() {
 	}
 	return loupe;
 }
+// **In the lift, a circle** (Uli, 2026-09-13): open on the plate, filled on
+// a button — both the sticker's own size, so the pointer keeps one
+// vocabulary from the wall to the cabin.
+let ring = null, disc = null;
+function ringIcon() {
+	if (!ring) {
+		ring = new THREE.Mesh(new THREE.RingGeometry(DOT_R - 0.0018, DOT_R, 32), cursorMat);
+		ring.name = 'cursor-ring'; ring.renderOrder = 3; ring.visible = false; scene.add(ring);
+	}
+	return ring;
+}
+function discIcon() {
+	if (!disc) {
+		disc = new THREE.Mesh(new THREE.CircleGeometry(DOT_R, 32), cursorMat);
+		disc.name = 'cursor-disc'; disc.renderOrder = 3; disc.visible = false; scene.add(disc);
+	}
+	return disc;
+}
 // what the ray is over, when it is not over a sticker's place
 function overKind(hit) {
 	for (let o = hit.object; o; o = o.parent) {
 		if (o.name === 'photo' || o.name === 'photo-near') return 'print';
 		if (o.name === 'label') return 'label';
+		if (o.name.startsWith('cap-') || o.name.startsWith('print-') ||
+		    o.name.startsWith('steel-') || o.name.startsWith('pocket-')) return 'button';
+		if (o.name === 'plate') return 'plate';
 	}
 	return null;
 }
-// laid on whatever the ray struck, a breath proud of it and facing out
-function onSurface(obj, hit) {
-	const n = hit.face.normal.clone().transformDirection(hit.object.matrixWorld);
-	obj.position.copy(hit.point).addScaledVector(n, 0.0008);
-	obj.lookAt(obj.position.clone().add(n));
+// Laid on whatever the ray struck, a breath toward the eye, and **turned
+// with the eye, not with the surface**. Taking the orientation from the
+// face it lands on meant a face turned away turned the cursor with it, and
+// the loupe came back with its grip on the other side (Uli, 2026-09-13:
+// deactivate that completely). A cursor is a thing held in front of the
+// view, not painted on the wall — so it simply wears the camera's own
+// rotation and can never be seen from behind or mirrored.
+const _fn = new THREE.Vector3(), _to = new THREE.Vector3(), _cq = new THREE.Quaternion();
+function onSurface(obj, hit, from) {
+	_fn.copy(hit.face.normal).transformDirection(hit.object.matrixWorld);
+	if (from && _fn.dot(_to.subVectors(from, hit.point)) < 0) _fn.negate();
+	obj.position.copy(hit.point).addScaledVector(_fn, 0.0012);
+	obj.quaternion.copy(camera.getWorldQuaternion(_cq));
 }
 // Each frame: the dot rides the wall under the pointer, and adheres to a
 // place when the pointer comes near one.
@@ -258,7 +292,7 @@ export function stepSticker() {
 	const d = heldDot(), x = heldCross();
 	const rc = aimed();
 	const hit = rc && surfaceHit(rc);
-	if (!hit) { putBack(); settled = null; d.visible = x.visible = false; if (expand) expand.visible = false; if (loupe) loupe.visible = false; over = null; return; }
+	if (!hit) { putBack(); settled = null; d.visible = x.visible = false; for (const c of [expand, loupe, ring, disc]) if (c) c.visible = false; over = null; return; }
 	// **how near the pointer comes to the place**, not how near the surface
 	// it happens to strike: the sticker is drawn to the ray itself (Uli,
 	// "adheres to the pointer in 12 cm range"). A place further along the
@@ -275,10 +309,16 @@ export function stepSticker() {
 	putBack();
 	if (over !== settled) settled = null;             // moved off: the pointer speaks again
 	const stuck = over && isFav(over.photo.id);
+	// **In the cabin, the two circles and nothing else** (Uli, 2026-09-13):
+	// no dot on the steel, no brackets over a print seen through the open
+	// doors. A lift is a lift; the wall's vocabulary is left outside it.
+	const inLift = !!elevator.origin && elevator.inside();
+	const kind = overKind(hit);
 	const showing = settled ? null
+		: inLift ? ({ button: discIcon(), plate: ringIcon() }[kind] || null)
 		: over ? (stuck ? x : d)
-		: ({ print: expandIcon(), label: loupeIcon() }[overKind(hit)] || d);
-	for (const c of [d, x, expand, loupe]) if (c && c !== showing) c.visible = false;
+		: ({ print: expandIcon(), label: loupeIcon(), button: discIcon(), plate: ringIcon() }[kind] || d);
+	for (const c of [d, x, expand, loupe, ring, disc]) if (c && c !== showing) c.visible = false;
 	if (!showing) return;                             // just pressed here, and still here: say nothing
 	if (over) {
 		// **Both snap to the place** (Uli, 2026-09-13). The dot sits where
@@ -291,7 +331,7 @@ export function stepSticker() {
 		if (showing === x) { over.dot.visible = false; lifted = over; }   // the cross covers it
 	} else {
 		// not at a sticker's place: say what a press *here* would do instead
-		onSurface(showing, hit);
+		onSurface(showing, hit, rc.ray.origin);
 		showing.visible = true;
 	}
 }

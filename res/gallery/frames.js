@@ -1,7 +1,7 @@
 import * as THREE from '../vendor/three.module.js';
-import { walnut } from './elevator.js?v=20260915p';
-import { renderer, scene } from './scene.js?v=20260915p';
-import { state } from './state.js?v=20260915p';
+import { walnut } from './elevator.js?v=20260915t';
+import { renderer, scene } from './scene.js?v=20260915t';
+import { state } from './state.js?v=20260915t';
 
 // ---------------------------------------------------------------------------
 // The frames
@@ -17,7 +17,7 @@ import { state } from './state.js?v=20260915p';
 // around the mat's edge, 3 cm face and 4 cm deep, mitred by overlap. Two
 // lines rise from the frame's top corners to the ceiling. No glass.
 
-export const FRAME = { face: 0.03, depth: 0.03, chamfer: 0.0015 };   // a square section (Uli), a 1.5 mm chamfer on the long edges
+export const FRAME = { face: 0.03, depth: 0.03, radius: 0.002 };   // a square section (Uli), its four long edges rounded 2 mm (Uli, 2026-09-13; a 1.5 mm chamfer before)
 const MAT = { 0.9: 0.09, 0.6: 0.06, 0.4: 0.045 };     // mat width per nominal print size: the spec's 6/4/3 plus half (Uli)
 export const MAT_Z = 0.014;                                   // the mat 14 mm off the wall: 8 mm further forward (Uli)
 export const PRINT_SCALE = 0.9;                               // the print inside is a little smaller than nominal, the mat takes the rest (Uli)
@@ -53,6 +53,13 @@ export function tex(file, srgb, repeat, along = repeat) {
 // stretched one and a half times along the bar, so the grain runs calmer (Uli)
 const woodSet = n => ({ map: tex(`wood-${n}-color.jpg`, true, 2, 2 / 1.5), roughnessMap: tex(`wood-${n}-rough.jpg`, false, 2, 2 / 1.5), normalMap: tex(`wood-${n}-normal.jpg`, false, 2, 2 / 1.5) });
 const WOOD = { maple: woodSet('maple'), light: woodSet('light'), dark: woodSet('dark') };
+// **Maple, less red and a little lighter** (Uli, 2026-09-13). It cannot be
+// done with the material's tint: that multiplies the picture, so it can
+// only ever darken. The wash goes into the picture itself — the grain kept
+// and a pale, barely warm coat laid over it, which lifts the whole thing
+// and takes the red down with it.
+WOOD.maple.map = fadedWood('wood-maple-color.jpg', '#f4efe6', 0.32);
+WOOD.maple.map.repeat.copy(WOOD.light.map.repeat);
 // The frame colours as a wood and a tint over it: oak and walnut are the
 // woods themselves; black and white are the light wood stained.
 const FRAME_LOOKS = {
@@ -154,7 +161,12 @@ function fadedWood(file, colour, fade) {
 }
 
 export const materials = {
-	frame: new THREE.MeshStandardMaterial({ roughness: 1, metalness: 0, normalScale: new THREE.Vector2(0.6, 0.6), envMapIntensity: 0.5 }),
+	// **A thin seidenmatt lacquer on every frame** (Uli, 2026-09-13): not a
+	// gloss, a satin — the wood's own roughness map still does the work,
+	// scaled down so the surface holds a soft highlight instead of none
+	// at all, with a little more of the room in it. Costs nothing: one
+	// material, shared by every frame on every floor.
+	frame: new THREE.MeshStandardMaterial({ roughness: 0.45, metalness: 0, normalScale: new THREE.Vector2(0.6, 0.6), envMapIntensity: 0.9 }),
 	mat:   new THREE.MeshLambertMaterial({ color: MAT_COLOURS[state.settings.mat] }),
 	rim:   new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.28, depthWrite: false }),
 	line:  new THREE.MeshBasicMaterial({ color: 0xe8e4dc, transparent: true, opacity: 0.55, side: THREE.DoubleSide }),
