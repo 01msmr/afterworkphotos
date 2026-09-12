@@ -1,6 +1,6 @@
 import * as THREE from '../vendor/three.module.js';
-import { camera, renderer, scene } from './scene.js?v=20260914j';
-import { isFav, toggleFav } from './state.js?v=20260914j';
+import { camera, renderer, scene } from './scene.js?v=20260914k';
+import { isFav, toggleFav } from './state.js?v=20260914k';
 
 // ---------------------------------------------------------------------------
 // Red dots
