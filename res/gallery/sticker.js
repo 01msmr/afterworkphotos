@@ -1,6 +1,6 @@
 import * as THREE from '../vendor/three.module.js';
-import { camera, renderer, scene } from './scene.js?v=20260914x';
-import { isFav, toggleFav } from './state.js?v=20260914x';
+import { camera, renderer, scene } from './scene.js?v=20260915a';
+import { isFav, toggleFav } from './state.js?v=20260915a';
 
 // ---------------------------------------------------------------------------
 // Red dots
@@ -23,7 +23,7 @@ import { isFav, toggleFav } from './state.js?v=20260914x';
 // stickers actually looks like on a wall.
 //
 // The dots are what the `favorites` floor is hung from (state.favs).
-export const DOT_R = 0.0065;     // 1.3 cm across (Uli, 2026-09-13)
+export const DOT_R = 0.008;      // 1.6 cm across (Uli, 2026-09-13)
 const LEFT = [-0.01, 0.06];      // how far left of the label's right corner — a centimetre further left than the first try (Uli, 2026-09-13)
 const UNDER = [0.005, 0.015];    // and how far under its bottom edge (Uli: 0.5 to 1.5 cm)
 const AIM_DROP = 0.10;           // **what you point at sits 10 cm under the sticker** (Uli): the
@@ -80,7 +80,7 @@ let held = null, cross = null, over = null;
 // offers to lift is unmistakable. Its arms are longer than that span —
 // turned 45 degrees, an arm of length L only reaches L/sqrt(2) sideways —
 // so the arm is worked back out of the width wanted rather than guessed.
-const X_SPAN = 2 * 2 * 0.0065, X_BAR = 0.0045;
+const X_SPAN = 4 * DOT_R, X_BAR = 0.0045;   // twice the sticker, whatever the sticker is
 const X_ARM = X_SPAN / Math.SQRT1_2 - X_BAR;
 // **A red cross where a press would take a sticker off** (Uli,
 // 2026-09-13). Pointing at bare wall offers a dot; pointing at a sticker
@@ -143,6 +143,59 @@ function surfaceHit(rc) {
 	return targets.length ? rc.intersectObjects(targets, true)[0] : null;
 }
 
+// **What a press would do, drawn on the pointer.** The dot and the cross
+// say a sticker goes on or comes off; these two say the rest of it — a
+// press on a picture fills its frame, a press on a label doubles it, and
+// neither said so before (Uli, 2026-09-13). Drawn out of bars and a ring
+// rather than fetched as icons: two shapes do not earn a font, and they
+// have to be meshes in the room, not marks on a page.
+// White over a photograph, which may be anything; **black over a label**
+// (Uli, 2026-09-13), which is always off-white paper and would swallow a
+// white one whole.
+const cursorMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, depthTest: false, side: THREE.DoubleSide });
+const inkCursorMat = new THREE.MeshBasicMaterial({ color: 0x141311, transparent: true, opacity: 0.85, depthTest: false, side: THREE.DoubleSide });
+const bar = (w, h, x, y, turn = 0, mat = cursorMat) => {
+	const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
+	m.position.set(x, y, 0); m.rotation.z = turn; return m;
+};
+// four corner brackets, the way a picture says it can be made larger
+let expand = null;
+function expandIcon() {
+	if (!expand) {
+		expand = new THREE.Group();
+		expand.name = 'cursor-expand';
+		const R = 0.03, ARM = 0.022, T = 0.004;      // 6 cm across
+		for (const sx of [-1, 1]) for (const sy of [-1, 1]) {
+			expand.add(bar(ARM, T, sx * (R - ARM / 2), sy * R));      // along the top or bottom
+			expand.add(bar(T, ARM, sx * R, sy * (R - ARM / 2)));      // and down the side
+		}
+		expand.renderOrder = 3; expand.visible = false; scene.add(expand);
+	}
+	return expand;
+}
+// a loupe, the way a label says it can be read larger
+let loupe = null;
+function loupeIcon() {
+	if (!loupe) {
+		loupe = new THREE.Group();
+		loupe.name = 'cursor-loupe';
+		const ring = new THREE.Mesh(new THREE.RingGeometry(0.0095, 0.0125, 28), inkCursorMat);
+		ring.position.set(-0.002, 0.002, 0);
+		loupe.add(ring);
+		const h = bar(0.0125, 0.0035, 0.008, -0.008, -Math.PI / 4, inkCursorMat);   // the handle, off the ring's lower right
+		loupe.add(h);
+		loupe.renderOrder = 3; loupe.visible = false; scene.add(loupe);
+	}
+	return loupe;
+}
+// what the ray is over, when it is not over a sticker's place
+function overKind(hit) {
+	for (let o = hit.object; o; o = o.parent) {
+		if (o.name === 'photo' || o.name === 'photo-near') return 'print';
+		if (o.name === 'label') return 'label';
+	}
+	return null;
+}
 // laid on whatever the ray struck, a breath proud of it and facing out
 function onSurface(obj, hit) {
 	const n = hit.face.normal.clone().transformDirection(hit.object.matrixWorld);
@@ -155,7 +208,7 @@ export function stepSticker() {
 	const d = heldDot(), x = heldCross();
 	const rc = aimed();
 	const hit = rc && surfaceHit(rc);
-	if (!hit) { d.visible = x.visible = false; over = null; return; }
+	if (!hit) { d.visible = x.visible = false; if (expand) expand.visible = false; if (loupe) loupe.visible = false; over = null; return; }
 	// **how near the pointer comes to the place**, not how near the surface
 	// it happens to strike: the sticker is drawn to the ray itself (Uli,
 	// "adheres to the pointer in 12 cm range"). A place further along the
@@ -168,7 +221,10 @@ export function stepSticker() {
 		if (!near || gap < near.gap) near = { s, gap };
 	}
 	over = near ? near.s : null;
-	if (over && over.dot.visible) {
+	// exactly one cursor is up at a time
+	const showing = over ? (over.dot.visible ? x : d) : ({ print: expandIcon(), label: loupeIcon() }[overKind(hit)] || d);
+	for (const c of [d, x, expand, loupe]) if (c && c !== showing) c.visible = false;
+	if (showing === x) {
 		// A sticker already on: the cross, offering to lift it. It **keeps
 		// moving with the pointer** right up until the press (Uli,
 		// 2026-09-13) — it is a cursor, not a marker, and a cursor that
@@ -177,8 +233,8 @@ export function stepSticker() {
 		// It rides the sticker's **own plane** rather than whatever the ray
 		// happens to strike: for a middle row the strike can be a wall a
 		// metre and a half behind the picture, and the cross went out there
-		// with it. So the ray is met with the plane the place lies in, which
-		// tracks the hand exactly and always stays where the sticker is.
+		// with it. Meeting the ray with the plane the place lies in tracks
+		// the hand exactly and always stays where the sticker is.
 		over.dot.getWorldQuaternion(_q);
 		_n.set(0, 0, 1).applyQuaternion(_q);
 		_plane.setFromNormalAndCoplanarPoint(_n, over.aim);
@@ -187,15 +243,15 @@ export function stepSticker() {
 			x.quaternion.copy(_q);
 			x.visible = true;
 		} else x.visible = false;
-		d.visible = false;
 	} else if (over) {
 		// an empty place: the dot it would put there, shown where it will go
 		d.position.copy(over.at);
 		d.quaternion.copy(over.dot.getWorldQuaternion(_q));
-		d.visible = true; x.visible = false;
+		d.visible = true;
 	} else {
-		onSurface(d, hit);
-		d.visible = true; x.visible = false;
+		// not at a sticker's place: say what a press *here* would do instead
+		onSurface(showing, hit);
+		showing.visible = true;
 	}
 }
 
