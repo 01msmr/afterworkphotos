@@ -1,12 +1,12 @@
 import * as THREE from '../vendor/three.module.js';
-import { DOOR, elevator, floors, pressAt } from './elevator.js?v=20260915g';
-import { inPoly } from './plan.js?v=20260915g';
-import { tabletHit } from './tablet.js?v=20260915g';
-import { rectRoom } from './room.js?v=20260915g';
-import { ELEVATOR, openRooms, rooms } from './hang.js?v=20260915g';
-import { camera, renderer } from './scene.js?v=20260915g';
-import { EYE, state } from './state.js?v=20260915g';
-import { stepXR } from './vr.js?v=20260915g';
+import { DOOR, elevator, floors, pressAt } from './elevator.js?v=20260915i';
+import { inPoly } from './plan.js?v=20260915i';
+import { tabletHit } from './tablet.js?v=20260915i';
+import { rectRoom } from './room.js?v=20260915i';
+import { ELEVATOR, openRooms, rooms } from './hang.js?v=20260915i';
+import { camera, renderer } from './scene.js?v=20260915i';
+import { EYE, state } from './state.js?v=20260915i';
+import { stepXR } from './vr.js?v=20260915i';
 
 // ---------------------------------------------------------------------------
 // Walking (the bench)

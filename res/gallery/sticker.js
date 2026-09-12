@@ -1,6 +1,6 @@
 import * as THREE from '../vendor/three.module.js';
-import { camera, renderer, scene } from './scene.js?v=20260915g';
-import { isFav, toggleFav } from './state.js?v=20260915g';
+import { camera, renderer, scene } from './scene.js?v=20260915i';
+import { isFav, toggleFav } from './state.js?v=20260915i';
 
 // ---------------------------------------------------------------------------
 // Red dots
@@ -122,7 +122,6 @@ function heldDot() {
 // The ray the visitor is pointing: a controller in the headset (whichever
 // hand is aimed at something nearer), the middle of the view on the bench.
 const _rc = new THREE.Raycaster(), _o = new THREE.Vector3(), _d = new THREE.Vector3(), _q = new THREE.Quaternion();
-const _n = new THREE.Vector3(), _on = new THREE.Vector3(), _plane = new THREE.Plane();
 function aimed() {
 	if (!renderer.xr.isPresenting) {
 		_rc.setFromCamera(new THREE.Vector2(0, 0), camera);
@@ -265,30 +264,14 @@ export function stepSticker() {
 		: ({ print: expandIcon(), label: loupeIcon() }[overKind(hit)] || d);
 	for (const c of [d, x, expand, loupe]) if (c && c !== showing) c.visible = false;
 	if (!showing) return;                             // just pressed here, and still here: say nothing
-	if (showing === x) {
-		// A sticker already on: the cross, offering to lift it. It **keeps
-		// moving with the pointer** right up until the press (Uli,
-		// 2026-09-13) — it is a cursor, not a marker, and a cursor that
-		// stops moving reads as though the press has already happened.
-		//
-		// It rides the sticker's **own plane** rather than whatever the ray
-		// happens to strike: for a middle row the strike can be a wall a
-		// metre and a half behind the picture, and the cross went out there
-		// with it. Meeting the ray with the plane the place lies in tracks
-		// the hand exactly and always stays where the sticker is.
-		over.dot.getWorldQuaternion(_q);
-		_n.set(0, 0, 1).applyQuaternion(_q);
-		_plane.setFromNormalAndCoplanarPoint(_n, over.aim);
-		if (rc.ray.intersectPlane(_plane, _on)) {
-			x.position.copy(_on).addScaledVector(_n, 0.0008);
-			x.quaternion.copy(_q);
-			x.visible = true;
-		} else x.visible = false;
-	} else if (over) {
-		// an empty place: the dot it would put there, shown where it will go
-		d.position.copy(over.at);
-		d.quaternion.copy(over.dot.getWorldQuaternion(_q));
-		d.visible = true;
+	if (over) {
+		// **Both snap to the place** (Uli, 2026-09-13). The dot sits where
+		// the sticker would land; the cross **takes the sticker's own place**
+		// on hover and goes on the click. Neither follows the pointer about:
+		// what they show is where the thing is, not where the hand is.
+		showing.position.copy(over.at);
+		showing.quaternion.copy(over.dot.getWorldQuaternion(_q));
+		showing.visible = true;
 	} else {
 		// not at a sticker's place: say what a press *here* would do instead
 		onSurface(showing, hit);
