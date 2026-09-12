@@ -1,23 +1,23 @@
 // three.js 0.180.0, vendored (MIT) — res/vendor/three.module.js, which in
 // turn imports res/vendor/three.core.js; both are pinned together.
-import { stats, stepStats } from './gallery/bench.js?v=20260915i';
-import { elevator, lift, pressAt, setSetting } from './gallery/elevator.js?v=20260915i';
-import { materials } from './gallery/frames.js?v=20260915i';
-import { ELEVATOR, hangRoom, packRun, piecesOf, replan, firstRoom, rooms, spread, upright } from './gallery/hang.js?v=20260915i';
-import { stepSticker } from './gallery/sticker.js?v=20260915i';
-import { loadFont } from './gallery/text.js?v=20260915i';
-import { jump, stepJump } from './gallery/jump.js?v=20260915i';
-import { stepTablet, tabletHit, toggleTablet } from './gallery/tablet.js?v=20260915i';
-import { nextLine, placeGuard, stepGuard } from './gallery/guard.js?v=20260915i';
-import { musicLevel, playing, stepMusic } from './gallery/music.js?v=20260915i';
-import { stepZoom, zoomLabel, zoomPrint } from './gallery/zoom.js?v=20260915i';
-import { applyMode, buildRoom, stepMode } from './gallery/room.js?v=20260915i';
-import { planOf } from './gallery/plan.js?v=20260915i';
-import { camera, renderer, rig, scene, world } from './gallery/scene.js?v=20260915i';
-import { EYE, state } from './gallery/state.js?v=20260915i';
-import { makePiece, makeVideoPanel, stepDetail, stepVideos, videoCache } from './gallery/video.js?v=20260915i';
-import { benchScan, fitRoom, stepPlanes } from './gallery/vr.js?v=20260915i';
-import { applyLook, placeBody, stepWalk, walk } from './gallery/walk.js?v=20260915i';
+import { stats, stepStats } from './gallery/bench.js?v=20260915j';
+import { elevator, lift, pressAt, setSetting } from './gallery/elevator.js?v=20260915j';
+import { materials } from './gallery/frames.js?v=20260915j';
+import { ELEVATOR, hangRoom, packRun, piecesOf, replan, firstRoom, rooms, spread, upright } from './gallery/hang.js?v=20260915j';
+import { stepSticker } from './gallery/sticker.js?v=20260915j';
+import { loadFont } from './gallery/text.js?v=20260915j';
+import { jump, stepJump } from './gallery/jump.js?v=20260915j';
+import { stepTablet, tabletHit, toggleTablet } from './gallery/tablet.js?v=20260915j';
+import { nextLine, placeGuard, stepGuard } from './gallery/guard.js?v=20260915j';
+import { musicLevel, playing, stepMusic } from './gallery/music.js?v=20260915j';
+import { stepZoom, zoomLabel, zoomPrint } from './gallery/zoom.js?v=20260915j';
+import { applyMode, buildRoom, stepMode } from './gallery/room.js?v=20260915j';
+import { planOf } from './gallery/plan.js?v=20260915j';
+import { camera, renderer, rig, scene, world } from './gallery/scene.js?v=20260915j';
+import { EYE, state } from './gallery/state.js?v=20260915j';
+import { makePiece, makeVideoPanel, stepDetail, stepVideos, videoCache } from './gallery/video.js?v=20260915j';
+import { benchScan, fitRoom, stepPlanes } from './gallery/vr.js?v=20260915j';
+import { applyLook, placeBody, stepWalk, walk } from './gallery/walk.js?v=20260915j';
 
 // ---------------------------------------------------------------------------
 // Boot

@@ -1,8 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
-import { materials, poolMaterial } from './frames.js?v=20260915i';
-import { renderer, world } from './scene.js?v=20260915i';
-import { state } from './state.js?v=20260915i';
-import { DRAWN, measure, textMesh } from './text.js?v=20260915i';
+import { materials, poolMaterial } from './frames.js?v=20260915j';
+import { renderer, world } from './scene.js?v=20260915j';
+import { state } from './state.js?v=20260915j';
+import { DRAWN, measure, textMesh } from './text.js?v=20260915j';
 
 // ---------------------------------------------------------------------------
 // Baking a room
