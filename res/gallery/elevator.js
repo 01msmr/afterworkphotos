@@ -1,14 +1,15 @@
 import * as THREE from '../vendor/three.module.js';
-import { setWire, wire } from './bench.js?v=20260914n';
-import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260914n';
-import { ELEVATOR, FAV_KEY, clearRooms, firstRoom, hangRoom, roomByKey, rooms } from './hang.js?v=20260914n';
-import { WALL_STYLES, applyMode, dadoTop, dressWall, wallColours } from './room.js?v=20260914n';
-import { camera, head, renderer, scene, world } from './scene.js?v=20260914n';
-import { zoomLabel, zoomPrint } from './zoom.js?v=20260914n';
-import { stickAt } from './sticker.js?v=20260914n';
-import { PLANS, RAISES, favCount, state } from './state.js?v=20260914n';
-import { fitRoom, planAgain } from './vr.js?v=20260914n';
-import { placeBody, walk } from './walk.js?v=20260914n';
+import { setWire, wire } from './bench.js?v=20260914s';
+import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260914s';
+import { ELEVATOR, FAV_KEY, clearRooms, firstRoom, hangRoom, roomByKey, rooms } from './hang.js?v=20260914s';
+import { WALL_STYLES, applyMode, dadoTop, dressWall, wallColours } from './room.js?v=20260914s';
+import { camera, head, renderer, scene, world } from './scene.js?v=20260914s';
+import { zoomLabel, zoomPrint } from './zoom.js?v=20260914s';
+import { DRAWN, measure, textMesh } from './text.js?v=20260914s';
+import { stickAt } from './sticker.js?v=20260914s';
+import { PLANS, RAISES, favCount, state } from './state.js?v=20260914s';
+import { fitRoom, planAgain } from './vr.js?v=20260914s';
+import { placeBody, walk } from './walk.js?v=20260914s';
 
 // ---------------------------------------------------------------------------
 // The elevator
@@ -70,24 +71,29 @@ function favFace() {
 	t.colorSpace = THREE.SRGBColorSpace;
 	return t;
 }
-function buttonFace(year, room) {
-	const c = document.createElement('canvas');
-	c.width = 256; c.height = 128;
-	const g = c.getContext('2d');
-	g.fillStyle = '#1d1c1a';
-	g.textAlign = 'left';
-	g.textBaseline = 'middle';
-	const font = px => `300 ${px}px Jost, "Helvetica Neue", Arial, sans-serif`;
-	g.font = font(56);
-	g.fillText(year, 36, 66);
-	if (room.of > 1) {
-		const w = g.measureText(year).width;
-		g.font = font(45);
-		g.fillText(`.${room.part}`, 36 + w + 2, 66);
-	}
-	const t = new THREE.CanvasTexture(c);
-	t.colorSpace = THREE.SRGBColorSpace;
-	return t;
+// The year on a button cap, out of the same atlas the labels use. It was
+// a 256 x 128 canvas apiece, thirty-odd of them; now it is geometry over
+// the shared texture (Uli, 2026-09-13). Laid out in the atlas module's
+// 1536-wide space and scaled to the cap, as the cards are.
+const CAP_DRAWN_H = 768;                       // the cap's own box in that space: 1536 x 768 is its 2:1
+const CAP_SIZE = 340;                          // 0.44 of the cap's height, as the canvas's 56 px on 128 was
+const CAP_ROOM = DRAWN - 150;                  // and the width it must stay inside
+function buttonText(year, room) {
+	const label = room.of > 1 ? `${year}.${room.part}` : `${year}`;
+	const face = 'light';                       // 300, as the canvas asked for
+	// a year with a part on it — 2017.1 — is six characters against four,
+	// and overflowed the cap at one fixed size (Uli, 2026-09-13). It is
+	// **scaled down to fit** rather than squeezed: the digits keep their
+	// shape, the long ones just sit a little smaller.
+	const wide = measure(label, face, CAP_SIZE);
+	const size = wide > CAP_ROOM ? CAP_SIZE * CAP_ROOM / wide : CAP_SIZE;
+	const rows = [{ text: label, face, size, colour: 0x1d1c1a, x: 0, middle: CAP_DRAWN_H / 2, squeeze: 1 }];
+	// centred on the cap rather than set from its left edge
+	rows[0].x = (DRAWN - measure(label, face, size)) / 2;
+	// **No turn of its own.** The plane it hangs on is already turned to
+	// face into the cabin; turning the letters as well showed their backs,
+	// and a year read right to left (Uli, 2026-09-13).
+	return textMesh(rows, BUTTON.w / DRAWN, CAP_DRAWN_H);
 }
 
 // The floor display: the room you are on; during a ride, each floor
@@ -561,6 +567,9 @@ export const elevator = {
 		// buffer can tell apart at arm's length, and the two surfaces
 		// flickered against each other, the more so in stereo.
 		const printGeo = new THREE.PlaneGeometry(w, h);
+		// the year buttons share one clear face material: nothing is drawn on
+		// it any more, it only takes the press and holds the letters
+		const faceMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
 		// facing the south wall the viewer's left is +x, so the columns run down x
 		const cell = (y, r) => ({
 			x: plateW / 2 - margin - BUTTON.pitchX * ((Number(y) - 1) % 10 + 0.5),
@@ -583,9 +592,11 @@ export const elevator = {
 			cap.userData.cap = true;
 			// the print: a clear plane a hair before the cap, turned to face
 			// into the cabin (-z) so the year reads the right way round
-			const print = put('print', printGeo, new THREE.MeshBasicMaterial({ map: buttonFace(year, room), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }), -0.003 - rise - 0.0012);
+			// the face: a clear plane that takes the press, with the year's
+			// own letters standing a hair in front of it
+			const print = put('print', printGeo, faceMat, -0.003 - rise - 0.0012);
 			print.rotation.y = Math.PI;
-			print.renderOrder = 2;
+			print.add(buttonText(year, room));
 			this.buttons.push(cap, print);              // both press
 		}
 		// the favourites button: the same parts, its own line, the dot on it

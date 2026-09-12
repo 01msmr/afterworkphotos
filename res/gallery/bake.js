@@ -1,7 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
-import { materials, poolMaterial } from './frames.js?v=20260914n';
-import { renderer, world } from './scene.js?v=20260914n';
-import { state } from './state.js?v=20260914n';
+import { materials, poolMaterial } from './frames.js?v=20260914s';
+import { renderer, world } from './scene.js?v=20260914s';
+import { state } from './state.js?v=20260914s';
+import { DRAWN, measure, textMesh } from './text.js?v=20260914s';
 
 // ---------------------------------------------------------------------------
 // Baking a room
@@ -91,45 +92,47 @@ function labelLines(photos) {
 // so a wall of labels is a wall of one size. A line too long for the
 // paper is squeezed to fit rather than running off it.
 const CARD_LINES = 3;
-// **1024 across, not 1536** (Uli, 2026-09-13). The cards were the biggest
-// thing in a room's memory — 3.2 MB apiece, one per photograph, 236 MB in
-// a 74-frame room, as much as every photograph put together — and far
-// more resolution than the Quest's panel can show. 1024 halves it to
-// 105 MB and is still above the panel everywhere it is read: a 24 cm card
-// is 3.0x at a metre, and a **doubled** one — which is the sharpest thing
-// asked of it — is 1.5x at a metre and 1.1x at 0.7 m. 512 was tried on
-// paper and is 0.5x on a doubled card at 0.7 m: that would have softened
-// the very thing the doubling is for. The layout below is written in the
-// old 1536 space and scaled, so the numbers still mean what they did.
-const CARD_PX = 1024, CARD_DRAWN = 1536;
+// **The letters come out of the distance-field atlas** (Uli, 2026-09-13),
+// not off a canvas of their own. A canvas card was 1.4 MB apiece, one per
+// photograph, 81 MB of a single room — and it had only the pixels it was
+// drawn with, so it went soft the moment a card was doubled. The atlas is
+// one 4 MB texture for the whole gallery, buttons included, and it draws
+// a clean edge at any size: a doubled card is now as sharp as a near one.
+//
+// The card itself is the paper — a plain plane, no texture at all — with
+// the text a child of it, so a press that doubles the card carries the
+// letters with it. The layout is still written in the 1536-wide space the
+// canvases used, so every number the cards were tuned with means what it
+// meant.
+const CARD_H = 2 * (80 + 64 * CARD_LINES);       // the paper, in that space
+// **A card is 4 mm of board standing off the wall** (Uli, 2026-09-13), not
+// a sheet lying on it. Lambert rather than unlit, so its four edges shade
+// against its face and the thickness is actually seen — with enough
+// emissive that the paper stays paper in a night room, which is what the
+// unlit material was for before it had any sides to show.
+const CARD_D = 0.004, CARD_GLOW = 0.5;
+const PAPER = 0xfdfcfa, INK = [0x141311, 0x3d3a36];
+const FACE = ['bold', 'medium'];                 // the first line heavier, as it was at 600 against 500
+const SIZE = [84, 76];
 function makeCard(lines, cw) {
-	const c = document.createElement('canvas');
-	const k = CARD_PX / CARD_DRAWN;
-	c.width = CARD_PX; c.height = Math.round(2 * (80 + 64 * CARD_LINES) * k);
-	const g = c.getContext('2d');
-	g.scale(k, k);
-	g.fillStyle = '#fdfcfa'; g.fillRect(0, 0, CARD_DRAWN, c.height / k);
-	g.textBaseline = 'middle';
-	// near-black, a weight up: what the headset's pixels can still resolve is contrast (Uli)
-	lines.slice(0, CARD_LINES).forEach((line, i) => {
-		g.fillStyle = i === 0 ? '#141311' : '#3d3a36';
-		g.font = `${i === 0 ? 600 : 500} ${i === 0 ? 84 : 76}px -apple-system, "Helvetica Neue", Arial, sans-serif`;
-		const room = CARD_DRAWN - 160;
-		const wide = g.measureText(line).width;
-		g.save();
-		if (wide > room) { g.translate(80, 0); g.scale(room / wide, 1); g.fillText(line, 0, 2 * (40 + 32 + 64 * i)); }
-		else g.fillText(line, 80, 2 * (40 + 32 + 64 * i));
-		g.restore();
-	});
-	const t = new THREE.CanvasTexture(c);
-	t.colorSpace = THREE.SRGBColorSpace;
-	t.anisotropy = renderer.capabilities.getMaxAnisotropy();
-	const ch = cw * c.height / c.width;
-	// unlit: the paper is the paper, whatever the fills do
-	const card = new THREE.Mesh(new THREE.PlaneGeometry(cw, ch), new THREE.MeshBasicMaterial({ map: t }));
+	const ch = cw * CARD_H / DRAWN;
+	const card = new THREE.Mesh(new THREE.BoxGeometry(cw, ch, CARD_D),
+		new THREE.MeshLambertMaterial({ color: PAPER, emissive: PAPER, emissiveIntensity: CARD_GLOW }));
 	card.name = 'label';
 	card.visible = state.settings.labels;
 	card.userData.ch = ch;
+	const unit = cw / DRAWN;
+	const rows = lines.slice(0, CARD_LINES).map((line, i) => {
+		const k = i === 0 ? 0 : 1;
+		const size = SIZE[k], face = FACE[k];
+		const room = DRAWN - 160, wide = measure(line, face, size);
+		// a line too long for the paper is squeezed to fit rather than
+		// running off it — the same squeeze the canvas did
+		return { text: line, face, size, colour: INK[k], x: 80, middle: 2 * (40 + 32 + 64 * i), squeeze: wide > room ? room / wide : 1 };
+	});
+	const text = textMesh(rows, unit, CARD_H);
+	text.position.z = CARD_D / 2 + 0.0002;        // on the board's face, a breath proud of it
+	card.add(text);
 	return card;
 }
 // A piece's labels: a single's one card, a grid's one card per print laid
@@ -165,7 +168,7 @@ export function placeLabels(piece, w, h, roomRight, forceBelow = false) {
 	const x0 = below ? w / 2 - L.bw : w / 2 + LABEL_OFF, y0 = below ? -h / 2 - 0.03 : -h / 2 + L.bh;
 	L.cards.forEach((card, i) => {
 		const col = i % L.cols, row = Math.floor(i / L.cols);
-		card.position.set(x0 + col * (L.cw + LABEL_GAP) + L.cw / 2, y0 - row * (L.ch + LABEL_GAP) - card.userData.ch / 2, 0.002);
+		card.position.set(x0 + col * (L.cw + LABEL_GAP) + L.cw / 2, y0 - row * (L.ch + LABEL_GAP) - card.userData.ch / 2, CARD_D / 2);   // its back on the wall, its face 4 mm out
 		Object.assign(card.userData, { x0: card.position.x, y0: card.position.y, below });
 	});
 	piece.userData.labelDrop = below ? 0.03 + L.bh : 0;   // what hangs under the frame, for the slab
