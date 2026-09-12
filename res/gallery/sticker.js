@@ -1,8 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
-import { camera, renderer, scene } from './scene.js?v=20260915x';
-import { isFav, toggleFav } from './state.js?v=20260915x';
-import { elevator } from './elevator.js?v=20260915x';   // only to ask whether the visitor is in the cabin
-import { CARD_D } from './bake.js?v=20260915x';
+import { camera, renderer, scene } from './scene.js?v=20260916b';
+import { isFav, toggleFav } from './state.js?v=20260916b';
+import { elevator } from './elevator.js?v=20260916b';   // only to ask whether the visitor is in the cabin
+import { CARD_D } from './bake.js?v=20260916b';
 
 // ---------------------------------------------------------------------------
 // Red dots
@@ -193,6 +193,10 @@ function surfaceHit(rc) {
 // white one whole.
 const cursorMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, depthTest: false, side: THREE.DoubleSide });
 const inkCursorMat = new THREE.MeshBasicMaterial({ color: 0x141311, transparent: true, opacity: 0.85, depthTest: false, side: THREE.DoubleSide });
+const bar = (w, h, x, y, turn = 0, mat = cursorMat) => {
+	const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
+	m.position.set(x, y, 0); m.rotation.z = turn; return m;
+};
 // and a dark backing under the white, so the brackets hold against a pale
 // photograph as well as a dark one (Uli, 2026-09-13). **Soft**, not a
 // second rectangle: a blurred square, stretched behind each bar, so the
@@ -200,41 +204,67 @@ const inkCursorMat = new THREE.MeshBasicMaterial({ color: 0x141311, transparent:
 // Drawn first, so the white lies over it.
 // A dark backing under the white, so the brackets hold against a pale
 // photograph as well as a dark one. It follows **the icon's own shape** —
-// one soft patch behind each bar (Uli, 2026-09-13): a disc under the whole
-// thing was a rectangle of shade with the brackets floating in it, too
-// much of it and too soft. A blurred square stretched behind each bar
-// instead, so the dark hugs the arms and fades off their edges.
-let softTex = null;
-function soft() {
-	if (!softTex) {
-		const c = document.createElement('canvas');
-		c.width = c.height = 64;
-		const g = c.getContext('2d');
-		g.filter = 'blur(12px)';
-		g.fillStyle = '#fff';
-		g.fillRect(17, 17, 30, 30);
-		softTex = new THREE.CanvasTexture(c);
-	}
-	return softTex;
+// a soft patch per corner (Uli, 2026-09-13): a disc under the whole thing
+// was a rectangle of shade with the brackets floating in it.
+const HALO = 0.014;              // how far the shade reaches past the L it backs
+// **Four corner L's, not eight bars** (Uli, 2026-09-13). Two bars meeting
+// at a corner meant two halos meeting there as well, and the shade pooled
+// darker in the four corners than along the arms. One shape per corner,
+// one halo per corner, even all the way round.
+const softCache = new Map();
+function softL(arm, thick, halo) {
+	const key = `${arm}|${thick}|${halo}`;
+	if (softCache.has(key)) return softCache.get(key);
+	const box = arm + 2 * halo, N = 128, px = N / box, inset = halo * px, side = arm * px, t = thick * px;
+	const c = document.createElement('canvas');
+	c.width = c.height = N;
+	const g = c.getContext('2d');
+	g.filter = `blur(${Math.max(3, Math.round(halo * px * 0.55))}px)`;
+	g.fillStyle = '#fff';
+	// the L of a top-right corner, drawn in canvas coordinates (y down)
+	g.beginPath();
+	g.moveTo(inset, inset);                       // along the top, left to right
+	g.lineTo(inset + side, inset);
+	g.lineTo(inset + side, inset + side);         // down the right
+	g.lineTo(inset + side - t, inset + side);
+	g.lineTo(inset + side - t, inset + t);
+	g.lineTo(inset, inset + t);
+	g.closePath();
+	g.fill();
+	const tex = new THREE.CanvasTexture(c);
+	softCache.set(key, tex);
+	return tex;
 }
-const haloMat = new THREE.MeshBasicMaterial({ map: soft(), color: 0x14120f, transparent: true, opacity: 0.4, depthTest: false, side: THREE.DoubleSide });   // a third darker than 0.3 (Uli, 2026-09-13)
-const HALO = 0.014;              // how far the shade reaches past the bar it backs (Uli: bigger, softer)
-const bar = (w, h, x, y, turn = 0, mat = cursorMat) => {
-	const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
-	m.position.set(x, y, 0); m.rotation.z = turn; return m;
-};
+// the same L as crisp geometry, in the corner's own box
+function cornerL(arm, thick) {
+	const sh = new THREE.Shape();
+	sh.moveTo(-arm / 2, arm / 2);                 // along the top
+	sh.lineTo(arm / 2, arm / 2);
+	sh.lineTo(arm / 2, -arm / 2);                 // down the right
+	sh.lineTo(arm / 2 - thick, -arm / 2);
+	sh.lineTo(arm / 2 - thick, arm / 2 - thick);
+	sh.lineTo(-arm / 2, arm / 2 - thick);
+	sh.closePath();
+	return new THREE.ShapeGeometry(sh);
+}
 // four corner brackets, the way a picture says it can be made larger
 let expand = null;
 function expandIcon() {
 	if (!expand) {
 		expand = new THREE.Group();
 		expand.name = 'cursor-expand';
-		const R = 0.048, ARM = 0.0352, T = 0.0064;   // 9.6 cm across — 1.6x the first size (Uli, 2026-09-13)
-		// every halo goes down first, then every bracket over them
-		for (const [grow, mat] of [[HALO, haloMat], [0, cursorMat]])
-			for (const sx of [-1, 1]) for (const sy of [-1, 1]) {
-				expand.add(bar(ARM + 2 * grow, T + 2 * grow, sx * (R - ARM / 2), sy * R, 0, mat));   // along the top or bottom
-				expand.add(bar(T + 2 * grow, ARM + 2 * grow, sx * R, sy * (R - ARM / 2), 0, mat));   // and down the side
+		const ARM = 0.0352, T = 0.0064, R = 0.048;   // 9.6 cm across
+		const at = R - ARM / 2;
+		const haloGeo = new THREE.PlaneGeometry(ARM + 2 * HALO, ARM + 2 * HALO);
+		const haloMat = new THREE.MeshBasicMaterial({ map: softL(ARM, T, HALO), color: 0x14120f, transparent: true, opacity: 0.4, depthTest: false, side: THREE.DoubleSide });
+		const lGeo = cornerL(ARM, T);
+		// every halo down first, then every bracket over them
+		for (const [geo, mat, z] of [[haloGeo, haloMat, 0], [lGeo, cursorMat, 0.0001]])
+			for (const sx of [1, -1]) for (const sy of [1, -1]) {
+				const m = new THREE.Mesh(geo, mat);
+				m.position.set(sx * at, sy * at, z);
+				m.scale.set(sx, sy, 1);              // the top-right L, turned into the other three
+				expand.add(m);
 			}
 		expand.renderOrder = 3; expand.visible = false; scene.add(expand);
 	}
@@ -299,11 +329,18 @@ function overKind(hit) {
 // view, not painted on the wall — so it simply wears the camera's own
 // rotation and can never be seen from behind or mirrored.
 const _fn = new THREE.Vector3(), _to = new THREE.Vector3(), _cq = new THREE.Quaternion();
-function onSurface(obj, hit, from) {
+function onSurface(obj, hit, from, flat) {
 	_fn.copy(hit.face.normal).transformDirection(hit.object.matrixWorld);
 	if (from && _fn.dot(_to.subVectors(from, hit.point)) < 0) _fn.negate();
 	obj.position.copy(hit.point).addScaledVector(_fn, 0.0012);
-	obj.quaternion.copy(camera.getWorldQuaternion(_cq));
+	// **The brackets lie in the picture's own plane** (Uli, 2026-09-13), so
+	// they run parallel to its borders and read as corners of *it* rather
+	// than of the view. They can do that where the loupe could not: four
+	// corners turned into each other are the same icon mirrored, so being
+	// seen from the wrong side costs nothing. Everything else wears the
+	// camera's rotation and cannot flip.
+	if (flat) hit.object.getWorldQuaternion(obj.quaternion);
+	else obj.quaternion.copy(camera.getWorldQuaternion(_cq));
 }
 // Each frame: the dot rides the wall under the pointer, and adheres to a
 // place when the pointer comes near one.
@@ -353,7 +390,7 @@ export function stepSticker() {
 	} else {
 		// not at a sticker's place: say what a press *here* would do instead
 		showing.scale.setScalar(1);
-		onSurface(showing, hit, rc.ray.origin);
+		onSurface(showing, hit, rc.ray.origin, showing === expand);
 		showing.visible = true;
 	}
 }

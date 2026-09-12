@@ -1,8 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
-import { materials, poolMaterial } from './frames.js?v=20260915x';
-import { renderer, world } from './scene.js?v=20260915x';
-import { state } from './state.js?v=20260915x';
-import { DRAWN, measure, textMesh } from './text.js?v=20260915x';
+import { materials, poolMaterial } from './frames.js?v=20260916b';
+import { renderer, world } from './scene.js?v=20260916b';
+import { state } from './state.js?v=20260916b';
+import { DRAWN, measure, textMesh } from './text.js?v=20260916b';
 
 // ---------------------------------------------------------------------------
 // Baking a room
@@ -125,7 +125,7 @@ const CARD_GLOW = 0.5;
 export const CARD_REST_Z = CARD_D / 2, CARD_READ_Z = 0.026;
 const PAPER = 0xfdfcfa, INK = [0x141311, 0x3d3a36];
 const FACE = ['bold', 'medium'];                 // the first line heavier, as it was at 600 against 500
-const SIZE = [84, 76];
+const SIZE = [110, 100];         // 84/76 until 2026-09-13 (Uli: too small). A third bigger buys about a third more distance — a body line is readable at 2 m now rather than 1.5
 function makeCard(lines, cw) {
 	const ch = cw * CARD_H / DRAWN;
 	const card = new THREE.Mesh(new THREE.BoxGeometry(cw, ch, CARD_D),
@@ -143,7 +143,7 @@ function makeCard(lines, cw) {
 		return { text: line, face, size, colour: INK[k], x: 80, middle: 2 * (40 + 32 + 64 * i), squeeze: wide > room ? room / wide : 1 };
 	});
 	const text = textMesh(rows, unit, CARD_H);
-	text.position.z = CARD_D / 2 + 0.0002;        // on the board's face, a breath proud of it
+	text.position.z = CARD_D / 2 + 0.0012;        // 1.2 mm proud of the board's face: less and the depth buffer cannot separate them
 	card.add(text);
 	// The shadow those 4 mm throw. **Painted, not cast**: real shadows have
 	// been off since 2026-09-05 (Uli — the hard cut-outs looked wrong), and

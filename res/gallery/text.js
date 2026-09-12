@@ -50,14 +50,24 @@ export function textMaterial() {
 			varying vec2 vUv; varying vec3 vColour;
 			void main() {
 				float d = texture2D(uMap, vUv).r;
-				// the edge is at a half; how wide a half is depends on how big
-				// the letter is on screen, which fwidth answers per pixel
-				float w = max(fwidth(d), 0.0001);
+				// The edge is at a half; how wide a half is depends on how big
+				// the letter is on screen, which fwidth answers per pixel. It
+				// is **held to a ceiling**: far off, fwidth runs away and the
+				// smoothstep opens so wide that every letter washes to a grey
+				// smear (Uli, 2026-09-13 — the texts read badly from far). A
+				// small letter should stay a small letter, not become fog.
+				float w = clamp(fwidth(d), 0.0001, 0.28);
 				float a = smoothstep(0.5 - w, 0.5 + w, d);
 				if (a < 0.01) discard;
 				gl_FragColor = vec4(vColour, a);
 			}`,
 		transparent: true, depthWrite: false, side: THREE.DoubleSide,
+		// Letters lie on the face they are written on, a fraction in front
+		// of it. A fraction is not enough for the depth buffer to tell them
+		// apart at arm's length, and they crawled (Uli, 2026-09-13: the
+		// label texts and the plate's buttons stuttered much too much).
+		// Pushed forward in depth as well as in space.
+		polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -6,
 	});
 	material.uniforms.uMap.value = atlas;
 	return material;
@@ -95,8 +105,11 @@ export function textMesh(lines, unit, height) {
 			if (g.cell >= 0 && g.w > 0) {
 				const x0 = (pen + g.bx * line.size * sx), y0 = base - g.by * line.size;
 				const w = g.w * line.size * sx, h = g.h * line.size;
-				const cx = (g.cell % font.cols) * font.cell, cy = Math.floor(g.cell / font.cols) * font.cell;
-				const u0 = cx / aw, u1 = (cx + font.cell) / aw, v0 = cy / ah, v1 = (cy + font.cell) / ah;
+				// the glyph sits inside its cell with a gutter of empty field
+				// round it, so a mipmap cannot average it with its neighbours
+				const G = font.gutter || 0, inner = font.cell - 2 * G;
+				const cx = (g.cell % font.cols) * font.cell + G, cy = Math.floor(g.cell / font.cols) * font.cell + G;
+				const u0 = cx / aw, u1 = (cx + inner) / aw, v0 = cy / ah, v1 = (cy + inner) / ah;
 				const n = pos.length / 3;
 				// drawn space is y-down; the mesh is y-up and centred
 				const X = x => (x - DRAWN / 2) * unit, Y = y => (height / 2 - y) * unit;
