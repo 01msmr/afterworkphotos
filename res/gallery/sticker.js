@@ -1,6 +1,6 @@
 import * as THREE from '../vendor/three.module.js';
-import { camera, renderer, scene } from './scene.js?v=20260914k';
-import { isFav, toggleFav } from './state.js?v=20260914k';
+import { camera, renderer, scene } from './scene.js?v=20260914l';
+import { isFav, toggleFav } from './state.js?v=20260914l';
 
 // ---------------------------------------------------------------------------
 // Red dots
@@ -23,10 +23,13 @@ import { isFav, toggleFav } from './state.js?v=20260914k';
 // stickers actually looks like on a wall.
 //
 // The dots are what the `favorites` floor is hung from (state.favs).
-export const DOT_R = 0.005;      // 1 cm across
-const LEFT = [-0.02, 0.05];      // how far left of the label's right corner (Uli: -2 to 5 cm)
+export const DOT_R = 0.0065;     // 1.3 cm across (Uli, 2026-09-13)
+const LEFT = [-0.01, 0.06];      // how far left of the label's right corner — a centimetre further left than the first try (Uli, 2026-09-13)
 const UNDER = [0.005, 0.015];    // and how far under its bottom edge (Uli: 0.5 to 1.5 cm)
-const SNAP = 0.12;               // within this of that place, it leaves the pointer
+const AIM_DROP = 0.10;           // **what you point at sits 10 cm under the sticker** (Uli): the
+                                 // dot itself is tucked under the label, where a raised hand would
+                                 // have to reach over the frame to get at it
+const SNAP = 0.12;               // within this of that spot, the sticker leaves the pointer
 const RED = 0xc8322b;
 const between = ([a, b]) => a + Math.random() * (b - a);
 
@@ -63,7 +66,10 @@ export function findSpots() {
 	if (!pieces) return;
 	pieces.traverse(o => {
 		if (o.name !== 'dot') return;
-		spots.push({ dot: o, photo: o.userData.photo, at: o.getWorldPosition(new THREE.Vector3()) });
+		const at = o.getWorldPosition(new THREE.Vector3());
+		// the dot is drawn at `at`; it is **aimed at** from AIM_DROP lower
+		const aim = at.clone(); aim.y -= AIM_DROP;
+		spots.push({ dot: o, photo: o.userData.photo, at, aim });
 	});
 }
 
@@ -124,8 +130,8 @@ export function stepSticker() {
 	// on offer.
 	let near = null;
 	for (const s of spots) {
-		const gap = rc.ray.distanceToPoint(s.at);
-		if (gap >= SNAP || rc.ray.origin.distanceTo(s.at) > hit.distance + 0.3) continue;
+		const gap = rc.ray.distanceToPoint(s.aim);
+		if (gap >= SNAP || rc.ray.origin.distanceTo(s.aim) > hit.distance + 0.3) continue;
 		if (!near || gap < near.gap) near = { s, gap };
 	}
 	over = near ? near.s : null;
