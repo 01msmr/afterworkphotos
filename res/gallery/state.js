@@ -20,6 +20,11 @@ export const RAISES = [0, 1];
 export function loadSettings() {
 	const s = { ...DEFAULTS };
 	try { Object.assign(s, JSON.parse(localStorage.getItem('galleryS')) || {}); } catch (e) {}
+	// **The night is never remembered** (Uli, 2026-09-13): every visit opens
+	// in the light room, whatever the switchboard was left on last time. The
+	// switch still works, and ?dark=1 still shares a look — it is only the
+	// saved value that is dropped, so nobody arrives in the dark by accident.
+	s.dark = DEFAULTS.dark;
 	const q = new URLSearchParams(location.search);
 	for (const k of Object.keys(DEFAULTS)) {
 		if (!q.has(k)) continue;

@@ -1,7 +1,7 @@
 import * as THREE from '../vendor/three.module.js';
-import { materials, poolMaterial } from './frames.js?v=20260914c';
-import { renderer, world } from './scene.js?v=20260914c';
-import { state } from './state.js?v=20260914c';
+import { materials, poolMaterial } from './frames.js?v=20260914e';
+import { renderer, world } from './scene.js?v=20260914e';
+import { state } from './state.js?v=20260914e';
 
 // ---------------------------------------------------------------------------
 // Baking a room
@@ -135,7 +135,7 @@ export function addLabel(piece, spec, w, h) {
 	// one size of card for everything, a grid's as well as a single's
 	// (Uli, 2026-09-12: all the same, whatever is shown on them)
 	const grid = spec.photos.length > 1, cw = SINGLE_CARD, cols = grid && spec.rows > 1 ? spec.cols : 1;
-	const cards = spec.photos.map(p => makeCard(labelLines([p]), cw));
+	const cards = spec.photos.map(p => { const c = makeCard(labelLines([p]), cw); c.userData.photo = p; return c; });   // the card knows its photograph: the red dot under it is that photograph's (sticker.js)
 	const ch = Math.max(...cards.map(c => c.userData.ch));
 	const rows = Math.ceil(cards.length / cols);
 	piece.userData.labels = { cards, cols, cw, ch, bw: cols * cw + (cols - 1) * LABEL_GAP, bh: rows * ch + (rows - 1) * LABEL_GAP, grid };

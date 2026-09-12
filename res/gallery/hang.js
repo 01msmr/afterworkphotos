@@ -1,15 +1,16 @@
 import * as THREE from '../vendor/three.module.js';
-import { bakeRoom, placeLabels } from './bake.js?v=20260914c';
-import { placeGuard } from './guard.js?v=20260914c';
-import { clearZoom } from './zoom.js?v=20260914c';
-import { setWire, wire } from './bench.js?v=20260914c';
-import { elevator, roomLabel } from './elevator.js?v=20260914c';
-import { FRAME, GRID_GAP, sc, textureCache } from './frames.js?v=20260914c';
-import { WALL_STYLES, buildRoom, dadoTop, floorOf, rectRoom, shapeOf, wallColours } from './room.js?v=20260914c';
-import { scene, world } from './scene.js?v=20260914c';
-import { HANG_MAX, pieceY, state } from './state.js?v=20260914c';
-import { framedSize, freeTexturesExcept, freeVideosExcept, makePiece } from './video.js?v=20260914c';
-import { BODY_R } from './walk.js?v=20260914c';
+import { bakeRoom, placeLabels } from './bake.js?v=20260914e';
+import { addDots, findSpots } from './sticker.js?v=20260914e';
+import { placeGuard } from './guard.js?v=20260914e';
+import { clearZoom } from './zoom.js?v=20260914e';
+import { setWire, wire } from './bench.js?v=20260914e';
+import { elevator, roomLabel } from './elevator.js?v=20260914e';
+import { FRAME, GRID_GAP, sc, textureCache } from './frames.js?v=20260914e';
+import { WALL_STYLES, buildRoom, dadoTop, floorOf, rectRoom, shapeOf, wallColours } from './room.js?v=20260914e';
+import { scene, world } from './scene.js?v=20260914e';
+import { HANG_MAX, pieceY, state } from './state.js?v=20260914e';
+import { framedSize, freeTexturesExcept, freeVideosExcept, makePiece } from './video.js?v=20260914e';
+import { BODY_R } from './walk.js?v=20260914e';
 
 // ---------------------------------------------------------------------------
 // Hanging a year
@@ -539,6 +540,7 @@ export function hangRoom(key) {
 		piece.rotation.y = yaw;
 		piece.userData.wall = wall;
 		placeLabels(piece, piece.userData.w, piece.userData.h, roomRight ?? Infinity, wall === 'mid');
+		addDots(piece);                        // the red dot's place under each label (sticker.js)
 		// a middle row stops the body (Uli): its footprint, the body's radius round it — long along x facing ±z, along z facing ±x
 		const alongX = Math.abs(Math.cos(yaw)) > 0.5, [hx, hz] = alongX ? [spec.w / 2, SLAB.thick / 2] : [SLAB.thick / 2, spec.w / 2];
 		if (wall === 'mid') state.obstacles.push({ x0: x - hx - BODY_R, x1: x + hx + BODY_R, z0: z - hz - BODY_R, z1: z + hz + BODY_R });
@@ -573,6 +575,7 @@ export function hangRoom(key) {
 
 	world.add(pieces);
 	world.updateMatrixWorld(true);
+	findSpots();                               // where a red dot may go, in this room, in world coordinates
 	world.add(bakeRoom(pieces));
 	if (wire) setWire(true);
 	const keep = new Set(); pieces.traverse(o => { if (o.name === 'photo') for (const [k, t] of textureCache) if (t === o.material.map) keep.add(k); });
