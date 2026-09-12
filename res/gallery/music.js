@@ -1,6 +1,6 @@
-import { elevator, lift } from './elevator.js?v=20260913j';
+import { elevator, lift } from './elevator.js?v=20260913p';
 import * as THREE from '../vendor/three.module.js';
-import { camera, head, world } from './scene.js?v=20260913j';
+import { camera, head, world } from './scene.js?v=20260913p';
 
 // ---------------------------------------------------------------------------
 // The music in the lift
@@ -123,7 +123,8 @@ function level() {
 export function stepMusic(now) {
 	if (!lift.ctx || lift.ctx.state !== 'running' || !open()) return;
 	earsAt(lift.ctx);                                         // the listener rides with the head
-	if (elevator.origin) pannerAt(panner, world.localToWorld(new THREE.Vector3(elevator.origin.x, 1.4, elevator.origin.z)));
+	// out of the **seam between the doors**, not the middle of the cabin (Uli, 2026-09-12)
+	if (elevator.doorsWorld) pannerAt(panner, elevator.doorsWorld().clone().setY(1.3));
 	const want = level() * (performance.now() < duckUntil ? DUCK : 1);
 	// it begins the first time anyone comes near enough to hear it, and
 	// from then on it plays on, piece after piece

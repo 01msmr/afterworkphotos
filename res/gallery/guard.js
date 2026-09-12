@@ -1,10 +1,10 @@
 import * as THREE from '../vendor/three.module.js';
-import { elevator, lift } from './elevator.js?v=20260913j';   // its audio, and where the cabin stands
-import { ELEVATOR } from './hang.js?v=20260913j';
-import { duckMusic, pannerAt } from './music.js?v=20260913j';
-import { inPoly } from './plan.js?v=20260913j';
-import { head, world } from './scene.js?v=20260913j';
-import { state } from './state.js?v=20260913j';
+import { elevator, lift } from './elevator.js?v=20260913p';   // its audio, and where the cabin stands
+import { ELEVATOR } from './hang.js?v=20260913p';
+import { duckMusic, pannerAt } from './music.js?v=20260913p';
+import { inPoly } from './plan.js?v=20260913p';
+import { head, world } from './scene.js?v=20260913p';
+import { state } from './state.js?v=20260913p';
 
 // ---------------------------------------------------------------------------
 // The guard
@@ -60,6 +60,29 @@ const LINES = {
 		'There are prints on both sides of that.',
 		'Careful going round the row.',
 	],
+	// he asks before he tells: the first word is as often an apology
+	humble: [
+		'Sorry to interrupt.',
+		'Forgive me, sir. A little further back?',
+		'If you would not mind, a step back.',
+		'Excuse me. That is quite close.',
+	],
+	// and now and then he makes a small joke of it
+	joke: [
+		'That one is not going anywhere, I promise.',
+		'I have counted them all. Twice.',
+		'You may look as long as you like. From there.',
+		'Every fingerprint, I have to explain.',
+		'If it falls, we both have a problem.',
+		'I know them better than the man who took them.',
+	],
+	// what is left when calling across the room has not worked either
+	harsh: [
+		'That is enough now.',
+		'I will not ask again.',
+		'Step back. Thank you.',
+		'Sir. I mean it.',
+	],
 	// what he calls across the room when the polite line went unheeded
 	call: [
 		'Hey.',
@@ -106,12 +129,14 @@ const WARN_REST = 4000, WARN_AGAIN = 20000, WARN_ODDS = 0.85;
 const FAST = 1.3;                          // m/s toward a print: too fast
 const ROW_NEAR = 0.45;                     // m from a middle row's slab
 const ROW_PATIENCE = 5000;                 // and how long he lets you stand there first (Uli)
+const NARROW = 1.1;                        // m: something hanging this near on the other side means a narrow way
 // He says his piece twice and then holds his tongue for a while — a guard
 // who repeats himself every four seconds is a nag (Uli, 2026-09-12).
 // Persist and he stops being polite: the third time and after he simply
 // calls across the room, and inside VERY_CLOSE of a print he says stop.
 const SAY_TWICE = 2, THEN_WAIT = 15000, FORGET = 30000;
-const GREETS = 0.35;                       // how often he bothers to say hello at all
+const GREETS = 0.25;                       // how often he bothers to say hello at all (Uli)
+const JOKES = 0.25;                        // and how often a first word is a joke rather than a rule
 const VERY_CLOSE = 0.15;                   // m off a print: a hand's breadth, and he says stop (Uli)
 const mood = () => MOOD[state.settings.talk] || MOOD.light;
 // Every line of a kind is used before any of them comes round again
@@ -398,7 +423,29 @@ export function stepGuard(now) {
 		if (p.wall === 'mid') { if (d < ROW_NEAR + p.piece.w / 2 && (!row || d < row.d)) row = { p, d }; }
 		else if (p.wall !== 'cabin' && d < CLOSE && (!near || d < near.d)) near = { p, d };   // the cabin's own print is the lift's business, not his
 	}
-	// he leaves you alone at the lift and inside it (Uli, 2026-09-12)
+	// A narrow way with prints hung on both sides is nobody's fault: there
+	// is nowhere to stand further back, and a guard knows it (Uli,
+	// 2026-09-12). Where something hangs within a stride on each side of
+	// you he says nothing, about the print or the row, and only a hand on
+	// the glass still counts.
+	const first = near || row;
+	let hemmed = false;
+	if (first) {
+		const ax = first.p.x - _h.x, az = first.p.z - _h.z, al = Math.hypot(ax, az) || 1;
+		for (const p of state.placed || []) {
+			if (p === first.p) continue;
+			const bx = p.x - _h.x, bz = p.z - _h.z, bl = Math.hypot(bx, bz);
+			if (bl > NARROW || bl < 0.2) continue;                 // its own back-to-back twin is not the far side
+			if ((ax * bx + az * bz) / (al * bl) < -0.35) { hemmed = true; break; }
+		}
+	}
+	if (hemmed) {
+		row = null;
+		if (near && near.d > VERY_CLOSE) near = null;
+	}
+	// He holds his tongue **as you leave** — at the doors, in the cabin —
+	// but not as you arrive: arriving happens at the lift too, and the
+	// greeting above has already had its chance (Uli, 2026-09-12).
 	const o = elevator.origin;
 	const atLift = elevator.inside() || (o && Math.hypot(_h.x - o.x, _h.z - o.z) < ELEVATOR.size * 1.4);
 	if (atLift) { rowSince = 0; return; }
@@ -411,8 +458,17 @@ export function stepGuard(now) {
 		const stop = d !== undefined && d < VERY_CLOSE;
 		if (!stop && now < quietUntil) return false;          // he has said his piece; he is waiting
 		if (!stop && (!fresh(p) || Math.random() > WARN_ODDS)) return false;
-		// the third time and after he does not repeat the sentence, he calls
-		const say_ = stop ? 'stop' : strikes >= SAY_TWICE ? 'call' : kind;
+		// The ladder (Uli, 2026-09-12): humble or plain to begin with, a
+		// small joke now and then; calling across the room once he has been
+		// ignored twice; hard words when even that is ignored; and `stop`
+		// whenever a hand is a breath from a print.
+		const say_ = stop && strikes >= SAY_TWICE * 2 ? 'harsh'
+			: stop ? 'stop'
+			: strikes >= SAY_TWICE * 2 ? 'harsh'
+			: strikes >= SAY_TWICE ? 'call'
+			: kind !== 'warn' ? kind
+			: Math.random() < JOKES ? 'joke'
+			: Math.random() < 0.5 ? 'humble' : 'warn';
 		if (!say(pick(say_), now, true)) return false;
 		warnedAt.set(p, now);
 		strikes++; lastStrike = now;
