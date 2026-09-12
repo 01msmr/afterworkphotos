@@ -1,7 +1,7 @@
 import * as THREE from '../vendor/three.module.js';
-import { walnut } from './elevator.js?v=20260914n';
-import { renderer, scene } from './scene.js?v=20260914n';
-import { state } from './state.js?v=20260914n';
+import { walnut } from './elevator.js?v=20260914s';
+import { renderer, scene } from './scene.js?v=20260914s';
+import { state } from './state.js?v=20260914s';
 
 // ---------------------------------------------------------------------------
 // The frames
@@ -105,15 +105,21 @@ export const ENV_INTENSITY = { light: 1, dark: 0.12 };
 // for the prints only would light everything or nothing. What is left is
 // the print's own emissive, mixed with the mode like everything else.
 // The dark value is **measured, not guessed**: a 90 cm print rendered to
-// an offscreen target from a metre away, straight on, reads 65.7 by day
-// and read 12.5 at night on the old 0.16 — a fifth of daylight, which is
-// what Uli saw. 1.02 brings it to 65.6, within a fifth of a percent of
-// its own daylight face. 1.6 was tried first and reads 100.8, half again
-// brighter than day: that is a lamp, and is exactly what not to do.
+// an offscreen target from a metre away, straight on, reads 65.7 by day.
+// The road to 0.6, all of it measured the same way:
+//   0.16  reads 12.5 — a fifth of daylight. Too dark (Uli, 2026-09-13).
+//   1.02  reads 65.6 — its own daylight face to a fifth of a percent, and
+//         **too lit** in the room: matching the day exactly makes a print
+//         the brightest thing in a dark gallery, which reads as a lamp
+//         however faithful the number is (Uli).
+//   1.6   reads 100.8, half again brighter than day. Never.
+//   0.6   reads about 40 — half way between the dark it was and the day
+//         it would be. A picture you can see at night, in a room that is
+//         still night. This is the one (Uli: an in-between of the two).
 // The Lambert term still carries the rest, so a print goes on dimming as
 // you come at it from the side, which is what kept them from reading as
 // lamps in the first place (Uli, 2026-09-11).
-export const PRINT_GLOW = { light: 0.16, dark: 1.02 };
+export const PRINT_GLOW = { light: 0.16, dark: 0.6 };
 scene.environmentIntensity = ENV_INTENSITY[state.settings.dark ? 'dark' : 'light'];
 scene.environmentIntensity = 0.6;
 
