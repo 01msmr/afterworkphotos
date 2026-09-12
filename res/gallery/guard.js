@@ -1,10 +1,10 @@
 import * as THREE from '../vendor/three.module.js';
-import { elevator, lift } from './elevator.js?v=20260913p';   // its audio, and where the cabin stands
-import { ELEVATOR } from './hang.js?v=20260913p';
-import { duckMusic, pannerAt } from './music.js?v=20260913p';
-import { inPoly } from './plan.js?v=20260913p';
-import { head, world } from './scene.js?v=20260913p';
-import { state } from './state.js?v=20260913p';
+import { elevator, lift } from './elevator.js?v=20260913s';   // its audio, and where the cabin stands
+import { ELEVATOR } from './hang.js?v=20260913s';
+import { duckMusic, pannerAt } from './music.js?v=20260913s';
+import { inPoly } from './plan.js?v=20260913s';
+import { head, scene, world } from './scene.js?v=20260913s';
+import { state } from './state.js?v=20260913s';
 
 // ---------------------------------------------------------------------------
 // The guard
@@ -25,7 +25,8 @@ const GREY = 0x3c3f44, SEE = 0.75;        // a quarter transparent (Uli)
 const EDGE = 0.015;                        // and drawn round with a 1.5 cm outline (Uli, 2026-09-12)
 const EDGE_GREY = 0x1b1d20;
 const TALL = 1.8;                          // a person's height, full size (Uli)
-const CLOSE = 0.4;                         // m off a print before he says anything at all (Uli, 2026-09-12)
+const CLOSE = 0.55;                        // m off a print before he says anything at all (Uli, 2026-09-13)
+const HARSHER = 0.3;                       // and inside this he stops being polite about it
 
 // What it says. Several of everything, so it is never the same guard
 // twice (Uli, 2026-09-12), and **how much of it** is the visitor's
@@ -75,6 +76,19 @@ const LINES = {
 		'Every fingerprint, I have to explain.',
 		'If it falls, we both have a problem.',
 		'I know them better than the man who took them.',
+	],
+	// the one before he closes the room
+	last: [
+		'That is the last time I ask you.',
+		'Right. I am closing this room.',
+		'Enough. The prints come down.',
+	],
+	closed: [
+		'The room is closed. Come back when you can keep your distance.',
+		'They are down. You may look at the walls instead.',
+	],
+	open: [
+		'Very well. They are back. Mind them this time.',
 	],
 	// what is left when calling across the room has not worked either
 	harsh: [
@@ -172,6 +186,16 @@ let stillSince = 0, last = new THREE.Vector3(), greeted = null;
 const warnedAt = new Map();                // a print -> when it was last spoken about
 let wasAt = new THREE.Vector3(), lastT = 0;
 let strikes = 0, lastStrike = 0, quietUntil = 0, rowSince = 0;
+let rage = 0, rageFrom = 0, shutUntil = 0;
+
+// The prints off the walls, and back again: their faces are simply not
+// drawn, so the frames and their mats stay where they are and the room
+// reads as one that has been closed rather than one that has emptied.
+function shutPrints(off) {
+	const pieces = scene.getObjectByName('pieces');
+	if (!pieces) return;
+	pieces.traverse(o => { if (o.name === 'photo' || o.name === 'video') o.visible = !off; });
+}
 let cameAt = 0, nextRound = 0, walkTo = null, voice = null;
 const MONTHS = 'Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec'.split(' ');
 
@@ -264,6 +288,12 @@ function build() {
 // It falls away with the distance from where he stands, and a warning is
 // said at full.
 const SAY_FAR = 9;                         // metres: past this he is not heard
+// how loud each kind is said
+const TEMPER = {
+	greet: 0.6, tell: 0.6, chat: 0.55, joke: 0.6, humble: 0.62,
+	warn: 0.72, row: 0.7, rush: 0.9, call: 1, harsh: 1.15, stop: 1.25, last: 1.3, closed: 1.05, open: 0.75,
+};
+const RAGE = 3, RAGE_IN = 30000, SHUT_FOR = 45000;   // three in half a minute and the room is shut
 let voices = new Map(), vGain = null;
 
 function out() {
@@ -295,8 +325,12 @@ async function speak(kind, i, loud) {
 	if (!b) return;
 	const src = lift.ctx.createBufferSource();
 	src.buffer = b;
+	// Loudness here; the **pitch is in the recording itself** — the sharper
+	// lines were spoken higher and quicker by the synthesiser, not played
+	// faster, which would only have sounded like a wound-up tape (Uli,
+	// 2026-09-13).
 	const g = lift.ctx.createGain();
-	g.gain.value = (loud ? 1 : 0.65) * heard();
+	g.gain.value = (TEMPER[kind] || 0.7) * heard();
 	// **out of the corner he stands in** (Uli, 2026-09-12), not out of the
 	// middle of your head: a panner where he is, asked for the direction
 	// only — the loudness is `heard()`, by the distance across the room
@@ -336,7 +370,8 @@ export function placeGuard() {
 	guard.position.set(far ? far.p[0] : 0, 0, far ? far.p[1] : 0);
 	guard.visible = ready;
 	saidAt = 0; warnedAt.clear(); lastT = 0;
-	strikes = 0; quietUntil = 0; rowSince = 0;   // a new floor, a fresh start for whoever walks in
+	strikes = 0; quietUntil = 0; rowSince = 0; rage = 0; shutUntil = 0;   // a new floor, a fresh start for whoever walks in
+	shutPrints(false);                           // and whatever he took down is back up
 	stillSince = 0; walkTo = null;
 	cameAt = performance.now(); nextRound = cameAt + FIRST_ROUND;   // its first round, three minutes in
 }
@@ -389,6 +424,16 @@ export function stepGuard(now) {
 	if (!guard || !guard.visible || !state.room) return;
 	_h.copy(world.worldToLocal(head().clone()));            // the visitor, in the room's own frame — where the guard lives
 	_h.y = 0;
+	// While the room is shut there is nothing more to say, and when its
+	// time is up the prints go back on the walls (Uli, 2026-09-13). This
+	// comes before everything else: he may be halfway round the room.
+	if (shutUntil) {
+		if (now < shutUntil) return;
+		shutUntil = 0; rage = 0; strikes = 0; quietUntil = 0; warnedAt.clear();
+		shutPrints(false);
+		say(pick('open'), now);
+		return;
+	}
 	// walking its round, it watches where it is going, not you
 	const dt = Math.min(0.05, (now - (stepGuard.last || now)) / 1000); stepGuard.last = now;
 	if (stepRound(now, dt)) return;
@@ -405,9 +450,11 @@ export function stepGuard(now) {
 	}
 
 
-	// a floor entered for the first time: a word about the year
+	// a word on arriving, but only sometimes — a guard does not greet
+	// every entrance (Uli, 2026-09-12)
 	if (greeted !== state.roomKey) {
-			if (say(pick('greet'), now)) { greeted = state.roomKey; return; }
+		greeted = state.roomKey;
+		if (Math.random() < GREETS && say(pick('greet'), now)) return;
 	}
 	// How fast, and toward what: a guard watches the room, not a clock.
 	const dt2 = Math.max(0.001, (now - (lastT || now)) / 1000);
@@ -421,7 +468,12 @@ export function stepGuard(now) {
 	for (const p of state.placed || []) {
 		const d = Math.hypot(p.x - _h.x, p.z - _h.z);
 		if (p.wall === 'mid') { if (d < ROW_NEAR + p.piece.w / 2 && (!row || d < row.d)) row = { p, d }; }
-		else if (p.wall !== 'cabin' && d < CLOSE && (!near || d < near.d)) near = { p, d };   // the cabin's own print is the lift's business, not his
+		else if (p.wall !== 'cabin' && d < CLOSE && (!near || d < near.d)) {
+			// only from the front: behind a print there is nothing to hurt, and
+			// nothing to look at either (Uli, 2026-09-13)
+			const front = (_h.x - p.x) * Math.sin(p.yaw) + (_h.z - p.z) * Math.cos(p.yaw);
+			if (front > 0) near = { p, d };
+		}
 	}
 	// A narrow way with prints hung on both sides is nobody's fault: there
 	// is nowhere to stand further back, and a guard knows it (Uli,
@@ -453,22 +505,40 @@ export function stepGuard(now) {
 	if (strikes && now - lastStrike > FORGET) strikes = 0;
 	const fresh = p => now - (warnedAt.get(p) || -1e9) > WARN_AGAIN;
 	const mind = (p, kind, d) => {
-		// a hand's breadth off a print is not something to wait one's turn
-		// about: that one cuts through the quiet and through the rest (Uli)
+		// A hand's breadth off a print is not something to wait one's turn
+		// about, and neither is walking back inside thirty centimetres: both
+		// cut through his quiet and through the rest he would give you (Uli,
+		// 2026-09-13).
 		const stop = d !== undefined && d < VERY_CLOSE;
-		if (!stop && now < quietUntil) return false;          // he has said his piece; he is waiting
-		if (!stop && (!fresh(p) || Math.random() > WARN_ODDS)) return false;
+		const sharp = d !== undefined && d < HARSHER;
+		if (!sharp && now < quietUntil) return false;         // he has said his piece; he is waiting
+		if (!sharp && (!fresh(p) || Math.random() > WARN_ODDS)) return false;
 		// The ladder (Uli, 2026-09-12): humble or plain to begin with, a
 		// small joke now and then; calling across the room once he has been
 		// ignored twice; hard words when even that is ignored; and `stop`
 		// whenever a hand is a breath from a print.
-		const say_ = stop && strikes >= SAY_TWICE * 2 ? 'harsh'
-			: stop ? 'stop'
+		// The temper follows the distance as much as the count: a first word
+		// at 55 cm is polite, inside 30 cm it is not, and a hand's breadth is
+		// always stop (Uli, 2026-09-13).
+		const say_ = stop ? 'stop'
 			: strikes >= SAY_TWICE * 2 ? 'harsh'
+			: sharp ? (strikes >= SAY_TWICE ? 'harsh' : 'call')
 			: strikes >= SAY_TWICE ? 'call'
 			: kind !== 'warn' ? kind
 			: Math.random() < JOKES ? 'joke'
 			: Math.random() < 0.5 ? 'humble' : 'warn';
+		// Three inside half a minute and he stops asking: a last word, and
+		// the prints come off the walls until he is satisfied (Uli,
+		// 2026-09-13). They come back by themselves.
+		rage = now - rageFrom > RAGE_IN ? 1 : rage + 1;
+		if (rage === 1) rageFrom = now;
+		if (rage >= RAGE && !shutUntil) {
+			say(pick('last'), now, true);
+			shutUntil = now + SHUT_FOR;
+			setTimeout(() => { shutPrints(true); say(pick('closed'), performance.now(), true); }, 1400);
+			warnedAt.set(p, now); strikes++; lastStrike = now;
+			return true;
+		}
 		if (!say(pick(say_), now, true)) return false;
 		warnedAt.set(p, now);
 		strikes++; lastStrike = now;
