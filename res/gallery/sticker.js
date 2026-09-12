@@ -1,6 +1,6 @@
 import * as THREE from '../vendor/three.module.js';
-import { camera, renderer, scene } from './scene.js?v=20260915o';
-import { isFav, toggleFav } from './state.js?v=20260915o';
+import { camera, renderer, scene } from './scene.js?v=20260915p';
+import { isFav, toggleFav } from './state.js?v=20260915p';
 
 // ---------------------------------------------------------------------------
 // Red dots
@@ -193,7 +193,7 @@ function soft() {
 	}
 	return softTex;
 }
-const haloMat = new THREE.MeshBasicMaterial({ map: soft(), color: 0x14120f, transparent: true, opacity: 0.3, depthTest: false, side: THREE.DoubleSide });
+const haloMat = new THREE.MeshBasicMaterial({ map: soft(), color: 0x14120f, transparent: true, opacity: 0.4, depthTest: false, side: THREE.DoubleSide });   // a third darker than 0.3 (Uli, 2026-09-13)
 const HALO = 0.014;              // how far the shade reaches past the bar it backs (Uli: bigger, softer)
 const bar = (w, h, x, y, turn = 0, mat = cursorMat) => {
 	const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
