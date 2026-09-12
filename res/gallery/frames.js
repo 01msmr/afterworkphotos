@@ -1,7 +1,7 @@
 import * as THREE from '../vendor/three.module.js';
-import { walnut } from './elevator.js?v=20260913x';
-import { renderer, scene } from './scene.js?v=20260913x';
-import { state } from './state.js?v=20260913x';
+import { walnut } from './elevator.js?v=20260913y';
+import { renderer, scene } from './scene.js?v=20260913y';
+import { state } from './state.js?v=20260913y';
 
 // ---------------------------------------------------------------------------
 // The frames
@@ -141,25 +141,24 @@ applyFrameLook(materials.frame, state.settings.frame);
 
 const textures = new THREE.TextureLoader();
 export const textureCache = new Map();
-// A print's texture at the size its print needs: the 1600 px file
-// (img/1600, the gallery's own set — the main page never loads it) for a
-// 90, the 1000 px file for a 60, shrunk to 512 px on a canvas for a 40
-// in a grid (a quarter of the memory). A photo without a 1600 (an old
-// one, a video's still) falls back to its 1000. The texture's image
-// stays empty until loaded, which is what the lift waits for. Textures
-// of a room you have left are freed.
 // What a print carries as it hangs, and what it swaps to when someone
 // comes up to it (Uli, 2026-09-13): **the photograph's own file, which is
-// now 1200** — the site shows the same one, so there is one set and not
-// two — and the largest file there is within a metre and a half. A 2000 px square costs 16 MB of
-// video memory against 6 MB at 1200, so it is worth having for the one
-// or two prints a visitor is actually standing at, and ruinous for a
-// whole room at once.
+// 1200** — the site shows the same one, so there is one set and not two —
+// and the largest file there when a visitor is within 1.2 m. A 90 and a
+// 60 take the 1200 whole; a 40 in a grid is shrunk to 512 px on a canvas,
+// a quarter of the memory, since nobody reads a grid print from close to.
+// A 2000 px square costs 16 MB of video memory against 6 MB at 1200, so
+// it is worth having for the one or two prints a visitor is actually
+// standing at, and ruinous for a whole room at once — the more so in a
+// room hung with two or three times the frames, where the wall's 1200s
+// are already the larger bill. The texture's image stays empty until
+// loaded, which is what the lift waits for. Textures of a room you have
+// left are freed.
 const PHOTO_PX = { 0.9: 1200, 0.6: 1200, 0.4: 512 };
 const NEAR_PX = 2000;
 const name = p => p.file.slice(p.file.lastIndexOf('/') + 1);
 export function photoTexture(p, size) {
-	const px = PHOTO_PX[size] || 1000;
+	const px = PHOTO_PX[size] || 1200;                // 1200 is the photograph's own file: an unlisted size takes it whole
 	const key = `${p.n}@${px}`;
 	if (!textureCache.has(key)) {
 		const t = new THREE.Texture();
@@ -186,8 +185,9 @@ export function photoTexture(p, size) {
 }
 
 // The same photograph at its largest, for a visitor standing close. It
-// tries the 2000 px set, falls back to the 1600 and then to the plain
-// file — so it is always the best that exists, whatever has been made.
+// tries the 2000 px set and falls back to the plain 1200 — so it is
+// always the best that exists, whatever has been made. (The 1600 set
+// that once sat between the two is gone, 2026-09-13.)
 export function nearTexture(p) {
 	const key = `${p.n}@near`;
 	if (!textureCache.has(key)) {
@@ -195,7 +195,7 @@ export function nearTexture(p) {
 		t.colorSpace = THREE.SRGBColorSpace;
 		t.anisotropy = 8;
 		const img = new Image();
-		const tries = [`img/${NEAR_PX}/${name(p)}`, `img/1600/${name(p)}`, p.file];
+		const tries = [`img/${NEAR_PX}/${name(p)}`, p.file];
 		let at = 0;
 		img.onerror = () => { if (++at < tries.length) img.src = '/' + tries[at]; };
 		img.onload = () => img.decode().catch(() => {}).then(() => {

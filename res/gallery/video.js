@@ -1,8 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
-import { addLabel } from './bake.js?v=20260913x';
-import { FRAME, GRID_GAP, MAT_Z, PRINT_SCALE, matWidth, materials, photoTexture, poolMaterial, sc, textureCache, dropNear, nearTexture } from './frames.js?v=20260913x';
-import { camera, scene } from './scene.js?v=20260913x';
-import { pieceY, state } from './state.js?v=20260913x';
+import { addLabel } from './bake.js?v=20260913y';
+import { FRAME, GRID_GAP, MAT_Z, PRINT_SCALE, matWidth, materials, photoTexture, poolMaterial, sc, textureCache, dropNear, nearTexture } from './frames.js?v=20260913y';
+import { camera, scene } from './scene.js?v=20260913y';
+import { pieceY, state } from './state.js?v=20260913y';
 
 // ---------------------------------------------------------------------------
 // Videos — the LED panel
@@ -64,11 +64,14 @@ function ledGrid() {
 
 // A print a visitor is standing at carries its largest file; hung on the
 // wall it carries the small one (Uli, 2026-09-13: 1200 on the wall, 2000
-// within a metre and a half, back again at two). The two distances are
-// not the same on purpose — one threshold would swap back and forth
-// while somebody stood at the edge of it. Only the big and middling
+// close up). **Close up is 1.2 m, back again at 1.7** (Uli, 2026-09-13,
+// for rooms that hang two or three times the frames): the wall's 1200 is
+// still above what the panel can show until 0.91 m, so the swap has 30 cm
+// of room to spare, and holding fewer 2000s at once is worth it. The two
+// distances are not the same on purpose — one threshold would swap back
+// and forth while somebody stood at the edge of it. Only the big and middling
 // prints bother; a 40 cm one in a grid has nothing more to show.
-const DETAIL = { near: 1.5, far: 2, every: 350, least: 0.6 };
+const DETAIL = { near: 1.2, far: 1.7, every: 350, least: 0.6 };
 let detailAt = 0;
 const _look = new THREE.Vector3(), _spot = new THREE.Vector3();
 export function stepDetail(now) {
