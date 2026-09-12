@@ -1,8 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
-import { addLabel } from './bake.js?v=20260916b';
-import { FRAME, GRID_GAP, MAT_Z, PRINT_GLOW, PRINT_SCALE, matWidth, materials, photoTexture, poolMaterial, sc, textureCache, dropNear, nearTexture } from './frames.js?v=20260916b';
-import { camera, scene } from './scene.js?v=20260916b';
-import { pieceY, state } from './state.js?v=20260916b';
+import { addLabel } from './bake.js?v=20260916c';
+import { FRAME, GRID_GAP, MAT_Z, PRINT_GLOW, PRINT_SCALE, matWidth, materials, photoTexture, poolMaterial, sc, textureCache, dropNear, nearTexture } from './frames.js?v=20260916c';
+import { camera, scene } from './scene.js?v=20260916c';
+import { pieceY, state } from './state.js?v=20260916c';
 
 // ---------------------------------------------------------------------------
 // Videos — the LED panel
@@ -88,7 +88,15 @@ function ledGrid() {
 // 255 between them, five hundredths of a percent. What made the old swap
 // jump was putting an undecoded texture on the wall, not the change
 // itself. `fade` is still the knob if the pop ever wants softening.
-const DETAIL = { near: 1.3, far: 3.2, least: 0.6 };   // shown inside 1.3 m, let go past 3.2 m (Uli, 2026-09-13)
+// Fetched inside 1.6 m, shown inside 1.2, let go past 3.2 (Uli, 2026-09-13).
+// The three are deliberately far apart. Fetching used to begin at the same
+// distance as letting go, which in a 7.5 x 5 m room meant **the whole
+// room's 2000s were resident at once** — measured over 28 standing places,
+// 7.1 of 9 on average and all 9 at worst, on top of every 1200. Fetching
+// close and holding far turns that round: a file is paid for only once the
+// visitor has actually walked up to that print, and then kept, so stepping
+// back and forth over the line costs nothing.
+const DETAIL = { warm: 1.6, near: 1.2, far: 3.2, least: 0.6 };
 // the 1x1 a near sheet carries until its own picture lands, so its shader
 // is compiled once, at hang time, and never rebuilt mid-walk
 const BLANK = new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1);
@@ -104,17 +112,17 @@ export function stepDetail(now) {
 		if (o.name !== 'photo' || !u.over) return;
 		const over = u.over, m = over.material;
 		const d = o.getWorldPosition(_spot).distanceTo(_look);
-		// asked for early, shown late: the file is on its way from `far` and
-		// the sheet only appears inside `near`, so what goes up is always a
-		// picture that is already on the card
-		if (d < DETAIL.far) {
+		// asked for at `warm`, shown at `near`, given back past `far` — so
+		// what goes up is always a picture already decoded, and a file is
+		// only ever fetched for a print the visitor has come close to
+		if (d < DETAIL.warm) {
 			const t = nearTexture(u.photo);
 			if (t.image && m.map !== t) { m.map = t; m.emissiveMap = t; }   // no needsUpdate: the defines have not moved
-			over.visible = d < DETAIL.near && m.map !== BLANK;
-		} else {
+		}
+		if (d > DETAIL.far) {
 			over.visible = false;
 			if (m.map !== BLANK) { m.map = BLANK; m.emissiveMap = BLANK; dropNear(u.photo); }
-		}
+		} else over.visible = d < DETAIL.near && m.map !== BLANK;
 		m.emissiveIntensity = o.material.emissiveIntensity;   // it follows the day and the night with the sheet under it
 	});
 }
