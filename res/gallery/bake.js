@@ -1,7 +1,7 @@
 import * as THREE from '../vendor/three.module.js';
-import { materials, poolMaterial } from './frames.js?v=20260916p';
-import { renderer, world } from './scene.js?v=20260916p';
-import { state } from './state.js?v=20260916p';
+import { materials, poolMaterial } from './frames.js?v=20260916q';
+import { renderer, world } from './scene.js?v=20260916q';
+import { state } from './state.js?v=20260916q';
 
 // ---------------------------------------------------------------------------
 // Baking a room
@@ -64,7 +64,6 @@ export function bakeRoom(pieces) {
 		for (const o of list) o.parent.remove(o);
 	};
 	add(groups.pools, poolMaterial, 'pools', false);
-	const pm = baked.getObjectByName('pools'); if (pm) pm.visible = state.settings.pools;   // the pools switch
 	add(groups.mats, materials.mat, 'mats', false);
 	add(groups.backs, materials.back, 'backs', false);
 	add(groups.rims, materials.rim, 'rims', false);
