@@ -112,6 +112,7 @@ function drawDisplay(ctx, text, arrow) {
 	}
 }
 export function roomLabel(room) {
+	if (room.favs) return room.span;                // 'favourites', never its sorting year 9999 (Uli, 2026-09-13)
 	if (room.years.length > 1) return room.span;
 	return room.of > 1 ? `${room.year}.${room.part}` : room.year;
 }
@@ -922,7 +923,7 @@ export function pressAlong(rc, reach) {
 export const floors = document.getElementById('floors');
 function renderFloors() {
 	floors.innerHTML = rooms().map(r =>
-		`<button data-key="${r.key}"${r.key === state.roomKey ? ' aria-current="true"' : ''}>${r.years.length > 1 ? `${r.years[0]}<small>\u2013${r.years[r.years.length - 1]}</small>` : r.year}${r.of > 1 ? `<small>.${r.part}</small>` : ''}</button>`).join('');
+		`<button data-key="${r.key}"${r.key === state.roomKey ? ' aria-current="true"' : ''}>${r.favs ? r.span : r.years.length > 1 ? `${r.years[0]}<small>\u2013${r.years[r.years.length - 1]}</small>` : r.year}${r.of > 1 ? `<small>.${r.part}</small>` : ''}</button>`).join('');
 }
 floors.addEventListener('click', e => {
 	const b = e.target.closest('button');
