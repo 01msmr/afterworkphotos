@@ -1,11 +1,11 @@
 import * as THREE from '../vendor/three.module.js';
-import { BUTTON, elevator, pressAlong, settingsMap } from './elevator.js?v=20260916j';
-import { cornerFree, outlineOf, planOf, rotShape } from './plan.js?v=20260916j';
-import { tabletHit } from './tablet.js?v=20260916j';
-import { ELEVATOR, clearRooms, hangRoom, rooms } from './hang.js?v=20260916j';
-import { camera, head, renderer, rig, scene, world } from './scene.js?v=20260916j';
-import { loadSettings, state } from './state.js?v=20260916j';
-import { placeBody, walk } from './walk.js?v=20260916j';
+import { BUTTON, elevator, pressAlong, settingsMap } from './elevator.js?v=20260916k';
+import { cornerFree, outlineOf, planOf, rotShape } from './plan.js?v=20260916k';
+import { tabletHit } from './tablet.js?v=20260916k';
+import { ELEVATOR, clearRooms, hangRoom, rooms } from './hang.js?v=20260916k';
+import { camera, head, renderer, rig, scene, world } from './scene.js?v=20260916k';
+import { loadSettings, state } from './state.js?v=20260916k';
+import { placeBody, walk } from './walk.js?v=20260916k';
 
 // ---------------------------------------------------------------------------
 // VR (phase 2, first step)
@@ -50,15 +50,20 @@ async function offerVR() {
 			// The room is set up at entry (Uli): the Guardian boundary gives the
 			// rectangle, the wall you look at becomes the north wall. Planes are
 			// still asked for, should a browser ever hand them over in VR.
-			// Sharpness on the Quest 3 (Uli, 2026-09-05): the view rendered at
-			// 1.3× the headset's default scale (set before the session), and
+			// Sharpness on the Quest 3 (Uli, 2026-09-05): the view rendered
+			// above the headset's default scale (set before the session), and
 			// **no fixed foveation at all** (2026-09-13). It was eased to 0.3
 			// so the edges did not go soft where a print sits — and the lift's
 			// years, read sideways with the eyes while the head faces the
 			// doors, sat in that softened edge: fuzzy, and the sharp part of
 			// the view trailing the head instead of the eyes (Uli: dizzy, slow
 			// to follow). The room is light on the GPU; it can pay for its edges.
-			renderer.xr.setFramebufferScaleFactor(1.3);
+			// **1.15, not 1.3** (2026-09-13): the display's readout showed 90 fps
+			// falling to 45 in the cabin, and at 45 the headset reprojects every
+			// other frame — the years on the caps judder and trail the view. 1.3
+			// is 1.7 times the pixels of 1.0; 1.15 is 1.3 times, a fifth less
+			// fill for a sharpness the prints will not miss.
+			renderer.xr.setFramebufferScaleFactor(1.15);
 			const session = await navigator.xr.requestSession(state.xrMode, { requiredFeatures: ['local-floor'], optionalFeatures: ['bounded-floor', 'hand-tracking', 'plane-detection', 'mesh-detection', 'layers'] });
 			// **'layers' is asked for the depth buffer** (2026-09-13). Without it
 			// three draws into an XRWebGLLayer whose depth format the browser

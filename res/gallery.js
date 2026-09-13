@@ -1,22 +1,22 @@
 // three.js 0.180.0, vendored (MIT) — res/vendor/three.module.js, which in
 // turn imports res/vendor/three.core.js; both are pinned together.
-import { stats, stepStats } from './gallery/bench.js?v=20260916j';
-import { elevator, lift, pressAt, setSetting } from './gallery/elevator.js?v=20260916j';
-import { materials } from './gallery/frames.js?v=20260916j';
-import { ELEVATOR, hangRoom, packRun, piecesOf, replan, firstRoom, rooms, spread, upright } from './gallery/hang.js?v=20260916j';
-import { stepSticker } from './gallery/sticker.js?v=20260916j';
-import { jump, stepJump } from './gallery/jump.js?v=20260916j';
-import { stepTablet, tabletHit, toggleTablet } from './gallery/tablet.js?v=20260916j';
-import { nextLine, placeGuard, stepGuard } from './gallery/guard.js?v=20260916j';
-import { musicLevel, playing, stepMusic } from './gallery/music.js?v=20260916j';
-import { stepZoom, zoomLabel, zoomPrint } from './gallery/zoom.js?v=20260916j';
-import { applyMode, buildRoom, stepMode } from './gallery/room.js?v=20260916j';
-import { planOf } from './gallery/plan.js?v=20260916j';
-import { camera, renderer, rig, scene, world } from './gallery/scene.js?v=20260916j';
-import { EYE, state } from './gallery/state.js?v=20260916j';
-import { makePiece, makeVideoPanel, stepDetail, stepVideos, videoCache } from './gallery/video.js?v=20260916j';
-import { benchScan, fitRoom, stepPlanes } from './gallery/vr.js?v=20260916j';
-import { applyLook, placeBody, stepWalk, walk } from './gallery/walk.js?v=20260916j';
+import { stats, stepStats } from './gallery/bench.js?v=20260916k';
+import { elevator, lift, pressAt, setSetting } from './gallery/elevator.js?v=20260916k';
+import { materials } from './gallery/frames.js?v=20260916k';
+import { ELEVATOR, hangRoom, packRun, piecesOf, replan, firstRoom, rooms, spread, upright } from './gallery/hang.js?v=20260916k';
+import { stepSticker } from './gallery/sticker.js?v=20260916k';
+import { jump, stepJump } from './gallery/jump.js?v=20260916k';
+import { stepTablet, tabletHit, toggleTablet } from './gallery/tablet.js?v=20260916k';
+import { nextLine, placeGuard, stepGuard } from './gallery/guard.js?v=20260916k';
+import { musicLevel, playing, stepMusic } from './gallery/music.js?v=20260916k';
+import { stepZoom, zoomLabel, zoomPrint } from './gallery/zoom.js?v=20260916k';
+import { applyMode, buildRoom, stepMode } from './gallery/room.js?v=20260916k';
+import { planOf } from './gallery/plan.js?v=20260916k';
+import { camera, renderer, rig, scene, world } from './gallery/scene.js?v=20260916k';
+import { EYE, state } from './gallery/state.js?v=20260916k';
+import { makePiece, makeVideoPanel, stepDetail, stepVideos, videoCache } from './gallery/video.js?v=20260916k';
+import { benchScan, fitRoom, stepPlanes } from './gallery/vr.js?v=20260916k';
+import { applyLook, placeBody, stepWalk, walk } from './gallery/walk.js?v=20260916k';
 
 // ---------------------------------------------------------------------------
 // Boot
@@ -88,7 +88,7 @@ function stepProbe(now) {
 	if (now - probe.at < 1000) return;
 	if (renderer.xr.isPresenting && probe.at) {
 		const rs = renderer.xr.getSession().renderState, kind = rs.layers && rs.layers.length ? 'proj' : 'base';
-		elevator.note(`${probe.bits} bit · ${kind} · ${Math.round(probe.frames * 1000 / (now - probe.at))} fps`);
+		elevator.note(`${probe.bits} bit · ${kind} · ${Math.round(probe.frames * 1000 / (now - probe.at))} fps · ${renderer.info.render.calls} calls`);   // the calls of the last frame: fill or geometry, the number says which
 	}
 	probe.frames = 0; probe.at = now;
 }
