@@ -1,16 +1,16 @@
 import * as THREE from '../vendor/three.module.js';
-import { bakeRoom, placeLabels } from './bake.js?v=20260916l';
-import { addDots, findSpots } from './sticker.js?v=20260916l';
-import { placeGuard } from './guard.js?v=20260916l';
-import { clearZoom } from './zoom.js?v=20260916l';
-import { setWire, wire } from './bench.js?v=20260916l';
-import { elevator, roomLabel } from './elevator.js?v=20260916l';
-import { FRAME, GRID_GAP, sc, textureCache } from './frames.js?v=20260916l';
-import { WALL_STYLES, buildRoom, dadoTop, floorOf, rectRoom, shapeOf, wallColours } from './room.js?v=20260916l';
-import { scene, world } from './scene.js?v=20260916l';
-import { HANG_MAX, pieceY, state } from './state.js?v=20260916l';
-import { framedSize, freeTexturesExcept, freeVideosExcept, makePiece } from './video.js?v=20260916l';
-import { BODY_R } from './walk.js?v=20260916l';
+import { clearCards, bakeRoom, placeLabels } from './bake.js?v=20260916m';
+import { addDots, findSpots } from './sticker.js?v=20260916m';
+import { placeGuard } from './guard.js?v=20260916m';
+import { clearZoom } from './zoom.js?v=20260916m';
+import { setWire, wire } from './bench.js?v=20260916m';
+import { elevator, roomLabel } from './elevator.js?v=20260916m';
+import { FRAME, GRID_GAP, sc, textureCache } from './frames.js?v=20260916m';
+import { WALL_STYLES, buildRoom, dadoTop, floorOf, rectRoom, shapeOf, wallColours } from './room.js?v=20260916m';
+import { scene, world } from './scene.js?v=20260916m';
+import { HANG_MAX, pieceY, state } from './state.js?v=20260916m';
+import { framedSize, freeTexturesExcept, freeVideosExcept, makePiece } from './video.js?v=20260916m';
+import { BODY_R } from './walk.js?v=20260916m';
 
 // ---------------------------------------------------------------------------
 // Hanging a year
@@ -483,7 +483,9 @@ function clipPool(pool, w, h, left = Infinity, right = Infinity) {
 }
 
 export function hangRoom(key) {
+	const t0 = performance.now();
 	clearZoom();                                   // nothing left large belongs to the room that goes
+	clearCards();                                  // nor do its cards still waiting to be drawn
 	const room = roomByKey(key);
 	const H = state.settings.H + state.settings.raise;   // the height switch: a metre more, over every floor (Uli)
 	for (const name of ['pieces', 'baked']) {
@@ -578,6 +580,7 @@ export function hangRoom(key) {
 	if (!elevator.ride) elevator.show(roomLabel(room), '');
 	placeGuard();                                  // the guard takes the far corner of the new room
 	if (TOP) drawTop(shape, lay.placed);
+	state.hangMs = Math.round(performance.now() - t0);   // for the readout on the outside display
 	return pieces;
 }
 

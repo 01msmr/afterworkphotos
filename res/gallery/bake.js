@@ -1,7 +1,7 @@
 import * as THREE from '../vendor/three.module.js';
-import { materials, poolMaterial } from './frames.js?v=20260916l';
-import { renderer, world } from './scene.js?v=20260916l';
-import { state } from './state.js?v=20260916l';
+import { materials, poolMaterial } from './frames.js?v=20260916m';
+import { renderer, world } from './scene.js?v=20260916m';
+import { state } from './state.js?v=20260916m';
 
 // ---------------------------------------------------------------------------
 // Baking a room
@@ -45,13 +45,14 @@ function weld(meshes, material, name) {
 
 export function bakeRoom(pieces) {
 	const baked = new THREE.Group(); baked.name = 'baked';
-	const groups = { bars: [], mats: [], backs: [], rims: [], lines: [], pools: [] };
+	const groups = { bars: [], mats: [], backs: [], rims: [], lines: [], pools: [], labelRims: [] };
 	pieces.traverse(o => {
 		if (!o.isMesh) return;
 		if (o.name.startsWith('bar-')) groups.bars.push(o);
 		else if (o.name === 'mat') groups.mats.push(o);
 		else if (o.name === 'back') groups.backs.push(o);
 		else if (o.name === 'photo-shadow') groups.rims.push(o);
+		else if (o.name === 'label-shadow') groups.labelRims.push(o);   // the cards' shadows too: 74 draw calls into one; a doubled card covers its own
 		else if (o.name === 'line') groups.lines.push(o);
 		else if (o.name === 'pool') groups.pools.push(o);
 	});
@@ -66,6 +67,8 @@ export function bakeRoom(pieces) {
 	add(groups.mats, materials.mat, 'mats', false);
 	add(groups.backs, materials.back, 'backs', false);
 	add(groups.rims, materials.rim, 'rims', false);
+	add(groups.labelRims, materials.rim, 'label-rims', false);
+	const lr = baked.getObjectByName('label-rims'); if (lr) lr.visible = state.settings.labels;   // and go with the labels switch
 	add(groups.bars, materials.frame, 'frames', true);
 	add(groups.lines, materials.line, 'lines', false);
 	return baked;
@@ -153,13 +156,52 @@ function cardCanvas(lines) {
 	t.anisotropy = renderer.capabilities.getMaxAnisotropy();
 	return t;
 }
-const paperMaterial = new THREE.MeshLambertMaterial({ color: PAPER, emissive: PAPER, emissiveIntensity: CARD_GLOW });   // the board's edges and its back, shared
+// **One draw call a card** (2026-09-13). A box with six materials is six
+// draw calls, and the 74-frame room spent 444 of them on its labels —
+// the biggest single cost of a frame in the headset (66 fps in the
+// cabin). One geometry per card size, its five other faces' UVs pointed
+// at a spot of bare paper in the canvas's top-left margin, so one
+// material with the canvas on it draws the whole board: paper edges, a
+// paper back, the card on the front.
+const cardGeometries = new Map();
+function cardGeometry(cw, ch) {
+	const key = `${cw}|${ch}`;
+	if (!cardGeometries.has(key)) {
+		const geo = new THREE.BoxGeometry(cw, ch, CARD_D);
+		geo.clearGroups();                                       // one material for all six faces
+		const uv = geo.attributes.uv;                            // faces in order px nx py ny pz nz, four corners each: pz is 16..19
+		for (let i = 0; i < uv.count; i++) if (i < 16 || i > 19) uv.setXY(i, 0.02, 0.97);   // paper: inside the left margin, under the top one
+		uv.needsUpdate = true;
+		cardGeometries.set(key, geo);
+	}
+	return cardGeometries.get(key);
+}
+// **The canvas is drawn after the hang, a few cards a frame** (Uli,
+// 2026-09-13: the view stuck in the cabin as the doors shut). Seventy
+// canvases drawn and 170 MB sent up in the frame the room was hung held
+// the headset for a good part of a second; the doors are shut for two
+// or three seconds anyway. A card starts with one paper pixel for its
+// map — a map, so its program never has to be built twice — and its own
+// canvas is swapped in when its turn comes (stepCards).
+const PAPER_PX = new THREE.DataTexture(new Uint8Array([0xfd, 0xfc, 0xfa, 255]), 1, 1);
+PAPER_PX.colorSpace = THREE.SRGBColorSpace; PAPER_PX.needsUpdate = true;
+const CARDS_A_FRAME = 2;
+let pending = [];
+export function stepCards() {
+	for (let n = 0; n < CARDS_A_FRAME && pending.length; n++) {
+		const { card, lines } = pending.shift();
+		if (!card.parent) continue;                              // the room it belonged to has gone
+		const t = cardCanvas(lines);
+		renderer.initTexture(t);
+		card.material.map = t; card.material.emissiveMap = t;    // no needsUpdate: a map for a map, the defines have not moved
+	}
+}
+export function clearCards() { pending = []; }
 function makeCard(lines, cw) {
 	const ch = cw * CARD_H / CARD_DRAWN;
-	const t = cardCanvas(lines);
-	const face = new THREE.MeshLambertMaterial({ map: t, emissive: PAPER, emissiveMap: t, emissiveIntensity: CARD_GLOW });
-	// a box's sixth material is its +z face: the front, where the card is read
-	const card = new THREE.Mesh(new THREE.BoxGeometry(cw, ch, CARD_D), [paperMaterial, paperMaterial, paperMaterial, paperMaterial, face, paperMaterial]);
+	const face = new THREE.MeshLambertMaterial({ map: PAPER_PX, emissive: PAPER, emissiveMap: PAPER_PX, emissiveIntensity: CARD_GLOW });
+	const card = new THREE.Mesh(cardGeometry(cw, ch), face);
+	pending.push({ card, lines });
 	card.name = 'label';
 	card.visible = state.settings.labels;
 	card.userData.ch = ch;
