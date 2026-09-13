@@ -1,22 +1,22 @@
 // three.js 0.180.0, vendored (MIT) — res/vendor/three.module.js, which in
 // turn imports res/vendor/three.core.js; both are pinned together.
-import { stats, stepStats } from './gallery/bench.js?v=20260916i';
-import { elevator, lift, pressAt, setSetting } from './gallery/elevator.js?v=20260916i';
-import { materials } from './gallery/frames.js?v=20260916i';
-import { ELEVATOR, hangRoom, packRun, piecesOf, replan, firstRoom, rooms, spread, upright } from './gallery/hang.js?v=20260916i';
-import { stepSticker } from './gallery/sticker.js?v=20260916i';
-import { jump, stepJump } from './gallery/jump.js?v=20260916i';
-import { stepTablet, tabletHit, toggleTablet } from './gallery/tablet.js?v=20260916i';
-import { nextLine, placeGuard, stepGuard } from './gallery/guard.js?v=20260916i';
-import { musicLevel, playing, stepMusic } from './gallery/music.js?v=20260916i';
-import { stepZoom, zoomLabel, zoomPrint } from './gallery/zoom.js?v=20260916i';
-import { applyMode, buildRoom, stepMode } from './gallery/room.js?v=20260916i';
-import { planOf } from './gallery/plan.js?v=20260916i';
-import { camera, renderer, rig, scene, world } from './gallery/scene.js?v=20260916i';
-import { EYE, state } from './gallery/state.js?v=20260916i';
-import { makePiece, makeVideoPanel, stepDetail, stepVideos, videoCache } from './gallery/video.js?v=20260916i';
-import { benchScan, fitRoom, stepPlanes } from './gallery/vr.js?v=20260916i';
-import { applyLook, placeBody, stepWalk, walk } from './gallery/walk.js?v=20260916i';
+import { stats, stepStats } from './gallery/bench.js?v=20260916j';
+import { elevator, lift, pressAt, setSetting } from './gallery/elevator.js?v=20260916j';
+import { materials } from './gallery/frames.js?v=20260916j';
+import { ELEVATOR, hangRoom, packRun, piecesOf, replan, firstRoom, rooms, spread, upright } from './gallery/hang.js?v=20260916j';
+import { stepSticker } from './gallery/sticker.js?v=20260916j';
+import { jump, stepJump } from './gallery/jump.js?v=20260916j';
+import { stepTablet, tabletHit, toggleTablet } from './gallery/tablet.js?v=20260916j';
+import { nextLine, placeGuard, stepGuard } from './gallery/guard.js?v=20260916j';
+import { musicLevel, playing, stepMusic } from './gallery/music.js?v=20260916j';
+import { stepZoom, zoomLabel, zoomPrint } from './gallery/zoom.js?v=20260916j';
+import { applyMode, buildRoom, stepMode } from './gallery/room.js?v=20260916j';
+import { planOf } from './gallery/plan.js?v=20260916j';
+import { camera, renderer, rig, scene, world } from './gallery/scene.js?v=20260916j';
+import { EYE, state } from './gallery/state.js?v=20260916j';
+import { makePiece, makeVideoPanel, stepDetail, stepVideos, videoCache } from './gallery/video.js?v=20260916j';
+import { benchScan, fitRoom, stepPlanes } from './gallery/vr.js?v=20260916j';
+import { applyLook, placeBody, stepWalk, walk } from './gallery/walk.js?v=20260916j';
 
 // ---------------------------------------------------------------------------
 // Boot
@@ -70,8 +70,28 @@ renderer.setAnimationLoop((now, frame) => {
 	step('music', () => stepMusic(now));
 	step('guard', () => stepGuard(now));
 	step('render', () => renderer.render(scene, camera));
+	step('probe', () => stepProbe(now));
 	if (stats) step('stats', () => stepStats(now));
 });
+
+// What the headset actually gives, read off the lift's outside display
+// (2026-09-13, after a day of flicker that fits a 16-bit depth buffer and
+// nothing else): the depth buffer's bits — asked while the XR framebuffer
+// is bound, which it is inside a render — the layer kind (a projection
+// layer names its own depth format; a base layer takes the browser's),
+// and the frame rate. Nothing on the bench.
+const probe = { bits: 0, frames: 0, at: 0 };
+const gl = renderer.getContext();
+scene.onAfterRender = () => { if (!probe.bits && renderer.xr.isPresenting) probe.bits = gl.getParameter(gl.DEPTH_BITS); };
+function stepProbe(now) {
+	probe.frames++;
+	if (now - probe.at < 1000) return;
+	if (renderer.xr.isPresenting && probe.at) {
+		const rs = renderer.xr.getSession().renderState, kind = rs.layers && rs.layers.length ? 'proj' : 'base';
+		elevator.note(`${probe.bits} bit · ${kind} · ${Math.round(probe.frames * 1000 / (now - probe.at))} fps`);
+	}
+	probe.frames = 0; probe.at = now;
+}
 
 // Test-harness handle only: the plan's browser checks read the scene graph
 // and camera through this. Nothing on the page uses it.

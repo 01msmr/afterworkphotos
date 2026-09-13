@@ -1,8 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
-import { CABIN_LAMP, lightPanel, metal } from './elevator.js?v=20260916i';
-import { ENV_INTENSITY, PRINT_GLOW, poolMaterial, tex } from './frames.js?v=20260916i';
-import { camera, renderer, scene } from './scene.js?v=20260916i';
-import { state } from './state.js?v=20260916i';
+import { CABIN_LAMP, lightPanel, metal } from './elevator.js?v=20260916j';
+import { ENV_INTENSITY, PRINT_GLOW, poolMaterial, tex } from './frames.js?v=20260916j';
+import { camera, renderer, scene } from './scene.js?v=20260916j';
+import { state } from './state.js?v=20260916j';
 
 // ---------------------------------------------------------------------------
 // The room
@@ -85,7 +85,7 @@ function floorMaterial(slug, W, D, perMetre = false) {
 	if (!f.metres) return { material: new THREE.MeshStandardMaterial({ color: f.colour.light, roughness: f.roughness, metalness: 0, envMapIntensity: 0.6 }), colours: f.colour };
 	const t = kind => tex(`floor-${slug}-${kind}.jpg`, kind === 'color', (perMetre ? 1 : D) / f.metres, (perMetre ? 1 : W) / f.metres);
 	const material = new THREE.MeshStandardMaterial({
-		map: t('color'), roughnessMap: t('rough'), normalMap: t('normal'), normalScale: new THREE.Vector2(0.7, 0.7),
+		map: t('color'), roughnessMap: t('rough'), normalMap: t('normal'), polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -2, normalScale: new THREE.Vector2(0.7, 0.7),
 		metalnessMap: f.metal ? t('metalness') : null, metalness: f.metal ? 1 : 0, roughness: 1, envMapIntensity: f.metal ? 0.5 : 0.35,
 	});
 	// under the day's fills a texture at full colour washed out (Uli): two thirds
@@ -127,7 +127,8 @@ export function rectRoom(W, D) {
 export function dressWall(wall, style, H, top, mode) {
 	const w = wall.geometry.parameters.width;
 	const add = (mesh, name, colours) => { mesh.name = name; mesh.userData.colours = colours; mesh.material.color.setHex(colours[mode]); wall.add(mesh); return mesh; };
-	const plane = (ww, hh, y, z, colour, k) => add(new THREE.Mesh(new THREE.PlaneGeometry(ww, hh), new THREE.MeshLambertMaterial({ color: colour })), 'dado', wallColours(colour, k)).position.set(0, y - H / 2, z);
+	// a plane a hair proud of the plaster is pushed two depth steps before it as well (frames.js, STEPS): 2 mm is under a 16-bit step across a room
+	const plane = (ww, hh, y, z, colour, k) => add(new THREE.Mesh(new THREE.PlaneGeometry(ww, hh), new THREE.MeshLambertMaterial({ color: colour, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -2 })), 'dado', wallColours(colour, k)).position.set(0, y - H / 2, z);
 	const bar = (hh, depth, y, colour, name, k = 0.35) => add(new THREE.Mesh(new THREE.BoxGeometry(w, hh, depth), new THREE.MeshLambertMaterial({ color: colour })), name, wallColours(colour, k)).position.set(0, y - H / 2, depth / 2);
 	if (style.dado && top > 0) {
 		plane(w, top, top / 2, 0.002, style.dado.colour, 0.35);
@@ -142,7 +143,7 @@ export function dressWall(wall, style, H, top, mode) {
 		const m = new THREE.MeshStandardMaterial({ map: tex(`wood-${wood}-color.jpg`, true, ry, rx), roughnessMap: tex(`wood-${wood}-rough.jpg`, false, ry, rx), normalMap: tex(`wood-${wood}-normal.jpg`, false, ry, rx), normalScale: new THREE.Vector2(0.5, 0.5), roughness: 1, metalness: 0, envMapIntensity: 0.3 });
 		add(new THREE.Mesh(new THREE.PlaneGeometry(w, top), m), 'wainscot', wallColours(0xffffff, 0.35)).position.set(0, top / 2 - H / 2, 0.006);
 		// the inlaid frames: one panel cell drawn once, repeated every 0.7 m
-		const frames = new THREE.Mesh(new THREE.PlaneGeometry(w, top), new THREE.MeshBasicMaterial({ map: panelFrames(w / 0.7), transparent: true, depthWrite: false }));
+		const frames = new THREE.Mesh(new THREE.PlaneGeometry(w, top), new THREE.MeshBasicMaterial({ map: panelFrames(w / 0.7), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -4 }));   // half a millimetre over the wood: four steps
 		add(frames, 'wainscot-frames', wallColours(0xffffff, 0.35)).position.set(0, top / 2 - H / 2, 0.0065);
 		bar(0.03, 0.02, top, wood === 'maple' ? 0xd8c7a3 : 0x4a3626, 'cap');
 	}

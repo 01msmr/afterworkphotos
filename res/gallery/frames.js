@@ -1,7 +1,7 @@
 import * as THREE from '../vendor/three.module.js';
-import { walnut } from './elevator.js?v=20260916i';
-import { renderer, scene } from './scene.js?v=20260916i';
-import { state } from './state.js?v=20260916i';
+import { walnut } from './elevator.js?v=20260916j';
+import { renderer, scene } from './scene.js?v=20260916j';
+import { state } from './state.js?v=20260916j';
 
 // ---------------------------------------------------------------------------
 // The frames
@@ -19,6 +19,23 @@ import { state } from './state.js?v=20260916i';
 
 export const FRAME = { face: 0.03, depth: 0.03, radius: 0.002 };   // a square section (Uli), its four long edges rounded 2 mm (Uli, 2026-09-13; a 1.5 mm chamfer before)
 const MAT = { 0.9: 0.09, 0.6: 0.06, 0.4: 0.045 };     // mat width per nominal print size: the spec's 6/4/3 plus half (Uli)
+// ---------------------------------------------------------------------------
+// STEPS: what stands on what, and how the depth buffer is told
+//
+// The headset's depth buffer resolves 2.7 mm at three metres if it is
+// 16 bits deep (near 0.05), and everything in this gallery that lies a
+// hair off something else flickered against it (Uli, 2026-09-13, all
+// day): a print over its mat, the print's shadow under it, a year over
+// its cap, a pocket in the plate, a dot on a card. Millimetres cannot
+// win that — but a polygon offset's **units** are whole steps of the
+// depth buffer, whatever a step happens to be, so a layer pushed by
+// units stands in front of the layer under it at any distance and any
+// depth. Every stack has its ladder, small enough (eight steps at most,
+// under 3 mm at a metre with 16 bits, microns with 24) that nothing can
+// climb through a frame bar or a board:
+//   wall 0 · pool -2 · rim -2 · mat 0 · print -4 · near sheet -6
+//   plate 0 · pocket -2 · steel -4 · cap -6 · year -8
+//   card 0 · dot -8;   dado/wainscot -2 · inlaid frames -4
 export const MAT_Z = 0.014;                                   // the mat 14 mm off the wall: 8 mm further forward (Uli)
 export const PRINT_SCALE = 0.9;                               // the print inside is a little smaller than nominal, the mat takes the rest (Uli)
 export const MAT_COLOURS = { white: 0xfaf9f6, warm: 0xf3ecdd, none: 0xfaf9f6 };
@@ -153,7 +170,7 @@ function poolTexture() {
 	g.fillStyle = grad; g.fillRect(0, 0, 128, 128);
 	const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
 }
-export const poolMaterial = new THREE.MeshBasicMaterial({ map: poolTexture(), transparent: true, opacity: 0.62, blending: THREE.AdditiveBlending, depthWrite: false });   // turned down by day (room.js, POOL)
+export const poolMaterial = new THREE.MeshBasicMaterial({ map: poolTexture(), transparent: true, opacity: 0.62, blending: THREE.AdditiveBlending, depthWrite: false, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -2 });   // turned down by day (room.js, POOL)
 
 // A wood's colour map faded toward a flat colour: the image drawn on a
 // canvas and the colour laid over it at `fade`. Blank until the image is in.
@@ -178,7 +195,7 @@ export const materials = {
 	// material, shared by every frame on every floor.
 	frame: new THREE.MeshStandardMaterial({ roughness: 0.45, metalness: 0, normalScale: new THREE.Vector2(0.6, 0.6), envMapIntensity: 0.9 }),
 	mat:   new THREE.MeshLambertMaterial({ color: MAT_COLOURS[state.settings.mat] }),
-	rim:   new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.28, depthWrite: false }),
+	rim:   new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.28, depthWrite: false, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -2 }),   // a shadow lies a hair off its surface: two depth steps forward, whatever a step is (see STEPS)
 	line:  new THREE.MeshBasicMaterial({ color: 0xe8e4dc, transparent: true, opacity: 0.55, side: THREE.DoubleSide }),
 	back:  new THREE.MeshLambertMaterial({ map: fadedWood('wood-maple-color.jpg', '#d6c6a4', 0.6) }),   // the cheap pale board closing a frame's back: the grain faded 60 % into a flat colour (Uli)
 };

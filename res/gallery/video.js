@@ -1,8 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
-import { addLabel } from './bake.js?v=20260916i';
-import { FRAME, GRID_GAP, MAT_Z, PRINT_GLOW, PRINT_SCALE, matWidth, materials, photoTexture, poolMaterial, sc, textureCache, dropNear, freeTexture, nearTexture } from './frames.js?v=20260916i';
-import { camera, scene } from './scene.js?v=20260916i';
-import { RAISES, pieceY, state } from './state.js?v=20260916i';
+import { addLabel } from './bake.js?v=20260916j';
+import { FRAME, GRID_GAP, MAT_Z, PRINT_GLOW, PRINT_SCALE, matWidth, materials, photoTexture, poolMaterial, sc, textureCache, dropNear, freeTexture, nearTexture } from './frames.js?v=20260916j';
+import { camera, scene } from './scene.js?v=20260916j';
+import { RAISES, pieceY, state } from './state.js?v=20260916j';
 
 // ---------------------------------------------------------------------------
 // Videos — the LED panel
@@ -286,7 +286,8 @@ function makeFramedPrint(p, size) {
 	// the angle, as paper does; `emissive` keeps a little of the picture in
 	// the dark of a night room, where the pools are all there is.
 	const print = new THREE.Mesh(new THREE.PlaneGeometry(printed, printed),
-		new THREE.MeshLambertMaterial({ map: photoTexture(p, size), emissive: 0xffffff, emissiveMap: photoTexture(p, size), emissiveIntensity: PRINT_GLOW[state.settings.dark ? 'dark' : 'light'] }));
+		new THREE.MeshLambertMaterial({ map: photoTexture(p, size), emissive: 0xffffff, emissiveMap: photoTexture(p, size), emissiveIntensity: PRINT_GLOW[state.settings.dark ? 'dark' : 'light'],
+			polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -4 }));   // four depth steps before its mat and its shadow (frames.js, STEPS): filled over the mat it flickered against it from across a room
 	print.name = 'photo';
 	Object.assign(print.userData, { photo: p, size, detail: 'wall' });   // for the swap when someone comes close
 	print.position.z = MAT_Z + 0.001;                // a millimetre proud of the mat (Uli)
@@ -310,7 +311,7 @@ function makeFramedPrint(p, size) {
 		const over = new THREE.Mesh(print.geometry,
 			new THREE.MeshLambertMaterial({ map: BLANK, emissive: 0xffffff, emissiveMap: BLANK,
 				emissiveIntensity: print.material.emissiveIntensity,
-				polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -2 }));   // a constant push, no slope term: at a grazing angle a slope pulls it through the frame
+				polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -6 }));   // two steps before the print under it (STEPS); no slope term, which at a grazing angle would pull it through the frame
 		over.name = 'photo-near';
 		over.position.z = 0.0004;                      // local: a hair in front of the sheet under it
 		over.visible = false;

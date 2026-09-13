@@ -1,7 +1,7 @@
 import * as THREE from '../vendor/three.module.js';
-import { materials, poolMaterial } from './frames.js?v=20260916i';
-import { renderer, world } from './scene.js?v=20260916i';
-import { state } from './state.js?v=20260916i';
+import { materials, poolMaterial } from './frames.js?v=20260916j';
+import { renderer, world } from './scene.js?v=20260916j';
+import { state } from './state.js?v=20260916j';
 
 // ---------------------------------------------------------------------------
 // Baking a room
@@ -170,7 +170,7 @@ function makeCard(lines, cw) {
 	// under it reads as printed on the wall rather than laid against it.
 	const rim = new THREE.Mesh(new THREE.PlaneGeometry(cw + 0.004, ch + 0.004), materials.rim);
 	rim.name = 'label-shadow';
-	rim.position.set(0.0012, -0.0012, -CARD_D / 2 - 0.0004);
+	rim.position.set(0.0012, -0.0012, -CARD_D / 2 + 0.0003);   // a hair *in front of* the wall (it sat 0.4 mm inside it and flickered through), under the board's face
 	card.add(rim);
 	return card;
 }
