@@ -1,10 +1,10 @@
 import * as THREE from '../vendor/three.module.js';
-import { elevator, lift } from './elevator.js?v=20260916i';   // its audio, and where the cabin stands
-import { ELEVATOR } from './hang.js?v=20260916i';
-import { pannerAt } from './music.js?v=20260916i';
-import { inPoly } from './plan.js?v=20260916i';
-import { head, scene, world } from './scene.js?v=20260916i';
-import { state } from './state.js?v=20260916i';
+import { elevator, lift } from './elevator.js?v=20260916j';   // its audio, and where the cabin stands
+import { ELEVATOR } from './hang.js?v=20260916j';
+import { pannerAt } from './music.js?v=20260916j';
+import { inPoly } from './plan.js?v=20260916j';
+import { head, scene, world } from './scene.js?v=20260916j';
+import { state } from './state.js?v=20260916j';
 
 // ---------------------------------------------------------------------------
 // The guard

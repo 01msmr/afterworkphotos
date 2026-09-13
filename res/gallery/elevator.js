@@ -1,15 +1,15 @@
 import * as THREE from '../vendor/three.module.js';
-import { setWire, wire } from './bench.js?v=20260916i';
-import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260916i';
-import { ELEVATOR, FAV_KEY, clearRooms, firstRoom, hangRoom, raiseRoof, roomByKey, rooms } from './hang.js?v=20260916i';
-import { WALL_STYLES, applyMode, dadoTop, dressWall, wallColours } from './room.js?v=20260916i';
-import { camera, head, renderer, scene, world } from './scene.js?v=20260916i';
-import { zoomLabel, zoomPrint } from './zoom.js?v=20260916i';
-import { stickAt } from './sticker.js?v=20260916i';
-import { dropAllNear } from './video.js?v=20260916i';   // the floor's 2000s, handed back when it is left
-import { PLANS, RAISES, favCount, state } from './state.js?v=20260916i';
-import { fitRoom, planAgain } from './vr.js?v=20260916i';
-import { placeBody, walk } from './walk.js?v=20260916i';
+import { setWire, wire } from './bench.js?v=20260916j';
+import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260916j';
+import { ELEVATOR, FAV_KEY, clearRooms, firstRoom, hangRoom, raiseRoof, roomByKey, rooms } from './hang.js?v=20260916j';
+import { WALL_STYLES, applyMode, dadoTop, dressWall, wallColours } from './room.js?v=20260916j';
+import { camera, head, renderer, scene, world } from './scene.js?v=20260916j';
+import { zoomLabel, zoomPrint } from './zoom.js?v=20260916j';
+import { stickAt } from './sticker.js?v=20260916j';
+import { dropAllNear } from './video.js?v=20260916j';   // the floor's 2000s, handed back when it is left
+import { PLANS, RAISES, favCount, state } from './state.js?v=20260916j';
+import { fitRoom, planAgain } from './vr.js?v=20260916j';
+import { placeBody, walk } from './walk.js?v=20260916j';
 
 // ---------------------------------------------------------------------------
 // The elevator
@@ -48,7 +48,8 @@ export const walnut = (rx, ry) => new THREE.MeshStandardMaterial({
 	map: tex('wood-dark-color.jpg', true, ry, rx), roughnessMap: tex('wood-dark-rough.jpg', false, ry, rx), normalMap: tex('wood-dark-normal.jpg', false, ry, rx),
 	normalScale: new THREE.Vector2(0.6, 0.6), roughness: 1, metalness: 0, envMapIntensity: 0.4,
 });
-const pocketMat = new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.9 });   // the black gap round a button
+const pocketMat = new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.9, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -2 });   // the black gap round a button: a millimetre proud of the plate, two depth steps before it (frames.js, STEPS)
+const steelMat = metal.clone(); Object.assign(steelMat, { polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -4 });   // the button's floor, two more
 export const lightPanel = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xfff6e8, emissiveIntensity: 1.6, roughness: 1 });
 export const CABIN_LAMP = { light: 5, dark: 0.9 }, CABIN_PANEL = { light: 1.6, dark: 0.35 };   // the cabin at night: dimmer, not dark (Uli)
 
@@ -60,18 +61,11 @@ export const CABIN_LAMP = { light: 5, dark: 0.9 }, CABIN_PANEL = { light: 1.6, d
 // floor without one, and the dot says both what the floor is and what fills
 // it (Uli, 2026-09-13). The cap behind it does the empty/normal work, so
 // this face never changes.
-const FAV_RED = '#c8322b';
-function favFace() {
-	const c = document.createElement('canvas');
-	c.width = 256; c.height = 128;
-	const g = c.getContext('2d');
-	g.fillStyle = FAV_RED;
-	g.beginPath(); g.arc(c.width / 2, c.height / 2, 30, 0, Math.PI * 2); g.fill();
-	const t = new THREE.CanvasTexture(c);
-	t.colorSpace = THREE.SRGBColorSpace;
-	t.anisotropy = renderer.capabilities.getMaxAnisotropy();
-	return t;
-}
+// **It says 'favourites'** (Uli, 2026-09-13, after a day as the dot): the
+// word in the years' own face, on a cap two buttons and their margin
+// wide, lit in the sticker's red rather than the floors' green.
+const FAV_RED = 0xc8322b, FAV_LIT = 0x5a2a2a;
+const FAV_W = BUTTON.w + BUTTON.pitchX;        // two caps and the gap between
 // The year on a button cap: a canvas apiece in Jost, on the clear plane
 // that takes the press. (A day on the shared distance-field atlas,
 // 2026-09-13, and back: its contours crawled in stereo.) **512 x 256 and
@@ -81,9 +75,11 @@ function favFace() {
 // in the old 256 space, so the numbers mean what they did. 512 KB each,
 // thirty-odd of them.
 const FACE_PX = 512;
-function buttonFace(year, room) {
+// `wide`: the cap's width in caps — the favourites' word gets a wider one,
+// the same face and the same left margin
+function buttonFace(year, room, wide = 1) {
 	const c = document.createElement('canvas');
-	c.width = FACE_PX; c.height = FACE_PX / 2;
+	c.width = Math.round(FACE_PX * wide); c.height = FACE_PX / 2;
 	const g = c.getContext('2d');
 	g.scale(FACE_PX / 256, FACE_PX / 256);
 	g.fillStyle = '#1d1c1a';
@@ -105,9 +101,11 @@ function buttonFace(year, room) {
 
 // The floor display: the room you are on; during a ride, each floor
 // passed, with the direction. Drawn on a canvas, shown inside and out.
-function drawDisplay(ctx, text, arrow) {
+function drawDisplay(ctx, text, arrow, note = '') {
 	const c = ctx.canvas;
 	ctx.fillStyle = '#0a0a0a'; ctx.fillRect(0, 0, c.width, c.height);
+	// a small line in the corner, for what the headset gives (gallery.js, the probe)
+	if (note) { ctx.fillStyle = '#7a5a2a'; ctx.font = '400 24px "Helvetica Neue", Arial, sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic'; ctx.fillText(note, c.width - 10, c.height - 10); }
 	ctx.fillStyle = '#ffb347';
 	ctx.textBaseline = 'middle';
 	ctx.font = '600 84px "Helvetica Neue", Arial, sans-serif';
@@ -325,7 +323,7 @@ function buildSwitchplate(parent, px, py, pz) {
 		const b = new THREE.Mesh(G.body, metal); b.name = `switch-${sw.key}`; b.userData.action = sw.key; b.position.set(x, y, z); parent.add(b);
 		const f = new THREE.Mesh(G.face, new THREE.MeshStandardMaterial({ map: switchFace(sw), roughness: 0.6 }));
 		f.name = `switch-face-${sw.key}`; f.userData.action = sw.key; f.userData.sw = sw; f.position.set(x, y, z + BUTTON.rise / 2 + 0.0005); parent.add(f);
-		const l = new THREE.Mesh(G.label, new THREE.MeshBasicMaterial({ map: switchLabel(sw), transparent: true }));
+		const l = new THREE.Mesh(G.label, new THREE.MeshBasicMaterial({ map: switchLabel(sw), transparent: true, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -4 }));   // half a millimetre off the plate: four depth steps
 		l.name = `switch-label-${sw.key}`; l.position.set(x, y - r - 0.011 * r / BUTTON.r, pz + 0.0125); parent.add(l);
 		switches.push(b, f);
 	};
@@ -392,6 +390,8 @@ export const elevator = {
 	coming: null,       // { t0, wait } after a call, before the doors open
 	away: false,        // the cabin has left this floor: called elsewhere after its doors shut on their own
 	open: 1,            // where the doors stand when idle, 0..1
+	panel: null,        // the console: built once, carried from cabin to cabin
+	noteText: '',       // a line under the floor on the outside display: what the headset gives
 	doorAnim: null,     // { from, to, t0 } an idle open or close
 	leftAt: null,       // when the body last stepped out, for the doors to close behind
 	outAt: null,        // and when it left the cabin, for counting a floor seen
@@ -467,7 +467,7 @@ export const elevator = {
 			cb.name = 'call'; cb.userData.call = true;
 			cb.position.set(x0 - 0.01 - BUTTON.rise / 2, cy, cz);   // proud of the plate
 			g.add(cb);
-			const cf = new THREE.Mesh(new THREE.CircleGeometry(CALL_R * 0.92, 32), new THREE.MeshStandardMaterial({ map: tex, emissive: 0xffffff, emissiveIntensity: 0, roughness: 0.6 }));
+			const cf = new THREE.Mesh(new THREE.CircleGeometry(CALL_R * 0.92, 32), new THREE.MeshStandardMaterial({ map: tex, emissive: 0xffffff, emissiveIntensity: 0, roughness: 0.6, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -4 }));   // half a millimetre off the button's end: four depth steps
 			cf.name = 'call-face'; cf.userData.call = true;
 			cf.position.set(cb.position.x - BUTTON.rise / 2 - 0.0005, cy, cz);
 			cf.rotation.y = -Math.PI / 2;                    // faces -x, the room
@@ -506,7 +506,7 @@ export const elevator = {
 			const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
 			const back = box(name + '-back', 0.02, DISPLAY.h + 0.03, DISPLAY.w + 0.03, x, DOOR.h + 0.16, zc, displayBack);
 			back.castShadow = false;
-			const face = new THREE.Mesh(new THREE.PlaneGeometry(DISPLAY.w, DISPLAY.h), new THREE.MeshBasicMaterial({ map: tex }));
+			const face = new THREE.Mesh(new THREE.PlaneGeometry(DISPLAY.w, DISPLAY.h), new THREE.MeshBasicMaterial({ map: tex, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -4 }));   // a millimetre before its back: four depth steps (frames.js, STEPS)
 			face.name = name;
 			face.position.set(x + (ry > 0 ? 0.011 : -0.011), DOOR.h + 0.16, zc);
 			face.rotation.y = ry;
@@ -548,101 +548,120 @@ export const elevator = {
 		const cols = PANEL.cols, margin = PANEL.margin;
 		const plateW = cols * BUTTON.pitchX + 2 * margin, plateH = rows * BUTTON.pitchY + 2 * margin;
 		// the block: its face at the panel's z = 0, its back on the skin; the buttons stand proud at -z
-		const panel = new THREE.Group();
-		panel.name = 'panel';
-		panel.position.set(ix0 + 0.10 + plateW / 2, (PANEL.low + PANEL.high) / 2, iz1 - 0.0105 - PANEL.depth);
-		g.add(panel);
-		const plate = new THREE.Mesh(new THREE.BoxGeometry(plateW, plateH, PANEL.depth), walnut(plateW / 0.5, plateH / 0.5));
-		plate.name = 'plate';
-		plate.position.z = PANEL.depth / 2;
-		panel.add(plate);
-		// the lit floor's lamp: a little green light in front of the lit button, spilling onto the plate
-		this.floorLamp = new THREE.PointLight(GREEN, 0.004, 0.08, 2);
-		this.floorLamp.name = 'floor-lamp';
-		this.floorLamp.visible = false;
-		panel.add(this.floorLamp);
+		// **The console is built once** (Uli, 2026-09-13: the plate glitched
+		// as the doors shut). The cabin is made afresh with every room, at the
+		// moment the doors have shut on a ride — and thirty-odd canvases drawn
+		// and sent up again in front of the visitor was a hitch on the plate
+		// every ride. The panel is the same object from cabin to cabin, only
+		// set at the new cabin's wall.
+		if (!this.panel) {
+			const panel = new THREE.Group();
+			panel.name = 'panel';
+			const plate = new THREE.Mesh(new THREE.BoxGeometry(plateW, plateH, PANEL.depth), walnut(plateW / 0.5, plateH / 0.5));
+			plate.name = 'plate';
+			plate.position.z = PANEL.depth / 2;
+			panel.add(plate);
+			// the lit floor's lamp: a little green light in front of the lit button, spilling onto the plate
+			this.floorLamp = new THREE.PointLight(GREEN, 0.004, 0.08, 2);
+			this.floorLamp.name = 'floor-lamp';
+			this.floorLamp.visible = false;
+			panel.add(this.floorLamp);
 
-		// A button: a black pocket in the plate, brushed steel at its bottom,
-		// a clear cap standing proud of it, the year printed on the cap. Lit,
-		// the cap glows green (light()).
-		this.buttons = [];
-		const { w, h, rise, gap } = BUTTON;
-		const pocketGeo = new THREE.BoxGeometry(w + 2 * gap, h + 2 * gap, 0.001);
-		const steelGeo = new THREE.BoxGeometry(w, h, 0.002);
-		const capGeo = new THREE.BoxGeometry(w, h, rise);
-		// The face stands 1.2 mm off its cap, not 0.3, and is pushed forward
-		// again in the depth buffer (Uli, 2026-09-13: the button plate
-		// glitched). Three tenths of a millimetre is finer than a 16-bit
-		// depth buffer tells apart at arm's length (vr.js: 'layers'), and
-		// the two surfaces flickered against each other, the more so in
-		// stereo. **The push is a constant, not a slope**: a slope-scaled
-		// offset grows with the viewing angle, and at the grazing angle the
-		// plate is passed at on the way in it would pull a year forward
-		// through the caps beside it.
-		const printGeo = new THREE.PlaneGeometry(w, h);
-		// the year buttons share one clear face material: nothing is drawn on
-		// it any more, it only takes the press and holds the letters
-		// facing the south wall the viewer's left is +x, so the columns run down x
-		const cell = (y, r) => ({
-			x: plateW / 2 - margin - BUTTON.pitchX * ((Number(y) - 1) % 10 + 0.5),
-			y: plateH / 2 - margin - BUTTON.pitchY * (start.get(decade(y)) + Math.max((r.part || 0) - 1, 0) + 0.5),
-		});
-		for (const room of list) for (const year of room.years) {
-			const { x, y } = cell(year, room);
-			const put = (name, geo, material, z) => {
-				const m = new THREE.Mesh(geo, material);
-				m.name = `${name}-${room.key}`;
-				m.userData.key = room.key;
-				m.userData.z0 = z;                     // where it rests: a press dips it in and back
-				m.position.set(x, y, z);
-				panel.add(m);
-				return m;
-			};
-			put('pocket', pocketGeo, pocketMat, -0.0005);
-			put('steel', steelGeo, metal, -0.002);
-			const cap = put('cap', capGeo, new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.28, roughness: 0.3, metalness: 0, emissive: GREEN, emissiveIntensity: 0, envMapIntensity: 0.5 }), -0.003 - rise / 2);
-			cap.userData.cap = true;
-			// the print: a clear plane 1.2 mm before the cap, turned to face
-			// into the cabin (-z) so the year reads the right way round —
-			// the same mount as the favourites dot's; at 0.3 mm it z-fought
-			const print = put('print', printGeo, new THREE.MeshBasicMaterial({ map: buttonFace(year, room), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -2 }), -0.003 - rise - 0.0012);
-			print.rotation.y = Math.PI;
-			print.renderOrder = 2;
-			this.buttons.push(cap, print);              // both press
+			// A button: a black pocket in the plate, brushed steel at its bottom,
+			// a clear cap standing proud of it, the year printed on the cap. Lit,
+			// the cap glows green (light()).
+			this.buttons = [];
+			const { w, h, rise, gap } = BUTTON;
+			const pocketGeo = new THREE.BoxGeometry(w + 2 * gap, h + 2 * gap, 0.001);
+			const steelGeo = new THREE.BoxGeometry(w, h, 0.002);
+			const capGeo = new THREE.BoxGeometry(w, h, rise);
+			// The face stands 1.2 mm off its cap, not 0.3, and is pushed forward
+			// again in the depth buffer (Uli, 2026-09-13: the button plate
+			// glitched). Three tenths of a millimetre is finer than a 16-bit
+			// depth buffer tells apart at arm's length (vr.js: 'layers'), and
+			// the two surfaces flickered against each other, the more so in
+			// stereo. **The push is a constant, not a slope**: a slope-scaled
+			// offset grows with the viewing angle, and at the grazing angle the
+			// plate is passed at on the way in it would pull a year forward
+			// through the caps beside it.
+			const printGeo = new THREE.PlaneGeometry(w, h);
+			// the year buttons share one clear face material: nothing is drawn on
+			// it any more, it only takes the press and holds the letters
+			// facing the south wall the viewer's left is +x, so the columns run down x
+			const cell = (y, r) => ({
+				x: plateW / 2 - margin - BUTTON.pitchX * ((Number(y) - 1) % 10 + 0.5),
+				y: plateH / 2 - margin - BUTTON.pitchY * (start.get(decade(y)) + Math.max((r.part || 0) - 1, 0) + 0.5),
+			});
+			for (const room of list) for (const year of room.years) {
+				const { x, y } = cell(year, room);
+				const put = (name, geo, material, z) => {
+					const m = new THREE.Mesh(geo, material);
+					m.name = `${name}-${room.key}`;
+					m.userData.key = room.key;
+					m.userData.z0 = z;                     // where it rests: a press dips it in and back
+					m.position.set(x, y, z);
+					panel.add(m);
+					return m;
+				};
+				put('pocket', pocketGeo, pocketMat, -0.0005);
+				put('steel', steelGeo, steelMat, -0.002);
+				const cap = put('cap', capGeo, new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.28, roughness: 0.3, metalness: 0, emissive: GREEN, emissiveIntensity: 0, envMapIntensity: 0.5, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -6 }), -0.003 - rise / 2);
+				cap.userData.cap = true;
+				// the print: a clear plane 1.2 mm before the cap, turned to face
+				// into the cabin (-z) so the year reads the right way round —
+				// the same mount as the favourites dot's; at 0.3 mm it z-fought
+				const print = put('print', printGeo, new THREE.MeshBasicMaterial({ map: buttonFace(year, room), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -8 }), -0.003 - rise - 0.0012);
+				print.rotation.y = Math.PI;
+				print.renderOrder = 2;
+				this.buttons.push(cap, print);              // both press
+			}
+			// the favourites button: the same parts, its own line, two columns
+			// wide — the newest year's and its neighbour's (the one to its left
+			// where the year ends in 0), and the word on it
+			const favRoom = list.find(r => r.favs);
+			if (favRoom) {
+				const newest = list.find(r => r.years.length);
+				const ny = newest ? Number(newest.years[newest.years.length - 1]) : 1;
+				const col = (ny - 1) % 10, c0 = col < 9 ? col : col - 1;
+				const fx = plateW / 2 - margin - BUTTON.pitchX * (c0 + 1);   // the middle of the two columns
+				const fy = plateH / 2 - margin - BUTTON.pitchY * 0.5;
+				const wide = FAV_W / w;
+				const pocketGeoF = new THREE.BoxGeometry(FAV_W + 2 * gap, h + 2 * gap, 0.001), steelGeoF = new THREE.BoxGeometry(FAV_W, h, 0.002);
+				const capGeoF = new THREE.BoxGeometry(FAV_W, h, rise), printGeoF = new THREE.PlaneGeometry(FAV_W, h);
+				const put = (name, geo, material, z) => {
+					const m = new THREE.Mesh(geo, material);
+					m.name = `${name}-${favRoom.key}`;
+					m.userData.key = favRoom.key;
+					m.userData.z0 = z;
+					m.position.set(fx, fy, z);
+					panel.add(m);
+					return m;
+				};
+				put('pocket', pocketGeoF, pocketMat, -0.0005);
+				put('steel', steelGeoF, steelMat, -0.002);
+				const cap = put('cap', capGeoF, new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.28, roughness: 0.3, metalness: 0, emissive: FAV_RED, emissiveIntensity: 0, envMapIntensity: 0.5, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -6 }), -0.003 - rise / 2);
+				cap.userData.cap = true;
+				cap.userData.fav = true;
+				const print = put('print', printGeoF, new THREE.MeshBasicMaterial({ map: buttonFace('favourites', favRoom, wide), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -8 }), -0.003 - rise - 0.0012);
+				print.rotation.y = Math.PI;
+				print.renderOrder = 2;
+				this.buttons.push(cap, print);
+			}
+			this.panel = panel;
 		}
-		// the favourites button: the same parts, its own line, the dot on it
-		const favRoom = list.find(r => r.favs);
-		if (favRoom) {
-			const newest = list.find(r => r.years.length);
-			const ny = newest ? Number(newest.years[newest.years.length - 1]) : 1;
-			const fx = plateW / 2 - margin - BUTTON.pitchX * ((ny - 1) % 10 + 0.5);
-			const fy = plateH / 2 - margin - BUTTON.pitchY * 0.5;
-			const put = (name, geo, material, z) => {
-				const m = new THREE.Mesh(geo, material);
-				m.name = `${name}-${favRoom.key}`;
-				m.userData.key = favRoom.key;
-				m.userData.z0 = z;
-				m.position.set(fx, fy, z);
-				panel.add(m);
-				return m;
-			};
-			put('pocket', pocketGeo, pocketMat, -0.0005);
-			put('steel', steelGeo, metal, -0.002);
-			const cap = put('cap', capGeo, new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.28, roughness: 0.3, metalness: 0, emissive: GREEN, emissiveIntensity: 0, envMapIntensity: 0.5 }), -0.003 - rise / 2);
-			cap.userData.cap = true;
-			cap.userData.fav = true;
-			const print = put('print', printGeo, new THREE.MeshBasicMaterial({ map: favFace(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -2 }), -0.003 - rise - 0.0012);
-			print.rotation.y = Math.PI;
-			print.renderOrder = 2;
-			this.buttons.push(cap, print);
-		}
+		this.panel.position.set(ix0 + 0.10 + plateW / 2, (PANEL.low + PANEL.high) / 2, iz1 - 0.0105 - PANEL.depth);
+		g.add(this.panel);
 		this.group = g;
 		return g;
 	},
 
 	show(text, arrow) {
-		for (const d of this.displays) { drawDisplay(d.ctx, text, arrow); d.tex.needsUpdate = true; }
+		this.shown = { text, arrow };
+		this.displays.forEach((d, i) => { drawDisplay(d.ctx, text, arrow, i === 1 ? this.noteText : ''); d.tex.needsUpdate = true; });   // the note on the outside one
 	},
+
+	// The line under the floor on the outside display
+	note(text) { this.noteText = text; if (this.shown) this.show(this.shown.text, this.shown.arrow); },
 
 	// A floor is counted seen once you have been out of its cabin for
 	// twenty seconds — long enough that a step out and straight back in
@@ -672,7 +691,7 @@ export const elevator = {
 				const empty = !favCount();
 				m.emissiveIntensity = on ? 1.3 : 0;
 				m.opacity = on ? 0.9 : empty ? this.FAV_DEAD.opacity : 0.28;
-				m.color.set(on ? 0x2a5a38 : empty ? this.FAV_DEAD.colour : 0xffffff);
+				m.color.set(on ? FAV_LIT : empty ? this.FAV_DEAD.colour : 0xffffff);   // lit, the sticker's red (Uli)
 				if (on && !lit) lit = b;
 				continue;
 			}
@@ -684,7 +703,7 @@ export const elevator = {
 		}
 		// the floor's lamp stands 2 cm off the (first) lit button
 		this.floorLamp.visible = !!lit;
-		if (lit) { this.floorLamp.position.copy(lit.position); this.floorLamp.position.z -= 0.02; }
+		if (lit) { this.floorLamp.position.copy(lit.position); this.floorLamp.position.z -= 0.02; this.floorLamp.color.setHex(lit.userData.fav ? FAV_RED : GREEN); }
 	},
 
 	// A press, before anything else happens (Uli): the button lights at

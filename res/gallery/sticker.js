@@ -1,8 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
-import { camera, renderer, scene } from './scene.js?v=20260916i';
-import { isFav, toggleFav } from './state.js?v=20260916i';
-import { elevator } from './elevator.js?v=20260916i';   // only to ask whether the visitor is in the cabin
-import { CARD_D } from './bake.js?v=20260916i';
+import { camera, renderer, scene } from './scene.js?v=20260916j';
+import { isFav, toggleFav } from './state.js?v=20260916j';
+import { elevator } from './elevator.js?v=20260916j';   // only to ask whether the visitor is in the cabin
+import { CARD_D } from './bake.js?v=20260916j';
 
 // ---------------------------------------------------------------------------
 // Red dots
@@ -36,7 +36,7 @@ const RED = 0xc8322b;
 const between = ([a, b]) => a + Math.random() * (b - a);
 
 const dotGeo = new THREE.CircleGeometry(DOT_R, 20);
-const stuckMat = new THREE.MeshBasicMaterial({ color: RED });
+const stuckMat = new THREE.MeshBasicMaterial({ color: RED, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -8 });   // on the paper or the plaster, a millimetre off it: eight depth steps forward (frames.js, STEPS)
 const heldMat = new THREE.MeshBasicMaterial({ color: RED, transparent: true, opacity: 0.5, depthTest: false });
 
 // A dot for every card of a piece, at its place, shown only if that
