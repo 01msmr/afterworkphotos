@@ -40,8 +40,18 @@ const FRAME_COLOURS = { oak: 0xb08d57, walnut: 0x5b4633, black: 0x171717, white:
 // metalness too. The frame bars' UVs are in metres (ExtrudeGeometry), so
 // a tile every half metre; the cabin's boxes stretch one tile per face.
 const texLoader = new THREE.TextureLoader();
+// **One texture per file and tiling, however often it is asked for** (Uli,
+// 2026-09-13: the button plate glitched as the doors shut). The cabin is
+// built afresh with every room, and its console asked for its walnut each
+// time — three files fetched, decoded and sent up again while the visitor
+// stood in front of it, the plate black until they landed. Asked for a
+// second time, a texture is the one already there.
+const texCache = new Map();
 export function tex(file, srgb, repeat, along = repeat) {
+	const key = `${file}|${srgb}|${repeat}|${along}`;
+	if (texCache.has(key)) return texCache.get(key);
 	const t = texLoader.load('/res/textures/' + file, loaded => renderer.initTexture(loaded));   // to the GPU as it arrives
+	texCache.set(key, t);
 	t.wrapS = t.wrapT = THREE.RepeatWrapping;
 	// the bars' u runs their length and the images' grain runs their x, so
 	// no turn: grain along the bar (Uli), stretched by `along`
