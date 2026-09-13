@@ -1,8 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
-import { addLabel } from './bake.js?v=20260916o';
-import { FRAME, GRID_GAP, MAT_Z, PRINT_GLOW, PRINT_SCALE, matWidth, materials, photoTexture, poolMaterial, sc, textureCache, dropNear, freeTexture, nearTexture } from './frames.js?v=20260916o';
-import { camera, scene } from './scene.js?v=20260916o';
-import { RAISES, pieceY, state } from './state.js?v=20260916o';
+import { addLabel } from './bake.js?v=20260916p';
+import { FRAME, GRID_GAP, MAT_Z, PRINT_GLOW, PRINT_SCALE, matWidth, materials, photoTexture, poolMaterial, sc, textureCache, dropNear, freeTexture, nearTexture } from './frames.js?v=20260916p';
+import { camera, scene } from './scene.js?v=20260916p';
+import { RAISES, pieceY, state } from './state.js?v=20260916p';
 
 // ---------------------------------------------------------------------------
 // Videos — the LED panel
@@ -31,9 +31,19 @@ function videoTexture(p) {
 		// upload per frame for every panel in the room, and a hitch beside
 		// the grid it hung next to (Uli). A plain texture on the element,
 		// uploaded only when the video has decoded a new frame (below).
-		const t = new THREE.Texture(el);
+		// **Sized before its first upload, or black for good** (2026-09-13, on
+		// the bench after the panels showed black in the headset). three r180
+		// allocates a texture once, immutable, at image.width x image.height
+		// — and a <video> is 0 x 0 there until somebody sets it, so the
+		// storage was empty and every frame after it INVALID_OPERATION. A
+		// pixel stands in until the metadata says the size; then the element
+		// is sized, the GL copy dropped, and the next frame allocates it right.
+		const dot = document.createElement('canvas'); dot.width = dot.height = 1;   // the stand-in pixel
+		const t = new THREE.Texture(dot);
 		t.colorSpace = THREE.SRGBColorSpace;
 		t.generateMipmaps = false; t.minFilter = THREE.LinearFilter; t.magFilter = THREE.LinearFilter;
+		const sized = () => { el.width = el.videoWidth; el.height = el.videoHeight; t.image = el; t.dispose(); t.needsUpdate = true; };
+		if (el.readyState >= 1) sized(); else el.addEventListener('loadedmetadata', sized, { once: true });
 		videoCache.set(p.n, { el, texture: t, playing: false });
 	}
 	return videoCache.get(p.n);
