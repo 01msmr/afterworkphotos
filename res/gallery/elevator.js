@@ -1,15 +1,15 @@
 import * as THREE from '../vendor/three.module.js';
-import { setWire, wire } from './bench.js?v=20260916h';
-import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260916h';
-import { ELEVATOR, FAV_KEY, clearRooms, firstRoom, hangRoom, roomByKey, rooms } from './hang.js?v=20260916h';
-import { WALL_STYLES, applyMode, dadoTop, dressWall, wallColours } from './room.js?v=20260916h';
-import { camera, head, renderer, scene, world } from './scene.js?v=20260916h';
-import { zoomLabel, zoomPrint } from './zoom.js?v=20260916h';
-import { stickAt } from './sticker.js?v=20260916h';
-import { dropAllNear } from './video.js?v=20260916h';   // the floor's 2000s, handed back when it is left
-import { PLANS, RAISES, favCount, state } from './state.js?v=20260916h';
-import { fitRoom, planAgain } from './vr.js?v=20260916h';
-import { placeBody, walk } from './walk.js?v=20260916h';
+import { setWire, wire } from './bench.js?v=20260916i';
+import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260916i';
+import { ELEVATOR, FAV_KEY, clearRooms, firstRoom, hangRoom, raiseRoof, roomByKey, rooms } from './hang.js?v=20260916i';
+import { WALL_STYLES, applyMode, dadoTop, dressWall, wallColours } from './room.js?v=20260916i';
+import { camera, head, renderer, scene, world } from './scene.js?v=20260916i';
+import { zoomLabel, zoomPrint } from './zoom.js?v=20260916i';
+import { stickAt } from './sticker.js?v=20260916i';
+import { dropAllNear } from './video.js?v=20260916i';   // the floor's 2000s, handed back when it is left
+import { PLANS, RAISES, favCount, state } from './state.js?v=20260916i';
+import { fitRoom, planAgain } from './vr.js?v=20260916i';
+import { placeBody, walk } from './walk.js?v=20260916i';
 
 // ---------------------------------------------------------------------------
 // The elevator
@@ -993,6 +993,7 @@ export function setSetting(k, v) {
 			materials.mat.color.setHex(MAT_COLOURS[v]);
 			rehang();                         // 'none' and back change the print's size
 			break;
+		case 'raise':  raiseRoof(); break;    // the shell only; the pictures stay as they hang
 		default: rehang();                    // scale, W, D, H
 	}
 	refreshSwitches();

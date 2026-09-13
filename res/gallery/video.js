@@ -1,8 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
-import { addLabel } from './bake.js?v=20260916h';
-import { FRAME, GRID_GAP, MAT_Z, PRINT_GLOW, PRINT_SCALE, matWidth, materials, photoTexture, poolMaterial, sc, textureCache, dropNear, freeTexture, nearTexture } from './frames.js?v=20260916h';
-import { camera, scene } from './scene.js?v=20260916h';
-import { pieceY, state } from './state.js?v=20260916h';
+import { addLabel } from './bake.js?v=20260916i';
+import { FRAME, GRID_GAP, MAT_Z, PRINT_GLOW, PRINT_SCALE, matWidth, materials, photoTexture, poolMaterial, sc, textureCache, dropNear, freeTexture, nearTexture } from './frames.js?v=20260916i';
+import { camera, scene } from './scene.js?v=20260916i';
+import { RAISES, pieceY, state } from './state.js?v=20260916i';
 
 // ---------------------------------------------------------------------------
 // Videos — the LED panel
@@ -374,7 +374,10 @@ function makeFramedPrint(p, size) {
 // high the thing's top edge is above the floor; the wires are children of
 // it, so they carry its own width.
 function addLines(node, w, h, top) {
-	const drop = state.settings.H + state.settings.raise - top;
+	// The wire runs to the **highest ceiling the switch can give**, not the
+	// one there is: above a lower ceiling it is hidden by it, and raising
+	// the room needs no re-hang (Uli, 2026-09-13: the floor reloaded).
+	const drop = state.settings.H + Math.max(...RAISES) - top;
 	if (drop <= 0) return;
 	const geo = new THREE.PlaneGeometry(0.0012, drop);   // a ribbon: at 0.6 mm no one can tell it from a thread
 	for (const x of [-w / 2 + FRAME.face / 2, w / 2 - FRAME.face / 2]) {

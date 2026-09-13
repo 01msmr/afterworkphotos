@@ -1,16 +1,16 @@
 import * as THREE from '../vendor/three.module.js';
-import { bakeRoom, placeLabels } from './bake.js?v=20260916h';
-import { addDots, findSpots } from './sticker.js?v=20260916h';
-import { placeGuard } from './guard.js?v=20260916h';
-import { clearZoom } from './zoom.js?v=20260916h';
-import { setWire, wire } from './bench.js?v=20260916h';
-import { elevator, roomLabel } from './elevator.js?v=20260916h';
-import { FRAME, GRID_GAP, sc, textureCache } from './frames.js?v=20260916h';
-import { WALL_STYLES, buildRoom, dadoTop, floorOf, rectRoom, shapeOf, wallColours } from './room.js?v=20260916h';
-import { scene, world } from './scene.js?v=20260916h';
-import { HANG_MAX, pieceY, state } from './state.js?v=20260916h';
-import { framedSize, freeTexturesExcept, freeVideosExcept, makePiece } from './video.js?v=20260916h';
-import { BODY_R } from './walk.js?v=20260916h';
+import { bakeRoom, placeLabels } from './bake.js?v=20260916i';
+import { addDots, findSpots } from './sticker.js?v=20260916i';
+import { placeGuard } from './guard.js?v=20260916i';
+import { clearZoom } from './zoom.js?v=20260916i';
+import { setWire, wire } from './bench.js?v=20260916i';
+import { elevator, roomLabel } from './elevator.js?v=20260916i';
+import { FRAME, GRID_GAP, sc, textureCache } from './frames.js?v=20260916i';
+import { WALL_STYLES, buildRoom, dadoTop, floorOf, rectRoom, shapeOf, wallColours } from './room.js?v=20260916i';
+import { scene, world } from './scene.js?v=20260916i';
+import { HANG_MAX, pieceY, state } from './state.js?v=20260916i';
+import { framedSize, freeTexturesExcept, freeVideosExcept, makePiece } from './video.js?v=20260916i';
+import { BODY_R } from './walk.js?v=20260916i';
 
 // ---------------------------------------------------------------------------
 // Hanging a year
@@ -516,19 +516,8 @@ export function hangRoom(key) {
 	const style = WALL_STYLES[floor] || WALL_STYLES.lacquer;
 	const dadoCap = Math.max(0, Math.min(dadoTop(style), HANG_MAX - 0.15 - tallest / 2));
 	state.dadoCap = dadoCap;
-	if (!state.room || state.room.W !== W || state.room.D !== D || state.room.floor !== floor || state.room.dadoCap !== dadoCap) {
-		for (const name of ['room', 'elevator']) {
-			const old = scene.getObjectByName(name);
-			if (!old) continue;
-			old.parent.remove(old);
-			// the floor's textures go with the room
-			const f = old.getObjectByName('floor');
-			if (f) { for (const k of ['map', 'roughnessMap', 'normalMap', 'metalnessMap']) f.material[k]?.dispose(); f.material.dispose(); }
-		}
-		world.add(buildRoom(W, D, H, floor, dadoCap, shape));
-		world.add(elevator.build(W, D, H, floor, dadoCap));
-		state.room = { W, D, H, floor, dadoCap, shape };
-	}
+	if (!state.room || state.room.W !== W || state.room.D !== D || state.room.H !== H || state.room.floor !== floor || state.room.dadoCap !== dadoCap)
+		buildShell(W, D, H, floor, dadoCap, shape);
 
 	state.gap = lay.gap;                           // the labels need it before the pieces exist
 	state.placed = lay.placed;
@@ -590,6 +579,38 @@ export function hangRoom(key) {
 	placeGuard();                                  // the guard takes the far corner of the new room
 	if (TOP) drawTop(shape, lay.placed);
 	return pieces;
+}
+
+// The shell: the room's walls, floor and ceiling, and the cabin in its
+// corner. Built when a room needs another, and again on its own for the
+// height switch.
+function buildShell(W, D, H, floor, dadoCap, shape) {
+	for (const name of ['room', 'elevator']) {
+		const old = scene.getObjectByName(name);
+		if (!old) continue;
+		old.parent.remove(old);
+		// the floor's textures go with the room
+		const f = old.getObjectByName('floor');
+		if (f) { for (const k of ['map', 'roughnessMap', 'normalMap', 'metalnessMap']) f.material[k]?.dispose(); f.material.dispose(); }
+	}
+	world.add(buildRoom(W, D, H, floor, dadoCap, shape));
+	world.add(elevator.build(W, D, H, floor, dadoCap));
+	state.room = { W, D, H, floor, dadoCap, shape };
+}
+// **The height switch rebuilds the shell round the pieces** (Uli,
+// 2026-09-13: the whole floor reloaded for a metre of ceiling). Nothing
+// on the walls moves for it — the wires already run to the highest
+// ceiling there can be (addLines) — so the pictures, their labels and
+// dots stay as they hang; only the walls, the ceiling and the cabin are
+// made again, the doors where they stood.
+export function raiseRoof() {
+	const r = state.room;
+	if (!r) return;
+	const open = elevator.open;
+	buildShell(r.W, r.D, state.settings.H + state.settings.raise, r.floor, r.dadoCap, r.shape);
+	world.updateMatrixWorld(true);
+	elevator.setDoors(open);
+	elevator.light(state.roomKey);
 }
 
 // Bench: plan every room afresh (state.real set by hand) and hang the newest.

@@ -1,8 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
-import { camera, renderer, scene } from './scene.js?v=20260916h';
-import { isFav, toggleFav } from './state.js?v=20260916h';
-import { elevator } from './elevator.js?v=20260916h';   // only to ask whether the visitor is in the cabin
-import { CARD_D } from './bake.js?v=20260916h';
+import { camera, renderer, scene } from './scene.js?v=20260916i';
+import { isFav, toggleFav } from './state.js?v=20260916i';
+import { elevator } from './elevator.js?v=20260916i';   // only to ask whether the visitor is in the cabin
+import { CARD_D } from './bake.js?v=20260916i';
 
 // ---------------------------------------------------------------------------
 // Red dots
