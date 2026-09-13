@@ -117,10 +117,10 @@ function level() {
 	const o = elevator.origin, h = world.worldToLocal(head().clone());   // the cabin stands in the room's own frame
 	const d = Math.hypot(h.x - o.x, h.z - o.z);
 	if (elevator.inside()) return LOUD;
-	// **the cabin is not on this floor** — travelling without you, or away
-	// and humming its way back after a call. There is nothing behind those
-	// doors to hear (Uli, 2026-09-13)
-	if (elevator.ride || elevator.coming) return 0;
+	// **the cabin is not on this floor** — travelling without you, gone
+	// after its doors shut behind you, or humming its way back after a
+	// call. There is nothing behind those doors to hear (Uli, 2026-09-13)
+	if (elevator.ride || elevator.coming || elevator.away) return 0;
 	const near = LOUD * Math.max(0, 1 - Math.max(0, d - NEAR) / (FAR - NEAR));
 	// shut, but standing right there: it was a sealed box until 2026-09-13,
 	// and a lift with music in it is not silent from outside — you hear it

@@ -382,6 +382,7 @@ export const elevator = {
 	callButtons: [],
 	switches: [],       // the switchplate's buttons, outside on the cabin's room-facing side
 	coming: null,       // { t0, wait } after a call, before the doors open
+	away: false,        // the cabin has left this floor: called elsewhere after its doors shut on their own
 	open: 1,            // where the doors stand when idle, 0..1
 	doorAnim: null,     // { from, to, t0 } an idle open or close
 	leftAt: null,       // when the body last stepped out, for the doors to close behind
@@ -742,9 +743,17 @@ export const elevator = {
 	},
 
 	// The doors on their own: a call opens them; they close some seconds
-	// after you have walked out.
-	// A call: the button lights, the lift is heard coming for a few seconds
-	// (Uli: a humming while waiting outside), then the bell and the doors.
+	// after you have walked out — and then, **mostly, the cabin is called
+	// elsewhere and goes** (Uli, 2026-09-13), the music with it: nothing
+	// behind those doors to hear. Sometimes it stays, humming to itself at
+	// a twentieth through the steel. Which of the two it did decides what
+	// a call does: a cabin that is here just opens its doors; one that has
+	// gone is heard coming, rings, and then opens. It was always heard
+	// coming before, which was a lift that had never left returning.
+	LEAVES: 0.7,
+	// A call: the button lights; the lift is heard coming for a few seconds
+	// (Uli: a humming while waiting outside), then the bell and the doors —
+	// or, still standing here, the doors alone.
 	call() {
 		if (this.ride || this.coming || this.open === 1) return;
 		if (this.doorAnim) {                                  // closing: the lift is here, the doors come back
@@ -752,10 +761,11 @@ export const elevator = {
 			this.doorAnim = { from: this.open, to: 1, t0: performance.now(), dur: DOOR_T * (1 - this.open) };
 			return;
 		}
+		this.callButtons[1].material.emissiveIntensity = 0.5; this.callButtons[1].material.emissiveMap = this.callButtons[1].material.map; this.callButtons[1].material.needsUpdate = true;
+		if (!this.away) { this.doorAnim = { from: 0, to: 1, t0: performance.now() }; return; }   // setDoors sounds the slide
 		this.coming = { t0: performance.now(), wait: 4500 };
 		lift.hum(this.coming.wait / 1000);
 		this.show(roomLabel(roomByKey(state.roomKey)), '\u25b2');
-		this.callButtons[1].material.emissiveIntensity = 0.5; this.callButtons[1].material.emissiveMap = this.callButtons[1].material.map; this.callButtons[1].material.needsUpdate = true;
 	},
 
 	stepIdle(now) {
@@ -764,6 +774,7 @@ export const elevator = {
 			if (now - c.t0 < c.wait) return;
 			if (!c.rang) { c.rang = true; c.t0 = now + BELL_GAP - c.wait; this.show(roomLabel(roomByKey(state.roomKey)), ''); lift.bell(); return; }
 			this.coming = null;
+			this.away = false;                     // it is back
 			this.doorAnim = { from: 0, to: 1, t0: now };
 			lift.slide();
 			return;
@@ -774,6 +785,7 @@ export const elevator = {
 			if (f >= 1) {
 				this.doorAnim = null;
 				if (a.to === 1) this.leftAt = now;     // opened on a call: time to walk in starts now
+				else if (Math.random() < this.LEAVES) { this.away = true; lift.hum(3); }   // shut behind you: called elsewhere, heard going
 				const m = this.callButtons[1].material; m.emissiveIntensity = 0; m.emissiveMap = null; m.needsUpdate = true;
 			}
 			return;
@@ -794,7 +806,7 @@ export const elevator = {
 		let fromOpen = 1;
 		if (this.ride) fromOpen = Math.max(0, Math.min(1, (performance.now() - this.ride.tOpen) / DOOR_T));   // caught while opening
 		else if (this.doorAnim || this.coming) fromOpen = this.open;
-		this.doorAnim = null; this.coming = null; this.leftAt = null;
+		this.doorAnim = null; this.coming = null; this.leftAt = null; this.away = false;   // you are in it
 		this.setDoors(1);
 		const list = rooms();
 		const from = list.findIndex(r => r.key === state.roomKey), to = list.findIndex(r => r.key === key);
