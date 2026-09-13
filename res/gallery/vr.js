@@ -1,11 +1,11 @@
 import * as THREE from '../vendor/three.module.js';
-import { BUTTON, elevator, pressAlong, settingsMap } from './elevator.js?v=20260916g';
-import { cornerFree, outlineOf, planOf, rotShape } from './plan.js?v=20260916g';
-import { tabletHit } from './tablet.js?v=20260916g';
-import { ELEVATOR, clearRooms, hangRoom, rooms } from './hang.js?v=20260916g';
-import { camera, head, renderer, rig, scene, world } from './scene.js?v=20260916g';
-import { loadSettings, state } from './state.js?v=20260916g';
-import { placeBody, walk } from './walk.js?v=20260916g';
+import { BUTTON, elevator, pressAlong, settingsMap } from './elevator.js?v=20260916h';
+import { cornerFree, outlineOf, planOf, rotShape } from './plan.js?v=20260916h';
+import { tabletHit } from './tablet.js?v=20260916h';
+import { ELEVATOR, clearRooms, hangRoom, rooms } from './hang.js?v=20260916h';
+import { camera, head, renderer, rig, scene, world } from './scene.js?v=20260916h';
+import { loadSettings, state } from './state.js?v=20260916h';
+import { placeBody, walk } from './walk.js?v=20260916h';
 
 // ---------------------------------------------------------------------------
 // VR (phase 2, first step)
@@ -51,9 +51,13 @@ async function offerVR() {
 			// rectangle, the wall you look at becomes the north wall. Planes are
 			// still asked for, should a browser ever hand them over in VR.
 			// Sharpness on the Quest 3 (Uli, 2026-09-05): the view rendered at
-			// 1.3× the headset's default scale (set before the session), the
-			// fixed foveation eased from full to 0.3 so the edges of the view
-			// do not go soft where a print sits.
+			// 1.3× the headset's default scale (set before the session), and
+			// **no fixed foveation at all** (2026-09-13). It was eased to 0.3
+			// so the edges did not go soft where a print sits — and the lift's
+			// years, read sideways with the eyes while the head faces the
+			// doors, sat in that softened edge: fuzzy, and the sharp part of
+			// the view trailing the head instead of the eyes (Uli: dizzy, slow
+			// to follow). The room is light on the GPU; it can pay for its edges.
 			renderer.xr.setFramebufferScaleFactor(1.3);
 			const session = await navigator.xr.requestSession(state.xrMode, { requiredFeatures: ['local-floor'], optionalFeatures: ['bounded-floor', 'hand-tracking', 'plane-detection', 'mesh-detection', 'layers'] });
 			// **'layers' is asked for the depth buffer** (2026-09-13). Without it
@@ -84,7 +88,7 @@ async function offerVR() {
 			} else state.bounded = null;
 			session.addEventListener('end', () => { vrButton.hidden = false; document.body.classList.remove('xr'); rig.position.set(0, 0, 0); rig.rotation.set(0, 0, 0); state.lookSet = false; if (state.real) { state.real = null; world.position.set(0, 0, 0); world.rotation.set(0, 0, 0); state.settings.H = loadSettings().H; clearRooms(); state.room = null; hangRoom(firstRoom().key); } });
 			await renderer.xr.setSession(session);
-			renderer.xr.setFoveation(0.3);
+			renderer.xr.setFoveation(0);
 			scene.traverse(o => { if (o.isDirectionalLight && o.castShadow) { o.shadow.mapSize.set(1024, 1024); o.shadow.map?.dispose(); o.shadow.map = null; } });
 			document.body.classList.add('xr');
 			vrButton.hidden = true;
