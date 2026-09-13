@@ -1,7 +1,7 @@
 import * as THREE from '../vendor/three.module.js';
-import { walnut } from './elevator.js?v=20260916e';
-import { renderer, scene } from './scene.js?v=20260916e';
-import { state } from './state.js?v=20260916e';
+import { walnut } from './elevator.js?v=20260916f';
+import { renderer, scene } from './scene.js?v=20260916f';
+import { state } from './state.js?v=20260916f';
 
 // ---------------------------------------------------------------------------
 // The frames
@@ -197,18 +197,22 @@ const name = p => p.file.slice(p.file.lastIndexOf('/') + 1);
 // path: the decoded 16 MB of a 2000 copied and turned over row by row
 // before texImage2D — tens of milliseconds on the headset, mid-walk, at
 // the very moment the sheet landed (Uli, 2026-09-13: the swap still
-// stuttered once the shader rebuild was gone). createImageBitmap decodes
-// *and* flips off the main thread and hands over a bitmap the GPU already
-// holds, so the upload is a copy on the GPU; the texture's own flipY is
-// off, the bitmap coming turned already. A shrink for a grid's 40s rides
-// in the same call, off the thread too. `files` is tried in order — the
-// 2000 first, the 1200 where none was made.
+// stuttered once the shader rebuild was gone). Why anything turns it at
+// all: WebGL's first texture row is the bottom of the picture, a JPEG's
+// is the top, and a plane's UVs put v = 1 at the top. **Nothing flips a
+// pixel any more** (Uli): the texture's own flipY is off, the bitmap goes
+// up as decoded, and the picture is read upside down instead — a repeat
+// of -1 on v, which is a matrix in the shader and costs nothing.
+// createImageBitmap decodes off the main thread and hands over a bitmap
+// the GPU already holds, so the upload is a copy on the GPU. A shrink for
+// a grid's 40s rides in the same call, off the thread too. `files` is
+// tried in order — the 2000 first, the 1200 where none was made.
 function fetchInto(t, files, px) {
 	let at = 0;
 	const fit = px ? { resizeWidth: px, resizeHeight: px, resizeQuality: 'high' } : {};
 	const next = () => fetch('/' + files[at])
 		.then(r => { if (!r.ok) throw new Error(`${r.status} ${files[at]}`); return r.blob(); })
-		.then(b => createImageBitmap(b, { imageOrientation: 'flipY', premultiplyAlpha: 'none', colorSpaceConversion: 'none', ...fit }))
+		.then(b => createImageBitmap(b, { premultiplyAlpha: 'none', colorSpaceConversion: 'none', ...fit }))
 		.then(bmp => { t.image = bmp; t.needsUpdate = true; renderer.initTexture(t); })
 		.catch(e => { if (++at < files.length) next(); else console.warn('photo not loaded', e); });
 	next();
@@ -217,7 +221,8 @@ function emptyTexture() {
 	const t = new THREE.Texture();
 	t.colorSpace = THREE.SRGBColorSpace;
 	t.anisotropy = 8;                        // prints seen at an angle stay sharp; the Quest 3 affords it (Uli, 2026-09-05)
-	t.flipY = false;                         // the bitmap arrives turned (fetchInto)
+	t.flipY = false;                         // no pixel is turned; the picture is read bottom-up instead (fetchInto)
+	t.repeat.y = -1; t.offset.y = 1;
 	return t;
 }
 export function photoTexture(p, size) {
