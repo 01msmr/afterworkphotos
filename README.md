@@ -8,7 +8,7 @@
 |---|---|
 | `index.html`, `res/main.css`, `res/main.js` | the page |
 | `photos.json` | generated index of all photos in date order — the page is built from it |
-| `img/` | 1000 px squares, `awp-YYYY-MM-DD-NN`; `img/thumb/` 200 px; a video is an `.mp4` of the same name |
+| `img/` | **1200 px** squares, `awp-YYYY-MM-DD-NN` — the one set the site and the gallery's walls share; `img/2000/` the larger file a print swaps to close up, `img/thumb/` 200 px for the tablet; a video is an `.mp4` of the same name |
 | `inbox/` | drop photos here; the ingest workflow empties it |
 | `scripts/ingest.sh`, `.github/workflows/ingest.yml` | the ingest |
 | `manifest.json` | web app manifest — makes the home screen icon an app |
@@ -26,6 +26,21 @@ The site never shows file names: photos are numbered 1…N in date order.
 **Phone and iPad** — a pile of paper sheets, newest on top. Swipe up to lift the top sheet off, down to put it back; a tap above or below the dotted line does the same. The right edge is the pile seen edge-on: touch it to run through the years, slide the finger in from the edge for the finer gears, let go and the pile cuts to that photo. Dark mode follows the system.
 
 **Deep links** — `#154` opens print 154, `#y2017` a year's newest; the address follows as you move.
+
+## How large a picture is loaded
+
+One set of photographs, at **1200 px** (`img/`), shown by the site and hung on the gallery's walls. That is already
+finer than a Quest's panel can resolve at any distance a visitor stands: a 90 cm print's 1200 is 1.4× what the screen
+shows at 1.3 m, and only falls under it inside 0.9 m — where the gallery's guard has begun objecting anyway (0.55 m).
+
+So the **2000 px file** (`img/2000/`) is not a second set to load, but a sheet laid over the first for the short while
+it earns its keep. It is **fetched inside 1.6 m, shown inside 1.2 m, given back past 3.2 m**, and every one of them is
+handed back at once the moment the lift's doors shut on a ride — before the next floor's are read, so two floors never
+hold their big files at the same time. The picture underneath never changes, so nothing flickers when the sheet comes
+and goes.
+
+The worst room in the gallery peaks near **320 MB** of texture altogether, of which about half is those sheets. Years
+split into parts when they will not fit a floor, so a room cannot grow without bound and neither can that figure.
 
 ## Adding photos
 
