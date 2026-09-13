@@ -1,16 +1,16 @@
 import * as THREE from '../vendor/three.module.js';
-import { clearCards, bakeRoom, placeLabels } from './bake.js?v=20260916p';
-import { addDots, findSpots } from './sticker.js?v=20260916p';
-import { placeGuard } from './guard.js?v=20260916p';
-import { clearZoom } from './zoom.js?v=20260916p';
-import { setWire, wire } from './bench.js?v=20260916p';
-import { elevator, roomLabel } from './elevator.js?v=20260916p';
-import { FRAME, GRID_GAP, sc, textureCache } from './frames.js?v=20260916p';
-import { WALL_STYLES, applyNormals, buildRoom, dadoTop, floorOf, rectRoom, shapeOf, wallColours } from './room.js?v=20260916p';
-import { scene, world } from './scene.js?v=20260916p';
-import { HANG_MAX, pieceY, state } from './state.js?v=20260916p';
-import { framedSize, freeTexturesExcept, freeVideosExcept, makePiece } from './video.js?v=20260916p';
-import { BODY_R } from './walk.js?v=20260916p';
+import { clearCards, bakeRoom, placeLabels } from './bake.js?v=20260916q';
+import { addDots, findSpots } from './sticker.js?v=20260916q';
+import { placeGuard } from './guard.js?v=20260916q';
+import { clearZoom } from './zoom.js?v=20260916q';
+import { setWire, wire } from './bench.js?v=20260916q';
+import { elevator, roomLabel } from './elevator.js?v=20260916q';
+import { FRAME, GRID_GAP, sc, textureCache } from './frames.js?v=20260916q';
+import { WALL_STYLES, buildRoom, dadoTop, floorOf, rectRoom, shapeOf, wallColours } from './room.js?v=20260916q';
+import { scene, world } from './scene.js?v=20260916q';
+import { HANG_MAX, pieceY, state } from './state.js?v=20260916q';
+import { framedSize, freeTexturesExcept, freeVideosExcept, makePiece } from './video.js?v=20260916q';
+import { BODY_R } from './walk.js?v=20260916q';
 
 // ---------------------------------------------------------------------------
 // Hanging a year
@@ -599,7 +599,6 @@ function buildShell(W, D, H, floor, dadoCap, shape) {
 	world.add(buildRoom(W, D, H, floor, dadoCap, shape));
 	world.add(elevator.build(W, D, H, floor, dadoCap));
 	state.room = { W, D, H, floor, dadoCap, shape };
-	if (!state.settings.normals) applyNormals(false);   // a new shell is built with its relief; the switch says otherwise
 }
 // **The height switch rebuilds the shell round the pieces** (Uli,
 // 2026-09-13: the whole floor reloaded for a metre of ceiling). Nothing

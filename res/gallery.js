@@ -1,23 +1,23 @@
 // three.js 0.180.0, vendored (MIT) — res/vendor/three.module.js, which in
 // turn imports res/vendor/three.core.js; both are pinned together.
-import { stats, stepStats } from './gallery/bench.js?v=20260916p';
-import { elevator, lift, pressAt, setSetting } from './gallery/elevator.js?v=20260916p';
-import { stepCards } from './gallery/bake.js?v=20260916p';   // after elevator.js: bake → frames → room → elevator is a cycle, and the lift's steel asks frames for a texture as it loads
-import { materials } from './gallery/frames.js?v=20260916p';
-import { ELEVATOR, hangRoom, packRun, piecesOf, replan, firstRoom, rooms, spread, upright } from './gallery/hang.js?v=20260916p';
-import { stepSticker } from './gallery/sticker.js?v=20260916p';
-import { jump, stepJump } from './gallery/jump.js?v=20260916p';
-import { stepTablet, tabletHit, toggleTablet } from './gallery/tablet.js?v=20260916p';
-import { nextLine, placeGuard, stepGuard } from './gallery/guard.js?v=20260916p';
-import { musicLevel, playing, stepMusic } from './gallery/music.js?v=20260916p';
-import { stepZoom, zoomLabel, zoomPrint } from './gallery/zoom.js?v=20260916p';
-import { applyMode, buildRoom, stepMode } from './gallery/room.js?v=20260916p';
-import { planOf } from './gallery/plan.js?v=20260916p';
-import { camera, renderer, rig, scene, world } from './gallery/scene.js?v=20260916p';
-import { EYE, state } from './gallery/state.js?v=20260916p';
-import { makePiece, makeVideoPanel, stepDetail, stepVideos, videoCache } from './gallery/video.js?v=20260916p';
-import { benchScan, fitRoom, stepPlanes } from './gallery/vr.js?v=20260916p';
-import { applyLook, placeBody, stepWalk, walk } from './gallery/walk.js?v=20260916p';
+import { stats, stepStats, wire } from './gallery/bench.js?v=20260916q';
+import { elevator, lift, pressAt, setSetting } from './gallery/elevator.js?v=20260916q';
+import { stepCards } from './gallery/bake.js?v=20260916q';   // after elevator.js: bake → frames → room → elevator is a cycle, and the lift's steel asks frames for a texture as it loads
+import { materials } from './gallery/frames.js?v=20260916q';
+import { ELEVATOR, hangRoom, packRun, piecesOf, replan, firstRoom, rooms, spread, upright } from './gallery/hang.js?v=20260916q';
+import { stepSticker } from './gallery/sticker.js?v=20260916q';
+import { jump, stepJump } from './gallery/jump.js?v=20260916q';
+import { stepTablet, tabletHit, toggleTablet } from './gallery/tablet.js?v=20260916q';
+import { nextLine, placeGuard, stepGuard } from './gallery/guard.js?v=20260916q';
+import { musicLevel, playing, stepMusic } from './gallery/music.js?v=20260916q';
+import { stepZoom, zoomLabel, zoomPrint } from './gallery/zoom.js?v=20260916q';
+import { applyMode, buildRoom, stepMode } from './gallery/room.js?v=20260916q';
+import { planOf } from './gallery/plan.js?v=20260916q';
+import { camera, renderer, rig, scene, world } from './gallery/scene.js?v=20260916q';
+import { EYE, state } from './gallery/state.js?v=20260916q';
+import { makePiece, makeVideoPanel, stepDetail, stepVideos, videoCache } from './gallery/video.js?v=20260916q';
+import { benchScan, fitRoom, stepPlanes } from './gallery/vr.js?v=20260916q';
+import { applyLook, placeBody, stepWalk, walk } from './gallery/walk.js?v=20260916q';
 
 // ---------------------------------------------------------------------------
 // Boot
@@ -77,21 +77,22 @@ renderer.setAnimationLoop((now, frame) => {
 });
 
 // What the headset actually gives, read off the lift's outside display
-// (2026-09-13, after a day of flicker that fits a 16-bit depth buffer and
-// nothing else): the depth buffer's bits — asked while the XR framebuffer
-// is bound, which it is inside a render — the layer kind (a projection
-// layer names its own depth format; a base layer takes the browser's),
-// and the frame rate. Nothing on the bench.
+// **while the wire switch is on** (2026-09-13; the gallery does not wear
+// its instruments): the depth buffer's bits — asked while the XR
+// framebuffer is bound, which it is inside a render — the layer kind (a
+// projection layer names its own depth format; a base layer takes the
+// browser's), the frame rate, the draw calls, and how long the last hang
+// took. Nothing on the bench.
 const probe = { bits: 0, frames: 0, at: 0 };
 const gl = renderer.getContext();
 scene.onAfterRender = () => { if (!probe.bits && renderer.xr.isPresenting) probe.bits = gl.getParameter(gl.DEPTH_BITS); };
 function stepProbe(now) {
 	probe.frames++;
 	if (now - probe.at < 1000) return;
-	if (renderer.xr.isPresenting && probe.at) {
+	if (renderer.xr.isPresenting && probe.at && wire) {
 		const rs = renderer.xr.getSession().renderState, kind = rs.layers && rs.layers.length ? 'proj' : 'base';
 		elevator.note(`${probe.bits} bit · ${kind} · ${Math.round(probe.frames * 1000 / (now - probe.at))} fps · ${renderer.info.render.calls} calls · hang ${state.hangMs || 0} ms`);   // the calls of the last frame: fill or geometry, the number says which
-	}
+	} else if (elevator.noteText) elevator.note('');
 	probe.frames = 0; probe.at = now;
 }
 

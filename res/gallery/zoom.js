@@ -1,7 +1,7 @@
 import * as THREE from '../vendor/three.module.js';
-import { camera, scene } from './scene.js?v=20260916p';
-import { state } from './state.js?v=20260916p';
-import { CARD_READ_Z, CARD_REST_Z } from './bake.js?v=20260916p';
+import { camera, scene } from './scene.js?v=20260916q';
+import { state } from './state.js?v=20260916q';
+import { CARD_READ_Z, CARD_REST_Z } from './bake.js?v=20260916q';
 
 // ---------------------------------------------------------------------------
 // What a press makes bigger
@@ -43,6 +43,15 @@ export function zoomPrint(print, now = performance.now()) {
 	for (const p of prints) big.delete(p);
 	for (const p of away) big.set(p, now);                    // only what is not the way it rests comes back by itself
 	return true;
+}
+
+// **The scale switch sets every print in place** (Uli, 2026-09-13: it
+// re-hung the whole floor, like the height switch had). Each print goes
+// to the way it now rests — full over its mat, or in it — and forgets
+// that it was pressed; the labels keep whatever they were doing.
+export function applyFill() {
+	scene.traverse(o => { if (o.name === 'photo' && o.userData.full) o.scale.setScalar(rest(o)); });
+	for (const thing of [...big.keys()]) if (thing.isObject3D) big.delete(thing);
 }
 
 // A label block: the cards together, growing from the corner that sits by

@@ -1,8 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
-import { CABIN_LAMP, lightPanel, metal } from './elevator.js?v=20260916p';
-import { ENV_INTENSITY, PRINT_GLOW, poolMaterial, tex } from './frames.js?v=20260916p';
-import { camera, renderer, scene } from './scene.js?v=20260916p';
-import { state } from './state.js?v=20260916p';
+import { CABIN_LAMP, lightPanel, metal } from './elevator.js?v=20260916q';
+import { ENV_INTENSITY, PRINT_GLOW, poolMaterial, tex } from './frames.js?v=20260916q';
+import { camera, renderer, scene } from './scene.js?v=20260916q';
+import { state } from './state.js?v=20260916q';
 
 // ---------------------------------------------------------------------------
 // The room
@@ -259,23 +259,6 @@ export function buildRoom(W, D, H, floor = 'lacquer', dadoCap = Infinity, shape 
 // from it.
 const MODE_T = 1200;
 let modeF = state.settings.dark ? 1 : 0, modeAt = null;
-// **The normal maps, on or off** (2026-09-13): the floor, the wainscot,
-// the cabin's steel and its walnut, the frame bars — every surface with a
-// relief map is a heavier shader over a large part of the view, and this
-// switch is how what it costs is read off the display's fps. Off, each
-// material keeps its map in userData to take back; on, it takes it back.
-// A material's program is rebuilt either way — fine on a press, never
-// mid-walk.
-export function applyNormals(on) {
-	scene.traverse(o => {
-		if (!o.isMesh) return;
-		for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
-			if (!m) continue;
-			if (on && m.userData.normalMap) { m.normalMap = m.userData.normalMap; m.userData.normalMap = null; m.needsUpdate = true; }
-			else if (!on && m.normalMap) { m.userData.normalMap = m.normalMap; m.normalMap = null; m.needsUpdate = true; }
-		}
-	});
-}
 export function applyMode(dark) {
 	state.settings.dark = dark;
 	modeAt = performance.now();
