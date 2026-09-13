@@ -1,8 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
-import { addLabel } from './bake.js?v=20260916d';
-import { FRAME, GRID_GAP, MAT_Z, PRINT_GLOW, PRINT_SCALE, matWidth, materials, photoTexture, poolMaterial, sc, textureCache, dropNear, nearTexture } from './frames.js?v=20260916d';
-import { camera, scene } from './scene.js?v=20260916d';
-import { pieceY, state } from './state.js?v=20260916d';
+import { addLabel } from './bake.js?v=20260916e';
+import { FRAME, GRID_GAP, MAT_Z, PRINT_GLOW, PRINT_SCALE, matWidth, materials, photoTexture, poolMaterial, sc, textureCache, dropNear, freeTexture, nearTexture } from './frames.js?v=20260916e';
+import { camera, scene } from './scene.js?v=20260916e';
+import { pieceY, state } from './state.js?v=20260916e';
 
 // ---------------------------------------------------------------------------
 // Videos — the LED panel
@@ -195,7 +195,7 @@ export function dropAllNear() {
 }
 
 export function freeTexturesExcept(keep) {
-	for (const [key, t] of textureCache) if (!keep.has(key)) { t.dispose(); textureCache.delete(key); }
+	for (const key of [...textureCache.keys()]) if (!keep.has(key)) freeTexture(key);
 }
 
 // Outer edge of one framed print of a given print size.

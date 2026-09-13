@@ -39,7 +39,7 @@ handed back at once the moment the lift's doors shut on a ride — before the ne
 hold their big files at the same time. The picture underneath never changes, so nothing flickers when the sheet comes
 and goes.
 
-The worst room in the gallery peaks near **320 MB** of texture altogether, of which about half is those sheets. Years
+The worst room in the gallery holds about **290 MB** of 1200s (mipmaps counted), some 60 MB of sheets at peak, and its label cards — 1280 px canvases, 3.1 MB each, one per photograph, 229 MB in the 74-frame room — near **580 MB** altogether. Years
 split into parts when they will not fit a floor, so a room cannot grow without bound and neither can that figure.
 
 ## Adding photos

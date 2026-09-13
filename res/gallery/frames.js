@@ -1,7 +1,7 @@
 import * as THREE from '../vendor/three.module.js';
-import { walnut } from './elevator.js?v=20260916d';
-import { renderer, scene } from './scene.js?v=20260916d';
-import { state } from './state.js?v=20260916d';
+import { walnut } from './elevator.js?v=20260916e';
+import { renderer, scene } from './scene.js?v=20260916e';
+import { state } from './state.js?v=20260916e';
 
 // ---------------------------------------------------------------------------
 // The frames
@@ -175,46 +175,57 @@ export const materials = {
 
 applyFrameLook(materials.frame, state.settings.frame);
 
-const textures = new THREE.TextureLoader();
 export const textureCache = new Map();
 // What a print carries as it hangs, and what it swaps to when someone
 // comes up to it (Uli, 2026-09-13): **the photograph's own file, which is
 // 1200** — the site shows the same one, so there is one set and not two —
 // and the largest file there when a visitor is within 1.2 m. A 90 and a
-// 60 take the 1200 whole; a 40 in a grid is shrunk to 512 px on a canvas,
-// a quarter of the memory, since nobody reads a grid print from close to.
-// A 2000 px square costs 16 MB of video memory against 6 MB at 1200, so
-// it is worth having for the one or two prints a visitor is actually
-// standing at, and ruinous for a whole room at once — the more so in a
-// room hung with two or three times the frames, where the wall's 1200s
-// are already the larger bill. The texture's image stays empty until
-// loaded, which is what the lift waits for. Textures of a room you have
-// left are freed.
+// 60 take the 1200 whole; a 40 in a grid is shrunk to 512 px on the way
+// in, a quarter of the memory, since nobody reads a grid print from close
+// to. A 2000 px square costs 16 MB of video memory against 6 MB at 1200
+// (a third more each with their mipmaps), so it is worth having for the
+// one or two prints a visitor is actually standing at, and ruinous for a
+// whole room at once — the more so in a room hung with two or three times
+// the frames, where the wall's 1200s are already the larger bill. The
+// texture's image stays empty until loaded, which is what the lift waits
+// for. Textures of a room you have left are freed.
 const PHOTO_PX = { 0.9: 1200, 0.6: 1200, 0.4: 512 };
 const NEAR_PX = 2000;
 const name = p => p.file.slice(p.file.lastIndexOf('/') + 1);
+// A file to the GPU **without a hitch**. It used to arrive as an <img>
+// with three's default flipY on, and that makes Chromium take the CPU
+// path: the decoded 16 MB of a 2000 copied and turned over row by row
+// before texImage2D — tens of milliseconds on the headset, mid-walk, at
+// the very moment the sheet landed (Uli, 2026-09-13: the swap still
+// stuttered once the shader rebuild was gone). createImageBitmap decodes
+// *and* flips off the main thread and hands over a bitmap the GPU already
+// holds, so the upload is a copy on the GPU; the texture's own flipY is
+// off, the bitmap coming turned already. A shrink for a grid's 40s rides
+// in the same call, off the thread too. `files` is tried in order — the
+// 2000 first, the 1200 where none was made.
+function fetchInto(t, files, px) {
+	let at = 0;
+	const fit = px ? { resizeWidth: px, resizeHeight: px, resizeQuality: 'high' } : {};
+	const next = () => fetch('/' + files[at])
+		.then(r => { if (!r.ok) throw new Error(`${r.status} ${files[at]}`); return r.blob(); })
+		.then(b => createImageBitmap(b, { imageOrientation: 'flipY', premultiplyAlpha: 'none', colorSpaceConversion: 'none', ...fit }))
+		.then(bmp => { t.image = bmp; t.needsUpdate = true; renderer.initTexture(t); })
+		.catch(e => { if (++at < files.length) next(); else console.warn('photo not loaded', e); });
+	next();
+}
+function emptyTexture() {
+	const t = new THREE.Texture();
+	t.colorSpace = THREE.SRGBColorSpace;
+	t.anisotropy = 8;                        // prints seen at an angle stay sharp; the Quest 3 affords it (Uli, 2026-09-05)
+	t.flipY = false;                         // the bitmap arrives turned (fetchInto)
+	return t;
+}
 export function photoTexture(p, size) {
 	const px = PHOTO_PX[size] || 1200;                // 1200 is the photograph's own file: an unlisted size takes it whole
 	const key = `${p.n}@${px}`;
 	if (!textureCache.has(key)) {
-		const t = new THREE.Texture();
-		t.colorSpace = THREE.SRGBColorSpace;
-		t.anisotropy = 8;                        // prints seen at an angle stay sharp; the Quest 3 affords it (Uli, 2026-09-05)
-		const img = new Image();
-		// decoded off the main thread, then sent to the GPU at once: each
-		// print costs its frame as it arrives during the ride, not all of
-		// them the frame the doors open (Uli: the view lagged a second or two)
-		img.onload = () => img.decode().catch(() => {}).then(() => {
-			if (px >= img.width) { t.image = img; }
-			else {
-				const c = document.createElement('canvas'); c.width = c.height = px;
-				c.getContext('2d').drawImage(img, 0, 0, px, px);
-				t.image = c;
-			}
-			t.needsUpdate = true;
-			renderer.initTexture(t);
-		});
-		img.src = '/' + p.file;                  // photos.json paths are relative to the site root; the file itself is the 1200
+		const t = emptyTexture();
+		fetchInto(t, [p.file], px < 1200 ? px : 0);   // photos.json paths are relative to the site root; the file itself is the 1200
 		textureCache.set(key, t);
 	}
 	return textureCache.get(key);
@@ -227,23 +238,20 @@ export function photoTexture(p, size) {
 export function nearTexture(p) {
 	const key = `${p.n}@near`;
 	if (!textureCache.has(key)) {
-		const t = new THREE.Texture();
-		t.colorSpace = THREE.SRGBColorSpace;
-		t.anisotropy = 8;
-		const img = new Image();
-		const tries = [`img/${NEAR_PX}/${name(p)}`, p.file];
-		let at = 0;
-		img.onerror = () => { if (++at < tries.length) img.src = '/' + tries[at]; };
-		img.onload = () => img.decode().catch(() => {}).then(() => {
-			t.image = img; t.needsUpdate = true; renderer.initTexture(t);
-		});
-		img.src = '/' + tries[0];
+		const t = emptyTexture();
+		fetchInto(t, [`img/${NEAR_PX}/${name(p)}`, p.file], 0);
 		textureCache.set(key, t);
 	}
 	return textureCache.get(key);
 }
-export function dropNear(p) {
-	const key = `${p.n}@near`;
+// Freeing a texture frees its bitmap as well: dispose() lets go of the
+// GPU copy, close() of the decoded one, and only the two together give the
+// memory back.
+export function freeTexture(key) {
 	const t = textureCache.get(key);
-	if (t) { t.dispose(); textureCache.delete(key); }
+	if (!t) return;
+	t.dispose();
+	if (t.image && t.image.close) t.image.close();
+	textureCache.delete(key);
 }
+export function dropNear(p) { freeTexture(`${p.n}@near`); }

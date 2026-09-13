@@ -1,8 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
-import { jump } from './jump.js?v=20260916d';
-import { camera, head, rig, scene } from './scene.js?v=20260916d';
-import { state } from './state.js?v=20260916d';
-import { hands } from './vr.js?v=20260916d';
+import { jump } from './jump.js?v=20260916e';
+import { camera, head, rig, scene } from './scene.js?v=20260916e';
+import { state } from './state.js?v=20260916e';
+import { hands } from './vr.js?v=20260916e';
 
 // ---------------------------------------------------------------------------
 // The tablet on the open hand

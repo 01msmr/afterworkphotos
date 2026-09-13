@@ -1,8 +1,7 @@
 import * as THREE from '../vendor/three.module.js';
-import { materials, poolMaterial } from './frames.js?v=20260916d';
-import { renderer, world } from './scene.js?v=20260916d';
-import { state } from './state.js?v=20260916d';
-import { DRAWN, measure, textMesh } from './text.js?v=20260916d';
+import { materials, poolMaterial } from './frames.js?v=20260916e';
+import { renderer, world } from './scene.js?v=20260916e';
+import { state } from './state.js?v=20260916e';
 
 // ---------------------------------------------------------------------------
 // Baking a room
@@ -92,24 +91,28 @@ function labelLines(photos) {
 // so a wall of labels is a wall of one size. A line too long for the
 // paper is squeezed to fit rather than running off it.
 const CARD_LINES = 3;
-// **The letters come out of the distance-field atlas** (Uli, 2026-09-13),
-// not off a canvas of their own. A canvas card was 1.4 MB apiece, one per
-// photograph, 81 MB of a single room — and it had only the pixels it was
-// drawn with, so it went soft the moment a card was doubled. The atlas is
-// one 4 MB texture for the whole gallery, buttons included, and it draws
-// a clean edge at any size: a doubled card is now as sharp as a near one.
-//
-// The card itself is the paper — a plain plane, no texture at all — with
-// the text a child of it, so a press that doubles the card carries the
-// letters with it. The layout is still written in the 1536-wide space the
-// canvases used, so every number the cards were tuned with means what it
-// meant.
+// **The letters are drawn on a canvas, in Helvetica** (Uli, 2026-09-13,
+// back after a day on a distance-field atlas: the atlas held each glyph in
+// a 48 px cell, which is magnified on a doubled card and mush across the
+// room, and its edges wobbled in stereo — canvas text is the same letter
+// the site sets, and it was sharp). 1280 px across (1024 until today):
+// a doubled 24 cm card read at 0.7 m spans 38 degrees, 946 panel pixels
+// and about 1130 as the browser renders it; 1024 is under that and 1280
+// the first size above it. 3.1 MB apiece with its mipmaps, one per
+// photograph: 229 MB in the 74-frame room, 147 MB at 1024 — the biggest
+// thing in a room's memory, and known to be (Uli: there is the RAM for
+// it). The layout below is written in the old 1536 space and scaled, so
+// every number the cards were tuned with still means what it did.
+const CARD_PX = 1280, CARD_DRAWN = 1536;
 const CARD_H = 2 * (80 + 64 * CARD_LINES);       // the paper, in that space
 // **A card is 4 mm of board standing off the wall** (Uli, 2026-09-13), not
 // a sheet lying on it. Lambert rather than unlit, so its four edges shade
 // against its face and the thickness is actually seen — with enough
 // emissive that the paper stays paper in a night room, which is what the
-// unlit material was for before it had any sides to show.
+// unlit material was for before it had any sides to show. The canvas is
+// the board's **front face** — its map and its emissive map both, as a
+// print's is, so the ink stays ink at night — paper and letters one
+// surface, with nothing standing in front of it to crawl.
 export const CARD_D = 0.004;
 const CARD_GLOW = 0.5;
 // Where a card rests, and where it stands when it is doubled to be read.
@@ -123,28 +126,43 @@ const CARD_GLOW = 0.5;
 // lot, 26 mm out, which clears the deepest of them by 5 mm and reads as a
 // card lifted toward you to be read — which is what it is.
 export const CARD_REST_Z = CARD_D / 2, CARD_READ_Z = 0.026;
-const PAPER = 0xfdfcfa, INK = [0x141311, 0x3d3a36];
-const FACE = ['bold', 'medium'];                 // the first line heavier, as it was at 600 against 500
+const PAPER = '#fdfcfa', INK = ['#141311', '#3d3a36'];   // near-black, a weight up: what the headset's pixels can still resolve is contrast (Uli)
 const SIZE = [110, 100];         // 84/76 until 2026-09-13 (Uli: too small). A third bigger buys about a third more distance — a body line is readable at 2 m now rather than 1.5
+function cardCanvas(lines) {
+	const c = document.createElement('canvas');
+	const k = CARD_PX / CARD_DRAWN;
+	c.width = CARD_PX; c.height = Math.round(CARD_H * k);
+	const g = c.getContext('2d');
+	g.scale(k, k);
+	g.fillStyle = PAPER; g.fillRect(0, 0, CARD_DRAWN, CARD_H);
+	g.textBaseline = 'middle';
+	lines.slice(0, CARD_LINES).forEach((line, i) => {
+		const j = i === 0 ? 0 : 1;
+		g.fillStyle = INK[j];
+		g.font = `${j === 0 ? 600 : 500} ${SIZE[j]}px -apple-system, "Helvetica Neue", Arial, sans-serif`;
+		const room = CARD_DRAWN - 160;
+		const wide = g.measureText(line).width;
+		g.save();
+		// a line too long for the paper is squeezed to fit rather than running off it
+		if (wide > room) { g.translate(80, 0); g.scale(room / wide, 1); g.fillText(line, 0, 2 * (40 + 32 + 64 * i)); }
+		else g.fillText(line, 80, 2 * (40 + 32 + 64 * i));
+		g.restore();
+	});
+	const t = new THREE.CanvasTexture(c);
+	t.colorSpace = THREE.SRGBColorSpace;
+	t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+	return t;
+}
+const paperMaterial = new THREE.MeshLambertMaterial({ color: PAPER, emissive: PAPER, emissiveIntensity: CARD_GLOW });   // the board's edges and its back, shared
 function makeCard(lines, cw) {
-	const ch = cw * CARD_H / DRAWN;
-	const card = new THREE.Mesh(new THREE.BoxGeometry(cw, ch, CARD_D),
-		new THREE.MeshLambertMaterial({ color: PAPER, emissive: PAPER, emissiveIntensity: CARD_GLOW }));
+	const ch = cw * CARD_H / CARD_DRAWN;
+	const t = cardCanvas(lines);
+	const face = new THREE.MeshLambertMaterial({ map: t, emissive: PAPER, emissiveMap: t, emissiveIntensity: CARD_GLOW });
+	// a box's sixth material is its +z face: the front, where the card is read
+	const card = new THREE.Mesh(new THREE.BoxGeometry(cw, ch, CARD_D), [paperMaterial, paperMaterial, paperMaterial, paperMaterial, face, paperMaterial]);
 	card.name = 'label';
 	card.visible = state.settings.labels;
 	card.userData.ch = ch;
-	const unit = cw / DRAWN;
-	const rows = lines.slice(0, CARD_LINES).map((line, i) => {
-		const k = i === 0 ? 0 : 1;
-		const size = SIZE[k], face = FACE[k];
-		const room = DRAWN - 160, wide = measure(line, face, size);
-		// a line too long for the paper is squeezed to fit rather than
-		// running off it — the same squeeze the canvas did
-		return { text: line, face, size, colour: INK[k], x: 80, middle: 2 * (40 + 32 + 64 * i), squeeze: wide > room ? room / wide : 1 };
-	});
-	const text = textMesh(rows, unit, CARD_H);
-	text.position.z = CARD_D / 2 + 0.0012;        // 1.2 mm proud of the board's face: less and the depth buffer cannot separate them
-	card.add(text);
 	// The shadow those 4 mm throw. **Painted, not cast**: real shadows have
 	// been off since 2026-09-05 (Uli — the hard cut-outs looked wrong), and
 	// a print fakes its own the same way, a faint plane a hair larger nudged
