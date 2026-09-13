@@ -1,11 +1,11 @@
 import * as THREE from '../vendor/three.module.js';
-import { BUTTON, elevator, pressAlong, settingsMap } from './elevator.js?v=20260916f';
-import { cornerFree, outlineOf, planOf, rotShape } from './plan.js?v=20260916f';
-import { tabletHit } from './tablet.js?v=20260916f';
-import { ELEVATOR, clearRooms, hangRoom, rooms } from './hang.js?v=20260916f';
-import { camera, head, renderer, rig, scene, world } from './scene.js?v=20260916f';
-import { loadSettings, state } from './state.js?v=20260916f';
-import { placeBody, walk } from './walk.js?v=20260916f';
+import { BUTTON, elevator, pressAlong, settingsMap } from './elevator.js?v=20260916g';
+import { cornerFree, outlineOf, planOf, rotShape } from './plan.js?v=20260916g';
+import { tabletHit } from './tablet.js?v=20260916g';
+import { ELEVATOR, clearRooms, hangRoom, rooms } from './hang.js?v=20260916g';
+import { camera, head, renderer, rig, scene, world } from './scene.js?v=20260916g';
+import { loadSettings, state } from './state.js?v=20260916g';
+import { placeBody, walk } from './walk.js?v=20260916g';
 
 // ---------------------------------------------------------------------------
 // VR (phase 2, first step)
@@ -55,7 +55,14 @@ async function offerVR() {
 			// fixed foveation eased from full to 0.3 so the edges of the view
 			// do not go soft where a print sits.
 			renderer.xr.setFramebufferScaleFactor(1.3);
-			const session = await navigator.xr.requestSession(state.xrMode, { requiredFeatures: ['local-floor'], optionalFeatures: ['bounded-floor', 'hand-tracking', 'plane-detection', 'mesh-detection'] });
+			const session = await navigator.xr.requestSession(state.xrMode, { requiredFeatures: ['local-floor'], optionalFeatures: ['bounded-floor', 'hand-tracking', 'plane-detection', 'mesh-detection', 'layers'] });
+			// **'layers' is asked for the depth buffer** (2026-09-13). Without it
+			// three draws into an XRWebGLLayer whose depth format the browser
+			// picks, and every flicker seen in the headset — 0.3 mm at arm's
+			// length, 0.2 mm at a metre, 1.2 mm across a room, a filled print
+			// over its mat at 1 mm — is what 16 bits give at those distances
+			// and what 24 could not. With the feature, three makes a projection
+			// layer and names DEPTH_COMPONENT24 itself.
 			state.sessionT0 = performance.now();
 			// Render in the boundary's own space: its polygon and the world then
 			// share one origin and yaw (read in bounded-floor, rendered in
