@@ -1,15 +1,15 @@
 import * as THREE from '../vendor/three.module.js';
-import { setWire, wire } from './bench.js?v=20260916g';
-import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260916g';
-import { ELEVATOR, FAV_KEY, clearRooms, firstRoom, hangRoom, roomByKey, rooms } from './hang.js?v=20260916g';
-import { WALL_STYLES, applyMode, dadoTop, dressWall, wallColours } from './room.js?v=20260916g';
-import { camera, head, renderer, scene, world } from './scene.js?v=20260916g';
-import { zoomLabel, zoomPrint } from './zoom.js?v=20260916g';
-import { stickAt } from './sticker.js?v=20260916g';
-import { dropAllNear } from './video.js?v=20260916g';   // the floor's 2000s, handed back when it is left
-import { PLANS, RAISES, favCount, state } from './state.js?v=20260916g';
-import { fitRoom, planAgain } from './vr.js?v=20260916g';
-import { placeBody, walk } from './walk.js?v=20260916g';
+import { setWire, wire } from './bench.js?v=20260916h';
+import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260916h';
+import { ELEVATOR, FAV_KEY, clearRooms, firstRoom, hangRoom, roomByKey, rooms } from './hang.js?v=20260916h';
+import { WALL_STYLES, applyMode, dadoTop, dressWall, wallColours } from './room.js?v=20260916h';
+import { camera, head, renderer, scene, world } from './scene.js?v=20260916h';
+import { zoomLabel, zoomPrint } from './zoom.js?v=20260916h';
+import { stickAt } from './sticker.js?v=20260916h';
+import { dropAllNear } from './video.js?v=20260916h';   // the floor's 2000s, handed back when it is left
+import { PLANS, RAISES, favCount, state } from './state.js?v=20260916h';
+import { fitRoom, planAgain } from './vr.js?v=20260916h';
+import { placeBody, walk } from './walk.js?v=20260916h';
 
 // ---------------------------------------------------------------------------
 // The elevator
@@ -69,16 +69,23 @@ function favFace() {
 	g.beginPath(); g.arc(c.width / 2, c.height / 2, 30, 0, Math.PI * 2); g.fill();
 	const t = new THREE.CanvasTexture(c);
 	t.colorSpace = THREE.SRGBColorSpace;
+	t.anisotropy = renderer.capabilities.getMaxAnisotropy();
 	return t;
 }
-// The year on a button cap: a 256 x 128 canvas apiece in Jost, on the
-// clear plane that takes the press. (A day on the shared distance-field
-// atlas, 2026-09-13, and back: its contours crawled in stereo.) 128 KB
-// each, thirty-odd of them.
+// The year on a button cap: a canvas apiece in Jost, on the clear plane
+// that takes the press. (A day on the shared distance-field atlas,
+// 2026-09-13, and back: its contours crawled in stereo.) **512 x 256 and
+// filtered anisotropically** (Uli, 2026-09-13: fuzzy, read sideways): the
+// plate stands beside the door and is only ever seen at an angle, and a
+// 256 canvas was just the panel's own count at 40 cm — the 512 is drawn
+// in the old 256 space, so the numbers mean what they did. 512 KB each,
+// thirty-odd of them.
+const FACE_PX = 512;
 function buttonFace(year, room) {
 	const c = document.createElement('canvas');
-	c.width = 256; c.height = 128;
+	c.width = FACE_PX; c.height = FACE_PX / 2;
 	const g = c.getContext('2d');
+	g.scale(FACE_PX / 256, FACE_PX / 256);
 	g.fillStyle = '#1d1c1a';
 	g.textAlign = 'left';
 	g.textBaseline = 'middle';
@@ -92,6 +99,7 @@ function buttonFace(year, room) {
 	}
 	const t = new THREE.CanvasTexture(c);
 	t.colorSpace = THREE.SRGBColorSpace;
+	t.anisotropy = renderer.capabilities.getMaxAnisotropy();
 	return t;
 }
 
@@ -567,11 +575,10 @@ export const elevator = {
 		// glitched). Three tenths of a millimetre is finer than a 16-bit
 		// depth buffer tells apart at arm's length (vr.js: 'layers'), and
 		// the two surfaces flickered against each other, the more so in
-		// stereo. **The push is a constant, not a slope** (Uli, 2026-09-13:
-		// the buttons glitched massively on stepping in). A slope-scaled
-		// offset grows with the angle, and at the grazing angle the plate is
-		// passed at on the way in it pulled every year forward through the
-		// caps beside it.
+		// stereo. **The push is a constant, not a slope**: a slope-scaled
+		// offset grows with the viewing angle, and at the grazing angle the
+		// plate is passed at on the way in it would pull a year forward
+		// through the caps beside it.
 		const printGeo = new THREE.PlaneGeometry(w, h);
 		// the year buttons share one clear face material: nothing is drawn on
 		// it any more, it only takes the press and holds the letters
