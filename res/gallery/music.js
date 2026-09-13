@@ -1,6 +1,6 @@
-import { elevator, lift } from './elevator.js?v=20260916o';
+import { elevator, lift } from './elevator.js?v=20260916p';
 import * as THREE from '../vendor/three.module.js';
-import { camera, head, world } from './scene.js?v=20260916o';
+import { camera, head, world } from './scene.js?v=20260916p';
 
 // ---------------------------------------------------------------------------
 // The music in the lift
