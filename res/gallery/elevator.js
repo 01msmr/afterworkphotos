@@ -1,15 +1,15 @@
 import * as THREE from '../vendor/three.module.js';
-import { setWire, wire } from './bench.js?v=20260916f';
-import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260916f';
-import { ELEVATOR, FAV_KEY, clearRooms, firstRoom, hangRoom, roomByKey, rooms } from './hang.js?v=20260916f';
-import { WALL_STYLES, applyMode, dadoTop, dressWall, wallColours } from './room.js?v=20260916f';
-import { camera, head, renderer, scene, world } from './scene.js?v=20260916f';
-import { zoomLabel, zoomPrint } from './zoom.js?v=20260916f';
-import { stickAt } from './sticker.js?v=20260916f';
-import { dropAllNear } from './video.js?v=20260916f';   // the floor's 2000s, handed back when it is left
-import { PLANS, RAISES, favCount, state } from './state.js?v=20260916f';
-import { fitRoom, planAgain } from './vr.js?v=20260916f';
-import { placeBody, walk } from './walk.js?v=20260916f';
+import { setWire, wire } from './bench.js?v=20260916g';
+import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260916g';
+import { ELEVATOR, FAV_KEY, clearRooms, firstRoom, hangRoom, roomByKey, rooms } from './hang.js?v=20260916g';
+import { WALL_STYLES, applyMode, dadoTop, dressWall, wallColours } from './room.js?v=20260916g';
+import { camera, head, renderer, scene, world } from './scene.js?v=20260916g';
+import { zoomLabel, zoomPrint } from './zoom.js?v=20260916g';
+import { stickAt } from './sticker.js?v=20260916g';
+import { dropAllNear } from './video.js?v=20260916g';   // the floor's 2000s, handed back when it is left
+import { PLANS, RAISES, favCount, state } from './state.js?v=20260916g';
+import { fitRoom, planAgain } from './vr.js?v=20260916g';
+import { placeBody, walk } from './walk.js?v=20260916g';
 
 // ---------------------------------------------------------------------------
 // The elevator
@@ -562,9 +562,14 @@ export const elevator = {
 		const capGeo = new THREE.BoxGeometry(w, h, rise);
 		// The face stands 1.2 mm off its cap, not 0.3, and is pushed forward
 		// again in the depth buffer (Uli, 2026-09-13: the button plate
-		// glitched). Three tenths of a millimetre is finer than the depth
-		// buffer can tell apart at arm's length, and the two surfaces
-		// flickered against each other, the more so in stereo.
+		// glitched). Three tenths of a millimetre is finer than a 16-bit
+		// depth buffer tells apart at arm's length (vr.js: 'layers'), and
+		// the two surfaces flickered against each other, the more so in
+		// stereo. **The push is a constant, not a slope** (Uli, 2026-09-13:
+		// the buttons glitched massively on stepping in). A slope-scaled
+		// offset grows with the angle, and at the grazing angle the plate is
+		// passed at on the way in it pulled every year forward through the
+		// caps beside it.
 		const printGeo = new THREE.PlaneGeometry(w, h);
 		// the year buttons share one clear face material: nothing is drawn on
 		// it any more, it only takes the press and holds the letters
@@ -591,7 +596,7 @@ export const elevator = {
 			// the print: a clear plane 1.2 mm before the cap, turned to face
 			// into the cabin (-z) so the year reads the right way round —
 			// the same mount as the favourites dot's; at 0.3 mm it z-fought
-			const print = put('print', printGeo, new THREE.MeshBasicMaterial({ map: buttonFace(year, room), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }), -0.003 - rise - 0.0012);
+			const print = put('print', printGeo, new THREE.MeshBasicMaterial({ map: buttonFace(year, room), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -2 }), -0.003 - rise - 0.0012);
 			print.rotation.y = Math.PI;
 			print.renderOrder = 2;
 			this.buttons.push(cap, print);              // both press
@@ -617,7 +622,7 @@ export const elevator = {
 			const cap = put('cap', capGeo, new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.28, roughness: 0.3, metalness: 0, emissive: GREEN, emissiveIntensity: 0, envMapIntensity: 0.5 }), -0.003 - rise / 2);
 			cap.userData.cap = true;
 			cap.userData.fav = true;
-			const print = put('print', printGeo, new THREE.MeshBasicMaterial({ map: favFace(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }), -0.003 - rise - 0.0012);
+			const print = put('print', printGeo, new THREE.MeshBasicMaterial({ map: favFace(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -2 }), -0.003 - rise - 0.0012);
 			print.rotation.y = Math.PI;
 			print.renderOrder = 2;
 			this.buttons.push(cap, print);

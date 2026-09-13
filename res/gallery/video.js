@@ -1,8 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
-import { addLabel } from './bake.js?v=20260916f';
-import { FRAME, GRID_GAP, MAT_Z, PRINT_GLOW, PRINT_SCALE, matWidth, materials, photoTexture, poolMaterial, sc, textureCache, dropNear, freeTexture, nearTexture } from './frames.js?v=20260916f';
-import { camera, scene } from './scene.js?v=20260916f';
-import { pieceY, state } from './state.js?v=20260916f';
+import { addLabel } from './bake.js?v=20260916g';
+import { FRAME, GRID_GAP, MAT_Z, PRINT_GLOW, PRINT_SCALE, matWidth, materials, photoTexture, poolMaterial, sc, textureCache, dropNear, freeTexture, nearTexture } from './frames.js?v=20260916g';
+import { camera, scene } from './scene.js?v=20260916g';
+import { pieceY, state } from './state.js?v=20260916g';
 
 // ---------------------------------------------------------------------------
 // Videos — the LED panel
@@ -310,7 +310,7 @@ function makeFramedPrint(p, size) {
 		const over = new THREE.Mesh(print.geometry,
 			new THREE.MeshLambertMaterial({ map: BLANK, emissive: 0xffffff, emissiveMap: BLANK,
 				emissiveIntensity: print.material.emissiveIntensity,
-				polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+				polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -2 }));   // a constant push, no slope term: at a grazing angle a slope pulls it through the frame
 		over.name = 'photo-near';
 		over.position.z = 0.0004;                      // local: a hair in front of the sheet under it
 		over.visible = false;
