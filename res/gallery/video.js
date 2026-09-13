@@ -1,8 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
-import { addLabel } from './bake.js?v=20260916l';
-import { FRAME, GRID_GAP, MAT_Z, PRINT_GLOW, PRINT_SCALE, matWidth, materials, photoTexture, poolMaterial, sc, textureCache, dropNear, freeTexture, nearTexture } from './frames.js?v=20260916l';
-import { camera, scene } from './scene.js?v=20260916l';
-import { RAISES, pieceY, state } from './state.js?v=20260916l';
+import { addLabel } from './bake.js?v=20260916m';
+import { FRAME, GRID_GAP, MAT_Z, PRINT_GLOW, PRINT_SCALE, matWidth, materials, photoTexture, poolMaterial, sc, textureCache, dropNear, freeTexture, nearTexture } from './frames.js?v=20260916m';
+import { camera, scene } from './scene.js?v=20260916m';
+import { RAISES, pieceY, state } from './state.js?v=20260916m';
 
 // ---------------------------------------------------------------------------
 // Videos — the LED panel
@@ -26,8 +26,14 @@ function videoTexture(p) {
 		el.playsInline = true;
 		el.preload = 'auto';
 		el.crossOrigin = 'anonymous';
-		const t = new THREE.VideoTexture(el);
+		// **Not a VideoTexture** (2026-09-13): three's marks itself for upload
+		// every frame the video has any data, playing or paused — a full
+		// upload per frame for every panel in the room, and a hitch beside
+		// the grid it hung next to (Uli). A plain texture on the element,
+		// uploaded only when the video has decoded a new frame (below).
+		const t = new THREE.Texture(el);
 		t.colorSpace = THREE.SRGBColorSpace;
+		t.generateMipmaps = false; t.minFilter = THREE.LinearFilter; t.magFilter = THREE.LinearFilter;
 		videoCache.set(p.n, { el, texture: t, playing: false });
 	}
 	return videoCache.get(p.n);
@@ -441,6 +447,14 @@ const LOOK_EVERY = 150;              // ms between checks
 let lookedAt = 0, lastLook = 0;
 const _eye = new THREE.Vector3(), _dir = new THREE.Vector3(), _to = new THREE.Vector3(), _pn = new THREE.Vector3();
 
+// The texture follows the frames the video actually decodes — the
+// browser says when there is one — and stops with the video.
+function follow(v) {
+	if (!v.playing) return;
+	if (v.el.requestVideoFrameCallback) v.el.requestVideoFrameCallback(() => { v.texture.needsUpdate = true; follow(v); });
+	else requestAnimationFrame(() => { v.texture.needsUpdate = true; follow(v); });   // the older way: once a frame while it plays
+}
+
 export function stepVideos(now) {
 	if (!videoCache.size) return;
 	if (now - lastLook < LOOK_EVERY) return;
@@ -464,7 +478,7 @@ export function stepVideos(now) {
 	lookedAt = best;
 	for (const [n, v] of videoCache) {
 		if (n === best) {
-			if (!v.playing) { v.playing = true; v.el.play().catch(() => { v.playing = false; }); }
+			if (!v.playing) { v.playing = true; v.el.play().then(() => follow(v)).catch(() => { v.playing = false; }); }
 		} else if (v.playing) {
 			v.playing = false;
 			v.el.pause();

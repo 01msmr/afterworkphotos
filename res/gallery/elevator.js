@@ -1,15 +1,15 @@
 import * as THREE from '../vendor/three.module.js';
-import { setWire, wire } from './bench.js?v=20260916l';
-import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260916l';
-import { ELEVATOR, FAV_KEY, clearRooms, firstRoom, hangRoom, raiseRoof, roomByKey, rooms } from './hang.js?v=20260916l';
-import { WALL_STYLES, applyMode, dadoTop, dressWall, wallColours } from './room.js?v=20260916l';
-import { camera, head, renderer, scene, world } from './scene.js?v=20260916l';
-import { zoomLabel, zoomPrint } from './zoom.js?v=20260916l';
-import { stickAt } from './sticker.js?v=20260916l';
-import { dropAllNear } from './video.js?v=20260916l';   // the floor's 2000s, handed back when it is left
-import { PLANS, RAISES, favCount, state } from './state.js?v=20260916l';
-import { fitRoom, planAgain } from './vr.js?v=20260916l';
-import { placeBody, walk } from './walk.js?v=20260916l';
+import { setWire, wire } from './bench.js?v=20260916m';
+import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260916m';
+import { ELEVATOR, FAV_KEY, clearRooms, firstRoom, hangRoom, raiseRoof, roomByKey, rooms } from './hang.js?v=20260916m';
+import { WALL_STYLES, applyMode, dadoTop, dressWall, wallColours } from './room.js?v=20260916m';
+import { camera, head, renderer, scene, world } from './scene.js?v=20260916m';
+import { zoomLabel, zoomPrint } from './zoom.js?v=20260916m';
+import { stickAt } from './sticker.js?v=20260916m';
+import { dropAllNear } from './video.js?v=20260916m';   // the floor's 2000s, handed back when it is left
+import { PLANS, RAISES, favCount, state } from './state.js?v=20260916m';
+import { fitRoom, planAgain } from './vr.js?v=20260916m';
+import { placeBody, walk } from './walk.js?v=20260916m';
 
 // ---------------------------------------------------------------------------
 // The elevator
@@ -97,6 +97,25 @@ function buttonFace(year, room, wide = 1) {
 	t.colorSpace = THREE.SRGBColorSpace;
 	t.anisotropy = renderer.capabilities.getMaxAnisotropy();
 	return t;
+}
+
+// Boxes already set in place, welded into one geometry.
+function merged(geos) {
+	const pos = [], nor = [], uv = [], idx = [];
+	let base = 0;
+	for (const g of geos) {
+		const P = g.attributes.position, N = g.attributes.normal, U = g.attributes.uv, I = g.index;
+		pos.push(...P.array); nor.push(...N.array); uv.push(...U.array);
+		for (let i = 0; i < I.count; i++) idx.push(I.getX(i) + base);
+		base += P.count;
+		g.dispose();
+	}
+	const out = new THREE.BufferGeometry();
+	out.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+	out.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+	out.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+	out.setIndex(idx);
+	return out;
 }
 
 // The floor display: the room you are on; during a ride, each floor
@@ -576,6 +595,11 @@ export const elevator = {
 			// blended every frame, for a look the plate did not need.
 			this.buttons = [];
 			const { w, h, rise, gap } = BUTTON;
+			// **The pockets are one mesh, the steels another** (2026-09-13):
+			// neither moves — a press dips the cap alone — and forty-six draw
+			// calls for them were a quarter of the cabin's.
+			const pockets = [], steels = [];
+			const sink = (geo, x, y, z, list) => list.push(geo.clone().translate(x, y, z));
 			const pocketGeo = new THREE.BoxGeometry(w + 2 * gap, h + 2 * gap, 0.001);
 			const steelGeo = new THREE.BoxGeometry(w, h, 0.002);
 			const capGeo = new THREE.BoxGeometry(w, h, rise);
@@ -607,8 +631,8 @@ export const elevator = {
 					panel.add(m);
 					return m;
 				};
-				put('pocket', pocketGeo, pocketMat, -0.0005);
-				put('steel', steelGeo, steelMat, -0.002);
+				sink(pocketGeo, x, y, -0.0005, pockets);
+				sink(steelGeo, x, y, -0.002, steels);
 				const cap = put('cap', capGeo, new THREE.MeshStandardMaterial({ color: MILK, roughness: 0.45, metalness: 0, emissive: GREEN, emissiveIntensity: 0, envMapIntensity: 0.5, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -6 }), -0.003 - rise / 2);
 				cap.userData.cap = true;
 				// the print: a clear plane 1.2 mm before the cap, turned to face
@@ -641,8 +665,8 @@ export const elevator = {
 					panel.add(m);
 					return m;
 				};
-				put('pocket', pocketGeoF, pocketMat, -0.0005);
-				put('steel', steelGeoF, steelMat, -0.002);
+				sink(pocketGeoF, fx, fy, -0.0005, pockets);
+				sink(steelGeoF, fx, fy, -0.002, steels);
 				const cap = put('cap', capGeoF, new THREE.MeshStandardMaterial({ color: MILK, roughness: 0.45, metalness: 0, emissive: FAV_RED, emissiveIntensity: 0, envMapIntensity: 0.5, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -6 }), -0.003 - rise / 2);
 				cap.userData.cap = true;
 				cap.userData.fav = true;
@@ -651,6 +675,8 @@ export const elevator = {
 				print.renderOrder = 2;
 				this.buttons.push(cap, print);
 			}
+			const pm = new THREE.Mesh(merged(pockets), pocketMat); pm.name = 'pockets'; panel.add(pm);
+			const sm = new THREE.Mesh(merged(steels), steelMat); sm.name = 'steels'; panel.add(sm);
 			this.panel = panel;
 		}
 		this.panel.position.set(ix0 + 0.10 + plateW / 2, (PANEL.low + PANEL.high) / 2, iz1 - 0.0105 - PANEL.depth);
@@ -1008,7 +1034,7 @@ export function setSetting(k, v) {
 	switch (k) {
 		case 'dark':   applyMode(v); break;
 		case 'frame':  applyFrameLook(materials.frame, v); break;
-		case 'labels': scene.traverse(o => { if (o.name === 'label') o.visible = v; }); break;
+		case 'labels': scene.traverse(o => { if (o.name === 'label' || o.name === 'label-rims') o.visible = v; }); break;
 		case 'plan':   planAgain(); break;    // the scan planned again; with no scan the switch only shows its state
 		case 'mat':
 			materials.mat.color.setHex(MAT_COLOURS[v]);
