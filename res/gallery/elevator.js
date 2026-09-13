@@ -1,15 +1,15 @@
 import * as THREE from '../vendor/three.module.js';
-import { setWire, wire } from './bench.js?v=20260916k';
-import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260916k';
-import { ELEVATOR, FAV_KEY, clearRooms, firstRoom, hangRoom, raiseRoof, roomByKey, rooms } from './hang.js?v=20260916k';
-import { WALL_STYLES, applyMode, dadoTop, dressWall, wallColours } from './room.js?v=20260916k';
-import { camera, head, renderer, scene, world } from './scene.js?v=20260916k';
-import { zoomLabel, zoomPrint } from './zoom.js?v=20260916k';
-import { stickAt } from './sticker.js?v=20260916k';
-import { dropAllNear } from './video.js?v=20260916k';   // the floor's 2000s, handed back when it is left
-import { PLANS, RAISES, favCount, state } from './state.js?v=20260916k';
-import { fitRoom, planAgain } from './vr.js?v=20260916k';
-import { placeBody, walk } from './walk.js?v=20260916k';
+import { setWire, wire } from './bench.js?v=20260916l';
+import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260916l';
+import { ELEVATOR, FAV_KEY, clearRooms, firstRoom, hangRoom, raiseRoof, roomByKey, rooms } from './hang.js?v=20260916l';
+import { WALL_STYLES, applyMode, dadoTop, dressWall, wallColours } from './room.js?v=20260916l';
+import { camera, head, renderer, scene, world } from './scene.js?v=20260916l';
+import { zoomLabel, zoomPrint } from './zoom.js?v=20260916l';
+import { stickAt } from './sticker.js?v=20260916l';
+import { dropAllNear } from './video.js?v=20260916l';   // the floor's 2000s, handed back when it is left
+import { PLANS, RAISES, favCount, state } from './state.js?v=20260916l';
+import { fitRoom, planAgain } from './vr.js?v=20260916l';
+import { placeBody, walk } from './walk.js?v=20260916l';
 
 // ---------------------------------------------------------------------------
 // The elevator
@@ -41,7 +41,7 @@ const cabinInner = new THREE.MeshLambertMaterial({ color: 0xcfccc5 });
 const displayBack = new THREE.MeshStandardMaterial({ color: 0x0c0c0c, roughness: 0.4, metalness: 0.2 });
 const cabinFloor = new THREE.MeshLambertMaterial({ color: 0x5a5854 });
 const panelPlate = new THREE.MeshStandardMaterial({ color: 0x2b2b2d, metalness: 0.5, roughness: 0.45 });   // anthracite: the switchplate outside
-const GREEN = 0x46ff7a;                                                                                    // the lit floor
+const GREEN = 0x46ff7a, MILK = 0xefece4;   // the lit floor; a cap's milky white                                                                                    // the lit floor
 // The console's walnut (Uli): the dark wood set, tiled every half metre —
 // `rx`, `ry` are the tiles across the face it is put on.
 export const walnut = (rx, ry) => new THREE.MeshStandardMaterial({
@@ -568,8 +568,12 @@ export const elevator = {
 			panel.add(this.floorLamp);
 
 			// A button: a black pocket in the plate, brushed steel at its bottom,
-			// a clear cap standing proud of it, the year printed on the cap. Lit,
-			// the cap glows green (light()).
+			// a **milky white cap** standing proud of it, the year printed on the
+			// cap. Lit, the cap glows green (light()). The cap was clear — white
+			// at 0.28 over the steel — until 2026-09-13 (Uli: milky, and plain
+			// colours for its states, not translucency): thirty-odd translucent
+			// caps were thirty-odd things in the transparent queue, sorted and
+			// blended every frame, for a look the plate did not need.
 			this.buttons = [];
 			const { w, h, rise, gap } = BUTTON;
 			const pocketGeo = new THREE.BoxGeometry(w + 2 * gap, h + 2 * gap, 0.001);
@@ -605,7 +609,7 @@ export const elevator = {
 				};
 				put('pocket', pocketGeo, pocketMat, -0.0005);
 				put('steel', steelGeo, steelMat, -0.002);
-				const cap = put('cap', capGeo, new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.28, roughness: 0.3, metalness: 0, emissive: GREEN, emissiveIntensity: 0, envMapIntensity: 0.5, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -6 }), -0.003 - rise / 2);
+				const cap = put('cap', capGeo, new THREE.MeshStandardMaterial({ color: MILK, roughness: 0.45, metalness: 0, emissive: GREEN, emissiveIntensity: 0, envMapIntensity: 0.5, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -6 }), -0.003 - rise / 2);
 				cap.userData.cap = true;
 				// the print: a clear plane 1.2 mm before the cap, turned to face
 				// into the cabin (-z) so the year reads the right way round —
@@ -639,7 +643,7 @@ export const elevator = {
 				};
 				put('pocket', pocketGeoF, pocketMat, -0.0005);
 				put('steel', steelGeoF, steelMat, -0.002);
-				const cap = put('cap', capGeoF, new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.28, roughness: 0.3, metalness: 0, emissive: FAV_RED, emissiveIntensity: 0, envMapIntensity: 0.5, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -6 }), -0.003 - rise / 2);
+				const cap = put('cap', capGeoF, new THREE.MeshStandardMaterial({ color: MILK, roughness: 0.45, metalness: 0, emissive: FAV_RED, emissiveIntensity: 0, envMapIntensity: 0.5, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -6 }), -0.003 - rise / 2);
 				cap.userData.cap = true;
 				cap.userData.fav = true;
 				const print = put('print', printGeoF, new THREE.MeshBasicMaterial({ map: buttonFace('favourites', favRoom, wide), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -8 }), -0.003 - rise - 0.0012);
@@ -681,7 +685,7 @@ export const elevator = {
 	// there is a dot, and green when you are standing on it. It is **never
 	// shown as visited**: a floor of your own favourites is not somewhere
 	// you have got out of the way.
-	FAV_DEAD: { colour: 0x26282a, opacity: 0.7 },
+	FAV_DEAD: 0x26282a,
 	light(key) {
 		let lit = null;
 		for (const b of this.buttons) {
@@ -690,15 +694,13 @@ export const elevator = {
 			if (b.userData.fav) {
 				const empty = !favCount();
 				m.emissiveIntensity = on ? 1.3 : 0;
-				m.opacity = on ? 0.9 : empty ? this.FAV_DEAD.opacity : 0.28;
-				m.color.set(on ? FAV_LIT : empty ? this.FAV_DEAD.colour : 0xffffff);   // lit, the sticker's red (Uli)
+				m.color.set(on ? FAV_LIT : empty ? this.FAV_DEAD : MILK);   // lit, the sticker's red (Uli)
 				if (on && !lit) lit = b;
 				continue;
 			}
 			const seen = !on && state.seen[b.userData.key];
 			m.emissiveIntensity = on ? 1.3 : 0;
-			m.opacity = on ? 0.9 : seen ? 0.62 : 0.28;      // lit, the cap fills with green light; seen, it goes grey
-			m.color.set(on ? 0x2a5a38 : seen ? 0x45474a : 0xffffff);   // a darker grey than the first try (Uli, 2026-09-12)
+			m.color.set(on ? 0x2a5a38 : seen ? 0x45474a : MILK);   // lit, the cap fills with green light; seen, it goes grey — a darker grey than the first try (Uli, 2026-09-12)
 			if (on && !lit) lit = b;
 		}
 		// the floor's lamp stands 2 cm off the (first) lit button
