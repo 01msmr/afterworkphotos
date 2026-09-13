@@ -1,15 +1,15 @@
 import * as THREE from '../vendor/three.module.js';
-import { setWire, wire } from './bench.js?v=20260916n';
-import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260916n';
-import { ELEVATOR, FAV_KEY, clearRooms, firstRoom, hangRoom, raiseRoof, roomByKey, rooms } from './hang.js?v=20260916n';
-import { WALL_STYLES, applyMode, dadoTop, dressWall, wallColours } from './room.js?v=20260916n';
-import { camera, head, renderer, scene, world } from './scene.js?v=20260916n';
-import { zoomLabel, zoomPrint } from './zoom.js?v=20260916n';
-import { stickAt } from './sticker.js?v=20260916n';
-import { dropAllNear } from './video.js?v=20260916n';   // the floor's 2000s, handed back when it is left
-import { PLANS, RAISES, favCount, state } from './state.js?v=20260916n';
-import { fitRoom, planAgain } from './vr.js?v=20260916n';
-import { placeBody, walk } from './walk.js?v=20260916n';
+import { setWire, wire } from './bench.js?v=20260916o';
+import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260916o';
+import { ELEVATOR, FAV_KEY, clearRooms, firstRoom, hangRoom, raiseRoof, roomByKey, rooms } from './hang.js?v=20260916o';
+import { WALL_STYLES, applyMode, applyNormals, dadoTop, dressWall, wallColours } from './room.js?v=20260916o';
+import { camera, head, renderer, scene, world } from './scene.js?v=20260916o';
+import { zoomLabel, zoomPrint } from './zoom.js?v=20260916o';
+import { stickAt } from './sticker.js?v=20260916o';
+import { dropAllNear } from './video.js?v=20260916o';   // the floor's 2000s, handed back when it is left
+import { PLANS, RAISES, favCount, state } from './state.js?v=20260916o';
+import { fitRoom, planAgain } from './vr.js?v=20260916o';
+import { placeBody, walk } from './walk.js?v=20260916o';
 
 // ---------------------------------------------------------------------------
 // The elevator
@@ -273,7 +273,8 @@ const SWITCHES = [
 	{ key: 'talk',   label: 'guard',  value: () => state.settings.talk,                    press: () => setSetting('talk', state.settings.talk === 'light' ? 'heavy' : 'light') },   // how much it says (Uli)
 	{ key: 'raise',  label: 'height', value: () => state.settings.raise ? '+1 m' : 'as is',        press: () => setSetting('raise', RAISES[(RAISES.indexOf(state.settings.raise) + 1) % RAISES.length]) },   // a metre more room, on every floor (Uli)
 	{ key: 'wire',   label: 'wire',   value: () => wire ? 'on' : 'off',                    press: () => setWire(!wire), small: true },   // a smaller button centred under the rows (Uli)
-	{ key: 'pools',  label: 'pools',  value: () => state.settings.pools ? 'on' : 'off',    press: () => setSetting('pools', !state.settings.pools), small: true },   // the warm pools on the walls, off to read what their fill costs on the display (2026-09-13)
+	{ key: 'pools',  label: 'pools',  value: () => state.settings.pools ? 'on' : 'off',    press: () => setSetting('pools', !state.settings.pools), small: true },
+	{ key: 'normals', label: 'normals', value: () => state.settings.normals ? 'on' : 'off', press: () => setSetting('normals', !state.settings.normals), small: true },   // the relief maps on floor, walls and cabin, off to read their shading's cost (2026-09-13)   // the warm pools on the walls, off to read what their fill costs on the display (2026-09-13)
 ];
 
 // Recentre (Uli): the room turned and shifted round the visitor so that
@@ -1034,9 +1035,10 @@ export function setSetting(k, v) {
 	saveSettings();
 	switch (k) {
 		case 'dark':   applyMode(v); break;
-		case 'frame':  applyFrameLook(materials.frame, v); break;
+		case 'frame':  applyFrameLook(materials.frame, v); if (!state.settings.normals) applyNormals(false); break;   // the new wood brings its relief back
 		case 'labels': scene.traverse(o => { if (o.name === 'label' || o.name === 'label-rims') o.visible = v; }); break;
 		case 'pools':  scene.traverse(o => { if (o.name === 'pools') o.visible = v; }); break;
+		case 'normals': applyNormals(v); break;
 		case 'plan':   planAgain(); break;    // the scan planned again; with no scan the switch only shows its state
 		case 'mat':
 			materials.mat.color.setHex(MAT_COLOURS[v]);

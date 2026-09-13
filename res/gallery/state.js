@@ -5,7 +5,7 @@
 // centre at 1.5 m. Light mode is the white cube; dark mode is the same room
 // at night, ambient almost off, the spots alone.
 
-const DEFAULTS = { W: 6, D: 4, H: 3, dark: false, frame: 'maple', mat: 'white', scale: 1, labels: true, plan: 'grid', raise: 0, fill: false, talk: 'light', pools: true };   // plan: what a scanned room is made of (Uli, 2026-09-10) — see PLANS
+const DEFAULTS = { W: 6, D: 4, H: 3, dark: false, frame: 'maple', mat: 'white', scale: 1, labels: true, plan: 'grid', raise: 0, fill: false, talk: 'light', pools: true, normals: true };   // plan: what a scanned room is made of (Uli, 2026-09-10) — see PLANS
 
 // Settings come from the defaults, then what the switchboard saved last
 // time (localStorage 'galleryS'), then the URL — /gallery/?frame=black
@@ -40,6 +40,7 @@ export function loadSettings() {
 	s.raise = RAISES.includes(Number(s.raise)) ? Number(s.raise) : DEFAULTS.raise;
 	s.fill = s.fill === true || s.fill === '1' || s.fill === 'true';   // which way round a print rests (Uli, 2026-09-11)
 	s.pools = !(s.pools === false || s.pools === '0' || s.pools === 'false');   // the warm pools on the walls: a switch to measure their fill (2026-09-13)
+	s.normals = !(s.normals === false || s.normals === '0' || s.normals === 'false');   // the normal maps on floor, walls and cabin: the same, for their shading
 	if (!['light', 'heavy'].includes(s.talk)) s.talk = DEFAULTS.talk;   // how much the guard says (Uli, 2026-09-12)
 	if (![1, 0.8].includes(s.scale)) s.scale = DEFAULTS.scale;
 	for (const k of ['W', 'D', 'H']) if (!(s[k] >= 2 && s[k] <= 40)) s[k] = DEFAULTS[k];
