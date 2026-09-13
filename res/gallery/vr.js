@@ -1,11 +1,11 @@
 import * as THREE from '../vendor/three.module.js';
-import { BUTTON, elevator, pressAlong, settingsMap } from './elevator.js?v=20260916m';
-import { cornerFree, outlineOf, planOf, rotShape } from './plan.js?v=20260916m';
-import { tabletHit } from './tablet.js?v=20260916m';
-import { ELEVATOR, clearRooms, hangRoom, rooms } from './hang.js?v=20260916m';
-import { camera, head, renderer, rig, scene, world } from './scene.js?v=20260916m';
-import { loadSettings, state } from './state.js?v=20260916m';
-import { placeBody, walk } from './walk.js?v=20260916m';
+import { BUTTON, elevator, pressAlong, settingsMap } from './elevator.js?v=20260916n';
+import { cornerFree, outlineOf, planOf, rotShape } from './plan.js?v=20260916n';
+import { tabletHit } from './tablet.js?v=20260916n';
+import { ELEVATOR, clearRooms, hangRoom, rooms } from './hang.js?v=20260916n';
+import { camera, head, renderer, rig, scene, world } from './scene.js?v=20260916n';
+import { loadSettings, state } from './state.js?v=20260916n';
+import { placeBody, walk } from './walk.js?v=20260916n';
 
 // ---------------------------------------------------------------------------
 // VR (phase 2, first step)
