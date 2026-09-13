@@ -1,8 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
-import { addLabel } from './bake.js?v=20260916c';
-import { FRAME, GRID_GAP, MAT_Z, PRINT_GLOW, PRINT_SCALE, matWidth, materials, photoTexture, poolMaterial, sc, textureCache, dropNear, nearTexture } from './frames.js?v=20260916c';
-import { camera, scene } from './scene.js?v=20260916c';
-import { pieceY, state } from './state.js?v=20260916c';
+import { addLabel } from './bake.js?v=20260916d';
+import { FRAME, GRID_GAP, MAT_Z, PRINT_GLOW, PRINT_SCALE, matWidth, materials, photoTexture, poolMaterial, sc, textureCache, dropNear, nearTexture } from './frames.js?v=20260916d';
+import { camera, scene } from './scene.js?v=20260916d';
+import { pieceY, state } from './state.js?v=20260916d';
 
 // ---------------------------------------------------------------------------
 // Videos — the LED panel
@@ -170,6 +170,28 @@ export function makeVideoPanel(p, size) {
 
 	g.userData = { n: p.n, w: outer, h: outer, video: true };
 	return g;
+}
+
+// **Every 2000 handed back at once, the moment the floor is left** (Uli,
+// 2026-09-13). They were freed at the next hang, which is a little later
+// and a worse moment: the old floor's big files were still held while the
+// new floor's were being read, so the two rooms' memory overlapped exactly
+// when a ride is busiest. Called when the doors have shut on a ride —
+// **not** on any door closing, since the doors also shut on their own some
+// seconds after a visitor has walked out into the room, and dropping there
+// would strip the pictures of somebody still standing in front of them.
+export function dropAllNear() {
+	const pieces = scene.getObjectByName('pieces');
+	if (!pieces) return 0;
+	let gone = 0;
+	pieces.traverse(o => {
+		const u = o.userData;
+		if (o.name !== 'photo' || !u.over) return;
+		const m = u.over.material;
+		u.over.visible = false;
+		if (m.map !== BLANK) { m.map = BLANK; m.emissiveMap = BLANK; dropNear(u.photo); gone++; }
+	});
+	return gone;
 }
 
 export function freeTexturesExcept(keep) {

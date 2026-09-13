@@ -1,15 +1,16 @@
 import * as THREE from '../vendor/three.module.js';
-import { setWire, wire } from './bench.js?v=20260916c';
-import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260916c';
-import { ELEVATOR, FAV_KEY, clearRooms, firstRoom, hangRoom, roomByKey, rooms } from './hang.js?v=20260916c';
-import { WALL_STYLES, applyMode, dadoTop, dressWall, wallColours } from './room.js?v=20260916c';
-import { camera, head, renderer, scene, world } from './scene.js?v=20260916c';
-import { zoomLabel, zoomPrint } from './zoom.js?v=20260916c';
-import { DRAWN, measure, textMesh } from './text.js?v=20260916c';
-import { stickAt } from './sticker.js?v=20260916c';
-import { PLANS, RAISES, favCount, state } from './state.js?v=20260916c';
-import { fitRoom, planAgain } from './vr.js?v=20260916c';
-import { placeBody, walk } from './walk.js?v=20260916c';
+import { setWire, wire } from './bench.js?v=20260916d';
+import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260916d';
+import { ELEVATOR, FAV_KEY, clearRooms, firstRoom, hangRoom, roomByKey, rooms } from './hang.js?v=20260916d';
+import { WALL_STYLES, applyMode, dadoTop, dressWall, wallColours } from './room.js?v=20260916d';
+import { camera, head, renderer, scene, world } from './scene.js?v=20260916d';
+import { zoomLabel, zoomPrint } from './zoom.js?v=20260916d';
+import { DRAWN, measure, textMesh } from './text.js?v=20260916d';
+import { stickAt } from './sticker.js?v=20260916d';
+import { dropAllNear } from './video.js?v=20260916d';   // the floor's 2000s, handed back when it is left
+import { PLANS, RAISES, favCount, state } from './state.js?v=20260916d';
+import { fitRoom, planAgain } from './vr.js?v=20260916d';
+import { placeBody, walk } from './walk.js?v=20260916d';
 
 // ---------------------------------------------------------------------------
 // The elevator
@@ -821,6 +822,7 @@ export const elevator = {
 		const close = DOOR_T / 1000;
 		if (t < close) { this.setDoors(1 - t / close); return; }
 		if (!r.hung) {
+			dropAllNear();                         // the floor is left: its 2000s go back before the next floor's are read
 			lift.run(r.travel);
 			// the new room's cabin may stand elsewhere: the body keeps its
 			// place and look in the cabin, not put back facing the doors (Uli)
