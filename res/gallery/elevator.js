@@ -1,15 +1,15 @@
 import * as THREE from '../vendor/three.module.js';
-import { setWire, wire } from './bench.js?v=20260916q';
-import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260916q';
-import { ELEVATOR, FAV_KEY, clearRooms, firstRoom, hangRoom, raiseRoof, roomByKey, rooms } from './hang.js?v=20260916q';
-import { WALL_STYLES, applyMode, dadoTop, dressWall, wallColours } from './room.js?v=20260916q';
-import { camera, head, renderer, scene, world } from './scene.js?v=20260916q';
-import { applyFill, zoomLabel, zoomPrint } from './zoom.js?v=20260916q';
-import { stickAt } from './sticker.js?v=20260916q';
-import { dropAllNear } from './video.js?v=20260916q';   // the floor's 2000s, handed back when it is left
-import { PLANS, RAISES, favCount, state } from './state.js?v=20260916q';
-import { fitRoom, planAgain } from './vr.js?v=20260916q';
-import { placeBody, walk } from './walk.js?v=20260916q';
+import { setWire, wire } from './bench.js?v=20260918a';
+import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260918a';
+import { ELEVATOR, FAV_KEY, clearRooms, firstRoom, hangRoom, raiseRoof, roomByKey, rooms } from './hang.js?v=20260918a';
+import { WALL_STYLES, applyMode, dadoTop, dressWall, wallColours } from './room.js?v=20260918a';
+import { camera, head, renderer, scene, world } from './scene.js?v=20260918a';
+import { applyFill, zoomLabel, zoomPrint } from './zoom.js?v=20260918a';
+import { stickAt } from './sticker.js?v=20260918a';
+import { dropAllNear } from './video.js?v=20260918a';   // the floor's 2000s, handed back when it is left
+import { PLANS, RAISES, favCount, state } from './state.js?v=20260918a';
+import { fitRoom, planAgain } from './vr.js?v=20260918a';
+import { placeBody, walk } from './walk.js?v=20260918a';
 
 // ---------------------------------------------------------------------------
 // The elevator

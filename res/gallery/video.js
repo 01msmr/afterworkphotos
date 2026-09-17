@@ -1,8 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
-import { addLabel } from './bake.js?v=20260916q';
-import { FRAME, GRID_GAP, MAT_Z, PRINT_GLOW, PRINT_SCALE, matWidth, materials, photoTexture, poolMaterial, sc, textureCache, dropNear, freeTexture, nearTexture } from './frames.js?v=20260916q';
-import { camera, scene } from './scene.js?v=20260916q';
-import { RAISES, pieceY, state } from './state.js?v=20260916q';
+import { addLabel } from './bake.js?v=20260918a';
+import { FRAME, GRID_GAP, MAT_Z, PRINT_GLOW, PRINT_SCALE, matWidth, materials, photoTexture, poolMaterial, sc, textureCache, dropNear, freeTexture, nearTexture } from './frames.js?v=20260918a';
+import { camera, scene } from './scene.js?v=20260918a';
+import { RAISES, pieceY, state } from './state.js?v=20260918a';
 
 // ---------------------------------------------------------------------------
 // Videos — the LED panel
@@ -270,6 +270,19 @@ function barGeometry(length, face, depth, horizontal) {
 	return g;
 }
 
+// a square with a square hole: a frame's face, for the pointer alone
+const ringCache = new Map();
+function ringGeometry(outer, inner) {
+	const key = `${outer.toFixed(4)}|${inner.toFixed(4)}`;
+	if (ringCache.has(key)) return ringCache.get(key);
+	const sq = (path, h) => { path.moveTo(-h, -h); path.lineTo(h, -h); path.lineTo(h, h); path.lineTo(-h, h); path.closePath(); return path; };
+	const shape = sq(new THREE.Shape(), outer / 2);
+	shape.holes.push(sq(new THREE.Path(), inner / 2));
+	const geo = new THREE.ShapeGeometry(shape);
+	ringCache.set(key, geo);
+	return geo;
+}
+
 function makeFramedPrint(p, size) {
 	const g = new THREE.Group();
 	g.name = `print-${p.n}`;
@@ -349,6 +362,19 @@ function makeFramedPrint(p, size) {
 	if (state.settings.fill) print.scale.setScalar(print.userData.full);   // unless filling the frame is the way round it starts (Uli)
 	g.add(print);
 	g.add(area);
+	// **And the wood round it** (Uli, 2026-09-18: aimed at a framed picture,
+	// the brackets did not always come). The bars are baked into one mesh
+	// for the room (bake.js), which the pointer never asks — a ray at the
+	// frame went through the wood to the plaster behind, and the pointer
+	// offered a dot on the wall, 4 cm too deep. A second pane, the frame's
+	// face with the opening cut out of it, on the bars' front: the whole
+	// framed picture answers, and the cursor lies on the wood, not under it.
+	const wood = new THREE.Mesh(ringGeometry(outer, inner), materials.mat);
+	wood.name = 'photo-area';
+	wood.visible = false;
+	wood.position.z = FRAME.depth * k + 0.0005;
+	wood.userData.print = print;
+	g.add(wood);
 	// the shadow that millimetre throws: a faint dark rim just behind the
 	// print, a hair larger and pushed down and to the right
 	const rim = new THREE.Mesh(new THREE.PlaneGeometry(printed + 0.003, printed + 0.003), materials.rim);
