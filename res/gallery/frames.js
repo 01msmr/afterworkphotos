@@ -1,7 +1,7 @@
 import * as THREE from '../vendor/three.module.js';
-import { walnut } from './elevator.js?v=20260916q';
-import { renderer, scene } from './scene.js?v=20260916q';
-import { state } from './state.js?v=20260916q';
+import { walnut } from './elevator.js?v=20260918a';
+import { renderer, scene } from './scene.js?v=20260918a';
+import { state } from './state.js?v=20260918a';
 
 // ---------------------------------------------------------------------------
 // The frames
@@ -240,9 +240,29 @@ function fetchInto(t, files, px) {
 	const next = () => fetch('/' + files[at])
 		.then(r => { if (!r.ok) throw new Error(`${r.status} ${files[at]}`); return r.blob(); })
 		.then(b => createImageBitmap(b, { premultiplyAlpha: 'none', colorSpaceConversion: 'none', ...fit }))
-		.then(bmp => { t.image = bmp; t.needsUpdate = true; renderer.initTexture(t); })
+		.then(bmp => { uploads.push([t, bmp]); })   // to the GPU in its turn (stepUploads), not as it lands
 		.catch(e => { if (++at < files.length) next(); else console.warn('photo not loaded', e); });
 	next();
+}
+// **One upload a frame, not as many as have landed** (Uli, 2026-09-18: the
+// view wiggles as the doors shut). initTexture is synchronous — 13 to 19 ms
+// for a 1200 on the bench, mipmaps and all — and a room's thirty-odd files,
+// asked for together at the hang, land together: three and four to an
+// animation frame, 100 ms frames one after another, and the headset swims
+// the stale picture meanwhile. That was the wiggle, never the hang (2 to
+// 20 ms). The bitmaps queue here; a frame sends one up, and more only
+// while it has spent under 4 ms on them. **The texture gets its image at
+// its upload**, so whatever asks `t.image` — the lift holding its doors,
+// the near sheet waiting to show — is asking whether it is on the GPU.
+const uploads = [];
+export function stepUploads() {
+	const t0 = performance.now();
+	while (uploads.length) {
+		const [t, bmp] = uploads.shift();
+		if (t.userData.freed) { bmp.close(); continue; }   // let go while it waited
+		t.image = bmp; t.needsUpdate = true; renderer.initTexture(t);
+		if (performance.now() - t0 > 4) break;
+	}
 }
 function emptyTexture() {
 	const t = new THREE.Texture();
@@ -283,6 +303,7 @@ export function freeTexture(key) {
 	const t = textureCache.get(key);
 	if (!t) return;
 	t.dispose();
+	t.userData.freed = true;                 // a bitmap still queued for it is closed in its turn (stepUploads)
 	if (t.image && t.image.close) t.image.close();
 	textureCache.delete(key);
 }

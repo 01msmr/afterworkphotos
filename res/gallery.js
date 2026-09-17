@@ -1,23 +1,23 @@
 // three.js 0.180.0, vendored (MIT) — res/vendor/three.module.js, which in
 // turn imports res/vendor/three.core.js; both are pinned together.
-import { stats, stepStats, wire } from './gallery/bench.js?v=20260916q';
-import { elevator, lift, pressAt, setSetting } from './gallery/elevator.js?v=20260916q';
-import { stepCards } from './gallery/bake.js?v=20260916q';   // after elevator.js: bake → frames → room → elevator is a cycle, and the lift's steel asks frames for a texture as it loads
-import { materials } from './gallery/frames.js?v=20260916q';
-import { ELEVATOR, hangRoom, packRun, piecesOf, replan, firstRoom, rooms, spread, upright } from './gallery/hang.js?v=20260916q';
-import { stepSticker } from './gallery/sticker.js?v=20260916q';
-import { jump, stepJump } from './gallery/jump.js?v=20260916q';
-import { stepTablet, tabletHit, toggleTablet } from './gallery/tablet.js?v=20260916q';
-import { nextLine, placeGuard, stepGuard } from './gallery/guard.js?v=20260916q';
-import { musicLevel, playing, stepMusic } from './gallery/music.js?v=20260916q';
-import { stepZoom, zoomLabel, zoomPrint } from './gallery/zoom.js?v=20260916q';
-import { applyMode, buildRoom, stepMode } from './gallery/room.js?v=20260916q';
-import { planOf } from './gallery/plan.js?v=20260916q';
-import { camera, renderer, rig, scene, world } from './gallery/scene.js?v=20260916q';
-import { EYE, state } from './gallery/state.js?v=20260916q';
-import { makePiece, makeVideoPanel, stepDetail, stepVideos, videoCache } from './gallery/video.js?v=20260916q';
-import { benchScan, fitRoom, stepPlanes } from './gallery/vr.js?v=20260916q';
-import { applyLook, placeBody, stepWalk, walk } from './gallery/walk.js?v=20260916q';
+import { stats, stepStats, wire } from './gallery/bench.js?v=20260918a';
+import { elevator, lift, pressAt, setSetting } from './gallery/elevator.js?v=20260918a';
+import { stepCards } from './gallery/bake.js?v=20260918a';   // after elevator.js: bake → frames → room → elevator is a cycle, and the lift's steel asks frames for a texture as it loads
+import { materials, stepUploads } from './gallery/frames.js?v=20260918a';
+import { ELEVATOR, hangRoom, packRun, piecesOf, replan, firstRoom, rooms, spread, upright } from './gallery/hang.js?v=20260918a';
+import { stepSticker } from './gallery/sticker.js?v=20260918a';
+import { jump, stepJump } from './gallery/jump.js?v=20260918a';
+import { stepTablet, tabletHit, toggleTablet } from './gallery/tablet.js?v=20260918a';
+import { nextLine, placeGuard, stepGuard } from './gallery/guard.js?v=20260918a';
+import { musicLevel, playing, stepMusic } from './gallery/music.js?v=20260918a';
+import { stepZoom, zoomLabel, zoomPrint } from './gallery/zoom.js?v=20260918a';
+import { applyMode, buildRoom, stepMode } from './gallery/room.js?v=20260918a';
+import { planOf } from './gallery/plan.js?v=20260918a';
+import { camera, renderer, rig, scene, world } from './gallery/scene.js?v=20260918a';
+import { EYE, state } from './gallery/state.js?v=20260918a';
+import { makePiece, makeVideoPanel, stepDetail, stepVideos, videoCache } from './gallery/video.js?v=20260918a';
+import { benchScan, fitRoom, stepPlanes } from './gallery/vr.js?v=20260918a';
+import { applyLook, placeBody, stepWalk, walk } from './gallery/walk.js?v=20260918a';
 
 // ---------------------------------------------------------------------------
 // Boot
@@ -68,6 +68,7 @@ renderer.setAnimationLoop((now, frame) => {
 	step('tablet', () => stepTablet());
 	step('sticker', () => stepSticker());
 	step('zoom', () => stepZoom(now));
+	step('uploads', () => stepUploads());
 	step('cards', () => stepCards());
 	step('music', () => stepMusic(now));
 	step('guard', () => stepGuard(now));
