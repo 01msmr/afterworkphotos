@@ -1,8 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
-import { camera, renderer, scene } from './scene.js?v=20260918a';
-import { isFav, toggleFav } from './state.js?v=20260918a';
-import { elevator } from './elevator.js?v=20260918a';   // only to ask whether the visitor is in the cabin
-import { CARD_D } from './bake.js?v=20260918a';
+import { camera, renderer, scene } from './scene.js?v=20260918b';
+import { isFav, toggleFav } from './state.js?v=20260918b';
+import { elevator } from './elevator.js?v=20260918b';   // only to ask whether the visitor is in the cabin
+import { CARD_D } from './bake.js?v=20260918b';
 
 // ---------------------------------------------------------------------------
 // Red dots
@@ -164,9 +164,31 @@ function aimed() {
 		_d.set(0, 0, -1).applyQuaternion(_q);
 		const rc = new THREE.Raycaster(_o.clone(), _d.clone());
 		const hit = surfaceHit(rc);
-		if (hit && (!best || hit.distance < best.d)) best = { rc, d: hit.distance };
+		// **A hand that hangs is not aiming** (Uli, 2026-09-18: the icon at
+		// the end of the stick did not always come, and came after a step
+		// nearer). The nearer hit won, whatever it was — and an idle hand
+		// points at the floor a metre off, nearer than any print the other
+		// hand is held at from further than that: the cursor lay on the
+		// floor as a dot, and the aiming stick had nothing on its end. A ray
+		// over something a press would act on goes before one over bare
+		// surface; only between equals does the nearer win.
+		if (!hit) continue;
+		const keen = overKind(hit) || nearSpot(rc, hit) ? 1 : 0;
+		if (!best || keen > best.keen || (keen === best.keen && hit.distance < best.d)) best = { rc, d: hit.distance, keen };
 	}
 	return best && best.rc;
+}
+// the sticker's place the ray comes nearest to, within SNAP — and not one
+// further along the ray than the surface in front of it, which is behind
+// something and not on offer
+function nearSpot(rc, hit) {
+	let near = null;
+	for (const s of spots) {
+		const gap = rc.ray.distanceToPoint(s.aim);
+		if (gap >= SNAP || rc.ray.origin.distanceTo(s.aim) > hit.distance + 0.3) continue;
+		if (!near || gap < near.gap) near = { s, gap };
+	}
+	return near;
 }
 // What the pointer meets: the room's own surfaces **and the pieces** — a
 // middle row hangs on a slab, not a wall, and a ray aimed at one used to
@@ -346,6 +368,7 @@ function onSurface(obj, hit, from, flat) {
 // place when the pointer comes near one.
 export function stepSticker() {
 	const d = heldDot(), x = heldCross();
+	freshen();
 	const rc = aimed();
 	const hit = rc && surfaceHit(rc);
 	if (!hit) { putBack(); settled = null; d.visible = x.visible = false; for (const c of [expand, loupe, ring, disc]) if (c) c.visible = false; over = null; return; }
@@ -354,13 +377,7 @@ export function stepSticker() {
 	// "adheres to the pointer in 12 cm range"). A place further along the
 	// ray than the surface in front of it is behind something, and is not
 	// on offer.
-	freshen();
-	let near = null;
-	for (const s of spots) {
-		const gap = rc.ray.distanceToPoint(s.aim);
-		if (gap >= SNAP || rc.ray.origin.distanceTo(s.aim) > hit.distance + 0.3) continue;
-		if (!near || gap < near.gap) near = { s, gap };
-	}
+	const near = nearSpot(rc, hit);
 	over = near ? near.s : null;
 	// exactly one cursor is up at a time
 	putBack();
