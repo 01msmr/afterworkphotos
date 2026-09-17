@@ -1,8 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
-import { camera, renderer, scene } from './scene.js?v=20260918b';
-import { isFav, toggleFav } from './state.js?v=20260918b';
-import { elevator } from './elevator.js?v=20260918b';   // only to ask whether the visitor is in the cabin
-import { CARD_D } from './bake.js?v=20260918b';
+import { camera, renderer, scene } from './scene.js?v=20260918f';
+import { isFav, toggleFav } from './state.js?v=20260918f';
+import { elevator } from './elevator.js?v=20260918f';   // only to ask whether the visitor is in the cabin
+import { CARD_D } from './bake.js?v=20260918f';
 
 // ---------------------------------------------------------------------------
 // Red dots
@@ -38,6 +38,11 @@ const between = ([a, b]) => a + Math.random() * (b - a);
 const dotGeo = new THREE.CircleGeometry(DOT_R, 20);
 const stuckMat = new THREE.MeshBasicMaterial({ color: RED, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -8 });   // on the paper or the plaster, a millimetre off it: eight depth steps forward (frames.js, STEPS)
 const heldMat = new THREE.MeshBasicMaterial({ color: RED, transparent: true, opacity: 0.5, depthTest: false });
+// **The dot on the pointer is an off-white — white with 12 % black — until
+// a sticker's place is near** (Uli, 2026-09-18): riding bare wall it is
+// only where the hand points, and red said "sticker" all over the room.
+// Snapped to a place, it is the red sticker it offers.
+const aimMat = new THREE.MeshBasicMaterial({ color: 0xe0e0e0, transparent: true, opacity: 0.9, depthTest: false });
 
 // A dot for every card of a piece, at its place, shown only if that
 // photograph carries one. Called once the labels are placed.
@@ -392,6 +397,7 @@ export function stepSticker() {
 		: inLift ? ({ button: discIcon(), plate: ringIcon() }[kind] || null)
 		: over ? (stuck ? x : d)
 		: ({ print: expandIcon(), label: loupeIcon(), button: discIcon(), plate: ringIcon() }[kind] || d);
+	d.material = over ? heldMat : aimMat;
 	for (const c of [d, x, expand, loupe, ring, disc]) if (c && c !== showing) c.visible = false;
 	if (!showing) return;                             // just pressed here, and still here: say nothing
 	if (over) {

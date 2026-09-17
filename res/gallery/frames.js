@@ -1,7 +1,7 @@
 import * as THREE from '../vendor/three.module.js';
-import { walnut } from './elevator.js?v=20260918b';
-import { renderer, scene } from './scene.js?v=20260918b';
-import { state } from './state.js?v=20260918b';
+import { walnut } from './elevator.js?v=20260918f';
+import { renderer, scene } from './scene.js?v=20260918f';
+import { state } from './state.js?v=20260918f';
 
 // ---------------------------------------------------------------------------
 // The frames
@@ -56,7 +56,6 @@ const FRAME_COLOURS = { oak: 0xb08d57, walnut: 0x5b4633, black: 0x171717, white:
 // the lift. Each is colour, roughness and normal; the metal has its
 // metalness too. The frame bars' UVs are in metres (ExtrudeGeometry), so
 // a tile every half metre; the cabin's boxes stretch one tile per face.
-const texLoader = new THREE.TextureLoader();
 // **One texture per file and tiling, however often it is asked for** (Uli,
 // 2026-09-13: the button plate glitched as the doors shut). The cabin is
 // built afresh with every room, and its console asked for its walnut each
@@ -67,7 +66,19 @@ const texCache = new Map();
 export function tex(file, srgb, repeat, along = repeat) {
 	const key = `${file}|${srgb}|${repeat}|${along}`;
 	if (texCache.has(key)) return texCache.get(key);
-	const t = texLoader.load('/res/textures/' + file, loaded => renderer.initTexture(loaded));   // to the GPU as it arrives
+	// **Through the same queue as the photographs** (2026-09-18: two long
+	// frames were left just after the hang — a new floor's three or four
+	// 1024s arriving together, as <img>s with flipY on, which is the CPU
+	// copy). Decoded off the thread and turned over there
+	// (`imageOrientation`), so the texture's own flipY is off and the UVs
+	// stay as they were; sent up in its turn (stepUploads).
+	const t = new THREE.Texture();
+	t.flipY = false;
+	fetch('/res/textures/' + file)
+		.then(r => { if (!r.ok) throw new Error(`${r.status} ${file}`); return r.blob(); })
+		.then(b => createImageBitmap(b, { imageOrientation: 'flipY', premultiplyAlpha: 'none', colorSpaceConversion: 'none' }))
+		.then(bmp => uploads.push([t, bmp]))
+		.catch(e => console.warn('texture not loaded', e));
 	texCache.set(key, t);
 	t.wrapS = t.wrapT = THREE.RepeatWrapping;
 	// the bars' u runs their length and the images' grain runs their x, so
@@ -76,6 +87,16 @@ export function tex(file, srgb, repeat, along = repeat) {
 	t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
 	if (srgb) t.colorSpace = THREE.SRGBColorSpace;
 	return t;
+}
+// A room's floor maps go with the room: let go of whole — the GPU's copy,
+// the bitmap, the cache's entry — so the floor's next visit asks afresh
+// and comes up through the queue, not all at once at its first draw as a
+// disposed texture still holding its image does.
+export function dropTex(t) {
+	for (const [k, v] of texCache) if (v === t) texCache.delete(k);
+	t.dispose();
+	t.userData.freed = true;
+	if (t.image && t.image.close) t.image.close();
 }
 // stretched one and a half times along the bar, so the grain runs calmer (Uli)
 const woodSet = n => ({ map: tex(`wood-${n}-color.jpg`, true, 2, 2 / 1.5), roughnessMap: tex(`wood-${n}-rough.jpg`, false, 2, 2 / 1.5), normalMap: tex(`wood-${n}-normal.jpg`, false, 2, 2 / 1.5) });
@@ -244,26 +265,36 @@ function fetchInto(t, files, px) {
 		.catch(e => { if (++at < files.length) next(); else console.warn('photo not loaded', e); });
 	next();
 }
-// **One upload a frame, not as many as have landed** (Uli, 2026-09-18: the
-// view wiggles as the doors shut). initTexture is synchronous — 13 to 19 ms
-// for a 1200 on the bench, mipmaps and all — and a room's thirty-odd files,
-// asked for together at the hang, land together: three and four to an
-// animation frame, 100 ms frames one after another, and the headset swims
-// the stale picture meanwhile. That was the wiggle, never the hang (2 to
-// 20 ms). The bitmaps queue here; a frame sends one up, and more only
-// while it has spent under 4 ms on them. **The texture gets its image at
-// its upload**, so whatever asks `t.image` — the lift holding its doors,
-// the near sheet waiting to show — is asking whether it is on the GPU.
+// **A frame sends the GPU a budget of pixels, not whatever has landed**
+// (Uli, 2026-09-18: the view wiggles as the doors shut). A room's
+// thirty-odd files, asked for together at the hang, land together, and
+// each went up as it landed — three and four 1200s to an animation
+// frame, 100 ms frames one after another while the headset swims the
+// stale picture. That was the wiggle, never the hang (2 to 20 ms). The
+// bitmaps queue here and a frame takes `GPU_PX` of them: one 1200, or
+// five of a grid's 512s; a 2000 goes alone. **Pixels, not milliseconds**:
+// initTexture returns in under a millisecond most of the time and the
+// copy is paid later, in the GPU process — a budget of 4 ms let ten
+// uploads through and the frame took 40. The label cards draw on the
+// same budget (bake.js, stepCards), so a frame carries cards or a
+// photograph, not both. **The texture gets its image at its upload**, so
+// whatever asks `t.image` — the lift holding its doors, the near sheet
+// waiting to show — is asking whether it is on the GPU.
+const GPU_PX = 1.5e6;
+export const gpu = { px: 0 };                // what this frame has sent so far
 const uploads = [];
 export function stepUploads() {
-	const t0 = performance.now();
+	gpu.px = 0;
 	while (uploads.length) {
-		const [t, bmp] = uploads.shift();
-		if (t.userData.freed) { bmp.close(); continue; }   // let go while it waited
+		const [t, bmp] = uploads[0], px = bmp.width * bmp.height;
+		if (gpu.px && gpu.px + px > GPU_PX) break;               // the first of a frame always goes, whatever its size
+		uploads.shift();
+		if (t.userData.freed) { bmp.close(); continue; }         // let go while it waited
 		t.image = bmp; t.needsUpdate = true; renderer.initTexture(t);
-		if (performance.now() - t0 > 4) break;
+		gpu.px += px;
 	}
 }
+export const gpuRoom = px => !gpu.px || gpu.px + px <= GPU_PX;
 function emptyTexture() {
 	const t = new THREE.Texture();
 	t.colorSpace = THREE.SRGBColorSpace;
