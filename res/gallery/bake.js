@@ -1,7 +1,7 @@
 import * as THREE from '../vendor/three.module.js';
-import { materials, poolMaterial } from './frames.js?v=20260918b';
-import { renderer, world } from './scene.js?v=20260918b';
-import { state } from './state.js?v=20260918b';
+import { gpu, gpuRoom, materials, poolMaterial } from './frames.js?v=20260918f';
+import { renderer, world } from './scene.js?v=20260918f';
+import { state } from './state.js?v=20260918f';
 
 // ---------------------------------------------------------------------------
 // Baking a room
@@ -185,14 +185,16 @@ function cardGeometry(cw, ch) {
 // canvas is swapped in when its turn comes (stepCards).
 const PAPER_PX = new THREE.DataTexture(new Uint8Array([0xfd, 0xfc, 0xfa, 255]), 1, 1);
 PAPER_PX.colorSpace = THREE.SRGBColorSpace; PAPER_PX.needsUpdate = true;
-const CARDS_A_FRAME = 2;
+const CARDS_A_FRAME = 2, CARD_AREA = CARD_PX * Math.round(CARD_H * CARD_PX / CARD_DRAWN);
 let pending = [];
 export function stepCards() {
 	for (let n = 0; n < CARDS_A_FRAME && pending.length; n++) {
+		if (!gpuRoom(CARD_AREA)) return;                           // the frame's pixels are spent (frames.js, stepUploads): photographs first, cards in the frames between
 		const { card, lines } = pending.shift();
 		if (!card.parent) continue;                              // the room it belonged to has gone
 		const t = cardCanvas(lines);
 		renderer.initTexture(t);
+		gpu.px += t.image.width * t.image.height;
 		card.material.map = t; card.material.emissiveMap = t;    // no needsUpdate: a map for a map, the defines have not moved
 	}
 }

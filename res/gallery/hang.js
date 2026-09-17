@@ -1,16 +1,16 @@
 import * as THREE from '../vendor/three.module.js';
-import { clearCards, bakeRoom, placeLabels } from './bake.js?v=20260918b';
-import { addDots, findSpots } from './sticker.js?v=20260918b';
-import { placeGuard } from './guard.js?v=20260918b';
-import { clearZoom } from './zoom.js?v=20260918b';
-import { setWire, wire } from './bench.js?v=20260918b';
-import { elevator, roomLabel } from './elevator.js?v=20260918b';
-import { FRAME, GRID_GAP, sc, textureCache } from './frames.js?v=20260918b';
-import { WALL_STYLES, buildRoom, dadoTop, floorOf, rectRoom, shapeOf, wallColours } from './room.js?v=20260918b';
-import { scene, world } from './scene.js?v=20260918b';
-import { HANG_MAX, pieceY, state } from './state.js?v=20260918b';
-import { framedSize, freeTexturesExcept, freeVideosExcept, makePiece } from './video.js?v=20260918b';
-import { BODY_R } from './walk.js?v=20260918b';
+import { clearCards, bakeRoom, placeLabels } from './bake.js?v=20260918f';
+import { addDots, findSpots } from './sticker.js?v=20260918f';
+import { placeGuard } from './guard.js?v=20260918f';
+import { clearZoom } from './zoom.js?v=20260918f';
+import { setWire, wire } from './bench.js?v=20260918f';
+import { elevator, roomLabel } from './elevator.js?v=20260918f';
+import { FRAME, GRID_GAP, dropTex, sc, textureCache } from './frames.js?v=20260918f';
+import { WALL_STYLES, buildRoom, dadoTop, floorOf, rectRoom, shapeOf, wallColours } from './room.js?v=20260918f';
+import { scene, world } from './scene.js?v=20260918f';
+import { HANG_MAX, pieceY, state } from './state.js?v=20260918f';
+import { framedSize, freeTexturesExcept, freeVideosExcept, makePiece } from './video.js?v=20260918f';
+import { BODY_R } from './walk.js?v=20260918f';
 
 // ---------------------------------------------------------------------------
 // Hanging a year
@@ -594,7 +594,7 @@ function buildShell(W, D, H, floor, dadoCap, shape) {
 		old.parent.remove(old);
 		// the floor's textures go with the room
 		const f = old.getObjectByName('floor');
-		if (f) { for (const k of ['map', 'roughnessMap', 'normalMap', 'metalnessMap']) f.material[k]?.dispose(); f.material.dispose(); }
+		if (f) { if (!state.room || state.room.floor !== floor) for (const k of ['map', 'roughnessMap', 'normalMap', 'metalnessMap']) if (f.material[k]) dropTex(f.material[k]); f.material.dispose(); }   // the same floor again (the height switch) keeps its maps
 	}
 	world.add(buildRoom(W, D, H, floor, dadoCap, shape));
 	world.add(elevator.build(W, D, H, floor, dadoCap));

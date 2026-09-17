@@ -1,8 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
-import { addLabel } from './bake.js?v=20260918b';
-import { FRAME, GRID_GAP, MAT_Z, PRINT_GLOW, PRINT_SCALE, matWidth, materials, photoTexture, poolMaterial, sc, textureCache, dropNear, freeTexture, nearTexture } from './frames.js?v=20260918b';
-import { camera, scene } from './scene.js?v=20260918b';
-import { RAISES, pieceY, state } from './state.js?v=20260918b';
+import { addLabel } from './bake.js?v=20260918f';
+import { FRAME, GRID_GAP, MAT_Z, PRINT_GLOW, PRINT_SCALE, matWidth, materials, photoTexture, poolMaterial, sc, textureCache, dropNear, freeTexture, nearTexture } from './frames.js?v=20260918f';
+import { camera, scene } from './scene.js?v=20260918f';
+import { RAISES, pieceY, state } from './state.js?v=20260918f';
 
 // ---------------------------------------------------------------------------
 // Videos — the LED panel
@@ -112,7 +112,15 @@ function ledGrid() {
 // close and holding far turns that round: a file is paid for only once the
 // visitor has actually walked up to that print, and then kept, so stepping
 // back and forth over the line costs nothing.
-const DETAIL = { warm: 1.6, near: 1.2, far: 3.2, least: 0.6 };
+// **Shown inside 1.2, and only taken off again past 1.7; either way over
+// 0.15 s** (Uli, 2026-09-18). The words above promised two distances and
+// the code had one: the sheet came on and went off at 1.2 m both, and a
+// visitor standing there, swaying three centimetres, had the picture
+// change under their eyes ten times out of ten. `back` is the second
+// distance. And the change is a short blend after all — 150 ms, Uli's
+// number: the two files are the same photograph, but not the same
+// sharpness, and sharpness arriving at once is a pop.
+const DETAIL = { warm: 1.6, near: 1.2, back: 1.7, far: 3.2, least: 0.6, fade: 150 };
 // the 1x1 a near sheet carries until its own picture lands, so its shader
 // is compiled once, at hang time, and never rebuilt mid-walk
 const BLANK = new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1);
@@ -122,6 +130,8 @@ const _look = new THREE.Vector3(), _spot = new THREE.Vector3();
 export function stepDetail(now) {
 	const pieces = scene.getObjectByName('pieces');
 	if (!pieces) return;
+	const step = Math.min(1, (now - (detailAt || now)) / DETAIL.fade);   // how far a blend moves this frame
+	detailAt = now;
 	camera.getWorldPosition(_look);
 	pieces.traverse(o => {
 		const u = o.userData;
@@ -135,10 +145,11 @@ export function stepDetail(now) {
 			const t = nearTexture(u.photo);
 			if (t.image && m.map !== t) { m.map = t; m.emissiveMap = t; }   // no needsUpdate: the defines have not moved
 		}
-		if (d > DETAIL.far) {
-			over.visible = false;
-			if (m.map !== BLANK) { m.map = BLANK; m.emissiveMap = BLANK; dropNear(u.photo); }
-		} else over.visible = d < DETAIL.near && m.map !== BLANK;
+		if (d > DETAIL.far && m.map !== BLANK) { m.map = BLANK; m.emissiveMap = BLANK; m.opacity = 0; dropNear(u.photo); }
+		// on inside `near`; once on, it stays until `back`
+		const want = m.map !== BLANK && d < (m.opacity > 0 ? DETAIL.back : DETAIL.near);
+		m.opacity = want ? Math.min(1, m.opacity + step) : Math.max(0, m.opacity - step);
+		over.visible = m.opacity > 0;
 		m.emissiveIntensity = o.material.emissiveIntensity;   // it follows the day and the night with the sheet under it
 	});
 }
@@ -204,7 +215,7 @@ export function dropAllNear() {
 		const u = o.userData;
 		if (o.name !== 'photo' || !u.over) return;
 		const m = u.over.material;
-		u.over.visible = false;
+		u.over.visible = false; m.opacity = 0;
 		if (m.map !== BLANK) { m.map = BLANK; m.emissiveMap = BLANK; dropNear(u.photo); gone++; }
 	});
 	return gone;
@@ -270,19 +281,6 @@ function barGeometry(length, face, depth, horizontal) {
 	return g;
 }
 
-// a square with a square hole: a frame's face, for the pointer alone
-const ringCache = new Map();
-function ringGeometry(outer, inner) {
-	const key = `${outer.toFixed(4)}|${inner.toFixed(4)}`;
-	if (ringCache.has(key)) return ringCache.get(key);
-	const sq = (path, h) => { path.moveTo(-h, -h); path.lineTo(h, -h); path.lineTo(h, h); path.lineTo(-h, h); path.closePath(); return path; };
-	const shape = sq(new THREE.Shape(), outer / 2);
-	shape.holes.push(sq(new THREE.Path(), inner / 2));
-	const geo = new THREE.ShapeGeometry(shape);
-	ringCache.set(key, geo);
-	return geo;
-}
-
 function makeFramedPrint(p, size) {
 	const g = new THREE.Group();
 	g.name = `print-${p.n}`;
@@ -335,10 +333,12 @@ function makeFramedPrint(p, size) {
 		// which on the headset is a visible hitch, not a lost millisecond.
 		// A 1x1 stands in until the real one lands, and nothing ever goes
 		// back to null, so the program is built once at hang time and never
-		// again. Opaque, too: the fade is gone, so there is no reason to put
-		// it in the transparent queue and every reason not to.
+		// again. **Transparent from the start** (2026-09-18, for the 0.15 s
+		// blend): `transparent` is part of the program too (OPAQUE), so it
+		// is never switched — the sheet is always in the transparent queue,
+		// which only ever holds the one or two that are up.
 		const over = new THREE.Mesh(print.geometry,
-			new THREE.MeshLambertMaterial({ map: BLANK, emissive: 0xffffff, emissiveMap: BLANK,
+			new THREE.MeshLambertMaterial({ map: BLANK, emissive: 0xffffff, emissiveMap: BLANK, transparent: true, opacity: 0,
 				emissiveIntensity: print.material.emissiveIntensity,
 				polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -6 }));   // two steps before the print under it (STEPS); no slope term, which at a grazing angle would pull it through the frame
 		over.name = 'photo-near';
@@ -362,19 +362,6 @@ function makeFramedPrint(p, size) {
 	if (state.settings.fill) print.scale.setScalar(print.userData.full);   // unless filling the frame is the way round it starts (Uli)
 	g.add(print);
 	g.add(area);
-	// **And the wood round it** (Uli, 2026-09-18: aimed at a framed picture,
-	// the brackets did not always come). The bars are baked into one mesh
-	// for the room (bake.js), which the pointer never asks — a ray at the
-	// frame went through the wood to the plaster behind, and the pointer
-	// offered a dot on the wall, 4 cm too deep. A second pane, the frame's
-	// face with the opening cut out of it, on the bars' front: the whole
-	// framed picture answers, and the cursor lies on the wood, not under it.
-	const wood = new THREE.Mesh(ringGeometry(outer, inner), materials.mat);
-	wood.name = 'photo-area';
-	wood.visible = false;
-	wood.position.z = FRAME.depth * k + 0.0005;
-	wood.userData.print = print;
-	g.add(wood);
 	// the shadow that millimetre throws: a faint dark rim just behind the
 	// print, a hair larger and pushed down and to the right
 	const rim = new THREE.Mesh(new THREE.PlaneGeometry(printed + 0.003, printed + 0.003), materials.rim);

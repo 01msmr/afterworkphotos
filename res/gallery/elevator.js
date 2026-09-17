@@ -1,15 +1,15 @@
 import * as THREE from '../vendor/three.module.js';
-import { setWire, wire } from './bench.js?v=20260918b';
-import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260918b';
-import { ELEVATOR, FAV_KEY, clearRooms, firstRoom, hangRoom, raiseRoof, roomByKey, rooms } from './hang.js?v=20260918b';
-import { WALL_STYLES, applyMode, dadoTop, dressWall, wallColours } from './room.js?v=20260918b';
-import { camera, head, renderer, scene, world } from './scene.js?v=20260918b';
-import { applyFill, zoomLabel, zoomPrint } from './zoom.js?v=20260918b';
-import { stickAt } from './sticker.js?v=20260918b';
-import { dropAllNear } from './video.js?v=20260918b';   // the floor's 2000s, handed back when it is left
-import { PLANS, RAISES, favCount, state } from './state.js?v=20260918b';
-import { fitRoom, planAgain } from './vr.js?v=20260918b';
-import { placeBody, walk } from './walk.js?v=20260918b';
+import { setWire, wire } from './bench.js?v=20260918f';
+import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260918f';
+import { ELEVATOR, FAV_KEY, clearRooms, firstRoom, hangRoom, raiseRoof, roomByKey, rooms } from './hang.js?v=20260918f';
+import { WALL_STYLES, applyMode, dadoTop, dressWall, edgeLines, wallColours } from './room.js?v=20260918f';
+import { camera, head, renderer, scene, world } from './scene.js?v=20260918f';
+import { applyFill, zoomLabel, zoomPrint } from './zoom.js?v=20260918f';
+import { stickAt } from './sticker.js?v=20260918f';
+import { dropAllNear } from './video.js?v=20260918f';   // the floor's 2000s, handed back when it is left
+import { PLANS, RAISES, favCount, state } from './state.js?v=20260918f';
+import { fitRoom, planAgain } from './vr.js?v=20260918f';
+import { placeBody, walk } from './walk.js?v=20260918f';
 
 // ---------------------------------------------------------------------------
 // The elevator
@@ -99,6 +99,29 @@ function buttonFace(year, room, wide = 1) {
 	return t;
 }
 
+// **A button's plan has 1.5 mm corners, and its depth faces are 12 %
+// darker than its front** (Uli, 2026-09-18). A rounded rectangle pushed
+// out along z and centred on it, like the box it replaces. The darker
+// sides are vertex colours — 0.88 where the normal lies in the plane — so
+// a cap is still one material and one draw call, and light() goes on
+// setting one colour; the lit cap's glow is emissive and stays whole.
+const CORNER = 0.0015, SIDE_DARK = 0.88;
+function roundedBox(w, h, d, r = CORNER) {
+	const x = w / 2, y = h / 2, sh = new THREE.Shape();
+	sh.moveTo(-x + r, -y); sh.lineTo(x - r, -y); sh.absarc(x - r, -y + r, r, -Math.PI / 2, 0);
+	sh.lineTo(x, y - r); sh.absarc(x - r, y - r, r, 0, Math.PI / 2);
+	sh.lineTo(-x + r, y); sh.absarc(-x + r, y - r, r, Math.PI / 2, Math.PI);
+	sh.lineTo(-x, -y + r); sh.absarc(-x + r, -y + r, r, Math.PI, Math.PI * 1.5);
+	const geo = new THREE.ExtrudeGeometry(sh, { depth: d, bevelEnabled: false, curveSegments: 4 });
+	geo.translate(0, 0, -d / 2);
+	const n = geo.attributes.normal, col = new Float32Array(n.count * 3);
+	for (let i = 0; i < n.count; i++) col.fill(Math.abs(n.getZ(i)) > 0.5 ? 1 : SIDE_DARK, i * 3, i * 3 + 3);
+	geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+	return geo;
+}
+// the round buttons' bodies are all side: the steel, 12 % darker
+const sideMetal = metal.clone(); sideMetal.color.multiplyScalar(SIDE_DARK);
+
 // Boxes already set in place, welded into one geometry.
 function merged(geos) {
 	const pos = [], nor = [], uv = [], idx = [];
@@ -106,7 +129,8 @@ function merged(geos) {
 	for (const g of geos) {
 		const P = g.attributes.position, N = g.attributes.normal, U = g.attributes.uv, I = g.index;
 		pos.push(...P.array); nor.push(...N.array); uv.push(...U.array);
-		for (let i = 0; i < I.count; i++) idx.push(I.getX(i) + base);
+		if (I) for (let i = 0; i < I.count; i++) idx.push(I.getX(i) + base);
+		else for (let i = 0; i < P.count; i++) idx.push(i + base);       // an extrusion has no index
 		base += P.count;
 		g.dispose();
 	}
@@ -339,7 +363,7 @@ function buildSwitchplate(parent, px, py, pz) {
 	const switches = [];
 	const put = (sw, x, y, r, G) => {
 		const z = pz + 0.012 + BUTTON.rise / 2;
-		const b = new THREE.Mesh(G.body, metal); b.name = `switch-${sw.key}`; b.userData.action = sw.key; b.position.set(x, y, z); parent.add(b);
+		const b = new THREE.Mesh(G.body, sideMetal); b.name = `switch-${sw.key}`; b.userData.action = sw.key; b.position.set(x, y, z); parent.add(b);
 		const f = new THREE.Mesh(G.face, new THREE.MeshStandardMaterial({ map: switchFace(sw), roughness: 0.6 }));
 		f.name = `switch-face-${sw.key}`; f.userData.action = sw.key; f.userData.sw = sw; f.position.set(x, y, z + BUTTON.rise / 2 + 0.0005); parent.add(f);
 		const l = new THREE.Mesh(G.label, new THREE.MeshBasicMaterial({ map: switchLabel(sw), transparent: true, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -4 }));   // half a millimetre off the plate: four depth steps
@@ -444,6 +468,7 @@ export const elevator = {
 			const face = new THREE.Mesh(new THREE.PlaneGeometry(e, H - 0.004), new THREE.MeshLambertMaterial({ color: paint[mode] }));
 			face.name = 'cabin-face'; face.userData.colours = paint; face.position.set(W / 2 - e / 2, H / 2, z1 + 0.011); g.add(face);
 			dressWall(face, style, H, Math.min(dadoCap, dadoTop(style)), mode);
+			g.add(edgeLines([[W / 2 - e, z1 + 0.011, W / 2, z1 + 0.011]], H - 0.004));   // a wall like the room's, with their edge lines (room.js)
 		}
 		// 5 mm off the room's north and east walls: a face flush with a wall
 		// shimmered along the cabin's edges too (Uli)
@@ -482,7 +507,7 @@ export const elevator = {
 			g2.beginPath(); g2.moveTo(64, 98); g2.lineTo(92, 66); g2.lineTo(36, 66); g2.closePath(); g2.fill();
 			const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
 			const bodyGeo = new THREE.CylinderGeometry(CALL_R, CALL_R, BUTTON.rise, 32); bodyGeo.rotateZ(Math.PI / 2);   // axis along x
-			const cb = new THREE.Mesh(bodyGeo, metal);
+			const cb = new THREE.Mesh(bodyGeo, sideMetal);
 			cb.name = 'call'; cb.userData.call = true;
 			cb.position.set(x0 - 0.01 - BUTTON.rise / 2, cy, cz);   // proud of the plate
 			g.add(cb);
@@ -518,7 +543,7 @@ export const elevator = {
 		this.seam = seam;
 
 		// Floor displays above the door, one facing into the cabin, one out.
-		this.displays = [];
+		this.displays = []; this.said = null;   // new canvases: whatever was said is said again
 		const display = (name, x, ry) => {
 			const c = document.createElement('canvas'); c.width = 512; c.height = 128;
 			const ctx = c.getContext('2d');
@@ -600,9 +625,9 @@ export const elevator = {
 			// calls for them were a quarter of the cabin's.
 			const pockets = [], steels = [];
 			const sink = (geo, x, y, z, list) => list.push(geo.clone().translate(x, y, z));
-			const pocketGeo = new THREE.BoxGeometry(w + 2 * gap, h + 2 * gap, 0.001);
-			const steelGeo = new THREE.BoxGeometry(w, h, 0.002);
-			const capGeo = new THREE.BoxGeometry(w, h, rise);
+			const pocketGeo = roundedBox(w + 2 * gap, h + 2 * gap, 0.001, CORNER + gap);   // the gap keeps its width round the corner
+			const steelGeo = roundedBox(w, h, 0.002);
+			const capGeo = roundedBox(w, h, rise);
 			// The face stands 1.2 mm off its cap, not 0.3, and is pushed forward
 			// again in the depth buffer (Uli, 2026-09-13: the button plate
 			// glitched). Three tenths of a millimetre is finer than a 16-bit
@@ -633,7 +658,7 @@ export const elevator = {
 				};
 				sink(pocketGeo, x, y, -0.0005, pockets);
 				sink(steelGeo, x, y, -0.002, steels);
-				const cap = put('cap', capGeo, new THREE.MeshStandardMaterial({ color: MILK, roughness: 0.45, metalness: 0, emissive: GREEN, emissiveIntensity: 0, envMapIntensity: 0.5, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -6 }), -0.003 - rise / 2);
+				const cap = put('cap', capGeo, new THREE.MeshStandardMaterial({ color: MILK, vertexColors: true, roughness: 0.45, metalness: 0, emissive: GREEN, emissiveIntensity: 0, envMapIntensity: 0.5, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -6 }), -0.003 - rise / 2);
 				cap.userData.cap = true;
 				// the print: a clear plane 1.2 mm before the cap, turned to face
 				// into the cabin (-z) so the year reads the right way round —
@@ -654,8 +679,8 @@ export const elevator = {
 				const fx = plateW / 2 - margin - BUTTON.pitchX * (c0 + 1);   // the middle of the two columns
 				const fy = plateH / 2 - margin - BUTTON.pitchY * 0.5;
 				const wide = FAV_W / w;
-				const pocketGeoF = new THREE.BoxGeometry(FAV_W + 2 * gap, h + 2 * gap, 0.001), steelGeoF = new THREE.BoxGeometry(FAV_W, h, 0.002);
-				const capGeoF = new THREE.BoxGeometry(FAV_W, h, rise), printGeoF = new THREE.PlaneGeometry(FAV_W, h);
+				const pocketGeoF = roundedBox(FAV_W + 2 * gap, h + 2 * gap, 0.001, CORNER + gap), steelGeoF = roundedBox(FAV_W, h, 0.002);
+				const capGeoF = roundedBox(FAV_W, h, rise), printGeoF = new THREE.PlaneGeometry(FAV_W, h);
 				const put = (name, geo, material, z) => {
 					const m = new THREE.Mesh(geo, material);
 					m.name = `${name}-${favRoom.key}`;
@@ -667,7 +692,7 @@ export const elevator = {
 				};
 				sink(pocketGeoF, fx, fy, -0.0005, pockets);
 				sink(steelGeoF, fx, fy, -0.002, steels);
-				const cap = put('cap', capGeoF, new THREE.MeshStandardMaterial({ color: MILK, roughness: 0.45, metalness: 0, emissive: FAV_RED, emissiveIntensity: 0, envMapIntensity: 0.5, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -6 }), -0.003 - rise / 2);
+				const cap = put('cap', capGeoF, new THREE.MeshStandardMaterial({ color: MILK, vertexColors: true, roughness: 0.45, metalness: 0, emissive: FAV_RED, emissiveIntensity: 0, envMapIntensity: 0.5, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -6 }), -0.003 - rise / 2);
 				cap.userData.cap = true;
 				cap.userData.fav = true;
 				const print = put('print', printGeoF, new THREE.MeshBasicMaterial({ map: buttonFace('favourites', favRoom, wide), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -8 }), -0.003 - rise - 0.0012);
@@ -686,6 +711,13 @@ export const elevator = {
 	},
 
 	show(text, arrow) {
+		// **Only what has changed is drawn** (2026-09-18): a ride calls this
+		// every frame with the floor it is passing, and both displays were
+		// drawn and sent to the GPU again every frame of every ride — found
+		// in the uploads of the frames after the doors shut.
+		const said = `${text}|${arrow}|${this.noteText}`;
+		if (said === this.said) return;
+		this.said = said;
 		this.shown = { text, arrow };
 		this.displays.forEach((d, i) => { drawDisplay(d.ctx, text, arrow, i === 1 ? this.noteText : ''); d.tex.needsUpdate = true; });   // the note on the outside one
 	},

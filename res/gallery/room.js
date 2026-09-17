@@ -1,8 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
-import { CABIN_LAMP, lightPanel, metal } from './elevator.js?v=20260918b';
-import { ENV_INTENSITY, PRINT_GLOW, poolMaterial, tex } from './frames.js?v=20260918b';
-import { camera, renderer, scene } from './scene.js?v=20260918b';
-import { state } from './state.js?v=20260918b';
+import { CABIN_LAMP, lightPanel, metal } from './elevator.js?v=20260918f';
+import { ENV_INTENSITY, PRINT_GLOW, poolMaterial, tex } from './frames.js?v=20260918f';
+import { camera, renderer, scene } from './scene.js?v=20260918f';
+import { state } from './state.js?v=20260918f';
 
 // ---------------------------------------------------------------------------
 // The room
@@ -168,6 +168,39 @@ const POOL = { light: 0.62, dark: 1 };
 const AMBIENT = { light: 1.9,  dark: 0.08 };
 const FILL    = { light: 1.4,  dark: 0.06 };
 
+// **A thin, slightly darker line down every wall's two vertical edges**
+// (Uli, 2026-09-18), so a corner reads as a corner and the room as a
+// space: white walls under even fills meet without a trace otherwise. A
+// strip of 12 % black, 5 mm wide, a millimetre and a half off the plaster
+// — black over whatever is under it, so it darkens paint and dado alike
+// and needs no colours of its own for the night. All of a room's strips
+// are one mesh, one draw call; the pointer passes through it. `runs` are
+// wall runs [x, z, qx, qz] walked with the room on the left, as the
+// plan's outline is.
+const EDGE = { w: 0.005, off: 0.0015, dark: 0.12 };
+const edgeMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: EDGE.dark, depthWrite: false, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -4 });
+export function edgeLines(runs, H) {
+	const pos = [], idx = [];
+	for (const [x, z, qx, qz] of runs) {
+		const len = Math.hypot(qx - x, qz - z);
+		if (len < 3 * EDGE.w) continue;
+		const dx = (qx - x) / len, dz = (qz - z) / len, nx = -dz * EDGE.off, nz = dx * EDGE.off;
+		for (const [a, b] of [[0, EDGE.w], [len - EDGE.w, len]]) {
+			const base = pos.length / 3;
+			for (const [t, y] of [[a, 0], [b, 0], [b, H], [a, H]]) pos.push(x + dx * t + nx, y, z + dz * t + nz);
+			idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
+		}
+	}
+	const geo = new THREE.BufferGeometry();
+	geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+	geo.setIndex(idx);
+	const m = new THREE.Mesh(geo, edgeMat);
+	m.name = 'edges';
+	m.material.side = THREE.DoubleSide;
+	m.raycast = () => {};                          // a line on the wall is not something to point at
+	return m;
+}
+
 export function buildRoom(W, D, H, floor = 'lacquer', dadoCap = Infinity, shape = null) {
 	shape = shape || rectRoom(W, D);
 	const room = new THREE.Group();
@@ -221,6 +254,8 @@ export function buildRoom(W, D, H, floor = 'lacquer', dadoCap = Infinity, shape 
 		surface(name, 'wall', len, H, [(x + qx) / 2, H / 2, (z + qz) / 2], [0, Math.atan2(-dz, dx || 0), 0]);
 		dressWall(room.getObjectByName(name), style, H, Math.min(dadoCap, dadoTop(style)), mode);
 	});
+
+	room.add(edgeLines(shape.outline.map(([x, z], i) => [x, z, ...shape.outline[(i + 1) % shape.outline.length]]), H));
 
 	const ambient = new THREE.AmbientLight(0xffffff, AMBIENT[mode]);
 	ambient.name = 'ambient';
