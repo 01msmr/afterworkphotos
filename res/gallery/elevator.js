@@ -1,15 +1,15 @@
 import * as THREE from '../vendor/three.module.js';
-import { setWire, wire } from './bench.js?v=20260918h';
-import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260918h';
-import { ELEVATOR, FAV_KEY, clearRooms, firstRoom, hangRoom, hangRoomSteps, raiseRoof, roomByKey, rooms } from './hang.js?v=20260918h';
-import { WALL_STYLES, applyMode, dadoTop, dressWall, edgeLines, wallColours } from './room.js?v=20260918h';
-import { camera, head, renderer, scene, world } from './scene.js?v=20260918h';
-import { applyFill, zoomLabel, zoomPrint } from './zoom.js?v=20260918h';
-import { stickAt } from './sticker.js?v=20260918h';
-import { dropAllNear } from './video.js?v=20260918h';   // the floor's 2000s, handed back when it is left
-import { PLANS, RAISES, favCount, state } from './state.js?v=20260918h';
-import { fitRoom, planAgain } from './vr.js?v=20260918h';
-import { placeBody, walk } from './walk.js?v=20260918h';
+import { setWire, wire } from './bench.js?v=20260918j';
+import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260918j';
+import { ELEVATOR, FAV_KEY, clearRooms, firstRoom, hangRoom, hangRoomSteps, raiseRoof, roomByKey, rooms } from './hang.js?v=20260918j';
+import { WALL_STYLES, applyMode, dadoTop, dressWall, edgeLines, wallColours } from './room.js?v=20260918j';
+import { camera, head, renderer, scene, world } from './scene.js?v=20260918j';
+import { applyFill, zoomLabel, zoomPrint } from './zoom.js?v=20260918j';
+import { stickAt } from './sticker.js?v=20260918j';
+import { dropAllNear } from './video.js?v=20260918j';   // the floor's 2000s, handed back when it is left
+import { PLANS, RAISES, favCount, state } from './state.js?v=20260918j';
+import { fitRoom, planAgain } from './vr.js?v=20260918j';
+import { placeBody, walk } from './walk.js?v=20260918j';
 
 // ---------------------------------------------------------------------------
 // The elevator
@@ -912,10 +912,19 @@ export const elevator = {
 	// old one stood — before, a room of another size left them outside
 	// the cabin, the doors closed behind them and a call brought the lift
 	// again (Uli). Once per frame of the hang, since the shell may have
-	// moved the cabin in any of its steps.
+	// moved the cabin in any of its steps. **The world's matrix is brought
+	// up to date first** (2026-09-18, the evening: in the headset the room
+	// stood wrong after a ride — the visitor outside the cabin, frames
+	// gone from the middle, the pointer buried in a wall). originWorld()
+	// reads through world.matrixWorld, which only the render updates: the
+	// step after a shift read the cabin where it had been *before* the
+	// shift, took that for the place to hold, and shifted the world back.
+	// `before` is the one place to hold, never re-read.
 	keepPlace(r) {
-		if (!renderer.xr.isPresenting) { const o = this.originWorld(); walk.pos.set(o.x + r.off.x, walk.pos.y, o.z + r.off.z); }
-		else { const now = this.originWorld(); world.position.add(new THREE.Vector3().subVectors(r.before, now)); r.before.copy(this.originWorld()); }
+		world.updateMatrixWorld(true);
+		const o = this.originWorld();
+		if (!renderer.xr.isPresenting) walk.pos.set(o.x + r.off.x, walk.pos.y, o.z + r.off.z);
+		else world.position.add(new THREE.Vector3().subVectors(r.before, o));
 	},
 
 	// Called every frame. Half a second closing; then the cabin travels —
@@ -944,7 +953,13 @@ export const elevator = {
 				r.before = this.originWorld().clone(); r.off = new THREE.Vector3().subVectors(walk.pos, r.before);
 				r.hanging = hangRoomSteps(r.key);  // may rebuild the room and this cabin
 			}
-			if (!r.hanging.next().done) { this.keepPlace(r); return; }
+			// a step that throws must not leave the lift standing with its
+			// doors shut: the rest of the hang is run whole, and if that
+			// throws too the ride goes on with what stands (the error is on
+			// the display either way, through step() in gallery.js)
+			let done = false;
+			try { done = r.hanging.next().done; } catch (e) { console.error('hang step failed', e); try { hangRoom(r.key); } catch (e2) { console.error('hang failed', e2); } done = true; try { elevator.show(`hang: ${String(e.message || e).slice(0, 22)}`, ''); } catch (ignored) {} }
+			if (!done) { this.keepPlace(r); return; }
 			this.keepPlace(r);
 			this.setDoors(0);
 			renderer.compile(scene, camera);

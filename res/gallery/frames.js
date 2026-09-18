@@ -1,7 +1,7 @@
 import * as THREE from '../vendor/three.module.js';
-import { walnut } from './elevator.js?v=20260918h';
-import { renderer, scene } from './scene.js?v=20260918h';
-import { state } from './state.js?v=20260918h';
+import { walnut } from './elevator.js?v=20260918j';
+import { renderer, scene } from './scene.js?v=20260918j';
+import { state } from './state.js?v=20260918j';
 
 // ---------------------------------------------------------------------------
 // The frames
@@ -290,14 +290,18 @@ function fetchInto(t, files, px) {
 // decodes from the console: only the hang's own frame was left. So the
 // blobs queue here, one decode is in flight at a time, and the next is
 // started from stepUploads — a frame decodes one file and sends one up.
+// A decode that does not come back within DECODE_WAIT does not hold the
+// rest up: the next is started anyway (and its own result still lands).
 const decodes = [];
-let decoding = false;
+let decoding = 0;                            // when the decode in flight was started, or 0
+const DECODE_WAIT = 3000;
 const decode = (blob, opts) => new Promise((res, rej) => decodes.push({ blob, opts, res, rej }));
 function stepDecodes() {
-	if (decoding || !decodes.length) return;
+	if (!decodes.length || (decoding && performance.now() - decoding < DECODE_WAIT)) return;
 	const d = decodes.shift();
-	decoding = true;
-	createImageBitmap(d.blob, d.opts).then(b => { decoding = false; d.res(b); }, e => { decoding = false; d.rej(e); });
+	const started = decoding = performance.now();
+	const free = () => { if (decoding === started) decoding = 0; };
+	createImageBitmap(d.blob, d.opts).then(b => { free(); d.res(b); }, e => { free(); d.rej(e); });
 }
 const GPU_PX = 1.5e6;
 export const gpu = { px: 0 };                // what this frame has sent so far
