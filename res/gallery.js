@@ -1,23 +1,23 @@
 // three.js 0.180.0, vendored (MIT) — res/vendor/three.module.js, which in
 // turn imports res/vendor/three.core.js; both are pinned together.
-import { stats, stepStats, wire } from './gallery/bench.js?v=20260918h';
-import { elevator, lift, pressAt, setSetting } from './gallery/elevator.js?v=20260918h';
-import { stepCards } from './gallery/bake.js?v=20260918h';   // after elevator.js: bake → frames → room → elevator is a cycle, and the lift's steel asks frames for a texture as it loads
-import { materials, stepUploads } from './gallery/frames.js?v=20260918h';
-import { ELEVATOR, hangRoom, packRun, piecesOf, replan, firstRoom, rooms, spread, upright } from './gallery/hang.js?v=20260918h';
-import { stepSticker } from './gallery/sticker.js?v=20260918h';
-import { jump, stepJump } from './gallery/jump.js?v=20260918h';
-import { stepTablet, tabletHit, toggleTablet } from './gallery/tablet.js?v=20260918h';
-import { nextLine, placeGuard, stepGuard } from './gallery/guard.js?v=20260918h';
-import { musicLevel, playing, stepMusic } from './gallery/music.js?v=20260918h';
-import { stepZoom, zoomLabel, zoomPrint } from './gallery/zoom.js?v=20260918h';
-import { applyMode, buildRoom, stepMode } from './gallery/room.js?v=20260918h';
-import { planOf } from './gallery/plan.js?v=20260918h';
-import { camera, renderer, rig, scene, world } from './gallery/scene.js?v=20260918h';
-import { EYE, state } from './gallery/state.js?v=20260918h';
-import { makePiece, makeVideoPanel, stepDetail, stepVideos, videoCache } from './gallery/video.js?v=20260918h';
-import { benchScan, fitRoom, stepPlanes } from './gallery/vr.js?v=20260918h';
-import { applyLook, placeBody, stepWalk, walk } from './gallery/walk.js?v=20260918h';
+import { stats, stepStats, wire } from './gallery/bench.js?v=20260918j';
+import { elevator, lift, pressAt, setSetting } from './gallery/elevator.js?v=20260918j';
+import { stepCards } from './gallery/bake.js?v=20260918j';   // after elevator.js: bake → frames → room → elevator is a cycle, and the lift's steel asks frames for a texture as it loads
+import { materials, stepUploads } from './gallery/frames.js?v=20260918j';
+import { ELEVATOR, hangRoom, packRun, piecesOf, replan, firstRoom, rooms, spread, upright } from './gallery/hang.js?v=20260918j';
+import { stepSticker } from './gallery/sticker.js?v=20260918j';
+import { jump, stepJump } from './gallery/jump.js?v=20260918j';
+import { stepTablet, tabletHit, toggleTablet } from './gallery/tablet.js?v=20260918j';
+import { nextLine, placeGuard, stepGuard } from './gallery/guard.js?v=20260918j';
+import { musicLevel, playing, stepMusic } from './gallery/music.js?v=20260918j';
+import { stepZoom, zoomLabel, zoomPrint } from './gallery/zoom.js?v=20260918j';
+import { applyMode, buildRoom, stepMode } from './gallery/room.js?v=20260918j';
+import { planOf } from './gallery/plan.js?v=20260918j';
+import { camera, renderer, rig, scene, world } from './gallery/scene.js?v=20260918j';
+import { EYE, state } from './gallery/state.js?v=20260918j';
+import { makePiece, makeVideoPanel, stepDetail, stepVideos, videoCache } from './gallery/video.js?v=20260918j';
+import { benchScan, fitRoom, stepPlanes } from './gallery/vr.js?v=20260918j';
+import { applyLook, placeBody, stepWalk, walk } from './gallery/walk.js?v=20260918j';
 
 // ---------------------------------------------------------------------------
 // Boot
