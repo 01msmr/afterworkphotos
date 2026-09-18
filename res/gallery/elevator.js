@@ -1,15 +1,15 @@
 import * as THREE from '../vendor/three.module.js';
-import { setWire, wire } from './bench.js?v=20260918f';
-import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260918f';
-import { ELEVATOR, FAV_KEY, clearRooms, firstRoom, hangRoom, raiseRoof, roomByKey, rooms } from './hang.js?v=20260918f';
-import { WALL_STYLES, applyMode, dadoTop, dressWall, edgeLines, wallColours } from './room.js?v=20260918f';
-import { camera, head, renderer, scene, world } from './scene.js?v=20260918f';
-import { applyFill, zoomLabel, zoomPrint } from './zoom.js?v=20260918f';
-import { stickAt } from './sticker.js?v=20260918f';
-import { dropAllNear } from './video.js?v=20260918f';   // the floor's 2000s, handed back when it is left
-import { PLANS, RAISES, favCount, state } from './state.js?v=20260918f';
-import { fitRoom, planAgain } from './vr.js?v=20260918f';
-import { placeBody, walk } from './walk.js?v=20260918f';
+import { setWire, wire } from './bench.js?v=20260918h';
+import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260918h';
+import { ELEVATOR, FAV_KEY, clearRooms, firstRoom, hangRoom, hangRoomSteps, raiseRoof, roomByKey, rooms } from './hang.js?v=20260918h';
+import { WALL_STYLES, applyMode, dadoTop, dressWall, edgeLines, wallColours } from './room.js?v=20260918h';
+import { camera, head, renderer, scene, world } from './scene.js?v=20260918h';
+import { applyFill, zoomLabel, zoomPrint } from './zoom.js?v=20260918h';
+import { stickAt } from './sticker.js?v=20260918h';
+import { dropAllNear } from './video.js?v=20260918h';   // the floor's 2000s, handed back when it is left
+import { PLANS, RAISES, favCount, state } from './state.js?v=20260918h';
+import { fitRoom, planAgain } from './vr.js?v=20260918h';
+import { placeBody, walk } from './walk.js?v=20260918h';
 
 // ---------------------------------------------------------------------------
 // The elevator
@@ -906,6 +906,18 @@ export const elevator = {
 		if (!this.inside()) this.placeInCabin();                 // pressed from the room (the bench's Y list): into the cabin; a body in the cabin stays as it stands (Uli)
 	},
 
+	// The body where it stood in the cabin, whichever cabin now stands:
+	// on the bench the body is moved; in the headset the visitor cannot
+	// be, so the world is shifted until the new cabin stands where the
+	// old one stood — before, a room of another size left them outside
+	// the cabin, the doors closed behind them and a call brought the lift
+	// again (Uli). Once per frame of the hang, since the shell may have
+	// moved the cabin in any of its steps.
+	keepPlace(r) {
+		if (!renderer.xr.isPresenting) { const o = this.originWorld(); walk.pos.set(o.x + r.off.x, walk.pos.y, o.z + r.off.z); }
+		else { const now = this.originWorld(); world.position.add(new THREE.Vector3().subVectors(r.before, now)); r.before.copy(this.originWorld()); }
+	},
+
 	// Called every frame. Half a second closing; then the cabin travels —
 	// the display counting the floors, the motor sounding, longer for
 	// more floors — and the other room is hung meanwhile; the doors stay
@@ -920,18 +932,20 @@ export const elevator = {
 		const close = DOOR_T / 1000;
 		if (t < close) { this.setDoors(1 - t / close); return; }
 		if (!r.hung) {
-			dropAllNear();                         // the floor is left: its 2000s go back before the next floor's are read
-			lift.run(r.travel);
-			// the new room's cabin may stand elsewhere: the body keeps its
-			// place and look in the cabin, not put back facing the doors (Uli)
-			const before = this.originWorld().clone(), off = new THREE.Vector3().subVectors(walk.pos, before);
-			hangRoom(r.key);                       // may rebuild the room and this cabin
-			if (!renderer.xr.isPresenting) { const o = this.originWorld(); walk.pos.set(o.x + off.x, walk.pos.y, o.z + off.z); }
-			// in the headset the visitor cannot be moved: the world is shifted
-			// so the new room's cabin stands where the old one stood — before,
-			// a room of another size left them outside the cabin, the doors
-			// closed behind them and a call brought the lift again (Uli)
-			else world.position.add(before.sub(this.originWorld()));
+			// **One step of the hang a frame** (2026-09-18): the room is made
+			// in pieces over the first frames of the travel (hangRoomSteps),
+			// the doors shut all the while; the body and the world are set
+			// once it stands.
+			if (!r.hanging) {
+				dropAllNear();                     // the floor is left: its 2000s go back before the next floor's are read
+				lift.run(r.travel);
+				// the new room's cabin may stand elsewhere: the body keeps its
+				// place and look in the cabin, not put back facing the doors (Uli)
+				r.before = this.originWorld().clone(); r.off = new THREE.Vector3().subVectors(walk.pos, r.before);
+				r.hanging = hangRoomSteps(r.key);  // may rebuild the room and this cabin
+			}
+			if (!r.hanging.next().done) { this.keepPlace(r); return; }
+			this.keepPlace(r);
 			this.setDoors(0);
 			renderer.compile(scene, camera);
 			r.hung = true;

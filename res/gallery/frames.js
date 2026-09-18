@@ -1,7 +1,7 @@
 import * as THREE from '../vendor/three.module.js';
-import { walnut } from './elevator.js?v=20260918f';
-import { renderer, scene } from './scene.js?v=20260918f';
-import { state } from './state.js?v=20260918f';
+import { walnut } from './elevator.js?v=20260918h';
+import { renderer, scene } from './scene.js?v=20260918h';
+import { state } from './state.js?v=20260918h';
 
 // ---------------------------------------------------------------------------
 // The frames
@@ -76,7 +76,7 @@ export function tex(file, srgb, repeat, along = repeat) {
 	t.flipY = false;
 	fetch('/res/textures/' + file)
 		.then(r => { if (!r.ok) throw new Error(`${r.status} ${file}`); return r.blob(); })
-		.then(b => createImageBitmap(b, { imageOrientation: 'flipY', premultiplyAlpha: 'none', colorSpaceConversion: 'none' }))
+		.then(b => decode(b, { imageOrientation: 'flipY', premultiplyAlpha: 'none', colorSpaceConversion: 'none' }))
 		.then(bmp => uploads.push([t, bmp]))
 		.catch(e => console.warn('texture not loaded', e));
 	texCache.set(key, t);
@@ -260,7 +260,7 @@ function fetchInto(t, files, px) {
 	const fit = px ? { resizeWidth: px, resizeHeight: px, resizeQuality: 'high' } : {};
 	const next = () => fetch('/' + files[at])
 		.then(r => { if (!r.ok) throw new Error(`${r.status} ${files[at]}`); return r.blob(); })
-		.then(b => createImageBitmap(b, { premultiplyAlpha: 'none', colorSpaceConversion: 'none', ...fit }))
+		.then(b => decode(b, { premultiplyAlpha: 'none', colorSpaceConversion: 'none', ...fit }))
 		.then(bmp => { uploads.push([t, bmp]); })   // to the GPU in its turn (stepUploads), not as it lands
 		.catch(e => { if (++at < files.length) next(); else console.warn('photo not loaded', e); });
 	next();
@@ -280,10 +280,30 @@ function fetchInto(t, files, px) {
 // photograph, not both. **The texture gets its image at its upload**, so
 // whatever asks `t.image` — the lift holding its doors, the near sheet
 // waiting to show — is asking whether it is on the GPU.
+// **And one decode at a time** (2026-09-18, the frame rate at the doors,
+// again). With the uploads spread, frames of 30 and 45 ms were left in
+// which the loop's own steps took a millisecond: the time was outside
+// it — `createImageBitmap` decodes off the thread, but what it hands
+// back lands on the main thread, and thirty of them, started together
+// at the hang, land together, several to a frame, 15 ms each. Timed
+// step by step (frameCost, gallery.js) and proved by serialising the
+// decodes from the console: only the hang's own frame was left. So the
+// blobs queue here, one decode is in flight at a time, and the next is
+// started from stepUploads — a frame decodes one file and sends one up.
+const decodes = [];
+let decoding = false;
+const decode = (blob, opts) => new Promise((res, rej) => decodes.push({ blob, opts, res, rej }));
+function stepDecodes() {
+	if (decoding || !decodes.length) return;
+	const d = decodes.shift();
+	decoding = true;
+	createImageBitmap(d.blob, d.opts).then(b => { decoding = false; d.res(b); }, e => { decoding = false; d.rej(e); });
+}
 const GPU_PX = 1.5e6;
 export const gpu = { px: 0 };                // what this frame has sent so far
 const uploads = [];
 export function stepUploads() {
+	stepDecodes();
 	gpu.px = 0;
 	while (uploads.length) {
 		const [t, bmp] = uploads[0], px = bmp.width * bmp.height;

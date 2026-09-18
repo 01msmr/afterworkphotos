@@ -1,8 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
-import { CABIN_LAMP, lightPanel, metal } from './elevator.js?v=20260918f';
-import { ENV_INTENSITY, PRINT_GLOW, poolMaterial, tex } from './frames.js?v=20260918f';
-import { camera, renderer, scene } from './scene.js?v=20260918f';
-import { state } from './state.js?v=20260918f';
+import { CABIN_LAMP, lightPanel, metal } from './elevator.js?v=20260918h';
+import { ENV_INTENSITY, PRINT_GLOW, poolMaterial, tex } from './frames.js?v=20260918h';
+import { camera, renderer, scene } from './scene.js?v=20260918h';
+import { state } from './state.js?v=20260918h';
 
 // ---------------------------------------------------------------------------
 // The room
@@ -171,13 +171,15 @@ const FILL    = { light: 1.4,  dark: 0.06 };
 // **A thin, slightly darker line down every wall's two vertical edges**
 // (Uli, 2026-09-18), so a corner reads as a corner and the room as a
 // space: white walls under even fills meet without a trace otherwise. A
-// strip of 12 % black, 5 mm wide, a millimetre and a half off the plaster
-// — black over whatever is under it, so it darkens paint and dado alike
-// and needs no colours of its own for the night. All of a room's strips
+// strip of 3.6 % black (Uli: 12 % was too dark — 30 % of that), 5 mm
+// wide, 8 mm off the plaster: before the dado (2 mm) and the wainscot
+// (6.5 mm), behind the rails and caps — black over whatever is under it,
+// so it darkens paint and dado alike (Uli: the dado's part too) and
+// needs no colours of its own for the night. All of a room's strips
 // are one mesh, one draw call; the pointer passes through it. `runs` are
 // wall runs [x, z, qx, qz] walked with the room on the left, as the
 // plan's outline is.
-const EDGE = { w: 0.005, off: 0.0015, dark: 0.12 };
+const EDGE = { w: 0.005, off: 0.008, dark: 0.036 };
 const edgeMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: EDGE.dark, depthWrite: false, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -4 });
 export function edgeLines(runs, H) {
 	const pos = [], idx = [];

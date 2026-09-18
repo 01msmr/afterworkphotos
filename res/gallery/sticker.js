@@ -1,8 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
-import { camera, renderer, scene } from './scene.js?v=20260918f';
-import { isFav, toggleFav } from './state.js?v=20260918f';
-import { elevator } from './elevator.js?v=20260918f';   // only to ask whether the visitor is in the cabin
-import { CARD_D } from './bake.js?v=20260918f';
+import { camera, renderer, scene } from './scene.js?v=20260918h';
+import { isFav, toggleFav } from './state.js?v=20260918h';
+import { elevator } from './elevator.js?v=20260918h';   // only to ask whether the visitor is in the cabin
+import { CARD_D } from './bake.js?v=20260918h';
 
 // ---------------------------------------------------------------------------
 // Red dots
@@ -38,11 +38,15 @@ const between = ([a, b]) => a + Math.random() * (b - a);
 const dotGeo = new THREE.CircleGeometry(DOT_R, 20);
 const stuckMat = new THREE.MeshBasicMaterial({ color: RED, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -8 });   // on the paper or the plaster, a millimetre off it: eight depth steps forward (frames.js, STEPS)
 const heldMat = new THREE.MeshBasicMaterial({ color: RED, transparent: true, opacity: 0.5, depthTest: false });
-// **The dot on the pointer is an off-white — white with 12 % black — until
-// a sticker's place is near** (Uli, 2026-09-18): riding bare wall it is
-// only where the hand points, and red said "sticker" all over the room.
-// Snapped to a place, it is the red sticker it offers.
-const aimMat = new THREE.MeshBasicMaterial({ color: 0xe0e0e0, transparent: true, opacity: 0.9, depthTest: false });
+// **The dot on the pointer is green — and yellow in the lift** (Uli,
+// 2026-09-18; it was an off-white for an hour, and red before that, which
+// said "sticker" all over the room). Riding bare wall it is only where
+// the hand points; snapped to a sticker's place it is the red sticker it
+// offers. In the cabin the pointer is the two circles (ringIcon, discIcon),
+// and they take the yellow; on the switchplate outside they are green.
+const GREEN = 0x46ff7a, YELLOW = 0xffd60a;
+const aimMat = new THREE.MeshBasicMaterial({ color: GREEN, transparent: true, opacity: 0.9, depthTest: false });
+const circleMat = new THREE.MeshBasicMaterial({ color: GREEN, transparent: true, opacity: 0.9, depthTest: false, side: THREE.DoubleSide });
 
 // A dot for every card of a piece, at its place, shown only if that
 // photograph carries one. Called once the labels are placed.
@@ -325,14 +329,14 @@ function loupeIcon() {
 let ring = null, disc = null;
 function ringIcon() {
 	if (!ring) {
-		ring = new THREE.Mesh(new THREE.RingGeometry(DOT_R - 0.0018, DOT_R, 32), cursorMat);
+		ring = new THREE.Mesh(new THREE.RingGeometry(DOT_R - 0.0018, DOT_R, 32), circleMat);
 		ring.name = 'cursor-ring'; ring.renderOrder = 3; ring.visible = false; scene.add(ring);
 	}
 	return ring;
 }
 function discIcon() {
 	if (!disc) {
-		disc = new THREE.Mesh(new THREE.CircleGeometry(DOT_R, 32), cursorMat);
+		disc = new THREE.Mesh(new THREE.CircleGeometry(DOT_R, 32), circleMat);
 		disc.name = 'cursor-disc'; disc.renderOrder = 3; disc.visible = false; scene.add(disc);
 	}
 	return disc;
@@ -392,6 +396,7 @@ export function stepSticker() {
 	// no dot on the steel, no brackets over a print seen through the open
 	// doors. A lift is a lift; the wall's vocabulary is left outside it.
 	const inLift = !!elevator.origin && elevator.inside();
+	circleMat.color.setHex(inLift ? YELLOW : GREEN);
 	const kind = overKind(hit);
 	const showing = settled ? null
 		: inLift ? ({ button: discIcon(), plate: ringIcon() }[kind] || null)

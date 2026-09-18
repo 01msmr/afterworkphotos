@@ -1,16 +1,16 @@
 import * as THREE from '../vendor/three.module.js';
-import { clearCards, bakeRoom, placeLabels } from './bake.js?v=20260918f';
-import { addDots, findSpots } from './sticker.js?v=20260918f';
-import { placeGuard } from './guard.js?v=20260918f';
-import { clearZoom } from './zoom.js?v=20260918f';
-import { setWire, wire } from './bench.js?v=20260918f';
-import { elevator, roomLabel } from './elevator.js?v=20260918f';
-import { FRAME, GRID_GAP, dropTex, sc, textureCache } from './frames.js?v=20260918f';
-import { WALL_STYLES, buildRoom, dadoTop, floorOf, rectRoom, shapeOf, wallColours } from './room.js?v=20260918f';
-import { scene, world } from './scene.js?v=20260918f';
-import { HANG_MAX, pieceY, state } from './state.js?v=20260918f';
-import { framedSize, freeTexturesExcept, freeVideosExcept, makePiece } from './video.js?v=20260918f';
-import { BODY_R } from './walk.js?v=20260918f';
+import { clearCards, bakeRoom, placeLabels } from './bake.js?v=20260918h';
+import { addDots, findSpots } from './sticker.js?v=20260918h';
+import { placeGuard } from './guard.js?v=20260918h';
+import { clearZoom } from './zoom.js?v=20260918h';
+import { setWire, wire } from './bench.js?v=20260918h';
+import { elevator, roomLabel } from './elevator.js?v=20260918h';
+import { FRAME, GRID_GAP, dropTex, sc, textureCache } from './frames.js?v=20260918h';
+import { WALL_STYLES, buildRoom, dadoTop, floorOf, rectRoom, shapeOf, wallColours } from './room.js?v=20260918h';
+import { scene, world } from './scene.js?v=20260918h';
+import { HANG_MAX, pieceY, state } from './state.js?v=20260918h';
+import { framedSize, freeTexturesExcept, freeVideosExcept, makePiece } from './video.js?v=20260918h';
+import { BODY_R } from './walk.js?v=20260918h';
 
 // ---------------------------------------------------------------------------
 // Hanging a year
@@ -482,7 +482,23 @@ function clipPool(pool, w, h, left = Infinity, right = Infinity) {
 	pool.position.x = (r - l) / 2;
 }
 
+// **The hang is spread over frames when it can be** (2026-09-18, the
+// frame rate at the doors, again). Timed step by step, the one long frame
+// left after the decodes were serialised was the hang's own: shell,
+// pieces, bake and the first draw of it all in one frame — 17 ms on the
+// bench, and the headset is not the bench. hangRoomSteps yields after the
+// shell, every eight pieces and after the bake; a ride pulls one step a
+// frame while its doors are shut (elevator.step), and hangRoom runs them
+// all at once for everyone who needs the room now — arrival, a scan, the
+// bench. Nothing is on the walls until the last step but the doors are
+// shut, and the cabin comes with the shell in the first.
 export function hangRoom(key) {
+	const it = hangRoomSteps(key);
+	let s;
+	do s = it.next(); while (!s.done);
+	return s.value;
+}
+export function* hangRoomSteps(key) {
 	const t0 = performance.now();
 	clearZoom();                                   // nothing left large belongs to the room that goes
 	clearCards();                                  // nor do its cards still waiting to be drawn
@@ -518,14 +534,18 @@ export function hangRoom(key) {
 	const style = WALL_STYLES[floor] || WALL_STYLES.lacquer;
 	const dadoCap = Math.max(0, Math.min(dadoTop(style), HANG_MAX - 0.15 - tallest / 2));
 	state.dadoCap = dadoCap;
-	if (!state.room || state.room.W !== W || state.room.D !== D || state.room.H !== H || state.room.floor !== floor || state.room.dadoCap !== dadoCap)
+	if (!state.room || state.room.W !== W || state.room.D !== D || state.room.H !== H || state.room.floor !== floor || state.room.dadoCap !== dadoCap) {
 		buildShell(W, D, H, floor, dadoCap, shape);
+		yield;
+	}
 
 	state.gap = lay.gap;                           // the labels need it before the pieces exist
 	state.placed = lay.placed;
 	state.obstacles = [];
 	const slabs = new Map();                       // a slot's slab: the larger of the pair's sizes
+	let made = 0;
 	for (const { piece: spec, x, z, yaw, wall, slab, roomLeft, roomRight } of lay.placed) {
+		if (made++ % 8 === 7) yield;
 		const piece = makePiece(spec);
 		piece.position.set(x, pieceY(piece.userData.h), z);
 		piece.rotation.y = yaw;
@@ -564,10 +584,12 @@ export function hangRoom(key) {
 		pieces.add(m);
 	}
 
+	yield;
 	world.add(pieces);
 	world.updateMatrixWorld(true);
 	findSpots();                               // where a red dot may go, in this room, in world coordinates
 	world.add(bakeRoom(pieces));
+	yield;
 	if (wire) setWire(true);
 	const keep = new Set(); pieces.traverse(o => { if (o.name === 'photo') for (const [k, t] of textureCache) if (t === o.material.map) keep.add(k); });
 	freeTexturesExcept(keep);
