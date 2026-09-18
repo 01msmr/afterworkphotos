@@ -1,23 +1,23 @@
 // three.js 0.180.0, vendored (MIT) — res/vendor/three.module.js, which in
 // turn imports res/vendor/three.core.js; both are pinned together.
-import { stats, stepStats, wire } from './gallery/bench.js?v=20260918f';
-import { elevator, lift, pressAt, setSetting } from './gallery/elevator.js?v=20260918f';
-import { stepCards } from './gallery/bake.js?v=20260918f';   // after elevator.js: bake → frames → room → elevator is a cycle, and the lift's steel asks frames for a texture as it loads
-import { materials, stepUploads } from './gallery/frames.js?v=20260918f';
-import { ELEVATOR, hangRoom, packRun, piecesOf, replan, firstRoom, rooms, spread, upright } from './gallery/hang.js?v=20260918f';
-import { stepSticker } from './gallery/sticker.js?v=20260918f';
-import { jump, stepJump } from './gallery/jump.js?v=20260918f';
-import { stepTablet, tabletHit, toggleTablet } from './gallery/tablet.js?v=20260918f';
-import { nextLine, placeGuard, stepGuard } from './gallery/guard.js?v=20260918f';
-import { musicLevel, playing, stepMusic } from './gallery/music.js?v=20260918f';
-import { stepZoom, zoomLabel, zoomPrint } from './gallery/zoom.js?v=20260918f';
-import { applyMode, buildRoom, stepMode } from './gallery/room.js?v=20260918f';
-import { planOf } from './gallery/plan.js?v=20260918f';
-import { camera, renderer, rig, scene, world } from './gallery/scene.js?v=20260918f';
-import { EYE, state } from './gallery/state.js?v=20260918f';
-import { makePiece, makeVideoPanel, stepDetail, stepVideos, videoCache } from './gallery/video.js?v=20260918f';
-import { benchScan, fitRoom, stepPlanes } from './gallery/vr.js?v=20260918f';
-import { applyLook, placeBody, stepWalk, walk } from './gallery/walk.js?v=20260918f';
+import { stats, stepStats, wire } from './gallery/bench.js?v=20260918h';
+import { elevator, lift, pressAt, setSetting } from './gallery/elevator.js?v=20260918h';
+import { stepCards } from './gallery/bake.js?v=20260918h';   // after elevator.js: bake → frames → room → elevator is a cycle, and the lift's steel asks frames for a texture as it loads
+import { materials, stepUploads } from './gallery/frames.js?v=20260918h';
+import { ELEVATOR, hangRoom, packRun, piecesOf, replan, firstRoom, rooms, spread, upright } from './gallery/hang.js?v=20260918h';
+import { stepSticker } from './gallery/sticker.js?v=20260918h';
+import { jump, stepJump } from './gallery/jump.js?v=20260918h';
+import { stepTablet, tabletHit, toggleTablet } from './gallery/tablet.js?v=20260918h';
+import { nextLine, placeGuard, stepGuard } from './gallery/guard.js?v=20260918h';
+import { musicLevel, playing, stepMusic } from './gallery/music.js?v=20260918h';
+import { stepZoom, zoomLabel, zoomPrint } from './gallery/zoom.js?v=20260918h';
+import { applyMode, buildRoom, stepMode } from './gallery/room.js?v=20260918h';
+import { planOf } from './gallery/plan.js?v=20260918h';
+import { camera, renderer, rig, scene, world } from './gallery/scene.js?v=20260918h';
+import { EYE, state } from './gallery/state.js?v=20260918h';
+import { makePiece, makeVideoPanel, stepDetail, stepVideos, videoCache } from './gallery/video.js?v=20260918h';
+import { benchScan, fitRoom, stepPlanes } from './gallery/vr.js?v=20260918h';
+import { applyLook, placeBody, stepWalk, walk } from './gallery/walk.js?v=20260918h';
 
 // ---------------------------------------------------------------------------
 // Boot
@@ -48,7 +48,15 @@ function init() {
 // 2026-09-10, in the headset). So each step is guarded on its own: a step
 // that fails is skipped, said once, and the room keeps rendering.
 const said = new Set();
+// **Every step is timed** (2026-09-18, the frame rate at the doors): the
+// frame's slowest step and its whole length are kept, and the worst frame
+// since the readout last spoke goes on the lift's display beside the hang
+// (stepProbe) — so the headset says which step ate the frame, not the
+// bench guessing.
+export const frameCost = { steps: {}, worst: { ms: 0, step: '', stepMs: 0 } };
+let frameT0 = 0;
 function step(name, fn) {
+	const t0 = performance.now();
 	try { fn(); } catch (e) {
 		if (said.has(name)) return;
 		said.add(name);
@@ -56,8 +64,14 @@ function step(name, fn) {
 		// and say so where it can be read in the headset, on the lift's displays
 		try { elevator.show(`${name}: ${String(e.message || e).slice(0, 22)}`, ''); } catch (ignored) {}
 	}
+	frameCost.steps[name] = performance.now() - t0;
 }
 renderer.setAnimationLoop((now, frame) => {
+	if (frameT0) {                                   // the frame before this one, whole: its steps, and the wait for the GPU between
+		const ms = now - frameT0, w = frameCost.worst;
+		if (ms > w.ms) { let s = '', sm = 0; for (const [k, v] of Object.entries(frameCost.steps)) if (v > sm) { s = k; sm = v; } Object.assign(w, { ms, step: s, stepMs: sm }); }
+	}
+	frameT0 = now;
 	if (frame) step('planes', () => stepPlanes(frame));
 	step('lift', () => elevator.step(now));
 	step('walk', () => stepWalk(now));
@@ -92,11 +106,13 @@ function stepProbe(now) {
 	if (now - probe.at < 1000) return;
 	if (renderer.xr.isPresenting && probe.at && wire) {
 		const rs = renderer.xr.getSession().renderState, kind = rs.layers && rs.layers.length ? 'proj' : 'base';
-		elevator.note(`${probe.bits} bit · ${kind} · ${Math.round(probe.frames * 1000 / (now - probe.at))} fps · ${renderer.info.render.calls} calls · hang ${state.hangMs || 0} ms`);   // the calls of the last frame: fill or geometry, the number says which
+		const w = frameCost.worst;
+		elevator.note(`${probe.bits} bit · ${kind} · ${Math.round(probe.frames * 1000 / (now - probe.at))} fps · ${renderer.info.render.calls} calls · hang ${state.hangMs || 0} ms · worst ${Math.round(w.ms)} ms (${w.step} ${Math.round(w.stepMs)})`);   // the calls of the last frame: fill or geometry, the number says which; the worst frame of the last second and the step that took most of it
 	} else if (elevator.noteText) elevator.note('');
+	frameCost.worst = { ms: 0, step: '', stepMs: 0 };
 	probe.frames = 0; probe.at = now;
 }
 
 // Test-harness handle only: the plan's browser checks read the scene graph
 // and camera through this. Nothing on the page uses it.
-window.G = { scene, camera, renderer, state, buildRoom, applyMode, makePiece, rooms, hangRoom, walk, stepWalk, elevator, pressAt, setSetting, materials, rig, world, placeBody, lift, stepPlanes, stepVideos, videoCache, makeVideoPanel, stepDetail, replan, packRun, piecesOf, spread, upright, fitRoom, planOf, jump, toggleTablet, tabletHit, stepZoom, zoomLabel, zoomPrint, playing, musicLevel, stepMusic, placeGuard, stepGuard, nextLine };   // replan, packRun, piecesOf, spread, upright, fitRoom, planOf: for the bench's checks only
+window.G = { frameCost, scene, camera, renderer, state, buildRoom, applyMode, makePiece, rooms, hangRoom, walk, stepWalk, elevator, pressAt, setSetting, materials, rig, world, placeBody, lift, stepPlanes, stepVideos, videoCache, makeVideoPanel, stepDetail, replan, packRun, piecesOf, spread, upright, fitRoom, planOf, jump, toggleTablet, tabletHit, stepZoom, zoomLabel, zoomPrint, playing, musicLevel, stepMusic, placeGuard, stepGuard, nextLine };   // replan, packRun, piecesOf, spread, upright, fitRoom, planOf: for the bench's checks only
