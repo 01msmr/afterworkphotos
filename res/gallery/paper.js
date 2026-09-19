@@ -13,7 +13,8 @@ import { state } from 'gallery/state';
 // tuned over twenty rounds; it replaces the switchplate by the lift and
 // the map held up on B). **B pins it where the pointer points**: upright
 // on a wall or a slab, its foot never under 50 cm; flat on the floor
-// turned to the one who put it there. B again takes it away, and a ride
+// turned to the one who put it there. B again takes it away, so does a
+// press on one of its tape strips, and a ride
 // leaves it behind (hangRoom hides it). A press anywhere on a line sets
 // that option — a two-way option is one box, a group (the frames' wood,
 // the language) a box per value — and the tick comes down big first,
@@ -237,6 +238,9 @@ export const paper = {
 	// a press on the sheet: the line under it is set. Returns whether the press was used up.
 	press(rc) {
 		if (!group || !group.visible) return false;
+		// a press on any of the tape strips takes the sheet down (Uli, 2026-09-19)
+		const tape = rc.intersectObjects(group.children.filter(o => o.name === 'tape'), false)[0];
+		if (tape && tape.distance <= 3) { group.visible = false; return true; }
 		const hit = rc.intersectObject(sheet, false)[0];
 		if (!hit || hit.distance > 3) return false;
 		const x = hit.uv.x * PX, y = (1 - hit.uv.y) * PY;   // the canvas' own pixels, whatever its size
