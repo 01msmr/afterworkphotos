@@ -95,5 +95,15 @@
 		"Jedes davon ist nach der Arbeit entstanden, das heißt, jemand war müde und ist trotzdem stehen geblieben, um etwas anzusehen, und ich hatte sehr viel Zeit, darüber nachzudenken, eher mehr als unbedingt nötig.",
 		"Es ist keine schwere Arbeit, diese hier, nur eine sehr lange, und ich habe verstanden, dass das keineswegs dasselbe ist.",
 		"Der Aufzug lässt sich Zeit, die Bilder bewegen sich nicht, und man sagt mir, das Licht hier drin ändere sich nie, was die Art von Satz ist, die Leute sagen, wenn sie etwa eine Minute im Raum waren."
+	],
+	"toLift": [
+		"Hier entlang zum Aufzug, bitte. Folgen Sie der Linie.",
+		"Die Linie führt Sie zum Aufzug. Stellen Sie sich in den Kreis.",
+		"Der Linie nach, wenn ich bitten darf. Der Aufzug wartet."
+	],
+	"toPrint": [
+		"Da wären wir. Die Linie führt zu Ihrem Bild.",
+		"Das ist die Etage. Folgen Sie der Linie zum Bild.",
+		"Ihr Bild ist am Ende der Linie."
 	]
 }

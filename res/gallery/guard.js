@@ -130,6 +130,17 @@ const LINES = {
 		'The lift takes its time. It always has.',
 		'There is another floor above this one.',
 	],
+	// the instant lift: the way to its door, then to the print
+	toLift: [
+		'This way to the lift, please. Follow the line.',
+		'The line takes you to the lift. Stand in the circle.',
+		'Along the line, if you would. The lift is waiting.',
+	],
+	toPrint: [
+		'Here we are. The line leads to your picture.',
+		'This is the floor. Follow the line to the print.',
+		'Your picture is at the end of the line.',
+	],
 	// and now and then he runs on a bit. It is a boring job and it shows:
 	// long sentences, and a little put out about something (Uli, 2026-09-13)
 	ramble: [
@@ -308,7 +319,7 @@ const SAY_FAR = 9;                         // metres: past this he is not heard
 // how loud each kind is said
 const TEMPER = {
 	greet: 0.6, tell: 0.6, chat: 0.55, ramble: 0.52, joke: 0.6, humble: 0.62,   // he mutters the long ones
-	warn: 0.72, row: 0.7, rush: 0.9, call: 1, harsh: 1.15, stop: 1.25, last: 1.3, closed: 1.05, open: 0.75,
+	warn: 0.72, row: 0.7, rush: 0.9, call: 1, harsh: 1.15, stop: 1.25, last: 1.3, closed: 1.05, open: 0.75, toLift: 0.7, toPrint: 0.7,
 };
 const RAGE = 3, RAGE_IN = 30000, SHUT_FOR = 45000;   // three in half a minute and the room is shut
 let voices = new Map(), vGain = null;
@@ -372,6 +383,8 @@ function say(said, now, loud = false) {
 
 // For the bench's checks: what the picker would say next.
 export function nextLine(kind) { return pick(kind).text; }
+// a kind said now, from outside (the instant lift's guidance)
+export function guardSays(kind) { const l = pick(kind); if (l) say(l, performance.now(), true); }   // past the rest: a guidance line is asked for, not offered
 
 // Where it stands: the corner of the room furthest from the lift, a
 // little off both walls, facing the room.
