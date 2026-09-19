@@ -1,0 +1,65 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>text demo</title>
+<link rel="stylesheet" href="../res/gallery.css">
+<style>body{background:#e8e4dc;color:#222;font:13px/1.4 ui-monospace,Menlo,monospace;padding:16px} .row{display:flex;gap:24px;align-items:flex-start;margin:8px 0 18px} .row div{text-align:center} canvas{background:#fff;box-shadow:0 1px 4px #0003;image-rendering:auto} h2{font:600 14px ui-sans-serif;margin:18px 0 4px}</style></head><body>
+<div id="out"></div>
+<script>
+// A label card as the headset sees it: drawn at 1280 px, then shrunk to the panel pixels it spans — a 24 cm card at ~20 px/deg: 1.2 m → 230 px, 2 m → 137 px, 3 m → 92 px — in two halvings (a mip chain) then a last scale, which is what the GPU's trilinear filter does.
+const CARD = { px: 1280, drawn: 1536, h: 544, lines: ['afterworkphoto 422 · Jan 2026', 'line on cobbles', 'Walldorf'] };
+const SIZES = { '1.2 m': 230, '2 m': 137, '3 m': 92 };
+function card(v) {
+	const c = document.createElement('canvas'); c.width = CARD.px; c.height = Math.round(CARD.h * CARD.px / CARD.drawn);
+	const g = c.getContext('2d'), k = CARD.px / CARD.drawn; g.scale(k, k);
+	g.fillStyle = '#fdfcfa'; g.fillRect(0, 0, CARD.drawn, CARD.h); g.textBaseline = 'middle';
+	CARD.lines.forEach((line, i) => { const j = i ? 1 : 0; g.fillStyle = v.ink[j]; g.font = `${v.weight[j]} ${v.size[j]}px -apple-system, "Helvetica Neue", Arial, sans-serif`;
+		const y = 2 * (40 + 32 + 64 * i); g.fillText(line, 80, y);
+		if (v.stroke) { g.strokeStyle = v.ink[j]; g.lineWidth = v.stroke; g.lineJoin = 'round'; g.strokeText(line, 80, y); } });
+	return c;
+}
+function shrink(src, w) {
+	let cur = src;
+	while (cur.width / 2 > w) { const c = document.createElement('canvas'); c.width = Math.round(cur.width / 2); c.height = Math.round(cur.height / 2); const g = c.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(cur, 0, 0, c.width, c.height); cur = c; }
+	const c = document.createElement('canvas'); c.width = w; c.height = Math.round(cur.height * w / cur.width); const g = c.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(cur, 0, 0, c.width, c.height);
+	return c;
+}
+const out = document.getElementById('out');
+function show(title, src) {
+	const h = document.createElement('h2'); h.textContent = title; out.appendChild(h);
+	const row = document.createElement('div'); row.className = 'row';
+	for (const [d, w] of Object.entries(SIZES)) { const c = shrink(src, w); const box = document.createElement('div'); box.appendChild(c); const l = document.createElement('div'); l.textContent = d; box.appendChild(l); row.appendChild(box); }
+	const big = shrink(src, 480); const box = document.createElement('div'); box.appendChild(big); const l = document.createElement('div'); l.textContent = 'doubled, 0.7 m'; box.appendChild(l); row.appendChild(box);
+	out.appendChild(row);
+}
+const V = {
+	'A — as it is: 600/500, 110/100 px, #141311 / #3d3a36': { weight: [600, 500], size: [110, 100], ink: ['#141311', '#3d3a36'], stroke: 0 },
+	'B — heavier: 700/600, same sizes, ink #000 / #222': { weight: [700, 600], size: [110, 100], ink: ['#000000', '#222222'], stroke: 0 },
+	'C — B plus a 3 px stroke round the letters': { weight: [700, 600], size: [110, 100], ink: ['#000000', '#222222'], stroke: 3 },
+	'D — C with 6 px stroke': { weight: [700, 600], size: [110, 100], ink: ['#000000', '#222222'], stroke: 6 },
+};
+for (const [t, v] of Object.entries(V)) show(t, card(v));
+// the sheet: a title and two lines as paper.js draws them (Kalam bold), 1536 px wide, 0.5 m on the wall: at 1 m ≈ 580 px, 1.5 m ≈ 390 px, 2 m ≈ 290 px
+const SHEET = { px: 1536, lines: ['Nachtmodus', 'Bilderrahmen: Ahorn  Eiche  Nussbaum'] };
+function sheet(v) {
+	const c = document.createElement('canvas'); c.width = SHEET.px; c.height = 420; const g = c.getContext('2d');
+	g.fillStyle = '#fbfaf6'; g.fillRect(0, 0, c.width, c.height); g.fillStyle = v.ink; g.textBaseline = 'alphabetic';
+	g.font = `${v.title} Kalam, "Marker Felt", sans-serif`; g.textAlign = 'center'; g.fillText('Einstellungen', c.width / 2, 150);
+	if (v.stroke) { g.strokeStyle = v.ink; g.lineWidth = v.stroke; g.lineJoin = 'round'; g.strokeText('Einstellungen', c.width / 2, 150); }
+	g.textAlign = 'left'; g.font = `${v.line} Kalam, "Marker Felt", sans-serif`;
+	SHEET.lines.forEach((l, i) => { const y = 270 + i * 120; g.fillText('☐  ' + l, 114, y); if (v.stroke) g.strokeText('☐  ' + l, 114, y); });
+	return c;
+}
+const SS = { '1 m': 580, '1.5 m': 390, '2 m': 290 };
+function showSheet(title, src) {
+	const h = document.createElement('h2'); h.textContent = title; out.appendChild(h);
+	const row = document.createElement('div'); row.className = 'row';
+	for (const [d, w] of Object.entries(SS)) { const c = shrink(src, w); const box = document.createElement('div'); box.appendChild(c); const l = document.createElement('div'); l.textContent = d; box.appendChild(l); row.appendChild(box); }
+	out.appendChild(row);
+}
+document.fonts.load('bold 78px Kalam').then(() => {
+	const W = {
+		'Sheet A — as it is: bold Kalam 150 / 78 px, ink #111': { title: 'bold 150px', line: 'bold 78px', ink: '#111111', stroke: 0 },
+		'Sheet B — a 3 px stroke round the letters': { title: 'bold 150px', line: 'bold 78px', ink: '#111111', stroke: 3 },
+		'Sheet C — a 5 px stroke, ink #000': { title: 'bold 150px', line: 'bold 78px', ink: '#000000', stroke: 5 },
+	};
+	for (const [t, v] of Object.entries(W)) showSheet(t, sheet(v));
+});
+</script></body></html>

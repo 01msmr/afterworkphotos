@@ -70,7 +70,7 @@ function step(name, fn) {
 		said.add(name);
 		console.error(`${name} failed, skipped from here on`, e);
 		// and say so where it can be read in the headset, on the lift's displays
-		try { elevator.show(`${name}: ${String(e.message || e).slice(0, 22)}`, ''); } catch (ignored) {}
+		try { elevator.show(`${name}: ${String(e.message || e).slice(0, 22)}`, ''); elevator.fault(name, e); } catch (ignored) {}
 	}
 	frameCost.steps[name] = performance.now() - t0;
 }
@@ -118,7 +118,7 @@ function stepProbe(now) {
 		const rs = renderer.xr.getSession().renderState, kind = rs.layers && rs.layers.length ? 'proj' : 'base';
 		const w = frameCost.worst;
 		elevator.note(`${probe.bits} bit · ${kind} · ${Math.round(probe.frames * 1000 / (now - probe.at))} fps · ${renderer.info.render.calls} calls · hang ${state.hangMs || 0} ms · worst ${Math.round(w.ms)} ms (${w.step} ${Math.round(w.stepMs)})`);   // the calls of the last frame: fill or geometry, the number says which; the worst frame of the last second and the step that took most of it
-	} else if (elevator.noteText) elevator.note('');
+	} else if (elevator.noteText && !elevator.faultText) elevator.note('');   // a fault's line stays
 	frameCost.worst = { ms: 0, step: '', stepMs: 0 };
 	probe.frames = 0; probe.at = now;
 }

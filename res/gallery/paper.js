@@ -40,6 +40,11 @@ const L = { pad: 114, title: 150, titleGap: 99, font: 78, pitch: 147, indent: 90
 export const PENS = { kalam: 'bold 1em Kalam', gloria: '1em "Gloria Hallelujah"', marker: '1em "Permanent Marker"' };
 let pen = 'kalam';                              // the face in use; the bench may try another (paper.pen)
 const INK = '#111111', FAINT = '#a6a6a6';
+// **A stroke round the letters** (Uli, 2026-09-20: too thin, hazy): the pen's
+// hairlines go grey once the 1536 px are folded to the panel's few hundred;
+// 3 px of stroke keeps them black at 2 m (compared on tests/text-demo.html)
+const STROKE = 5;                                 // 3 px was little on the pen's bold hand (black pixels at 2 m +17 %); 5 px is +42 %
+const word = (g, text, x, y) => { g.fillText(text, x, y); g.strokeStyle = g.fillStyle; g.lineWidth = STROKE; g.lineJoin = 'round'; g.strokeText(text, x, y); };
 const font = (px, italic = false) => (italic ? 'italic ' : '') + PENS[pen].replace('1em', px + 'px') + ', "Marker Felt", sans-serif';
 // what is on the sheet, from the options' registry (settings.js): a
 // `check` is one box, a `group` a box per value under a heading, `rows`
@@ -88,7 +93,7 @@ function draw() {
 	g.strokeStyle = 'rgba(0,0,0,0.10)'; g.lineWidth = 2; g.strokeRect(1, 1, PX - 2, PY - 2);
 	g.textBaseline = 'alphabetic';
 	let y = L.pad + L.title;
-	g.fillStyle = INK; g.font = font(L.title); g.textAlign = 'center'; g.fillText(t.title, PX / 2, y);
+	g.fillStyle = INK; g.font = font(L.title); g.textAlign = 'center'; word(g, t.title, PX / 2, y);
 	y += L.titleGap;
 	g.textAlign = 'left';
 	const fresh = (key, value) => flash && flash.key === key && flash.value === value && performance.now() < flash.until;
@@ -96,7 +101,7 @@ function draw() {
 		g.font = font(L.font);
 		box(g, x, yy, on, fresh(line.key, value) ? L.big : 1);
 		g.fillStyle = on ? INK : FAINT;
-		g.fillText(label, x + L.box + L.gap, yy);
+		word(g, label, x + L.box + L.gap, yy);
 		const w = L.box + L.gap + g.measureText(label).width;
 		areas.push({ line, value, x0: x - 10, x1: x + w + 10, y0: yy - L.font, y1: yy + 20 });
 		return w;
@@ -107,7 +112,7 @@ function draw() {
 			item(line, true, L.pad, y, t[line.key], line.get());
 			areas[areas.length - 1].x1 = PX - L.pad;      // the whole line takes the press
 		} else {
-			g.font = font(L.font, true); g.fillStyle = INK; g.fillText(t[line.key], L.pad, y);
+			g.font = font(L.font, true); g.fillStyle = INK; word(g, t[line.key], L.pad, y);
 			let i = 0;
 			for (const n of line.rows) {
 				y += L.font + L.between;

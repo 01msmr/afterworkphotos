@@ -311,8 +311,12 @@ export function setDim(k) {
 	const pieces = scene.getObjectByName('pieces');
 	if (k > 0 && (!dimmed || dimmed.pieces !== pieces)) {
 		undim(); dimmed = { pieces, list: [] };
+		// **not the prints** (Uli, 2026-09-20: the pictures stayed dark after
+		// a switch): applyModeF already dims their glow with dimK, and the
+		// room hung in the dark had theirs at nought when this list was made
+		// — so nought was what they were given back
 		scene.traverse(o => {
-			if (!o.material || o.name === 'floor') return;
+			if (!o.material || o.name === 'floor' || o.name === 'photo') return;
 			for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
 				if (m.userData.noDim || m.userData.dimmed) continue;
 				const unlit = m.isMeshBasicMaterial || m.isSpriteMaterial || m.isLineBasicMaterial || m.isPointsMaterial;
