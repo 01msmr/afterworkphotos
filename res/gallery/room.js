@@ -304,7 +304,7 @@ export function applyMode(dark) {
 const _ca = new THREE.Color(), _cb = new THREE.Color();
 // the room dimmed to black (k = 1) round a switch, the floor lit on its own at half
 let dimK = 0;
-export function setDim(k) { dimK = k; applyModeF(modeF); const fl = scene.getObjectByName('floor'); if (fl) fl.material.emissiveIntensity = 0.5 * k; }
+export function setDim(k) { dimK = k; applyModeF(modeF); const fl = scene.getObjectByName('floor'); if (fl) fl.material.emissiveIntensity = 0.2 * k; }   // the floor keeps a fifth of its light
 function applyModeF(f) {
 	const mix = (a, b) => (a + (b - a) * f) * (1 - dimK);
 	// 'elevator' too (Uli, 2026-09-13: the outer wall kept the night on it in

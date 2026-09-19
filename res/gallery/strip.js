@@ -19,7 +19,7 @@ import { state } from 'gallery/state';
 // and a circle marks the spot; standing in it the room switches in the
 // dark (jump.js, switchTo) and the line leads on to the print.
 
-const STRIP = { w: 0.05, h: 1.2, card: 0.12, gap: 0.05, fine: 0.03, fineGap: 0.015 };   // h: set to the room's height when pinned; fine: the grey strip left of it, half of it a year
+const STRIP = { w: 0.05, h: 1.2, card: 0.12, gap: 0.05, fineGap: 0.03 };   // h: set to the room's height when pinned; the grey strip left of it: as wide, half as tall, centred
 const GREEN = 0x46ff7a;
 let group = null, strip = null, fine = null, card = null, mark = null, ring = null;
 let fineFrom = null;                          // { y, at }: where a fine scrub began
@@ -62,8 +62,8 @@ function build() {
 	group = new THREE.Group(); group.name = 'strip'; group.visible = false;
 	strip = new THREE.Mesh(new THREE.PlaneGeometry(STRIP.w, STRIP.h), new THREE.MeshBasicMaterial({ color: 0x141311 }));
 	strip.name = 'strip-rail'; group.add(strip);
-	fine = new THREE.Mesh(new THREE.PlaneGeometry(STRIP.fine, STRIP.h), new THREE.MeshBasicMaterial({ color: 0x8a8a88 }));
-	fine.name = 'strip-fine'; fine.position.x = -STRIP.w / 2 - STRIP.fineGap - STRIP.fine / 2; group.add(fine);
+	fine = new THREE.Mesh(new THREE.PlaneGeometry(STRIP.w, STRIP.h / 2), new THREE.MeshBasicMaterial({ color: 0x8a8a88 }));
+	fine.name = 'strip-fine'; fine.position.x = -STRIP.w - STRIP.fineGap; group.add(fine);
 	// the years' lines: one thin white bar where a year begins
 	const list = pile(), lines = [];
 	for (let i = 1; i < list.length; i++) if (list[i].taken.slice(0, 4) !== list[i - 1].taken.slice(0, 4)) lines.push(i);
@@ -75,7 +75,7 @@ function build() {
 	mark = new THREE.Mesh(new THREE.PlaneGeometry(STRIP.w + 0.02, 0.004), new THREE.MeshBasicMaterial({ color: GREEN }));
 	mark.name = 'strip-mark'; mark.position.z = 0.001; group.add(mark);
 	card = new THREE.Mesh(new THREE.PlaneGeometry(STRIP.card, STRIP.card * 1.5), new THREE.MeshBasicMaterial({ map: cardTex, transparent: true }));
-	card.name = 'strip-card'; card.position.set(fine.position.x - STRIP.fine / 2 - STRIP.gap - STRIP.card / 2, 0, 0.0005); group.add(card);
+	card.name = 'strip-card'; card.position.set(fine.position.x - STRIP.w / 2 - STRIP.gap - STRIP.card / 2, 0, 0.0005); group.add(card);
 	scene.add(group);
 	ring = new THREE.Mesh(new THREE.RingGeometry(0.32, 0.36, 48), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.7, depthWrite: false }));
 	ring.name = 'strip-ring'; ring.rotation.x = -Math.PI / 2; ring.visible = false; scene.add(ring);
@@ -97,7 +97,7 @@ export const stripLift = {
 		if (!group) build();
 		if (group.visible) { this.hide(); return; }
 		const H = state.room ? state.room.H : 3;
-		STRIP.h = H - 0.12; strip.geometry.dispose(); strip.geometry = new THREE.PlaneGeometry(STRIP.w, STRIP.h); fine.geometry.dispose(); fine.geometry = new THREE.PlaneGeometry(STRIP.fine, STRIP.h);
+		STRIP.h = H - 0.12; strip.geometry.dispose(); strip.geometry = new THREE.PlaneGeometry(STRIP.w, STRIP.h); fine.geometry.dispose(); fine.geometry = new THREE.PlaneGeometry(STRIP.w, STRIP.h / 2);
 		for (const m of group.children) if (m.name === 'strip-year') m.position.y = STRIP.h / 2 - STRIP.h * m.userData.i / (pile().length - 1);
 		if (pinTo(group, rc, STRIP.h / 2) !== 'wall') return;   // a wall or nothing
 		ticked = false;
@@ -126,7 +126,7 @@ export const stripLift = {
 		if (fineFrom) {                                  // the grey strip: half its length runs through one year's pictures, from where the press began (Uli)
 			const hit = rc.intersectObject(fine, false)[0]; if (!hit) return;
 			const list = pile(), year = list[fineFrom.at].taken.slice(0, 4), inYear = list.filter(p => p.taken.slice(0, 4) === year).length;
-			show(Math.round(fineFrom.at + (fineFrom.y - hit.uv.y) / 0.5 * inYear));
+			show(Math.round(fineFrom.at + (fineFrom.y - hit.uv.y) * inYear));   // its whole (half) height: one year
 			return;
 		}
 		const hit = rc.intersectObject(strip, false)[0];

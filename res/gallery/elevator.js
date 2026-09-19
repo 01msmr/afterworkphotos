@@ -526,6 +526,13 @@ export const elevator = {
 		this.stepSeen(now);
 		this.stepPress(now);
 		if (!this.ride) { this.stepIdle(now); return; }
+		try { this.stepRide(now); } catch (e) {          // a ride must end with open doors, whatever went wrong in it
+			console.error('ride failed', e);
+			try { elevator.show(`ride: ${String(e.message || e).slice(0, 22)}`, ''); } catch (ignored) {}
+			this.setDoors(1); this.ride = null; this.passed = null;
+		}
+	},
+	stepRide(now) {
 		const r = this.ride;
 		const t = (now - r.t0) / 1000;
 		const close = DOOR_T / 1000;
@@ -555,6 +562,7 @@ export const elevator = {
 			this.setDoors(0);
 			renderer.compile(scene, camera);
 			r.hung = true;
+			r.key = roomByKey(r.key).key;              // the key as it stands now (roomByKey)
 			r.photos = roomByKey(r.key).specs.flatMap(sp => sp.photos);
 			return;
 		}
