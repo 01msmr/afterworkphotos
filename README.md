@@ -65,9 +65,19 @@ On a desktop browser `?touch=1` (and `?tablet=1`) force the deck. The page must 
 - The app's view **launches one status bar short** and iOS extends it only past a taller document: the viewport height is `100lvh` in the CSS, never `100dvh` and never read from JS at load — otherwise a black band stays under the sheets (17e; the 16's first launch).
 - The status bar's colour and blur cannot be controlled from a page; `--top-gap` keeps the blur off the paper.
 
+## The gallery: how the rooms come to be
+
+The VR gallery (`gallery/`, for a Meta Quest) is a house of floors joined by a lift, and every floor is a year of photographs.
+
+- **A floor is a year.** The lift's console lists them newest at the top. A thin year (five pieces or fewer) shares a floor with its neighbours (`2009 · 2010 · 2012 · 2014`), and a year with more than one room's worth is split into `2018.1`, `2018.2`, as few parts as fit. One more floor, above the newest year, holds the visitor's favourites: the prints marked with a red dot.
+- **A room's size and shape** start from the settings (6 × 4 × 3 m by default) and vary by floor: a hash of the floor's name picks one of a few proportions, wider or deeper, rounded to the half metre. On the bench the room grows in steps until the whole year hangs. In the headset, a scanned room is the room for every floor: an L, a U or a chamfered corner is hung along its real walls, and what does not fit is left out.
+- **The floor is the year's.** Each year stands on its own material, so a year is remembered by what one walks on: grey lacquer, herringbone parquet, polished concrete, worn planks, terrazzo, checker plate, marble, shop tiles. The walls follow the floor: each floor has its paint and, under it, a dado, a skirting or wood panelling in a matching tone.
+- **The lift** stands in the north-east corner of every room, doors to the west. Its console lays the years out like a calendar, ten across, the same year always in the same place; a press lights the year, closes the doors, and the shaft passes in the door seam while the next room is hung. A steel plate outside names the floor.
+- **The guard** stands in a corner and speaks, in English or German, when one comes too close to a print, and small talk when nothing happens. A sheet of paper on the floor at the start, or on a wall on a press of B, carries the options.
+
 ## How the gallery hangs a room
 
-One floor per year, newest at the top of the lift's console; thin years (five pieces or fewer) share a floor with their neighbours, and a year that does not fit one room is split into `2018.1`, `2018.2` — as few parts as fit.
+Within a floor, the pieces are hung by these rules:
 
 1. **Pieces.** Each photo is judged `single` or `group` (`photos.json`, `hang`). Singles hang alone at 90 cm. Group photos are pooled by date (a gap of six weeks or more starts a new pool) and each pool is cut, in date order, into grids of 6 and 4, a row of 3 or a pair — a mix, most photos covered, fewest grids; a grid of 9 only where it saves a floor. A grid takes its place in the sequence at its first photo's date; a lone group photo left over hangs single at 60 cm. In a roomy year every fifth group photo hangs loose as a 60 instead.
 2. **Walls first.** The room's walls are walked clockwise from the lift — the cabin's plastered face, then east, south, west, north. Grids go up first, then singles, each in date order (newest from the lift), at 1.2 m spacing that tightens to 0.6 m before the middle is used; corners and the lift's exit stay empty (0.6 m margins, 0.25 m on a short wall). A grid of four or more keeps 40 cm of bare wall beside it; a pair too wide for its stretch turns upright.
