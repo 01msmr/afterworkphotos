@@ -39,10 +39,13 @@ part of this and carry their own provenance.
 The guard's voice, res/sound/guard/*.mp3
 ----------------------------------------
 
-Not a recording of anyone: the lines were spoken by macOS's own speech
-synthesiser (the `say` command, voice "Daniel", en-GB) and trimmed to
-small mono files. One file per line the guard has; the text of each is in
-res/gallery/guard.js, and the file is named for it.
+Not a recording of anyone: the English lines were spoken by macOS's own
+speech synthesiser (the `say` command, voice "Alex") and trimmed to small
+mono files. One file per line the guard has; the text of each is in
+res/gallery/guard.js, and the file is named for it. The German lines
+(res/sound/guard/de/, their text in lines.json there) were spoken by
+Microsoft's neural voice "Conrad" (de-DE-ConradNeural) through the
+edge-tts tool, 2026-09-19.
 
 Made this way because a headset browser may carry no speech engine of its
 own, which left the guard silent (2026-09-12).
