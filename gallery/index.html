@@ -19,33 +19,18 @@
 	<nav id="floors" hidden aria-label="Floors"></nav>
 	<!-- shown only where the browser can do immersive VR: the Quest -->
 	<button id="vr" hidden>Enter VR</button>
-	<!-- The one place the modules' version lives (2026-09-19): a module is its URL, so
-	     every import goes through this map and a change bumps the ?v= here alone —
-	     sed -i '' 's/?v=OLD/?v=NEW/g' gallery/index.html -->
-	<script type="importmap">
-	{
-		"imports": {
-			"gallery": "/res/gallery.js?v=20260919d",
-			"gallery/bake": "/res/gallery/bake.js?v=20260919d",
-			"gallery/bench": "/res/gallery/bench.js?v=20260919d",
-			"gallery/elevator": "/res/gallery/elevator.js?v=20260919d",
-			"gallery/frames": "/res/gallery/frames.js?v=20260919d",
-			"gallery/guard": "/res/gallery/guard.js?v=20260919d",
-			"gallery/hang": "/res/gallery/hang.js?v=20260919d",
-			"gallery/jump": "/res/gallery/jump.js?v=20260919d",
-			"gallery/music": "/res/gallery/music.js?v=20260919d",
-			"gallery/plan": "/res/gallery/plan.js?v=20260919d",
-			"gallery/room": "/res/gallery/room.js?v=20260919d",
-			"gallery/scene": "/res/gallery/scene.js?v=20260919d",
-			"gallery/state": "/res/gallery/state.js?v=20260919d",
-			"gallery/sticker": "/res/gallery/sticker.js?v=20260919d",
-			"gallery/tablet": "/res/gallery/tablet.js?v=20260919d",
-			"gallery/video": "/res/gallery/video.js?v=20260919d",
-			"gallery/vr": "/res/gallery/vr.js?v=20260919d",
-			"gallery/walk": "/res/gallery/walk.js?v=20260919d",
-			"gallery/zoom": "/res/gallery/zoom.js?v=20260919d"
-		}
-	}
+	<!-- The modules' version, once (2026-09-19): a module is its URL, so every import goes
+	     through this map, written here from V before the first module is fetched — a
+	     change bumps V alone. A new module goes into the list. -->
+	<script>
+		const V = '20260919e';
+		const modules = ['bake', 'bench', 'elevator', 'frames', 'guard', 'hang', 'jump', 'music', 'plan', 'room', 'scene', 'state', 'sticker', 'tablet', 'video', 'vr', 'walk', 'zoom'];
+		const imports = { gallery: `/res/gallery.js?v=${V}` };
+		for (const m of modules) imports[`gallery/${m}`] = `/res/gallery/${m}.js?v=${V}`;
+		const map = document.createElement('script');
+		map.type = 'importmap';
+		map.textContent = JSON.stringify({ imports });
+		document.currentScript.after(map);
 	</script>
 	<script type="module">import 'gallery';</script>
 </body>
