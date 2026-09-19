@@ -599,6 +599,7 @@ export function* hangRoomSteps(key) {
 	state.roomKey = key;
 	state.gap = lay.gap;
 	elevator.light(key);
+	elevator.engrave(roomLabel(room));            // the steel plate outside says the floor
 	if (!elevator.ride) elevator.show(roomLabel(room), '');
 	placeGuard();                                  // the guard takes the far corner of the new room
 	if (TOP) drawTop(shape, lay.placed);
