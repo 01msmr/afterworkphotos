@@ -71,11 +71,16 @@ One floor per year, newest at the top of the lift's console; thin years (five pi
 
 1. **Pieces.** Each photo is judged `single` or `group` (`photos.json`, `hang`). Singles hang alone at 90 cm. Group photos are pooled by date (a gap of six weeks or more starts a new pool) and each pool is cut, in date order, into grids of 6 and 4, a row of 3 or a pair — a mix, most photos covered, fewest grids; a grid of 9 only where it saves a floor. A grid takes its place in the sequence at its first photo's date; a lone group photo left over hangs single at 60 cm. In a roomy year every fifth group photo hangs loose as a 60 instead.
 2. **Walls first.** The room's walls are walked clockwise from the lift — the cabin's plastered face, then east, south, west, north. Grids go up first, then singles, each in date order (newest from the lift), at 1.2 m spacing that tightens to 0.6 m before the middle is used; corners and the lift's exit stay empty (0.6 m margins, 0.25 m on a short wall). A grid of four or more keeps 40 cm of bare wall beside it; a pair too wide for its stretch turns upright.
-3. **The middle.** What the walls cannot take hangs back to back on slabs in rows across the room, rows and walkways sharing the depth evenly, every walkway at least 1.2 m; nothing in the two rectangles where one steps out of the lift.
-4. **Height.** A piece's centre hangs on the 1.5 m line, or just high enough to clear the room's dado, never above 1.65 m; a dado that would push it higher is lowered instead.
-5. **Labels.** A single's card hangs under its frame at the right; a grid's cards stand beside it in the grid's own pattern, in one column where the pattern does not fit, and under it where the wall has no room.
+3. **The middle.** What the walls cannot take hangs back to back on slabs in rows across the room, rows and walkways sharing the depth evenly, every walkway at least 1.2 m, and a row ends 1.2 m short of the wall so one gets round it; nothing in the two rectangles where one steps out of the lift.
+4. **Every frame can be reached.** The floor is a 10 cm grid with the rows, the wall pieces and the cabin blocked round the body; a piece whose standing spot cannot be walked to from the lift's exit is not hung (on the bench the room grows until everything hangs; a real room leaves it out).
+5. **Height.** A piece's centre hangs on the 1.5 m line, or just high enough to clear the room's dado, never above 1.65 m; a dado that would push it higher is lowered instead.
+6. **Labels.** A single's card hangs under its frame at the right; a grid's cards stand beside it in the grid's own pattern (2 cm between columns, 3.5 cm between rows), in one column where the pattern does not fit, and under it where the wall has no room.
 
-The layout is planned from the pieces' sizes alone (`hang.js`: `rooms()`, `layout()`), so every floor is known before a single frame exists; `?top=1` on the bench draws the plan.
+The layout is planned from the pieces' sizes alone (`hang.js`: `rooms()`, `layout()`, `layoutFor(key)`), so every floor is known before a single frame exists; `?top=1` on the bench draws the plan.
+
+## The instant lift
+
+A on the right controller pins a strip on the wall: the black strip scrubs the whole collection by the pointer's height with the trigger held, the grey one beside it scrubs one year over its length, and you may cross between them while scrubbing. The print shown, pressed, lays chalk on the floor to a circle where an 80 cm circle is free both on this floor and on the print's, and the guard says so. Standing in the circle the room goes dark round you (4 s), stays dark while the other floor is hung (2 s) and lights again over 4 s once the pictures in view are there; only the floor, at a fifth, and the chalk show meanwhile. You stay where you stood, and the chalk leads on to the print, round every row and frame, with an arrow at the end that stays half a minute after you arrive.
 
 ## Open
 

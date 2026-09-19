@@ -248,7 +248,7 @@ function makeCard(lines, cw) {
 // of the room, where the slab reaches down to hold it. Built with the
 // spacing known; a grid is placed for good in hangRoom, when the room to
 // its right is.
-const LABEL_GAP = 0.02, GRID_CARD = 0.16, SINGLE_CARD = 0.24, LABEL_OFF = 0.05, CORNER_KEEP = 0.35;
+const LABEL_GAP = 0.02, LABEL_VGAP = 0.035, GRID_CARD = 0.16, SINGLE_CARD = 0.24, LABEL_OFF = 0.05, CORNER_KEEP = 0.35;   // between the cards' columns, and between their rows (Uli: a small gap)
 export function addLabel(piece, spec, w, h) {
 	// a row of three or a pair stacks its cards in a column (Uli); a grid keeps its pattern
 	// one size of card for everything, a grid's as well as a single's
@@ -277,13 +277,13 @@ export function placeLabels(piece, w, h, roomRight, forceBelow = false) {
 	const below = !L.grid || forceBelow || !fits(cols);
 	L.cols = cols;
 	const rows = Math.ceil(L.cards.length / cols);
-	L.bw = cols * L.cw + (cols - 1) * LABEL_GAP; L.bh = rows * L.ch + (rows - 1) * LABEL_GAP;
+	L.bw = cols * L.cw + (cols - 1) * LABEL_GAP; L.bh = rows * L.ch + (rows - 1) * LABEL_VGAP;
 	// the block's top-left corner: beside with its bottom on the piece's
 	// bottom, or under it with its right on the piece's right
 	const x0 = below ? w / 2 - L.bw : w / 2 + LABEL_OFF, y0 = below ? -h / 2 - 0.03 : -h / 2 + L.bh;
 	L.cards.forEach((card, i) => {
 		const col = i % L.cols, row = Math.floor(i / L.cols);
-		card.position.set(x0 + col * (L.cw + LABEL_GAP) + L.cw / 2, y0 - row * (L.ch + LABEL_GAP) - card.userData.ch / 2, CARD_REST_Z);   // its back on the wall, its face 4 mm out
+		card.position.set(x0 + col * (L.cw + LABEL_GAP) + L.cw / 2, y0 - row * (L.ch + LABEL_VGAP) - card.userData.ch / 2, CARD_REST_Z);   // its back on the wall, its face 4 mm out
 		Object.assign(card.userData, { x0: card.position.x, y0: card.position.y, below });
 	});
 	piece.userData.labelDrop = below ? 0.03 + L.bh : 0;   // what hangs under the frame, for the slab

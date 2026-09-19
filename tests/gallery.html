@@ -171,13 +171,26 @@ async function run() {
 	pr.pressAlong(aimAt(st.getObjectByName('strip-card'), V3(0, 0, 0)), 3); await sleep(120);   // the guide is laid on the next frame
 	const jg = G.scene.getObjectByName('jump-guide');
 	say(G.scene.getObjectByName('strip-ring').visible && !!(jg && jg.visible), 'strip: the print pressed lays the way to the lift and its circle');
-	const spot = G.world.localToWorld(V3(G.elevator.origin.x - 0.75 - 0.6, 0, G.elevator.origin.z)), room0 = G.state.roomKey;
+	const ring = G.scene.getObjectByName('strip-ring'), room0 = G.state.roomKey, keyTo = (await mod('hang')).rooms().find(r => !r.favs && r.specs.some(s => s.photos.some(q => q.n === G.stripLift.chosen().n))).key;
+	const Wy = await mod('way'), Hg = await mod('hang'), toLay = Hg.layoutFor(keyTo), here = { shape: G.state.room.shape, blocks: Wy.blocksFor(G.state.placed, G.state.room.W, G.state.room.D) }, there = { shape: toLay.shape, blocks: Wy.blocksFor(toLay.lay.placed, toLay.shape.W, toLay.shape.D) };
+	const spotL = G.world.worldToLocal(ring.position.clone()), roomFor = r => Wy.inside(spotL.x, spotL.z, r.shape, 0.4) && !r.blocks.some(o => spotL.x > o.x0 - 0.1 && spotL.x < o.x1 + 0.1 && spotL.z > o.z0 - 0.1 && spotL.z < o.z1 + 0.1);
+	say(ring.visible && roomFor(here) && roomFor(there), 'strip: the circle stands where an 80 cm circle is free here and on the print\'s floor', `${spotL.x.toFixed(2)}, ${spotL.z.toFixed(2)} for ${room0} and ${keyTo}`);
+	const spot = ring.position;
 	G.walk.pos.set(spot.x, 1.6, spot.z); G.stepWalk(performance.now());
 	const t3 = performance.now(); while (G.state.roomKey === room0 && performance.now() - t3 < 9000) await sleep(100);
 	const tDark = performance.now() - t3;
+	// in the dark: nothing that lights itself shows but the floor and the chalk
+	let bright = [];
+	G.scene.traverse(o => { if (!o.visible || !o.material || o.name === 'floor') return; for (const m of [].concat(o.material)) { if (m.userData.noDim) continue; const unlit = m.isMeshBasicMaterial || m.isSpriteMaterial; const c = unlit ? Math.max(m.color.r, m.color.g, m.color.b) : m.emissive ? m.emissiveIntensity : 0; if (c > 0.05) bright.push(`${o.name || m.type} ${c.toFixed(2)}`); } });
+	const stayed = Math.hypot(G.walk.pos.x - spot.x, G.walk.pos.z - spot.z) < 0.05;
+	say(G.state.roomKey !== room0 && !bright.length && stayed, 'switch: in the dark only the floor and the chalk show, and the body stays where it stood', `${bright.length} bright: ${bright.slice(0, 4).join(' | ')}`);
 	while (G.scene.getObjectByName('ambient').intensity < 1 && performance.now() - t3 < 23000) await sleep(100);   // 6 s dark, up to 10 s for the pictures, 4 s up
 	say(G.state.roomKey !== room0 && G.scene.getObjectByName('ambient').intensity > 0.5 && !G.stripLift.shown(), 'strip: standing at the door switches the room in the dark and lights it again', `${room0} → ${G.state.roomKey} · dark for ${Math.round(tDark)} ms, lit after ${Math.round(performance.now() - t3)} ms`);
-	// 9. the chalk in the new room: round every row, an arrow at the print and no disc; arrived, the arrow alone stays
+	// 9. every floor's layout: a walkway round every row's end, every hung piece reachable from the lift
+	const lays = Hg.openRooms().map(r => [r.key, Hg.layoutFor(r.key)]);
+	const badLay = lays.filter(([k, l]) => l.lay.rest.length || l.lay.unreachable);
+	say(!badLay.length, 'layout: every piece on every floor can be walked to from the lift', `${lays.length} floors${badLay.length ? ' · ' + badLay.map(([k, l]) => `${k}: ${l.lay.rest.length} left, ${l.lay.unreachable} out of reach`).join(', ') : ''}`);
+	// 10. the chalk in the new room: round every row, an arrow at the print and no disc; arrived, the arrow alone stays
 	const Jm = await mod('jump'), jg2 = G.scene.getObjectByName('jump-guide');
 	const legs = jg2.children.filter(m => m.geometry.type === 'PlaneGeometry'), rows = G.state.obstacles;
 	let through = 0;

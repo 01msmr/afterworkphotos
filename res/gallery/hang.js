@@ -11,6 +11,7 @@ import { scene, world } from 'gallery/scene';
 import { HANG_MAX, pieceY, state } from 'gallery/state';
 import { framedSize, freeTexturesExcept, freeVideosExcept, makePiece } from 'gallery/video';
 import { BODY_R } from 'gallery/walk';
+import { blocksFor, reachable } from 'gallery/way';
 
 // ---------------------------------------------------------------------------
 // Hanging a year
@@ -252,7 +253,7 @@ function nearEdge(p, q, c, m) {
 
 const SLAB = { thick: 0.08, edge: 0.08 };   // behind a middle-row grid: its thickness, and how far past the group on every edge (Uli)
 function layMiddle(rest, shape, gap) {
-	const placed = [], ko = keepOut(shape), m = WALL_MARGIN;
+	const placed = [], ko = keepOut(shape), m = WALKWAY;   // a row ends a walkway short of the wall, so one gets round it to the frames there (Uli)
 	// what the walls did not take — back into date order (Uli, 2026-09-10:
 	// neighbours in time side by side), since the walls take the grids
 	// first and the singles after, which leaves the rest shuffled
@@ -362,7 +363,13 @@ function layout(items, shape) {
 		}
 		middle = { placed: [], rest: [] };
 	}
-	return { placed: [...walls.placed, ...middle.placed], rest: middle.rest, gap };
+	// every frame must be walkable to from the lift's exit (Uli): a piece whose standing spot the body cannot reach is not hung
+	const all = [...walls.placed, ...middle.placed], e = ELEVATOR.size;
+	const exit = new THREE.Vector3(shape.W / 2 - 1.5 * e, 0, -shape.D / 2 + e / 2);
+	const spots = all.map(p => new THREE.Vector3(p.x + Math.sin(p.yaw) * 0.8, 0, p.z + Math.cos(p.yaw) * 0.8));
+	const can = reachable(exit, spots, shape, blocksFor(all, shape.W, shape.D));
+	const unreachable = all.filter((p, i) => !can[i]).map(p => p.piece);
+	return { placed: all.filter((p, i) => can[i]), rest: [...middle.rest, ...unreachable], unreachable: unreachable.length, gap };
 }
 
 // ---------------------------------------------------------------------------
@@ -503,20 +510,23 @@ export function hangRoom(key) {
 	return s.value;
 }
 // the room, its shape, the layout on it, floor and dado cap; nothing in the scene changes
-function planRoom(key) {
-	clearZoom();                                   // nothing left large belongs to the room that goes
-	clearCards();                                  // nor do its cards still waiting to be drawn
-	const room = roomByKey(key);
-	const H = state.settings.H + state.settings.raise;   // the height switch: a metre more, over every floor (Uli)
-	const items = [...room.specs].reverse();          // newest first from the elevator
-	let shape = room.shape;                            // grows on the bench until the year fits
-	let lay = layout(items, shape);
+// a room's layout without touching the scene; the shape grows on the bench until the year fits
+export function layoutFor(key) {
+	const room = roomByKey(key), items = [...room.specs].reverse();   // newest first from the elevator
+	let shape = room.shape, lay = layout(items, shape);
 	while (lay.rest.length && shape.W < 40 && !state.real) {      // real walls do not grow
 		shape = rectRoom(shape.W + 1.5, shape.D + 1);
 		lay = layout(items, shape);
 	}
+	return { room, shape, lay };
+}
+function planRoom(key) {
+	clearZoom();                                   // nothing left large belongs to the room that goes
+	clearCards();                                  // nor do its cards still waiting to be drawn
+	const H = state.settings.H + state.settings.raise;   // the height switch: a metre more, over every floor (Uli)
+	const { room, shape, lay } = layoutFor(key);
 	if (shape.W !== room.shape.W) console.warn(`${key}: room grown to ${shape.W} × ${shape.D} to hang everything`);
-	if (lay.rest.length) console.warn(`${key}: ${lay.rest.length} pieces do not fit the real room`);
+	if (lay.rest.length) console.warn(`${key}: ${lay.rest.length} pieces do not fit the real room${lay.unreachable ? ` (${lay.unreachable} out of reach)` : ''}`);
 	const floor = floorOf(room.year);
 	// the dado drops to what the tallest piece leaves under HANG_MAX
 	const tallest = Math.max(0, ...room.specs.map(specHeight));

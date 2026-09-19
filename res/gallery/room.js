@@ -304,7 +304,29 @@ export function applyMode(dark) {
 const _ca = new THREE.Color(), _cb = new THREE.Color();
 // the room dimmed to black (k = 1) round a switch, the floor lit on its own at half
 let dimK = 0;
-export function setDim(k) { dimK = k; applyModeF(modeF); const fl = scene.getObjectByName('floor'); if (fl) fl.material.emissiveIntensity = 0.2 * k; }   // the floor keeps a fifth of its light
+export function setDim(k) {
+	dimK = k; applyModeF(modeF);
+	const fl = scene.getObjectByName('floor'); if (fl) fl.material.emissiveIntensity = 0.2 * k;   // the floor keeps a fifth of its light
+	// everything that lights itself — unlit colours, emissives — goes dark with the room, but the floor and what is marked noDim (the chalk)
+	const pieces = scene.getObjectByName('pieces');
+	if (k > 0 && (!dimmed || dimmed.pieces !== pieces)) {
+		undim(); dimmed = { pieces, list: [] };
+		scene.traverse(o => {
+			if (!o.material || o.name === 'floor') return;
+			for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
+				if (m.userData.noDim || m.userData.dimmed) continue;
+				const unlit = m.isMeshBasicMaterial || m.isSpriteMaterial || m.isLineBasicMaterial || m.isPointsMaterial;
+				if (!unlit && !m.emissive) continue;
+				m.userData.dimmed = true; dimmed.list.push({ m, color: unlit ? m.color.clone() : null, ei: m.emissive ? m.emissiveIntensity : 0 });
+			}
+		});
+	}
+	if (!dimmed) return;
+	for (const d of dimmed.list) { if (d.color) d.m.color.copy(d.color).multiplyScalar(1 - k); if (d.m.emissive) d.m.emissiveIntensity = d.ei * (1 - k); }
+	if (k === 0) undim();
+}
+let dimmed = null;   // { pieces, list: [{ m, color, ei }] } while the room is dark
+function undim() { if (!dimmed) return; for (const d of dimmed.list) { delete d.m.userData.dimmed; if (d.color) d.m.color.copy(d.color); if (d.m.emissive) d.m.emissiveIntensity = d.ei; } dimmed = null; }
 function applyModeF(f) {
 	const mix = (a, b) => (a + (b - a) * f) * (1 - dimK);
 	// 'elevator' too (Uli, 2026-09-13: the outer wall kept the night on it in

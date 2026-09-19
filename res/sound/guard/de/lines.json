@@ -96,10 +96,10 @@
 		"Es ist keine schwere Arbeit, diese hier, nur eine sehr lange, und ich habe verstanden, dass das keineswegs dasselbe ist.",
 		"Der Aufzug lässt sich Zeit, die Bilder bewegen sich nicht, und man sagt mir, das Licht hier drin ändere sich nie, was die Art von Satz ist, die Leute sagen, wenn sie etwa eine Minute im Raum waren."
 	],
-	"toLift": [
-		"Hier entlang zum Aufzug, bitte. Folgen Sie der Linie.",
-		"Die Linie führt Sie zum Aufzug. Stellen Sie sich in den Kreis.",
-		"Der Linie nach, wenn ich bitten darf. Der Aufzug wartet."
+	"toSpot": [
+		"Hier entlang, bitte. Folgen Sie der Linie und stellen Sie sich in den Kreis.",
+		"Die Linie führt Sie zum Kreis. Stellen Sie sich hinein.",
+		"Der Linie nach, wenn ich bitten darf, und in den Kreis."
 	],
 	"toPrint": [
 		"Da wären wir. Die Linie führt zu Ihrem Bild.",
