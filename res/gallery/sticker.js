@@ -351,7 +351,7 @@ function loupeIcon() {
 }
 // over the options sheet, a tick: what a press there does (Uli,
 // 2026-09-19) — the sheet's own tick, the felt-pen stroke, drawn on a
-// small canvas and held before the pointer, 3 cm across
+// small canvas and held before the pointer, 5.4 cm across (1.8× the first 3, Uli)
 let check = null;
 function checkIcon() {
 	if (!check) {
@@ -360,7 +360,7 @@ function checkIcon() {
 		g.strokeStyle = '#141311'; g.lineWidth = 14; g.lineCap = 'round'; g.lineJoin = 'round';
 		g.beginPath(); g.moveTo(22, 66); g.lineTo(52, 100); g.lineTo(110, 24); g.stroke();
 		const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
-		check = new THREE.Mesh(new THREE.PlaneGeometry(0.03, 0.03), new THREE.MeshBasicMaterial({ map: t, transparent: true, opacity: 0.9, depthTest: false, side: THREE.DoubleSide }));
+		check = new THREE.Mesh(new THREE.PlaneGeometry(0.054, 0.054), new THREE.MeshBasicMaterial({ map: t, transparent: true, opacity: 0.9, depthTest: false, side: THREE.DoubleSide }));
 		check.name = 'cursor-check'; check.renderOrder = 3; check.visible = false; scene.add(check);
 	}
 	return check;
