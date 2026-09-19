@@ -9,7 +9,7 @@ import { stepCards } from 'gallery/bake';   // after elevator.js: bake → frame
 import { materials, stepUploads } from 'gallery/frames';
 import { ELEVATOR, hangRoom, packRun, piecesOf, replan, firstRoom, rooms, spread, upright } from 'gallery/hang';
 import { stepSticker } from 'gallery/sticker';
-import { stepPaper } from 'gallery/paper';
+import { paper, stepPaper } from 'gallery/paper';
 import { jump, stepJump } from 'gallery/jump';
 import { stepTablet, tabletHit, toggleTablet } from 'gallery/tablet';
 import { nextLine, placeGuard, stepGuard } from 'gallery/guard';
@@ -45,6 +45,7 @@ function init() {
 	walk.yaw = Math.PI / 2; walk.pitch = 0;
 	elevator.setDoors(1);
 	applyLook();
+	paper.showOnFloor();          // the options at your feet (Uli)
 }
 
 // The frame. Anything that throws in here would end the loop for good —

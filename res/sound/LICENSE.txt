@@ -1,8 +1,8 @@
 The lift's music, res/sound/jazz-*.mp3
 --------------------------------------
 
-Seven pieces from the album "Teh Jazzes" (2017) by Kevin MacLeod, chosen
-for being quiet and unhurried and each a different colour:
+Seventeen pieces by Kevin MacLeod, chosen for being quiet and unhurried
+and each a different colour — seven from "Teh Jazzes" (2017):
 
   jazz-backbay.mp3    Backbay Lounge
   jazz-bossa.mp3      Bossa Antigua
@@ -11,6 +11,19 @@ for being quiet and unhurried and each a different colour:
   jazz-noel.mp3       Nouvelle Noel
   jazz-deuces.mp3     Deuces
   jazz-smooth.mp3     Smooth Lovin'
+
+and ten more (2026-09-19):
+
+  jazz-airport.mp3    Airport Lounge
+  jazz-basswalker.mp3 Bass Walker
+  jazz-coolvibes.mp3  Cool Vibes
+  jazz-george.mp3     George Street Shuffle
+  jazz-lobby.mp3      Lobby Time
+  jazz-latenight.mp3  Late Night Radio
+  jazz-sidewalk.mp3   Sidewalk Shade
+  jazz-brunch.mp3     Jazz Brunch
+  jazz-moonlight.mp3  Mining by Moonlight
+  jazz-hepcats.mp3    Hep Cats
 
 Music by Kevin MacLeod (incompetech.com)
 Licensed under Creative Commons: By Attribution 4.0

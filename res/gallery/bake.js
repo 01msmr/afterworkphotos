@@ -79,7 +79,7 @@ export function bakeRoom(pieces) {
 		if (ranges) m.userData.ranges = ranges;
 		m.castShadow = shadow; m.receiveShadow = shadow;
 		baked.add(m);
-		for (const o of list) o.parent.remove(o);
+		for (const o of list) { o.parent.remove(o); if (!o.geometry.userData.shared) o.geometry.dispose(); }   // welded: the originals go
 	};
 	add(groups.pools, poolMaterial, 'pools', false);
 	add(groups.mats, materials.mat, 'mats', false);
@@ -190,6 +190,7 @@ function cardGeometry(cw, ch) {
 		const uv = geo.attributes.uv;                            // faces in order px nx py ny pz nz, four corners each: pz is 16..19
 		for (let i = 0; i < uv.count; i++) if (i < 16 || i > 19) uv.setXY(i, 0.02, 0.97);   // paper: inside the left margin, under the top one
 		uv.needsUpdate = true;
+		geo.userData.shared = true;                              // one per card size, never disposed with a room
 		cardGeometries.set(key, geo);
 	}
 	return cardGeometries.get(key);
@@ -201,7 +202,7 @@ function cardGeometry(cw, ch) {
 // or three seconds anyway. A card starts with one paper pixel for its
 // map — a map, so its program never has to be built twice — and its own
 // canvas is swapped in when its turn comes (stepCards).
-const PAPER_PX = new THREE.DataTexture(new Uint8Array([0xfd, 0xfc, 0xfa, 255]), 1, 1);
+export const PAPER_PX = new THREE.DataTexture(new Uint8Array([0xfd, 0xfc, 0xfa, 255]), 1, 1);
 PAPER_PX.colorSpace = THREE.SRGBColorSpace; PAPER_PX.needsUpdate = true;
 const CARDS_A_FRAME = 2, CARD_AREA = CARD_PX * Math.round(CARD_H * CARD_PX / CARD_DRAWN);
 let pending = [];

@@ -1,4 +1,5 @@
 import * as THREE from '../vendor/three.module.js';
+import { T, t } from 'gallery/lang';
 import { LANGS, OPTIONS, getSetting, setSetting } from 'gallery/settings';
 import { PRINT_GLOW } from 'gallery/frames';
 import { camera, head, scene, world } from 'gallery/scene';
@@ -28,7 +29,10 @@ import { state } from 'gallery/state';
 // as they are drawn (`areas`), so a press on the sheet finds its line by
 // the uv it lands on.
 
-const SHEET = { w: 0.63, h: 0.891, px: 1536 };   // three times A4 each way — A4 was much too small to read and A2 still small in the headset (Uli, 2026-09-19) — and the canvas' width; its height follows
+const SHEET = { w: 0.63, h: 0.891, px: 1536 };
+const WALL_SCALE = 0.8;                          // on a wall it is a little smaller
+const AWAY = 3.5, LOOK = Math.cos(50 * Math.PI / 180), IGNORED = 15000;   // it goes when walked away from, or not looked at for 15 s
+let seen = 0;   // three times A4 each way — A4 was much too small to read and A2 still small in the headset (Uli, 2026-09-19) — and the canvas' width; its height follows
 const PX = SHEET.px, PY = Math.round(PX * SHEET.h / SHEET.w);
 // the sheet's layout, in canvas pixels (the demo's 440 px sheet, ×3.5)
 const L = { pad: 114, title: 150, titleGap: 99, font: 78, pitch: 147, indent: 90, box: 63, boxLine: 5, gap: 45, between: 33, credit: 50, tick: { w: 42, h: 95, line: 12 }, big: 1.7 };
@@ -36,10 +40,6 @@ export const PENS = { kalam: 'bold 1em Kalam', gloria: '1em "Gloria Hallelujah"'
 let pen = 'kalam';                              // the face in use; the bench may try another (paper.pen)
 const INK = '#111111', FAINT = '#a6a6a6';
 const font = (px, italic = false) => (italic ? 'italic ' : '') + PENS[pen].replace('1em', px + 'px') + ', "Marker Felt", sans-serif';
-const T = {
-	en: { title: 'options', dark: 'night mode', frame: 'frames', maple: 'maple', oak: 'oak', walnut: 'walnut', black: 'black', white: 'white', labels: 'labels', mat: 'with passepartouts', talk: 'guard talks more', raise: 'high ceiling', wire: 'wireframe', lang: 'language', en: 'English', de: 'German' },
-	de: { title: 'Einstellungen', dark: 'Nachtmodus', frame: 'Bilderrahmen', maple: 'Ahorn', oak: 'Eiche', walnut: 'Nussbaum', black: 'schwarz', white: 'weiß', labels: 'Beschriftung', mat: 'mit Passepartouts', talk: 'Wärter redet mehr', raise: 'hohe Decke', wire: 'Drahtgitter', lang: 'Sprache', en: 'Englisch', de: 'Deutsch' },
-};
 // what is on the sheet, from the options' registry (settings.js): a
 // `check` is one box, a `group` a box per value under a heading, `rows`
 // how the values are split into lines; `word` the line's word where it is
@@ -63,7 +63,7 @@ for (const f of [`bold ${L.font}px Kalam`, `${L.font}px "Gloria Hallelujah"`, `$
 
 let areas = [];                         // { line, value, x0, x1, y0, y1 } as drawn
 let flash = null;                       // { key, value, until }: the tick just set, drawn big for a moment
-const words = () => T[state.settings.lang] || T.en;
+const words = () => T[state.settings.lang] || T.en;   // the sheet's words (lang.js)
 
 // the box and its tick: a thin square, the tick a felt-pen stroke that
 // overshoots it, `k` times its size while it is fresh
@@ -186,7 +186,10 @@ function freeSpot(group, n, yLow, yHigh) {
 	const clear = () => { group.updateMatrixWorld(true); _box.setFromObject(group).expandByScalar(0.06); return inRoom() && !boxes.some(b => b.intersectsBox(_box)); };   // 6 cm about it: the sheet stands 5 cm off the wall, the frames' boxes end at 4
 	const steps = [0];
 	for (let d = 0.05; d <= 2; d += 0.05) steps.push(d, -d);
-	for (let y = _p0.y; y <= yHigh + 1e-6; y += 0.15) {
+	// heights nearest the aim first, down as well as up
+	const ys = [_p0.y];
+	for (let dy = 0.15; ; dy += 0.15) { let any = false; if (_p0.y + dy <= yHigh) { ys.push(_p0.y + dy); any = true; } if (_p0.y - dy >= yLow) { ys.push(_p0.y - dy); any = true; } if (!any) break; }
+	for (const y of ys) {
 		for (const d of steps) {
 			group.position.copy(_p0).addScaledVector(_r, d); group.position.y = y;
 			if (clear()) return true;
@@ -218,19 +221,33 @@ export const paper = {
 				// slab, a wall hung full) it is held up in front of you instead.
 				group.position.addScaledVector(_n, 0.045);
 				group.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), _n.clone().setY(0).normalize());
-				const H = state.room ? state.room.H : 3;
-				const yLow = 0.5 + SHEET.h / 2, yHigh = H - 0.05 - SHEET.h / 2;
+				group.scale.setScalar(WALL_SCALE);              // a little smaller on a wall than on the floor
+				const H = state.room ? state.room.H : 3, hh = SHEET.h * WALL_SCALE / 2;
+				const yLow = 0.5 + hh, yHigh = H - 0.05 - hh;
 				group.position.y = Math.max(yLow, Math.min(yHigh, group.position.y));
 				const free = freeSpot(group, _n, yLow, yHigh);
 				if (!free) { hold(h); }
 			} else {
 				// flat on the floor (or the ceiling), its top away from the one who stuck it there
+				group.scale.setScalar(1);
 				_d.subVectors(hit.point, h); _d.y = 0; _d.normalize();
 				group.rotation.set(_n.y > 0 ? -Math.PI / 2 : Math.PI / 2, Math.atan2(-_d.x, -_d.z), 0, 'YXZ');
 			}
 		}
 		draw();
-		group.visible = true;
+		group.visible = true; seen = performance.now();
+	},
+	// at the start: flat on the floor, a metre ahead, its top away
+	showOnFloor() {
+		if (!group) build();
+		const h = head();
+		const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.getWorldQuaternion(new THREE.Quaternion())); fwd.y = 0;
+		if (fwd.lengthSq() < 1e-6) fwd.set(0, 0, -1); fwd.normalize();
+		group.position.copy(h).addScaledVector(fwd, 1.2); group.position.y = 0.002;
+		group.scale.setScalar(1);
+		group.rotation.set(-Math.PI / 2, Math.atan2(-fwd.x, -fwd.z), 0, 'YXZ');
+		draw();
+		group.visible = true; seen = performance.now();
 	},
 	hide() { if (group) group.visible = false; },
 	// a press on the sheet: the line under it is set. Returns whether the press was used up.
@@ -261,5 +278,12 @@ export function refreshPaper() { if (group && group.visible) draw(); }
 // the big tick settles: one redraw once its moment is over
 export function stepPaper(now) {
 	if (flash && now >= flash.until) { flash = null; if (group && group.visible) draw(); }
-	if (sheet && sheet.visible) sheet.material.emissiveIntensity = PRINT_GLOW[state.settings.dark ? 'dark' : 'light'];
+	if (!group || !group.visible) return;
+	sheet.material.emissiveIntensity = PRINT_GLOW[state.settings.dark ? 'dark' : 'light'];
+	// ignored: walked away from, or out of the view for IGNORED
+	const h = head(), to = _d.subVectors(group.position, h), dist = to.length();
+	if (dist > AWAY) { group.visible = false; return; }
+	const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.getWorldQuaternion(new THREE.Quaternion()));
+	if (to.normalize().dot(fwd) > LOOK) seen = now;
+	else if (now - seen > IGNORED) group.visible = false;
 }

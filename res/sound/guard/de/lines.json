@@ -1,0 +1,99 @@
+{
+	"greet": [
+		"Guten Tag. Lassen Sie sich Zeit.",
+		"Willkommen. Die neuesten hängen an der Wand vor Ihnen.",
+		"Guten Tag. Vorsicht, die Stufe am Aufzug.",
+		"Alles auf dieser Etage ist in einem Jahr entstanden.",
+		"Sehen Sie sich ruhig um."
+	],
+	"warn": [
+		"Ein Stück weiter zurück, bitte.",
+		"Nicht so nah ans Bild, bitte.",
+		"Bitte eine Armlänge Abstand zu den Bildern.",
+		"Vorsicht. Das ist näher, als es aussieht.",
+		"Hinter die Linie, wenn ich bitten darf.",
+		"Der Herr. Das Bild, bitte.",
+		"Das ist nah genug, danke."
+	],
+	"rush": [
+		"Nicht so schnell hier drin, bitte.",
+		"Langsam. Da hängt ein Bild.",
+		"Langsam, bitte. Das ist Glas für mich.",
+		"Vorsicht, Sie kommen da ziemlich schnell drauf zu."
+	],
+	"row": [
+		"Achten Sie auf die Reihe, bitte.",
+		"Auf beiden Seiten davon hängen Bilder.",
+		"Vorsicht um die Reihe herum."
+	],
+	"humble": [
+		"Entschuldigen Sie die Störung.",
+		"Verzeihen Sie, der Herr. Ein Stück zurück?",
+		"Wenn es Ihnen nichts ausmacht, einen Schritt zurück.",
+		"Entschuldigung. Das ist recht nah."
+	],
+	"joke": [
+		"Das läuft nicht weg, versprochen.",
+		"Ich habe sie alle gezählt. Zweimal.",
+		"Sie dürfen schauen, so lange Sie wollen. Von dort.",
+		"Jeden Fingerabdruck muss ich erklären.",
+		"Wenn es fällt, haben wir beide ein Problem.",
+		"Ich kenne sie besser als der, der sie gemacht hat."
+	],
+	"last": [
+		"Das ist das letzte Mal, dass ich Sie bitte.",
+		"Gut. Ich schließe diesen Raum.",
+		"Genug. Die Bilder kommen ab."
+	],
+	"closed": [
+		"Der Raum ist geschlossen. Kommen Sie wieder, wenn Sie Abstand halten können.",
+		"Sie sind ab. Sehen Sie sich stattdessen die Wände an."
+	],
+	"open": [
+		"Also gut. Sie sind wieder da. Passen Sie diesmal auf."
+	],
+	"harsh": [
+		"Jetzt reicht es.",
+		"Ich frage nicht noch einmal.",
+		"Zurück. Danke.",
+		"Der Herr. Ich meine es ernst."
+	],
+	"call": [
+		"He.",
+		"Hallo?",
+		"Sie da!",
+		"Bitte…",
+		"Habe ich Sie nicht gebeten?",
+		"Entschuldigung!",
+		"Ich rede mit Ihnen."
+	],
+	"stop": [
+		"Halt!",
+		"Halt, bitte! Nicht so nah!",
+		"Weg vom Bild. Sofort."
+	],
+	"tell": [
+		"Lassen Sie sich Zeit. Niemand wartet.",
+		"Der Aufzug ist hinter Ihnen, wenn Sie so weit sind.",
+		"Drücken Sie auf ein Bild, dann füllt es seinen Rahmen.",
+		"Berühren Sie ein Schild, dann wird es größer.",
+		"Das da lohnt einen genaueren Blick. Von hier aus, wohlgemerkt.",
+		"Alle sind nach der Arbeit entstanden."
+	],
+	"chat": [
+		"Ruhig heute.",
+		"Das Licht hier drin ändert sich nie. Es steht ihnen.",
+		"Manche davon habe ich tausendmal angesehen.",
+		"Das ganze Haus hat vierhundertdreißig.",
+		"Der Aufzug lässt sich Zeit. Das war schon immer so.",
+		"Über dieser Etage gibt es noch eine."
+	],
+	"ramble": [
+		"Ich stehe in dieser Ecke, seit sie die Türen aufgemacht haben, und in all der Zeit hat mich nicht ein Besucher gefragt, welches davon etwas taugt, was auch gut so ist, denn nach all den Jahren habe ich mich noch auf keine Antwort festgelegt.",
+		"Sie hängen sie auf, sie leuchten sie an, sie kleben ein kleines Kärtchen darunter, und dann lassen sie hier einen Mann acht Stunden stehen, damit niemand das Glas berührt, von dem es, wie ich anmerken darf, keines gibt.",
+		"Die Leute kommen mit dem Aufzug herauf, gehen den ganzen Raum in etwa vier Minuten ab und fahren wieder hinunter, und ich stehe hier und frage mich, was genau sie den weiten Weg hierher sehen wollten.",
+		"Jedes davon ist nach der Arbeit entstanden, das heißt, jemand war müde und ist trotzdem stehen geblieben, um etwas anzusehen, und ich hatte sehr viel Zeit, darüber nachzudenken, eher mehr als unbedingt nötig.",
+		"Es ist keine schwere Arbeit, diese hier, nur eine sehr lange, und ich habe verstanden, dass das keineswegs dasselbe ist.",
+		"Der Aufzug lässt sich Zeit, die Bilder bewegen sich nicht, und man sagt mir, das Licht hier drin ändere sich nie, was die Art von Satz ist, die Leute sagen, wenn sie etwa eine Minute im Raum waren."
+	]
+}

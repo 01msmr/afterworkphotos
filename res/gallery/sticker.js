@@ -36,6 +36,7 @@ const RED = 0xc8322b;
 const between = ([a, b]) => a + Math.random() * (b - a);
 
 const dotGeo = new THREE.CircleGeometry(DOT_R, 20);
+dotGeo.userData.shared = true;
 const stuckMat = new THREE.MeshBasicMaterial({ color: RED, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -8 });   // on the paper or the plaster, a millimetre off it: eight depth steps forward (frames.js, STEPS)
 const heldMat = new THREE.MeshBasicMaterial({ color: RED, transparent: true, opacity: 0.5, depthTest: false });
 // **The dot on the pointer is green — and yellow in the lift** (Uli,
@@ -370,6 +371,21 @@ function checkIcon() {
 	}
 	return check;
 }
+// over a tape strip: a white × on a red square — a press takes the sheet down
+let close = null;
+function closeIcon() {
+	if (!close) {
+		const c = document.createElement('canvas'); c.width = c.height = 128;
+		const g = c.getContext('2d');
+		g.fillStyle = '#e81123'; g.fillRect(0, 0, 128, 128);
+		g.strokeStyle = '#ffffff'; g.lineWidth = 10; g.lineCap = 'butt';
+		g.beginPath(); g.moveTo(40, 40); g.lineTo(88, 88); g.moveTo(88, 40); g.lineTo(40, 88); g.stroke();
+		const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+		close = new THREE.Mesh(new THREE.PlaneGeometry(0.04, 0.04), new THREE.MeshBasicMaterial({ map: t, depthTest: false, side: THREE.DoubleSide }));
+		close.name = 'cursor-close'; close.renderOrder = 3; close.visible = false; scene.add(close);
+	}
+	return close;
+}
 // **In the lift, a circle** (Uli, 2026-09-13): open on the plate, filled on
 // a button — both the sticker's own size, so the pointer keeps one
 // vocabulary from the wall to the cabin.
@@ -396,6 +412,7 @@ function overKind(hit) {
 		if (o.name.startsWith('cap-') || o.name.startsWith('print-') ||
 		    o.name.startsWith('steel-') || o.name.startsWith('pocket-')) return 'button';
 		if (o.name === 'plate') return 'plate';
+		if (o.name === 'tape') return 'tape';          // the sheet's tape: a press takes it down
 		if (o.name === 'paper') return 'paper';        // the options sheet: a press ticks a line
 	}
 	return null;
@@ -428,7 +445,7 @@ export function stepSticker() {
 	freshen();
 	const rc = aimed();
 	const hit = rc && surfaceHit(rc);
-	if (!hit) { putBack(); settled = null; d.visible = x.visible = false; for (const c of [offer, expand, loupe, ring, disc, check]) if (c) c.visible = false; over = null; return; }
+	if (!hit) { putBack(); settled = null; d.visible = x.visible = false; for (const c of [offer, expand, loupe, ring, disc, check, close]) if (c) c.visible = false; over = null; return; }
 	// **how near the pointer comes to the place**, not how near the surface
 	// it happens to strike: the sticker is drawn to the ray itself (Uli,
 	// "adheres to the pointer in 12 cm range"). A place further along the
@@ -449,11 +466,11 @@ export function stepSticker() {
 	const showing = settled ? null
 		: inLift ? ({ button: discIcon(), plate: ringIcon() }[kind] || null)
 		: over ? (stuck ? x : offerRing())
-		: ({ print: expandIcon(), label: loupeIcon(), button: discIcon(), plate: ringIcon(), paper: checkIcon() }[kind] || d);
+		: ({ print: expandIcon(), label: loupeIcon(), button: discIcon(), plate: ringIcon(), paper: checkIcon(), tape: closeIcon() }[kind] || d);
 	d.material = aimMat;
 	// the loupe says which way a press takes the card: + to double it, − to put it back (Uli, 2026-09-19)
 	if (showing === loupe) loupe.userData.plus.visible = !(hit.object.scale.x > 1.5);
-	for (const c of [d, x, offer, expand, loupe, ring, disc, check]) if (c && c !== showing) c.visible = false;
+	for (const c of [d, x, offer, expand, loupe, ring, disc, check, close]) if (c && c !== showing) c.visible = false;
 	if (!showing) return;                             // just pressed here, and still here: say nothing
 	if (over) {
 		// **Both snap to the place** (Uli, 2026-09-13). The dot sits where

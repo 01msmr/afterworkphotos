@@ -1,5 +1,6 @@
 import * as THREE from '../vendor/three.module.js';
 import { materials, metal } from 'gallery/frames';
+import { t } from 'gallery/lang';
 import { renderer } from 'gallery/scene';
 
 // ---------------------------------------------------------------------------
@@ -57,6 +58,7 @@ const FACE_PX = 512;
 // were: a 256-space scaled to FACE_PX, Jost 300, the part after the year
 // smaller.
 const ATLAS_COLS = 8;
+let atlas = null;                               // { tex, cells, rows, entries }: the one the caps wear
 function faceAtlas(entries) {
 	const cells = [], rows = [];                    // cells: {cx, cy, wide} per entry; a cell is FACE_PX × FACE_PX / 2
 	let cx = 1, cy = 0;                             // cell 0 of row 0 stays blank paper, for the sides and the back
@@ -66,6 +68,18 @@ function faceAtlas(entries) {
 	}
 	const nRows = cy + 1;
 	const c = document.createElement('canvas'); c.width = ATLAS_COLS * FACE_PX; c.height = nRows * FACE_PX / 2;
+	atlas = { cells, rows: nRows, entries, canvas: c };
+	drawAtlas();
+	const t = new THREE.CanvasTexture(c);
+	t.colorSpace = THREE.SRGBColorSpace;
+	t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+	atlas.tex = t;
+	return atlas;
+}
+// the caps' words drawn again — the favourites in the language chosen
+export function relabelConsole() { if (atlas) { drawAtlas(); atlas.tex.needsUpdate = true; } }
+function drawAtlas() {
+	const { canvas: c, cells, entries } = atlas;
 	const g = c.getContext('2d');
 	g.fillStyle = '#ffffff'; g.fillRect(0, 0, c.width, c.height);
 	const font = px => `300 ${px}px Jost, "Helvetica Neue", Arial, sans-serif`;
@@ -77,14 +91,11 @@ function faceAtlas(entries) {
 		g.fillStyle = e.room.favs ? '#c8322b' : '#1d1c1a';
 		g.textAlign = 'left'; g.textBaseline = 'middle';
 		g.font = font(56);
-		g.fillText(e.year, 36, 66);
-		if (e.room.of > 1) { const w = g.measureText(e.year).width; g.font = font(45); g.fillText(`.${e.room.part}`, 36 + w + 2, 66); }
+		const word = e.room.favs ? t('favourites') : e.year;
+		g.fillText(word, 36, 66);
+		if (e.room.of > 1) { const w = g.measureText(word).width; g.font = font(45); g.fillText(`.${e.room.part}`, 36 + w + 2, 66); }
 		g.restore();
 	});
-	const t = new THREE.CanvasTexture(c);
-	t.colorSpace = THREE.SRGBColorSpace;
-	t.anisotropy = renderer.capabilities.getMaxAnisotropy();
-	return { tex: t, cells, rows: nRows };
 }
 // A cap's UVs pointed at its cell: the front face (normal -z, the one the
 // cabin sees) spread over the cell — mirrored in u, since a face looked

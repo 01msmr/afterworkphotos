@@ -25,7 +25,23 @@ const TRACKS = [
 	{ file: 'jazz-noel.mp3',      name: 'Nouvelle Noel' },
 	{ file: 'jazz-deuces.mp3',    name: 'Deuces' },
 	{ file: 'jazz-smooth.mp3',    name: "Smooth Lovin'" },
+	{ file: 'jazz-airport.mp3',   name: 'Airport Lounge' },
+	{ file: 'jazz-basswalker.mp3', name: 'Bass Walker' },
+	{ file: 'jazz-coolvibes.mp3', name: 'Cool Vibes' },
+	{ file: 'jazz-george.mp3',    name: 'George Street Shuffle' },
+	{ file: 'jazz-lobby.mp3',     name: 'Lobby Time' },
+	{ file: 'jazz-latenight.mp3', name: 'Late Night Radio' },
+	{ file: 'jazz-sidewalk.mp3',  name: 'Sidewalk Shade' },
+	{ file: 'jazz-brunch.mp3',    name: 'Jazz Brunch' },
+	{ file: 'jazz-moonlight.mp3', name: 'Mining by Moonlight' },
+	{ file: 'jazz-hepcats.mp3',   name: 'Hep Cats' },
 ];
+// played in a random order, every piece once before any comes round again
+const order = [];
+function nextTrack() {
+	if (!order.length) { const rest = TRACKS.map((_, i) => i).filter(i => i !== at); while (rest.length) order.push(rest.splice(Math.floor(Math.random() * rest.length), 1)[0]); }
+	return order.shift();
+}
 
 const FAR = 4;              // metres: past this, nothing carries (Uli, 2026-09-12: heard at two and
                             // four metres, less loud, and gone after four)
@@ -97,7 +113,7 @@ async function load(file) {
 async function start() {
 	if (starting) return;
 	starting = true;
-	at = (at + 1) % TRACKS.length;
+	at = nextTrack();
 	const b = await load(TRACKS[at].file);
 	starting = false;
 	if (!b || !gain) return;
