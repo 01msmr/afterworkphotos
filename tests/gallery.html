@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>gallery checks</title>
+<style>
+	body { margin: 0; background: #151412; color: #e8e4dc; font: 13px/1.5 ui-monospace, Menlo, monospace; display: flex; gap: 24px; padding: 16px; }
+	iframe { border: 0; width: 900px; height: 560px; flex: none; background: #000; }
+	#out { white-space: pre-wrap; flex: 1; }
+	.ok { color: #7fd48a; } .fail { color: #f08a7a; } .warn { color: #d8c27a; }
+	h1 { font-size: 13px; margin: 0 0 8px; }
+</style>
+</head>
+<body>
+<iframe id="f" src="../gallery/index.html"></iframe>
+<div><h1>gallery checks — the bench in an iframe, driven through window.G</h1><div id="out">loading…</div></div>
+<script>
+/* Open from the local server with this window on screen (an occluded tab
+   paints no frames). One line per check: ok / FAIL with what was seen. */
+const out = document.getElementById('out');
+const lines = []; let fails = 0;
+function say(ok, name, seen) {
+	lines.push(`<span class="${ok ? 'ok' : 'fail'}">${ok ? 'ok  ' : 'FAIL'}</span> ${name}${seen !== undefined ? '  <span class="warn">' + seen + '</span>' : ''}`);
+	if (!ok) fails++;
+	out.innerHTML = lines.join('\n');
+}
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const f = document.getElementById('f');
+f.addEventListener('load', () => run().catch(e => say(false, 'harness threw', e.stack || e.message)));
+
+async function run() {
+	const w = f.contentWindow;
+	const errors = [];
+	w.addEventListener('error', e => errors.push(e.message));
+	const oe = w.console.error; w.console.error = (...a) => { errors.push(String(a[0]).slice(0, 90)); oe(...a); };
+	for (let i = 0; i < 80 && !w.G; i++) await sleep(250);
+	const G = w.G;
+	say(!!G, 'the gallery booted (window.G)');
+	if (!G) return;
+	const THREE = await w.eval('import("/res/vendor/three.module.js")');
+	const mod = name => w.eval(`import("gallery/${name}")`);
+	const V3 = (...a) => new THREE.Vector3(...a);
+
+	// 0. the tab paints
+	let frames = 0; const stop = performance.now() + 500;
+	await new Promise(r => { const g = () => { frames++; if (performance.now() < stop) w.requestAnimationFrame(g); else r(); }; w.requestAnimationFrame(g); });
+	say(frames > 20, 'the tab paints (rAF runs)', `${frames} frames in 500 ms — if few, bring this window to the front and reload`);
+
+	// 1. every module of the import map is served
+	const map = JSON.parse(w.document.querySelector('script[type=importmap]').textContent).imports;
+	const missing = [];
+	for (const url of Object.values(map)) { const r = await fetch(url, { method: 'HEAD' }); if (!r.ok) missing.push(url); }
+	say(!missing.length, `import map: ${Object.keys(map).length} modules served`, missing.join(' '));
+
+	// 2. the loop runs every step; none has failed
+	await sleep(300);
+	const steps = Object.keys(G.frameCost.steps);
+	say(steps.includes('render') && steps.includes('lift') && steps.includes('sticker') && steps.includes('paper'), 'frame loop: the steps run', steps.join(' '));
+	say(!errors.length, 'no errors on the console', errors.slice(0, 3).join(' | '));
+
+	// 3. the console: two plates, the favourites alone on top, the years on one line
+	const caps = G.elevator.buttons.filter(b => b.userData.cap);
+	const top = Math.max(...caps.map(c => c.position.y));
+	const topRow = caps.filter(c => Math.abs(c.position.y - top) < 1e-6).map(c => c.userData.key);
+	const second = caps.filter(c => Math.abs(c.position.y - (top - 0.04)) < 1e-6).map(c => c.userData.key);
+	say(G.elevator.panel.children.filter(c => c.name === 'plate').length === 2, 'console: two plates');
+	say(topRow.length === 1 && topRow[0] === 'favorites' && second.length >= 2, 'console: favourites alone on top, the years on one line below', `top ${topRow} · second ${second}`);
+
+	// 4. a ride from inside the cabin, its frames
+	G.elevator.placeInCabin(); G.stepWalk(performance.now());
+	const from = G.state.roomKey, to = G.rooms().filter(r => !r.favs && r.key !== from)[1].key;
+	const dts = []; let last = performance.now(), alive = true;
+	(function loop() { if (!alive) return; const t = performance.now(); dts.push(t - last); last = t; w.requestAnimationFrame(loop); })();
+	G.elevator.go(to);
+	const t0 = performance.now(); while (G.elevator.ride && performance.now() - t0 < 30000) await sleep(200);
+	alive = false;
+	const worst = Math.max(...dts.slice(5));
+	say(!G.elevator.ride && G.state.roomKey === to && G.elevator.open === 1, `ride ${from} → ${to} completes, doors open`, `${Math.round(performance.now() - t0)} ms`);
+	say(worst < 45, 'ride: no frame over 45 ms on the bench', `worst ${worst.toFixed(0)} ms`);
+	let photos = 0, withImg = 0; G.scene.getObjectByName('pieces').traverse(o => { if (o.name === 'photo') { photos++; if (o.material.map.image) withImg++; } });
+	say(photos && photos === withImg, 'ride: every picture on the GPU when the doors open', `${withImg}/${photos}`);
+
+	// 5. the pointer: the aiming hand wins over the hanging one
+	const S = await mod('sticker');
+	let print = null; G.scene.getObjectByName('pieces').traverse(o => { if (!print && o.name === 'photo' && !['cabin', 'mid'].includes(o.parent.parent.userData.wall)) print = o; });
+	G.scene.updateMatrixWorld(true);
+	const c = print.getWorldPosition(V3()), n = V3(0, 0, 1).applyQuaternion(print.getWorldQuaternion(new THREE.Quaternion()));
+	const side = V3(n.z, 0, -n.x);
+	const hand = (pos, dir) => { const o = new THREE.Object3D(); o.position.copy(pos); o.quaternion.setFromUnitVectors(V3(0, 0, -1), dir.clone().normalize()); o.updateMatrixWorld(true); return o; };
+	const cursors = () => { const s = []; G.scene.traverse(o => { if (o.visible && /^(cursor-|held-)/.test(o.name || '')) s.push(o.name); }); return s.join(','); };
+	const xr = G.renderer.xr, keep = xr.getController;
+	const pointer = (D, atY) => {
+		const body = c.clone().addScaledVector(n, D); body.y = 0;
+		const rpos = body.clone().addScaledVector(side, 0.2); rpos.y = 1.1;
+		const target = c.clone(); target.y = atY;
+		const aim = hand(rpos, target.sub(rpos)), idle = hand(body.clone().addScaledVector(side, -0.25).setY(0.8), n.clone().multiplyScalar(-0.6).add(V3(0, -0.8, 0)));
+		xr.isPresenting = true; xr.getController = i => [idle, aim][i];
+		try { S.stepSticker(); } finally { xr.isPresenting = false; xr.getController = keep; }
+		return cursors();
+	};
+	G.walk.pos.set(0, 1.6, 0); G.stepWalk(performance.now());
+	say(pointer(2.5, c.y) === 'cursor-expand', 'pointer: brackets on a print at 2.5 m, the other hand hanging', pointer(2.5, c.y));
+	say(pointer(1.0, c.y) === 'cursor-expand', 'pointer: brackets on a print at 1 m', pointer(1.0, c.y));
+	say(pointer(2.5, 2.4) === 'held-dot', 'pointer: the dot on bare wall above the print, not on the floor', pointer(2.5, 2.4));
+
+	// 6. the sheet: B pins it clear of frames; a press sets a line; the tape takes it down
+	const P = await mod('paper');
+	G.walk.pos.set(c.x + n.x * 1.3, 1.5, c.z + n.z * 1.3); G.walk.yaw = Math.atan2(n.x, n.z); G.walk.pitch = 0; G.stepWalk(performance.now());
+	G.scene.updateMatrixWorld(true); G.camera.updateMatrixWorld(true);
+	w.dispatchEvent(new w.KeyboardEvent('keydown', { code: 'KeyB' })); await sleep(150);
+	const g = G.scene.getObjectByName('paper'); g.updateMatrixWorld(true);
+	const sb = new THREE.Box3().setFromObject(g);
+	let overlaps = 0; G.scene.getObjectByName('pieces').children.forEach(o => { if ((o.name || '').startsWith('piece-') && new THREE.Box3().setFromObject(o).expandByScalar(0.06).intersectsBox(sb)) overlaps++; });
+	say(P.paper.shown() && !overlaps, 'sheet: B pins it, clear of every frame and label', `overlaps ${overlaps}`);
+	const sheet = g.getObjectByName('sheet'), rc = new THREE.Raycaster();
+	const at = (x, y) => { const p = V3((x / sheet.material.map.image.width - 0.5) * sheet.geometry.parameters.width, (0.5 - y / sheet.material.map.image.height) * sheet.geometry.parameters.height, 0); sheet.localToWorld(p); const o = G.camera.getWorldPosition(V3()); rc.set(o, p.sub(o).normalize()); return rc; };
+	const area = key => P.paper.areas().find(a => a.line.key === key);
+	const a = area('labels'), labels0 = G.state.settings.labels, pieces0 = G.scene.getObjectByName('pieces');
+	P.paper.press(at((a.x0 + a.x1) / 2, (a.y0 + a.y1) / 2));
+	say(G.state.settings.labels !== labels0 && P.paper.shown(), 'sheet: a press on a line sets it and the sheet stays');
+	say(G.scene.getObjectByName('pieces') === pieces0, 'sheet: the option did not re-hang the room');
+	P.paper.press(at((a.x0 + a.x1) / 2, (a.y0 + a.y1) / 2));
+	const tape = g.children.find(o => o.name === 'tape'), tp = tape.getWorldPosition(V3()), o = G.camera.getWorldPosition(V3());
+	rc.set(o, tp.sub(o).normalize()); P.paper.press(rc);
+	say(!P.paper.shown(), 'sheet: a press on the tape takes it down');
+
+	// 7. a doubled label takes its shadow along
+	let card = null; G.scene.getObjectByName('pieces').traverse(x => { if (!card && x.name === 'label' && x.parent.userData.labels) card = x; });
+	const rims = G.scene.getObjectByName('label-rims'), r = rims.userData.ranges.get(card.userData.rim), Pa = rims.geometry.attributes.position;
+	const before = V3(Pa.getX(r.start), Pa.getY(r.start), Pa.getZ(r.start));
+	G.zoomLabel(card.parent.userData.labels); G.scene.updateMatrixWorld(true);
+	const after = V3(Pa.getX(r.start), Pa.getY(r.start), Pa.getZ(r.start));
+	say(before.distanceTo(after) > 0.02, 'label: the doubled card moves its shadow', `${before.distanceTo(after).toFixed(3)} m`);
+	G.zoomLabel(card.parent.userData.labels);
+
+	say(!errors.length, 'still no errors on the console', errors.slice(0, 3).join(' | '));
+	lines.push(fails ? `<span class="fail">${fails} failed</span>` : '<span class="ok">all ok</span>');
+	out.innerHTML = lines.join('\n');
+}
+</script>
+</body>
+</html>
