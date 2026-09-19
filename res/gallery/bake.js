@@ -247,7 +247,7 @@ function makeCard(lines, cw) {
 // of the room, where the slab reaches down to hold it. Built with the
 // spacing known; a grid is placed for good in hangRoom, when the room to
 // its right is.
-const LABEL_GAP = 0.02, GRID_CARD = 0.16, SINGLE_CARD = 0.24, LABEL_OFF = 0.05;
+const LABEL_GAP = 0.02, GRID_CARD = 0.16, SINGLE_CARD = 0.24, LABEL_OFF = 0.05, CORNER_KEEP = 0.35;
 export function addLabel(piece, spec, w, h) {
 	// a row of three or a pair stacks its cards in a column (Uli); a grid keeps its pattern
 	// one size of card for everything, a grid's as well as a single's
@@ -268,8 +268,11 @@ export function placeLabels(piece, w, h, roomRight, forceBelow = false) {
 	// column does** (Uli, 2026-09-19): the cards stacked down the right
 	// side, before they go under the piece at all — a small wall with a
 	// six or a four on it kept sending them under
-	const fits = cols => state.gap >= cols * L.cw + (cols - 1) * LABEL_GAP + 2 * LABEL_OFF && roomRight >= cols * L.cw + (cols - 1) * LABEL_GAP + LABEL_OFF + 0.03;
-	const cols = !L.grid || forceBelow ? L.cols0 : fits(L.cols0) ? L.cols0 : fits(1) ? 1 : L.cols0;
+	// (a single column keeps CORNER_KEEP clear beyond it as well: the
+	// corner stays empty, and the floor's steel plate stands in the one by
+	// the cabin)
+	const fits = (cols, keep = 0) => state.gap >= cols * L.cw + (cols - 1) * LABEL_GAP + 2 * LABEL_OFF && roomRight >= cols * L.cw + (cols - 1) * LABEL_GAP + LABEL_OFF + 0.03 + keep;
+	const cols = !L.grid || forceBelow ? L.cols0 : fits(L.cols0) ? L.cols0 : fits(1, CORNER_KEEP) ? 1 : L.cols0;
 	const below = !L.grid || forceBelow || !fits(cols);
 	L.cols = cols;
 	const rows = Math.ceil(L.cards.length / cols);

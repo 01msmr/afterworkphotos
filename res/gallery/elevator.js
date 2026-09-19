@@ -28,7 +28,8 @@ const DISPLAY = { w: 0.44, h: 0.11 };                      // the floor display 
 const DOOR_T = 1800;                                       // ms for the doors to open or close — the length of their sound
 const BELL_GAP = 800;                                      // ms between the bell and the doors
 export const BUTTON = { w: 0.06, h: 0.03, rise: 0.006, pitchX: 0.07, pitchY: 0.04, gap: 0.002, r: 0.02 };   // the floor buttons: a rectangular cap, its rise off the steel, the grid, the black gap round it; r: the round call and switch buttons
-const PANEL = { low: 1.2, high: 1.8, depth: 0.03, cols: 10, margin: 0.03 };   // its centre at 1.5 m (Uli: 20 cm up), vertical on the wall (Uli), ten across; depth: the walnut block it is the face of
+const PANEL = { low: 1.2, high: 1.8, depth: 0.03, cols: 10, margin: 0.03 };
+const FLOOR_PLATE = { w: 0.30, h: 0.10, d: 0.006, font: 150 };   // the engraved floor plate outside (Uli, 2026-09-19): 30 × 10 cm of steel, the label 6 cm high   // its centre at 1.5 m (Uli: 20 cm up), vertical on the wall (Uli), ten across; depth: the walnut block it is the face of
 
 // Brushed steel, matte (Uli): the roughness map is left out so nothing on
 // the sheet turns glossy, the environment only just shows in it.
@@ -568,7 +569,19 @@ export const elevator = {
 		// cabin — the wall on your right as you step out of the doors — so
 		// the settings are at hand on leaving. In the corner's empty margin,
 		// before the first frame.
-		this.switches = buildSwitchplate(g, x0 - 0.45, 1.5, -D / 2 + 0.012);
+		// **A steel plate with the floor engraved on it** stands where the
+		// switchplate stood (Uli, 2026-09-19): on the room's north wall just
+		// west of the cabin, at eye height, the year and its part cut into
+		// brushed steel and blacked. The switches themselves go on the paper
+		// sheet (B) and are no longer on the wall.
+		this.switches = [];
+		{
+			const plate = new THREE.Mesh(new THREE.BoxGeometry(FLOOR_PLATE.w, FLOOR_PLATE.h, FLOOR_PLATE.d), new THREE.MeshStandardMaterial({ map: this.engraving(), metalness: 0.85, roughness: 0.5, envMapIntensity: 0.45 }));
+			plate.name = 'floor-plate';
+			plate.position.set(x0 - 0.05 - FLOOR_PLATE.w / 2, 1.5, -D / 2 + FLOOR_PLATE.d / 2 + 0.0005);   // 5 cm from the cabin: inside the CORNER_KEEP the labels leave (bake.js)
+			g.add(plate);
+			this.floorPlate = plate;
+		}
 
 		// Two door panels behind the jambs, sliding apart along z into the
 		// cabin's own walls' thickness; closed, they meet at the centre.
@@ -731,6 +744,27 @@ export const elevator = {
 		this.group = g;
 		return g;
 	},
+
+	// The engraved plate's face: brushed steel drawn as fine streaks, the
+	// floor's label cut in — black, with a hair of light along its lower
+	// right edge where the cut catches the room's light. Drawn again for
+	// every floor (engrave, from hangRoom); the same canvas from cabin to cabin.
+	engraving(text = this.engraved || '') {
+		if (!this.plateTex) {
+			const c = document.createElement('canvas'); c.width = 768; c.height = 256;
+			this.plateTex = new THREE.CanvasTexture(c); this.plateTex.colorSpace = THREE.SRGBColorSpace; this.plateTex.anisotropy = 8;
+		}
+		const c = this.plateTex.image, g = c.getContext('2d');
+		g.fillStyle = '#b9bab8'; g.fillRect(0, 0, c.width, c.height);
+		for (let y = 0; y < c.height; y += 2) { g.fillStyle = `rgba(${Math.random() < 0.5 ? 255 : 0},${Math.random() < 0.5 ? 255 : 0},${Math.random() < 0.5 ? 255 : 0},${0.03 + Math.random() * 0.07})`; g.fillRect(0, y, c.width, 1); }
+		g.textAlign = 'center'; g.textBaseline = 'middle';
+		g.font = `300 ${FLOOR_PLATE.font}px Jost, "Helvetica Neue", Arial, sans-serif`;
+		g.fillStyle = 'rgba(255,255,255,0.45)'; g.fillText(text, c.width / 2 + 2, c.height / 2 + 2);   // the cut's lit edge
+		g.fillStyle = '#0e0e0e'; g.fillText(text, c.width / 2, c.height / 2);
+		this.plateTex.needsUpdate = true;
+		return this.plateTex;
+	},
+	engrave(text) { if (text !== this.engraved) { this.engraved = text; this.engraving(text); } },
 
 	show(text, arrow) {
 		// **Only what has changed is drawn** (2026-09-18): a ride calls this
