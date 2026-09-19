@@ -97,3 +97,4 @@ A on the right controller pins a strip on the wall: the black strip scrubs the w
 - `secret.php` is tracked and its token is in the history: rotate it, remove the legacy PHP files.
 - iPad on the device: rotation with a move in flight, the corner-radius fallback, trackpad Safari counting as touch.
 - Next: the contact sheet (pinch to spread the pile into a grid).
+- Gallery next: memory and the big pictures — a 2000 px texture pool, compressed textures, 1200s dropped behind you, one label canvas per wall (per looking direction in the middle), progressive JPEGs with a bitmap LRU; the list is in `docs/details.md`, *Known issues*.
