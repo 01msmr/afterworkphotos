@@ -1,15 +1,15 @@
 import * as THREE from '../vendor/three.module.js';
-import { setWire, wire } from './bench.js?v=20260919a';
-import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260919a';
-import { ELEVATOR, FAV_KEY, clearRooms, firstRoom, hangRoom, hangRoomSteps, raiseRoof, roomByKey, rooms } from './hang.js?v=20260919a';
-import { WALL_STYLES, applyMode, dadoTop, dressWall, edgeLines, wallColours } from './room.js?v=20260919a';
-import { camera, head, renderer, scene, world } from './scene.js?v=20260919a';
-import { applyFill, zoomLabel, zoomPrint } from './zoom.js?v=20260919a';
-import { stickAt } from './sticker.js?v=20260919a';
-import { dropAllNear } from './video.js?v=20260919a';   // the floor's 2000s, handed back when it is left
-import { PLANS, RAISES, favCount, state } from './state.js?v=20260919a';
-import { fitRoom, planAgain } from './vr.js?v=20260919a';
-import { placeBody, walk } from './walk.js?v=20260919a';
+import { setWire, wire } from './bench.js?v=20260919b';
+import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260919b';
+import { ELEVATOR, FAV_KEY, clearRooms, firstRoom, hangRoom, hangRoomSteps, raiseRoof, roomByKey, rooms } from './hang.js?v=20260919b';
+import { WALL_STYLES, applyMode, dadoTop, dressWall, edgeLines, wallColours } from './room.js?v=20260919b';
+import { camera, head, renderer, scene, world } from './scene.js?v=20260919b';
+import { applyFill, zoomLabel, zoomPrint } from './zoom.js?v=20260919b';
+import { stickAt } from './sticker.js?v=20260919b';
+import { dropAllNear } from './video.js?v=20260919b';   // the floor's 2000s, handed back when it is left
+import { PLANS, RAISES, favCount, state } from './state.js?v=20260919b';
+import { fitRoom, planAgain } from './vr.js?v=20260919b';
+import { placeBody, walk } from './walk.js?v=20260919b';
 
 // ---------------------------------------------------------------------------
 // The elevator
@@ -571,26 +571,30 @@ export const elevator = {
 		g.add(lamp);
 
 		// The console on the south wall's inner face, beside the door, between
-		// hand and eye height: a walnut block standing on the wall, vertical
-		// (Uli), its face the plate — nothing of it in the wall. The buttons
-		// sit like floors (Uli): a line per decade, the newest at the top,
-		// ten across with the year ending in 1 at the left and 0 at the
-		// right, so a year always has the same place, and a year's further
-		// floors on lines under its decade's, in its column, like a
-		// sub-table. The next decade's line starts below the lowest button
-		// of the one above. A year without a room leaves its place empty;
-		// the thin years merged into one room each keep a button to it.
+		// hand and eye height: walnut blocks standing on the wall, vertical
+		// (Uli), their faces the plates — nothing of them in the wall. **The
+		// years run down the plate, newest at the top, in two columns, a
+		// plate per column** (Uli, 2026-09-19, from a 2D demo; it was a line
+		// per decade, ten across, before): a year's second and third rooms
+		// sit to the right of its first, so a column's plate is as wide as
+		// its widest year; the favourites floor is a double-width button
+		// over the topmost year. The thin years merged into one room each
+		// keep a button of their own to it.
 		const list = rooms();
-		const decade = y => Math.floor((Number(y) - 1) / 10);
-		const deep = new Map();                        // decade -> lines it takes
-		for (const r of list) for (const y of r.years) { const d = decade(y); deep.set(d, Math.max(deep.get(d) || 1, r.of || 1)); }
-		const top = Math.max(...deep.keys()), bottom = Math.min(...deep.keys());
-		// the favourites floor takes the top line, on its own, above every
-		// decade — one above the newest year, in that year's column (Uli)
-		const start = new Map(); let rows = 1;
-		for (let d = top; d >= bottom; d--) { start.set(d, rows); rows += deep.get(d) || 1; }
-		const cols = PANEL.cols, margin = PANEL.margin;
-		const plateW = cols * BUTTON.pitchX + 2 * margin, plateH = rows * BUTTON.pitchY + 2 * margin;
+		const favRoom = list.find(r => r.favs);
+		const byYear = new Map();                      // year -> its rooms, first part first
+		for (const r of list) if (!r.favs) for (const y of r.years) byYear.set(y, [...(byYear.get(y) || []), r]);
+		const years = [...byYear.keys()].sort((p, q) => Number(q) - Number(p));
+		const rowsOf = years.map(y => ({ year: y, rooms: byYear.get(y).sort((p, q) => (p.part || 0) - (q.part || 0)) }));
+		const half = Math.ceil(rowsOf.length / 2);
+		const columns = [rowsOf.slice(0, half), rowsOf.slice(half)].filter(c => c.length);
+		const margin = PANEL.margin, between = 0.02;   // and the gap between two plates
+		const plates = columns.map((col, i) => {
+			const wide = Math.max(i === 0 && favRoom ? 2 : 1, ...col.map(r => r.rooms.length));
+			const rows = col.length + (i === 0 && favRoom ? 1 : 0);
+			return { col, wide, rows, w: wide * BUTTON.pitchX + 2 * margin, h: rows * BUTTON.pitchY + 2 * margin };
+		});
+		const plateW = plates.reduce((sum, p) => sum + p.w, 0) + between * (plates.length - 1);
 		// the block: its face at the panel's z = 0, its back on the skin; the buttons stand proud at -z
 		// **The console is built once** (Uli, 2026-09-13: the plate glitched
 		// as the doors shut). The cabin is made afresh with every room, at the
@@ -601,10 +605,19 @@ export const elevator = {
 		if (!this.panel) {
 			const panel = new THREE.Group();
 			panel.name = 'panel';
-			const plate = new THREE.Mesh(new THREE.BoxGeometry(plateW, plateH, PANEL.depth), walnut(plateW / 0.5, plateH / 0.5));
-			plate.name = 'plate';
-			plate.position.z = PANEL.depth / 2;
-			panel.add(plate);
+			// facing the south wall the viewer's left is +x: the first plate
+			// stands at +x, the next to its right at smaller x, all hung from
+			// one top edge
+			const plateH = Math.max(...plates.map(p => p.h));
+			let x1 = plateW / 2;                       // the running plate's left edge
+			for (const p of plates) {
+				const plate = new THREE.Mesh(new THREE.BoxGeometry(p.w, p.h, PANEL.depth), walnut(p.w / 0.5, p.h / 0.5));
+				plate.name = 'plate';
+				p.x0 = x1; p.y0 = plateH / 2;          // the plate's top left corner, in the panel
+				plate.position.set(x1 - p.w / 2, plateH / 2 - p.h / 2, PANEL.depth / 2);
+				panel.add(plate);
+				x1 -= p.w + between;
+			}
 			// the lit floor's lamp: a little green light in front of the lit button, spilling onto the plate
 			this.floorLamp = new THREE.PointLight(GREEN, 0.004, 0.08, 2);
 			this.floorLamp.name = 'floor-lamp';
@@ -625,9 +638,6 @@ export const elevator = {
 			// calls for them were a quarter of the cabin's.
 			const pockets = [], steels = [];
 			const sink = (geo, x, y, z, list) => list.push(geo.clone().translate(x, y, z));
-			const pocketGeo = roundedBox(w + 2 * gap, h + 2 * gap, 0.001, CORNER + gap);   // the gap keeps its width round the corner
-			const steelGeo = roundedBox(w, h, 0.002);
-			const capGeo = roundedBox(w, h, rise);
 			// The face stands 1.2 mm off its cap, not 0.3, and is pushed forward
 			// again in the depth buffer (Uli, 2026-09-13: the button plate
 			// glitched). Three tenths of a millimetre is finer than a 16-bit
@@ -637,16 +647,13 @@ export const elevator = {
 			// offset grows with the viewing angle, and at the grazing angle the
 			// plate is passed at on the way in it would pull a year forward
 			// through the caps beside it.
-			const printGeo = new THREE.PlaneGeometry(w, h);
-			// the year buttons share one clear face material: nothing is drawn on
-			// it any more, it only takes the press and holds the letters
-			// facing the south wall the viewer's left is +x, so the columns run down x
-			const cell = (y, r) => ({
-				x: plateW / 2 - margin - BUTTON.pitchX * ((Number(y) - 1) % 10 + 0.5),
-				y: plateH / 2 - margin - BUTTON.pitchY * (start.get(decade(y)) + Math.max((r.part || 0) - 1, 0) + 0.5),
-			});
-			for (const room of list) for (const year of room.years) {
-				const { x, y } = cell(year, room);
+			// one button, `wide` caps across (the favourites: two), at a cell:
+			// its pocket, its steel, its cap and the print 1.2 mm before it
+			const geos = new Map();
+			const button = (room, face, x, y, wide = 1) => {
+				const bw = w + (wide - 1) * BUTTON.pitchX;
+				if (!geos.has(wide)) geos.set(wide, { pocket: roundedBox(bw + 2 * gap, h + 2 * gap, 0.001, CORNER + gap), steel: roundedBox(bw, h, 0.002), cap: roundedBox(bw, h, rise), print: new THREE.PlaneGeometry(bw, h) });
+				const G = geos.get(wide);
 				const put = (name, geo, material, z) => {
 					const m = new THREE.Mesh(geo, material);
 					m.name = `${name}-${room.key}`;
@@ -656,50 +663,32 @@ export const elevator = {
 					panel.add(m);
 					return m;
 				};
-				sink(pocketGeo, x, y, -0.0005, pockets);
-				sink(steelGeo, x, y, -0.002, steels);
-				const cap = put('cap', capGeo, new THREE.MeshStandardMaterial({ color: MILK, vertexColors: true, roughness: 0.45, metalness: 0, emissive: GREEN, emissiveIntensity: 0, envMapIntensity: 0.5, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -6 }), -0.003 - rise / 2);
+				sink(G.pocket, x, y, -0.0005, pockets);
+				sink(G.steel, x, y, -0.002, steels);
+				const cap = put('cap', G.cap, new THREE.MeshStandardMaterial({ color: MILK, vertexColors: true, roughness: 0.45, metalness: 0, emissive: room.favs ? FAV_RED : GREEN, emissiveIntensity: 0, envMapIntensity: 0.5, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -6 }), -0.003 - rise / 2);
 				cap.userData.cap = true;
+				if (room.favs) cap.userData.fav = true;
 				// the print: a clear plane 1.2 mm before the cap, turned to face
 				// into the cabin (-z) so the year reads the right way round —
 				// the same mount as the favourites dot's; at 0.3 mm it z-fought
-				const print = put('print', printGeo, new THREE.MeshBasicMaterial({ map: buttonFace(year, room), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -8 }), -0.003 - rise - 0.0012);
+				const print = put('print', G.print, new THREE.MeshBasicMaterial({ map: face, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -8 }), -0.003 - rise - 0.0012);
 				print.rotation.y = Math.PI;
 				print.renderOrder = 2;
 				this.buttons.push(cap, print);              // both press
-			}
-			// the favourites button: the same parts, its own line, two columns
-			// wide — the newest year's and its neighbour's (the one to its left
-			// where the year ends in 0), and the word on it
-			const favRoom = list.find(r => r.favs);
-			if (favRoom) {
-				const newest = list.find(r => r.years.length);
-				const ny = newest ? Number(newest.years[newest.years.length - 1]) : 1;
-				const col = (ny - 1) % 10, c0 = col < 9 ? col : col - 1;
-				const fx = plateW / 2 - margin - BUTTON.pitchX * (c0 + 1);   // the middle of the two columns
-				const fy = plateH / 2 - margin - BUTTON.pitchY * 0.5;
-				const wide = FAV_W / w;
-				const pocketGeoF = roundedBox(FAV_W + 2 * gap, h + 2 * gap, 0.001, CORNER + gap), steelGeoF = roundedBox(FAV_W, h, 0.002);
-				const capGeoF = roundedBox(FAV_W, h, rise), printGeoF = new THREE.PlaneGeometry(FAV_W, h);
-				const put = (name, geo, material, z) => {
-					const m = new THREE.Mesh(geo, material);
-					m.name = `${name}-${favRoom.key}`;
-					m.userData.key = favRoom.key;
-					m.userData.z0 = z;
-					m.position.set(fx, fy, z);
-					panel.add(m);
-					return m;
-				};
-				sink(pocketGeoF, fx, fy, -0.0005, pockets);
-				sink(steelGeoF, fx, fy, -0.002, steels);
-				const cap = put('cap', capGeoF, new THREE.MeshStandardMaterial({ color: MILK, vertexColors: true, roughness: 0.45, metalness: 0, emissive: FAV_RED, emissiveIntensity: 0, envMapIntensity: 0.5, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -6 }), -0.003 - rise / 2);
-				cap.userData.cap = true;
-				cap.userData.fav = true;
-				const print = put('print', printGeoF, new THREE.MeshBasicMaterial({ map: buttonFace('favourites', favRoom, wide), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -8 }), -0.003 - rise - 0.0012);
-				print.rotation.y = Math.PI;
-				print.renderOrder = 2;
-				this.buttons.push(cap, print);
-			}
+			};
+			// a cell of a plate: column c (0 at the plate's left), row r (0 at its top)
+			const cell = (p, c, r) => ({ x: p.x0 - margin - BUTTON.pitchX * (c + 0.5), y: p.y0 - margin - BUTTON.pitchY * (r + 0.5) });
+			plates.forEach((p, i) => {
+				let row = 0;
+				if (i === 0 && favRoom) {                  // the favourites: two columns wide, over the topmost year
+					const { x, y } = cell(p, 0.5, row++);
+					button(favRoom, buttonFace('favourites', favRoom, FAV_W / w), x, y, 2);
+				}
+				for (const { year, rooms: rs } of p.col) {
+					rs.forEach((room, c) => { const { x, y } = cell(p, c, row); button(room, buttonFace(year, room), x, y); });
+					row++;
+				}
+			});
 			const pm = new THREE.Mesh(merged(pockets), pocketMat); pm.name = 'pockets'; panel.add(pm);
 			const sm = new THREE.Mesh(merged(steels), steelMat); sm.name = 'steels'; panel.add(sm);
 			this.panel = panel;
