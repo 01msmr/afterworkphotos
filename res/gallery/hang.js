@@ -532,7 +532,7 @@ function planRoom(key) {
 	const tallest = Math.max(0, ...room.specs.map(specHeight));
 	const style = WALL_STYLES[floor] || WALL_STYLES.lacquer;
 	const dadoCap = Math.max(0, Math.min(dadoTop(style), HANG_MAX - 0.15 - tallest / 2));
-	return { key, room, H, shape, lay, floor, dadoCap };
+	return { key: room.key, room, H, shape, lay, floor, dadoCap };   // the room's own key, not the one asked with: a year asked as '2021-1' may hang whole as '2021' at another scale (2026-09-20)
 }
 // the shell, if the standing one is not the plan's; returns whether it was rebuilt
 function shellFor(plan) {

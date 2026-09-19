@@ -70,7 +70,12 @@ function drawDisplay(ctx, text, arrow, note = '') {
 	const c = ctx.canvas;
 	ctx.fillStyle = '#0a0a0a'; ctx.fillRect(0, 0, c.width, c.height);
 	// a small line in the corner, for what the headset gives (gallery.js, the probe)
-	if (note) { ctx.fillStyle = '#7a5a2a'; ctx.font = '400 24px "Helvetica Neue", Arial, sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic'; ctx.fillText(note, c.width - 10, c.height - 10); }
+	if (note) {
+		ctx.fillStyle = '#7a5a2a'; ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic';
+		// a long note (a fault) in two lines of a smaller face, so it can be read whole
+		if (note.length > 42) { const at = Math.min(note.length, Math.max(30, note.lastIndexOf(' ', 60) + 1)); ctx.font = '400 19px "Helvetica Neue", Arial, sans-serif'; ctx.fillText(note.slice(0, at).trim(), c.width - 10, c.height - 34); ctx.fillText(note.slice(at).trim().slice(0, 70), c.width - 10, c.height - 10); }
+		else { ctx.font = '400 24px "Helvetica Neue", Arial, sans-serif'; ctx.fillText(note, c.width - 10, c.height - 10); }
+	}
 	ctx.fillStyle = '#ffb347';
 	ctx.textBaseline = 'middle';
 	ctx.font = '600 84px "Helvetica Neue", Arial, sans-serif';
@@ -300,6 +305,17 @@ export const elevator = {
 
 	// The line under the floor on the outside display
 	note(text) { this.noteText = text; if (this.shown) this.show(this.shown.text, this.shown.arrow); },
+	// **What went wrong, whole, on the outside display** (Uli, 2026-09-20:
+	// "cannot read property" on a ride to 2021-1 in the headset, and the
+	// display's 22 characters said no more). The message and the first
+	// place in the gallery's own code, held on the note line until the
+	// page is reloaded — the probe (gallery.js) leaves it there.
+	faultText: '',
+	fault(where, e) {
+		const place = (String(e && e.stack || '').split('\n').find(l => l.includes('/res/gallery')) || '').replace(/^.*\/res\/gallery\//, '').replace(/\?v=[^:]*/, '').replace(/\)?\s*$/, '');
+		this.faultText = `${where}: ${String(e && e.message || e)}${place ? ' @ ' + place : ''}`;
+		try { this.note(this.faultText); } catch (ignored) {}
+	},
 
 	// A floor is counted seen once you have been out of its cabin for
 	// twenty seconds — long enough that a step out and straight back in
@@ -478,6 +494,14 @@ export const elevator = {
 	// next ride even while they are still opening (they reverse from
 	// where they are), and walking out lets them close behind you.
 	go(key) {
+		// **The key as the list has it** (Uli, 2026-09-20: "cannot read
+		// properties" on a ride to 2021-1 in the headset, the doors never
+		// shut). At 0.8× the year 2021 hangs whole, as '2021', and a ride
+		// asked for '2021-1' — the console's cap, a sticker, the strip —
+		// found no such floor: an empty path, and the floor counting read
+		// a floor that was not there. roomByKey takes a bare year or a
+		// stale part and gives the room that stands for it.
+		try { key = roomByKey(key).key; } catch (e) { console.warn('no floor', key); return; }
 		if (key === state.roomKey) return;
 		if (this.ride && !this.ride.ready) return;         // travelling: no
 		let fromOpen = 1;
@@ -529,7 +553,7 @@ export const elevator = {
 		if (!this.ride) { this.stepIdle(now); return; }
 		try { this.stepRide(now); } catch (e) {          // a ride must end with open doors, whatever went wrong in it
 			console.error('ride failed', e);
-			try { elevator.show(`ride: ${String(e.message || e).slice(0, 22)}`, ''); } catch (ignored) {}
+			try { elevator.show(`ride: ${String(e.message || e).slice(0, 22)}`, ''); elevator.fault('ride', e); } catch (ignored) {}
 			this.setDoors(1); this.ride = null; this.passed = null;
 		}
 	},
@@ -557,7 +581,7 @@ export const elevator = {
 			// throws too the ride goes on with what stands (the error is on
 			// the display either way, through step() in gallery.js)
 			let done = false;
-			try { done = r.hanging.next().done; } catch (e) { console.error('hang step failed', e); try { hangRoom(r.key); } catch (e2) { console.error('hang failed', e2); } done = true; try { elevator.show(`hang: ${String(e.message || e).slice(0, 22)}`, ''); } catch (ignored) {} }
+			try { done = r.hanging.next().done; } catch (e) { console.error('hang step failed', e); try { hangRoom(r.key); } catch (e2) { console.error('hang failed', e2); } done = true; try { elevator.show(`hang: ${String(e.message || e).slice(0, 22)}`, ''); elevator.fault('hang', e); } catch (ignored) {} }
 			if (!done) { this.keepPlace(r); return; }
 			this.keepPlace(r);
 			this.setDoors(0);

@@ -149,7 +149,14 @@ const CARD_GLOW = 0.5;
 // lot, 26 mm out, which clears the deepest of them by 5 mm and reads as a
 // card lifted toward you to be read — which is what it is.
 export const CARD_REST_Z = CARD_D / 2, CARD_READ_Z = 0.05;   // doubled: before the frames' 4 cm as well as the wall's dressing (Uli, 2026-09-19: never behind anything)
-const PAPER = '#fdfcfa', INK = ['#141311', '#3d3a36'];   // near-black, a weight up: what the headset's pixels can still resolve is contrast (Uli)
+// **Black, heavier, and a stroke round every letter** (Uli, 2026-09-20: too
+// thin, not sharp enough from 1.2 m on). What a card loses with distance
+// is not size but darkness: at 2 m a 24 cm card is 140 panel pixels wide,
+// the 1280 are folded three times, and a stroke that thin goes grey in
+// the folding. Compared on tests/text-demo.html at 1.2, 2 and 3 m: 600/500
+// in #141311/#3d3a36 (until today) against 700/600 in black with a 3 px
+// stroke — the body lines stay black at 3 m where they were grey.
+const PAPER = '#fdfcfa', INK = ['#000000', '#222222'], WEIGHT = [700, 600], STROKE = 3;
 const SIZE = [110, 100];         // 84/76 until 2026-09-13 (Uli: too small). A third bigger buys about a third more distance — a body line is readable at 2 m now rather than 1.5
 // **One canvas for every card of a looking direction, one byte a pixel**
 // (Uli, 2026-09-20). Seventy-four canvases at 1280 × 453 were 229 MB on
@@ -182,14 +189,15 @@ function drawCard(lines) {
 	g.textBaseline = 'middle';
 	lines.slice(0, CARD_LINES).forEach((line, i) => {
 		const j = i === 0 ? 0 : 1;
-		g.fillStyle = INK[j];
-		g.font = `${j === 0 ? 600 : 500} ${SIZE[j]}px -apple-system, "Helvetica Neue", Arial, sans-serif`;
+		g.fillStyle = g.strokeStyle = INK[j]; g.lineWidth = STROKE; g.lineJoin = 'round';
+		g.font = `${WEIGHT[j]} ${SIZE[j]}px -apple-system, "Helvetica Neue", Arial, sans-serif`;
 		const room = CARD_DRAWN - 160;
 		const wide = g.measureText(line).width;
+		const ink = (x, y) => { g.fillText(line, x, y); g.strokeText(line, x, y); };
 		g.save();
 		// a line too long for the paper is squeezed to fit rather than running off it
-		if (wide > room) { g.translate(80, 0); g.scale(room / wide, 1); g.fillText(line, 0, 2 * (40 + 32 + 64 * i)); }
-		else g.fillText(line, 80, 2 * (40 + 32 + 64 * i));
+		if (wide > room) { g.translate(80, 0); g.scale(room / wide, 1); ink(0, 2 * (40 + 32 + 64 * i)); }
+		else ink(80, 2 * (40 + 32 + 64 * i));
 		g.restore();
 	});
 	g.setTransform(1, 0, 0, 1, 0, 0);
