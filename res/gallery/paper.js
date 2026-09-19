@@ -2,7 +2,7 @@ import * as THREE from '../vendor/three.module.js';
 import { setWire, wire } from 'gallery/bench';
 import { setSetting } from 'gallery/elevator';
 import { PRINT_GLOW } from 'gallery/frames';
-import { camera, head, scene } from 'gallery/scene';
+import { camera, head, scene, world } from 'gallery/scene';
 import { state } from 'gallery/state';
 
 // ---------------------------------------------------------------------------
@@ -28,7 +28,7 @@ import { state } from 'gallery/state';
 // as they are drawn (`areas`), so a press on the sheet finds its line by
 // the uv it lands on.
 
-const SHEET = { w: 0.42, h: 0.594, px: 1536 };   // A2 — twice A4 each way (Uli, 2026-09-19: A4 was much too small to read) — and the canvas' width; its height follows
+const SHEET = { w: 0.63, h: 0.891, px: 1536 };   // three times A4 each way — A4 was much too small to read and A2 still small in the headset (Uli, 2026-09-19) — and the canvas' width; its height follows
 const PX = SHEET.px, PY = Math.round(PX * SHEET.h / SHEET.w);
 // the sheet's layout, in canvas pixels (the demo's 440 px sheet, ×3.5)
 const L = { pad: 114, title: 150, titleGap: 99, font: 78, pitch: 147, indent: 90, box: 63, boxLine: 5, gap: 45, between: 33, credit: 50, tick: { w: 42, h: 95, line: 12 }, big: 1.7 };
@@ -146,17 +146,56 @@ function build() {
 	sheet.name = 'sheet';
 	group.add(sheet);
 	const tape = (x, y, turn) => {
-		const m = new THREE.Mesh(new THREE.PlaneGeometry(0.092, 0.03), tapeMat);
+		const m = new THREE.Mesh(new THREE.PlaneGeometry(0.14, 0.045), tapeMat);
 		m.position.set(x, y, 0.0004); m.rotation.z = turn; m.name = 'tape'; group.add(m);
 	};
-	tape(-SHEET.w / 2 + 0.016, SHEET.h / 2 - 0.012, -0.66);
-	tape(SHEET.w / 2 - 0.016, SHEET.h / 2 - 0.012, 0.66);
-	tape(0, -SHEET.h / 2 + 0.008, 0.03);
+	tape(-SHEET.w / 2 + 0.024, SHEET.h / 2 - 0.018, -0.66);
+	tape(SHEET.w / 2 - 0.024, SHEET.h / 2 - 0.018, 0.66);
+	tape(0, -SHEET.h / 2 + 0.012, 0.03);
 	scene.add(group);
 	draw();
 }
 
 const _rc = new THREE.Raycaster(), _n = new THREE.Vector3(), _d = new THREE.Vector3();
+// nothing to stick to: held up in front of the visitor, as the map was
+function hold(h) {
+	const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.getWorldQuaternion(new THREE.Quaternion())); fwd.y = 0; fwd.normalize();
+	group.position.copy(h).addScaledVector(fwd, 0.7); group.position.y -= 0.1;
+	group.lookAt(h);
+}
+// the sheet slid along the wall (right axis `r`) and up until its box meets
+// no piece's — a piece's box holds its frame and its labels. Returns
+// whether a spot was found; the group stands at it.
+const _box = new THREE.Box3(), _pb = new THREE.Box3(), _r = new THREE.Vector3(), _p0 = new THREE.Vector3();
+function freeSpot(group, n, yLow, yHigh) {
+	const pieces = scene.getObjectByName('pieces');
+	const boxes = [];
+	if (pieces) for (const o of pieces.children) if ((o.name || '').startsWith('piece-') || o.name === 'slab') boxes.push(new THREE.Box3().setFromObject(o).expandByScalar(0.03));
+	_r.set(-n.z, 0, n.x).normalize();               // along the wall
+	_p0.copy(group.position);
+	// and never past a wall's end into the corner: the sheet's corners stay
+	// inside the room's plan (its rects, in the world's own frame)
+	const rects = state.room && state.room.shape ? state.room.shape.rects : null;
+	const inRoom = () => {
+		if (!rects) return true;
+		for (const c of [[_box.min.x, _box.min.z], [_box.max.x, _box.min.z], [_box.min.x, _box.max.z], [_box.max.x, _box.max.z]]) {
+			const q = world.worldToLocal(new THREE.Vector3(c[0], 0, c[1]));
+			if (!rects.some(r => q.x > r.x0 - 0.02 && q.x < r.x1 + 0.02 && q.z > r.z0 - 0.02 && q.z < r.z1 + 0.02)) return false;
+		}
+		return true;
+	};
+	const clear = () => { group.updateMatrixWorld(true); _box.setFromObject(group).expandByScalar(0.06); return inRoom() && !boxes.some(b => b.intersectsBox(_box)); };   // 6 cm about it: the sheet stands 5 cm off the wall, the frames' boxes end at 4
+	const steps = [0];
+	for (let d = 0.05; d <= 2; d += 0.05) steps.push(d, -d);
+	for (let y = _p0.y; y <= yHigh + 1e-6; y += 0.15) {
+		for (const d of steps) {
+			group.position.copy(_p0).addScaledVector(_r, d); group.position.y = y;
+			if (clear()) return true;
+		}
+	}
+	group.position.copy(_p0);
+	return false;
+}
 export const paper = {
 	shown: () => !!group && group.visible,
 	// B: stick it where the ray lands, or take it away
@@ -166,23 +205,25 @@ export const paper = {
 		const targets = ['room', 'pieces', 'elevator'].map(n => scene.getObjectByName(n)).filter(Boolean);
 		const hit = rc && rc.intersectObjects(targets, true).find(h => h.distance < 6);
 		const h = head();
-		if (!hit) {
-			// nothing to stick to: held up in front of the visitor, as the map was
-			const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.getWorldQuaternion(new THREE.Quaternion())); fwd.y = 0; fwd.normalize();
-			group.position.copy(h).addScaledVector(fwd, 0.6); group.position.y -= 0.1;
-			group.lookAt(h);
-		} else {
+		if (!hit) hold(h);
+		else {
 			_n.copy(hit.face.normal).transformDirection(hit.object.matrixWorld);
 			if (_n.dot(_d.subVectors(h, hit.point)) < 0) _n.negate();
 			group.position.copy(hit.point).addScaledVector(_n, 0.002);
 			if (Math.abs(_n.y) < 0.5) {
 				// upright on a wall: its front along the wall's normal, its foot
 				// not under 50 cm — and 5 cm off the plaster, before the frames'
-				// 4 cm, so a sheet stuck over a picture is not half behind it
+				// 4 cm. **Never over a frame or a label** (Uli, 2026-09-19): it
+				// slides along the wall, nearest free spot first, up to 2 m
+				// either way and up to the ceiling; where nothing is free (a
+				// slab, a wall hung full) it is held up in front of you instead.
 				group.position.addScaledVector(_n, 0.045);
 				group.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), _n.clone().setY(0).normalize());
 				const H = state.room ? state.room.H : 3;
-				group.position.y = Math.max(0.5 + SHEET.h / 2, Math.min(H - 0.05 - SHEET.h / 2, group.position.y));
+				const yLow = 0.5 + SHEET.h / 2, yHigh = H - 0.05 - SHEET.h / 2;
+				group.position.y = Math.max(yLow, Math.min(yHigh, group.position.y));
+				const free = freeSpot(group, _n, yLow, yHigh);
+				if (!free) { hold(h); }
 			} else {
 				// flat on the floor (or the ceiling), its top away from the one who stuck it there
 				_d.subVectors(hit.point, h); _d.y = 0; _d.normalize();

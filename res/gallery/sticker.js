@@ -349,6 +349,22 @@ function loupeIcon() {
 	}
 	return loupe;
 }
+// over the options sheet, a tick: what a press there does (Uli,
+// 2026-09-19) — the sheet's own tick, the felt-pen stroke, drawn on a
+// small canvas and held before the pointer, 3 cm across
+let check = null;
+function checkIcon() {
+	if (!check) {
+		const c = document.createElement('canvas'); c.width = c.height = 128;
+		const g = c.getContext('2d');
+		g.strokeStyle = '#141311'; g.lineWidth = 14; g.lineCap = 'round'; g.lineJoin = 'round';
+		g.beginPath(); g.moveTo(22, 66); g.lineTo(52, 100); g.lineTo(110, 24); g.stroke();
+		const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+		check = new THREE.Mesh(new THREE.PlaneGeometry(0.03, 0.03), new THREE.MeshBasicMaterial({ map: t, transparent: true, opacity: 0.9, depthTest: false, side: THREE.DoubleSide }));
+		check.name = 'cursor-check'; check.renderOrder = 3; check.visible = false; scene.add(check);
+	}
+	return check;
+}
 // **In the lift, a circle** (Uli, 2026-09-13): open on the plate, filled on
 // a button — both the sticker's own size, so the pointer keeps one
 // vocabulary from the wall to the cabin.
@@ -375,7 +391,7 @@ function overKind(hit) {
 		if (o.name.startsWith('cap-') || o.name.startsWith('print-') ||
 		    o.name.startsWith('steel-') || o.name.startsWith('pocket-')) return 'button';
 		if (o.name === 'plate') return 'plate';
-		if (o.name === 'paper') return 'button';       // the options sheet: a press sets a line, so the filled circle
+		if (o.name === 'paper') return 'paper';        // the options sheet: a press ticks a line
 	}
 	return null;
 }
@@ -407,7 +423,7 @@ export function stepSticker() {
 	freshen();
 	const rc = aimed();
 	const hit = rc && surfaceHit(rc);
-	if (!hit) { putBack(); settled = null; d.visible = x.visible = false; for (const c of [offer, expand, loupe, ring, disc]) if (c) c.visible = false; over = null; return; }
+	if (!hit) { putBack(); settled = null; d.visible = x.visible = false; for (const c of [offer, expand, loupe, ring, disc, check]) if (c) c.visible = false; over = null; return; }
 	// **how near the pointer comes to the place**, not how near the surface
 	// it happens to strike: the sticker is drawn to the ray itself (Uli,
 	// "adheres to the pointer in 12 cm range"). A place further along the
@@ -428,11 +444,11 @@ export function stepSticker() {
 	const showing = settled ? null
 		: inLift ? ({ button: discIcon(), plate: ringIcon() }[kind] || null)
 		: over ? (stuck ? x : offerRing())
-		: ({ print: expandIcon(), label: loupeIcon(), button: discIcon(), plate: ringIcon() }[kind] || d);
+		: ({ print: expandIcon(), label: loupeIcon(), button: discIcon(), plate: ringIcon(), paper: checkIcon() }[kind] || d);
 	d.material = aimMat;
 	// the loupe says which way a press takes the card: + to double it, − to put it back (Uli, 2026-09-19)
 	if (showing === loupe) loupe.userData.plus.visible = !(hit.object.scale.x > 1.5);
-	for (const c of [d, x, offer, expand, loupe, ring, disc]) if (c && c !== showing) c.visible = false;
+	for (const c of [d, x, offer, expand, loupe, ring, disc, check]) if (c && c !== showing) c.visible = false;
 	if (!showing) return;                             // just pressed here, and still here: say nothing
 	if (over) {
 		// **Both snap to the place** (Uli, 2026-09-13). The dot sits where
