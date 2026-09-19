@@ -464,8 +464,12 @@ export function firstRoom() { return rooms().find(r => !r.favs) || rooms()[0]; }
 // the floors you can actually go to: the favourites one only once a dot is on it
 export function openRooms() { return rooms().filter(r => !r.empty); }
 
+// a key that has gone — the years re-planned by a refit or a sticker while
+// a ride was under way (Uli, 2026-09-19: "no room 2019", the doors never
+// opened) — falls back to its year's first room
 export function roomByKey(key) {
-	const r = rooms().find(r => r.key === key);
+	const list = rooms();
+	const r = list.find(r => r.key === key) || list.find(r => r.years.includes(String(key).split(/[-_]/)[0]) && !r.favs);
 	if (!r) throw new Error(`no room ${key}`);
 	return r;
 }

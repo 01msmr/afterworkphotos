@@ -29,10 +29,10 @@ import { state } from 'gallery/state';
 // as they are drawn (`areas`), so a press on the sheet finds its line by
 // the uv it lands on.
 
-const SHEET = { w: 0.63, h: 0.891, px: 1536 };
+const SHEET = { w: 0.63, h: 0.891, px: 1536 };   // three times A4: A4 and A2 were too small to read in the headset
 const WALL_SCALE = 0.8;                          // on a wall it is a little smaller
-const AWAY = 3.5, LOOK = Math.cos(50 * Math.PI / 180), IGNORED = 15000;   // it goes when walked away from, or not looked at for 15 s
-let seen = 0;   // three times A4 each way — A4 was much too small to read and A2 still small in the headset (Uli, 2026-09-19) — and the canvas' width; its height follows
+const AWAY = 3.5, LOOK = Math.cos(50 * Math.PI / 180), IGNORED = 15000, IGNORED_START = 5000;   // it goes when walked away from, or not looked at: 15 s, the start's sheet 5 s
+let seen = 0, ignored = IGNORED;
 const PX = SHEET.px, PY = Math.round(PX * SHEET.h / SHEET.w);
 // the sheet's layout, in canvas pixels (the demo's 440 px sheet, ×3.5)
 const L = { pad: 114, title: 150, titleGap: 99, font: 78, pitch: 147, indent: 90, box: 63, boxLine: 5, gap: 45, between: 33, credit: 50, tick: { w: 42, h: 95, line: 12 }, big: 1.7 };
@@ -232,7 +232,7 @@ export const paper = {
 		if (group.visible) { group.visible = false; return; }
 		if (!pinTo(group, rc, SHEET.h / 2, WALL_SCALE)) hold(head());
 		draw();
-		group.visible = true; seen = performance.now();
+		group.visible = true; seen = performance.now(); ignored = IGNORED;
 	},
 	// at the start: flat on the floor, a metre ahead, its top away
 	showOnFloor() {
@@ -244,7 +244,7 @@ export const paper = {
 		group.scale.setScalar(1);
 		group.rotation.set(-Math.PI / 2, Math.atan2(-fwd.x, -fwd.z), 0, 'YXZ');
 		draw();
-		group.visible = true; seen = performance.now();
+		group.visible = true; seen = performance.now(); ignored = IGNORED_START;
 	},
 	hide() { if (group) group.visible = false; },
 	// a press on the sheet: the line under it is set. Returns whether the press was used up.
@@ -282,5 +282,5 @@ export function stepPaper(now) {
 	if (dist > AWAY) { group.visible = false; return; }
 	const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.getWorldQuaternion(new THREE.Quaternion()));
 	if (to.normalize().dot(fwd) > LOOK) seen = now;
-	else if (now - seen > IGNORED) group.visible = false;
+	else if (now - seen > ignored) group.visible = false;
 }

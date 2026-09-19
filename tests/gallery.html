@@ -173,6 +173,17 @@ async function run() {
 	const tDark = performance.now() - t3;
 	while (G.scene.getObjectByName('ambient').intensity < 1 && performance.now() - t3 < 12000) await sleep(100);
 	say(G.state.roomKey !== room0 && G.scene.getObjectByName('ambient').intensity > 0.5 && !G.stripLift.shown(), 'strip: standing at the door switches the room in the dark and lights it again', `${room0} → ${G.state.roomKey} · dark for ${Math.round(tDark)} ms, lit after ${Math.round(performance.now() - t3)} ms`);
+	// 9. the chalk in the new room: round every row, an arrow at the print and no disc; arrived, the arrow alone stays
+	const Jm = await mod('jump'), jg2 = G.scene.getObjectByName('jump-guide');
+	const legs = jg2.children.filter(m => m.geometry.type === 'PlaneGeometry'), rows = G.state.obstacles;
+	let through = 0;
+	for (const m of legs) { const len = m.geometry.parameters.height, d = V3(0, 0, -1).applyEuler(m.rotation); for (let t = 0; t <= len; t += 0.05) { const q = m.position.clone().addScaledVector(d, t); if (rows.some(o => q.x > o.x0 + 0.2 && q.x < o.x1 - 0.2 && q.z > o.z0 + 0.2 && q.z < o.z1 - 0.2)) { through++; break; } } }
+	const arrow = jg2.getObjectByName('arrow');
+	say(jg2.visible && legs.length >= 2 && !through && arrow && !jg2.getObjectByName('spot'), 'chalk: legs round every row, an arrow at the print, no disc', `${legs.length} legs, ${through} through a row`);
+	const goal = G.world.localToWorld(arrow.position.clone()); G.walk.pos.set(goal.x, 1.6, goal.z); G.stepWalk(performance.now()); Jm.stepJump(performance.now());
+	const arrowOnly = jg2.visible && jg2.children.every(m => m.visible === (m === arrow));
+	Jm.stepJump(performance.now() + 31000);
+	say(arrowOnly && !jg2.visible, 'chalk: arrived, the arrow alone stays, gone after 30 s');
 
 	say(!errors.length, 'still no errors on the console', errors.slice(0, 3).join(' | '));
 	lines.push(fails ? `<span class="fail">${fails} failed</span>` : '<span class="ok">all ok</span>');
