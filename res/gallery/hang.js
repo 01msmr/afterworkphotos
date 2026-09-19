@@ -1,16 +1,16 @@
 import * as THREE from '../vendor/three.module.js';
-import { clearCards, bakeRoom, placeLabels } from './bake.js?v=20260919b';
-import { addDots, findSpots } from './sticker.js?v=20260919b';
-import { placeGuard } from './guard.js?v=20260919b';
-import { clearZoom } from './zoom.js?v=20260919b';
-import { setWire, wire } from './bench.js?v=20260919b';
-import { elevator, roomLabel } from './elevator.js?v=20260919b';
-import { FRAME, GRID_GAP, dropTex, sc, textureCache } from './frames.js?v=20260919b';
-import { WALL_STYLES, buildRoom, dadoTop, floorOf, rectRoom, shapeOf, wallColours } from './room.js?v=20260919b';
-import { scene, world } from './scene.js?v=20260919b';
-import { HANG_MAX, pieceY, state } from './state.js?v=20260919b';
-import { framedSize, freeTexturesExcept, freeVideosExcept, makePiece } from './video.js?v=20260919b';
-import { BODY_R } from './walk.js?v=20260919b';
+import { clearCards, bakeRoom, placeLabels } from 'gallery/bake';
+import { addDots, findSpots } from 'gallery/sticker';
+import { placeGuard } from 'gallery/guard';
+import { clearZoom } from 'gallery/zoom';
+import { setWire, wire } from 'gallery/bench';
+import { elevator, roomLabel } from 'gallery/elevator';
+import { FRAME, GRID_GAP, dropTex, sc, textureCache } from 'gallery/frames';
+import { WALL_STYLES, buildRoom, dadoTop, floorOf, rectRoom, shapeOf, wallColours } from 'gallery/room';
+import { scene, world } from 'gallery/scene';
+import { HANG_MAX, pieceY, state } from 'gallery/state';
+import { framedSize, freeTexturesExcept, freeVideosExcept, makePiece } from 'gallery/video';
+import { BODY_R } from 'gallery/walk';
 
 // ---------------------------------------------------------------------------
 // Hanging a year
