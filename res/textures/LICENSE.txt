@@ -27,3 +27,5 @@ guard-silhouette.svg
 openclipart. Released into the public domain (CC0): no attribution is
 required, this note is here for the record. Used for the gallery's guard,
 tinted and outlined at run time (res/gallery/guard.js).
+
+paper-color.jpg  Paper001  white paper  https://ambientcg.com/a/Paper001  (1K JPG Color only; the options sheet)

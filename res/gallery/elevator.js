@@ -1,5 +1,4 @@
 import * as THREE from '../vendor/three.module.js';
-import { setWire, wire } from 'gallery/bench';
 import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from 'gallery/frames';
 import { ELEVATOR, FAV_KEY, clearRooms, firstRoom, hangRoom, hangRoomSteps, raiseRoof, roomByKey, rooms } from 'gallery/hang';
 import { WALL_STYLES, applyMode, dadoTop, dressWall, edgeLines, wallColours } from 'gallery/room';
@@ -8,8 +7,9 @@ import { applyFill, zoomLabel, zoomPrint } from 'gallery/zoom';
 import { stickAt } from 'gallery/sticker';
 import { dropAllNear } from 'gallery/video';   // the floor's 2000s, handed back when it is left
 import { PLANS, RAISES, favCount, state } from 'gallery/state';
-import { fitRoom, planAgain } from 'gallery/vr';
+import { planAgain } from 'gallery/vr';
 import { placeBody, walk } from 'gallery/walk';
+import { paper, refreshPaper } from 'gallery/paper';
 
 // ---------------------------------------------------------------------------
 // The elevator
@@ -43,16 +43,10 @@ const displayBack = new THREE.MeshStandardMaterial({ color: 0x0c0c0c, roughness:
 const cabinFloor = new THREE.MeshLambertMaterial({ color: 0x5a5854 });
 const panelPlate = new THREE.MeshStandardMaterial({ color: 0x2b2b2d, metalness: 0.5, roughness: 0.45 });   // anthracite: the switchplate outside
 const GREEN = 0x46ff7a, MILK = 0xe4e2dc;   // the lit floor; a cap's milky white — a touch greyer than 0xefece4 (Uli, 2026-09-19: slightly more greyish)                                                                                    // the lit floor
-// The console's walnut (Uli): the dark wood set, tiled every half metre —
-// `rx`, `ry` are the tiles across the face it is put on.
-export const walnut = (rx, ry) => new THREE.MeshStandardMaterial({
-	map: tex('wood-dark-color.jpg', true, ry, rx), roughnessMap: tex('wood-dark-rough.jpg', false, ry, rx), normalMap: tex('wood-dark-normal.jpg', false, ry, rx),
-	normalScale: new THREE.Vector2(0.6, 0.6), roughness: 1, metalness: 0, envMapIntensity: 0.4,
-});
 const pocketMat = new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.9, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -2 });   // the black gap round a button: a millimetre proud of the plate, two depth steps before it (frames.js, STEPS)
 const steelMat = metal.clone(); Object.assign(steelMat, { polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -4 });   // the button's floor, two more
 export const lightPanel = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xfff6e8, emissiveIntensity: 1.6, roughness: 1 });
-export const CABIN_LAMP = { light: 5, dark: 0.9 }, CABIN_PANEL = { light: 1.6, dark: 0.35 };   // the cabin at night: dimmer, not dark (Uli)
+export const CABIN_LAMP = { light: 5, dark: 0.5 }, CABIN_PANEL = { light: 1.6, dark: 0.2 };   // the cabin at night: dim (Uli, 2026-09-19: darker than the 0.9 / 0.35 it had)
 
 // The print on a button: the year, left-aligned, in Jost Light (loaded
 // before the first room, see the start); a split year's floors are
@@ -323,114 +317,8 @@ export const lift = {
 };
 lift.fetchAll();
 
-// The switchplate's buttons: a label, and the state they show.
-const WOODS = ['maple', 'oak', 'walnut', 'black', 'white'];
-const SWITCHES = [
-	{ key: 'dark',   label: 'light',  value: () => state.settings.dark ? 'night' : 'day',  press: () => setSetting('dark', !state.settings.dark) },
-	{ key: 'frame',  label: 'wood',   value: () => state.settings.frame,                   press: () => setSetting('frame', WOODS[(WOODS.indexOf(state.settings.frame) + 1) % WOODS.length]) },
-	{ key: 'labels', label: 'labels', value: () => state.settings.labels ? 'on' : 'off',   press: () => setSetting('labels', !state.settings.labels) },
-	{ key: 'fill',   label: 'scale',  value: () => state.settings.fill ? 'full' : 'mat',   press: () => setSetting('fill', !state.settings.fill) },   // which way round a print rests (Uli)
-	{ key: 'talk',   label: 'guard',  value: () => state.settings.talk,                    press: () => setSetting('talk', state.settings.talk === 'light' ? 'heavy' : 'light') },   // how much it says (Uli)
-	{ key: 'raise',  label: 'height', value: () => state.settings.raise ? '+1 m' : 'as is',        press: () => setSetting('raise', RAISES[(RAISES.indexOf(state.settings.raise) + 1) % RAISES.length]) },   // a metre more room, on every floor (Uli)
-	{ key: 'wire',   label: 'wire',   value: () => wire ? 'on' : 'off',                    press: () => setWire(!wire), small: true },   // a smaller button centred under the rows (Uli)
-];
-
-// Recentre (Uli): the room turned and shifted round the visitor so that
-// they stand a step outside the lift's doors looking down the long axis
-// — the way they look becomes the long axis, the lift is at their back.
-// In the headset the world moves, never the visitor; on the bench the
-// body is placed as on arrival. A room fitted to the Quest's boundary is
-// fitted again instead: its walls are the real ones.
-function recentre() {
-	const o = elevator.origin;
-	if (!o) return;
-	const arrival = new THREE.Vector3(o.x - ELEVATOR.size, 0, o.z);   // in the world's own frame
-	if (!renderer.xr.isPresenting) { placeBody(arrival.x, arrival.z, Math.PI / 2); return; }
-	if (state.bounded && state.bounded.boundsGeometry && state.bounded.boundsGeometry.length >= 3) {
-		fitRoom(state.bounded.boundsGeometry.map(q => new THREE.Vector3(q.x, 0, q.z)), [], [], 0, 'bounds');
-		return;
-	}
-	const h = head(), dir = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.getWorldQuaternion(new THREE.Quaternion()));
-	dir.y = 0; if (dir.lengthSq() < 1e-6) return; dir.normalize();
-	// the world's yaw R takes its west (-x, the arrival's look) onto the gaze: (-cos R, sin R) = (dir.x, dir.z)
-	const R = Math.atan2(dir.z, -dir.x);
-	world.rotation.set(0, R, 0);
-	world.position.set(h.x - (arrival.x * Math.cos(R) + arrival.z * Math.sin(R)), 0, h.z - (-arrival.x * Math.sin(R) + arrival.z * Math.cos(R)));
-}
-// A switch's face shows its state; its description is printed on the
-// plate under it (Uli).
-function switchFace(sw) {
-	const c = document.createElement('canvas'); c.width = c.height = 128;
-	const g = c.getContext('2d');
-	g.fillStyle = '#f2efe8'; g.beginPath(); g.arc(64, 64, 64, 0, Math.PI * 2); g.fill();
-	g.fillStyle = '#1b1b1b'; g.textAlign = 'center'; g.textBaseline = 'middle';
-	g.font = '300 34px Jost, "Helvetica Neue", Arial, sans-serif'; g.fillText(sw.value(), 64, 66);
-	const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
-}
-function switchLabel(sw) {
-	const c = document.createElement('canvas'); c.width = 256; c.height = 64;
-	const g = c.getContext('2d');
-	g.fillStyle = '#d8d5cf'; g.textAlign = 'center'; g.textBaseline = 'middle';
-	g.font = '300 40px Jost, "Helvetica Neue", Arial, sans-serif'; g.fillText(sw.label, 128, 34);
-	const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
-}
-export function refreshSwitches() {
-	for (const f of [...elevator.switches, ...settingsMap.switches]) if (f.userData.sw) { f.material.map.dispose(); f.material.map = switchFace(f.userData.sw); f.material.needsUpdate = true; }
-}
-
-// The switchplate: the four switches two by two on an anthracite plate,
-// each a round button showing its state with its description printed
-// under it (Uli). Built into `parent` with its middle at (px, py, pz),
-// facing +z, the buttons proud that way. Returns what presses.
-const SWITCHPLATE = { cols: 2, pitchX: 0.07, pitchY: 0.085, margin: 0.015, smallR: 0.013, smallPitch: 0.06 };
-function buildSwitchplate(parent, px, py, pz) {
-	const { cols, pitchX, pitchY, margin, smallR, smallPitch } = SWITCHPLATE;
-	const big = SWITCHES.filter(sw => !sw.small), small = SWITCHES.filter(sw => sw.small);
-	const rows = Math.ceil(big.length / cols);
-	const plateW = cols * pitchX + 2 * margin, plateH = rows * pitchY + small.length * smallPitch + 2 * margin;
-	const plate = new THREE.Mesh(new THREE.BoxGeometry(plateW, plateH, 0.024), panelPlate);
-	plate.name = 'switchplate'; plate.position.set(px, py, pz); parent.add(plate);
-	const geo = r => ({
-		body: (g => { g.rotateX(Math.PI / 2); return g; })(new THREE.CylinderGeometry(r, r, BUTTON.rise, 12, 1, true)),   // axis along z
-		face: new THREE.CircleGeometry(r * 0.92, 12),
-		label: new THREE.PlaneGeometry(0.056 * r / BUTTON.r, 0.014 * r / BUTTON.r),
-	});
-	const G_big = geo(BUTTON.r), G_small = geo(smallR);
-	const switches = [];
-	const put = (sw, x, y, r, G) => {
-		const z = pz + 0.012 + BUTTON.rise / 2;
-		const b = new THREE.Mesh(G.body, sideMetal); b.name = `switch-${sw.key}`; b.userData.action = sw.key; b.position.set(x, y, z); parent.add(b);
-		const f = new THREE.Mesh(G.face, new THREE.MeshStandardMaterial({ map: switchFace(sw), roughness: 0.6 }));
-		f.name = `switch-face-${sw.key}`; f.userData.action = sw.key; f.userData.sw = sw; f.position.set(x, y, z + BUTTON.rise / 2 + 0.0005); parent.add(f);
-		const l = new THREE.Mesh(G.label, new THREE.MeshBasicMaterial({ map: switchLabel(sw), transparent: true, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -4 }));   // half a millimetre off the plate: four depth steps
-		l.name = `switch-label-${sw.key}`; l.position.set(x, y - r - 0.011 * r / BUTTON.r, pz + 0.0125); parent.add(l);
-		switches.push(b, f);
-	};
-	big.forEach((sw, i) => {
-		const col = i % cols, row = Math.floor(i / cols);
-		put(sw, px - plateW / 2 + margin + pitchX * (col + 0.5), py + plateH / 2 - margin - pitchY * (row + 0.5) + 0.009, BUTTON.r, G_big);   // up a little: the label takes the room below
-	});
-	small.forEach((sw, i) => put(sw, px, py + plateH / 2 - margin - pitchY * rows - smallPitch * (i + 0.5) + 0.006, smallR, G_small));
-	return switches;
-}
-
-// The settings map (Uli): the switchplate again, held up in front of you
-// on B — a controller's B or Y button, the bench's B or O key — half a metre
-// off, a little below the eyes and turned to them like a map, left where
-// it was summoned; B again puts it away. Its switches press like the
-// plate's.
-export const settingsMap = {
-	group: null, switches: [],
-	toggle() {
-		if (!this.group) { this.group = new THREE.Group(); this.group.name = 'settings-map'; this.switches = buildSwitchplate(this.group, 0, 0, 0); scene.add(this.group); }
-		else if (this.group.visible) { this.group.visible = false; return; }
-		const h = head().clone(), fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.getWorldQuaternion(new THREE.Quaternion()));
-		fwd.y = 0; if (fwd.lengthSq() < 1e-6) fwd.set(0, 0, -1); fwd.normalize();
-		this.group.position.copy(h).addScaledVector(fwd, 0.5); this.group.position.y -= 0.12;
-		this.group.lookAt(h);                          // +z, the buttons' side, toward the eyes
-		this.group.visible = true;
-	},
-};
+// (The switchplate, its map on B and the recentre went on 2026-09-19:
+// the settings are the paper sheet now, gallery/paper.js.)
 
 // The shaft in the door seam (Uli): the two leaves close with a narrow
 // gap between them, centred, and in it the shaft shows — during the ride
@@ -465,7 +353,6 @@ export const elevator = {
 	ride: null,         // while the doors are moving or the cabin travels
 	origin: null,       // cabin's inner centre on the floor, world coords
 	callButtons: [],
-	switches: [],       // the switchplate's buttons, outside on the cabin's room-facing side
 	coming: null,       // { t0, wait } after a call, before the doors open
 	away: false,        // the cabin has left this floor: called elsewhere after its doors shut on their own
 	open: 1,            // where the doors stand when idle, 0..1
@@ -572,9 +459,7 @@ export const elevator = {
 		// **A steel plate with the floor engraved on it** stands where the
 		// switchplate stood (Uli, 2026-09-19): on the room's north wall just
 		// west of the cabin, at eye height, the year and its part cut into
-		// brushed steel and blacked. The switches themselves go on the paper
-		// sheet (B) and are no longer on the wall.
-		this.switches = [];
+		// brushed steel and blacked. The switches are on the paper sheet (B).
 		{
 			const plate = new THREE.Mesh(new THREE.BoxGeometry(FLOOR_PLATE.w, FLOOR_PLATE.h, FLOOR_PLATE.d), new THREE.MeshStandardMaterial({ map: this.engraving(), metalness: 0.85, roughness: 0.5, envMapIntensity: 0.45 }));
 			plate.name = 'floor-plate';
@@ -666,7 +551,9 @@ export const elevator = {
 			const plateH = Math.max(...plates.map(p => p.h));
 			let x1 = plateW / 2;                       // the running plate's left edge
 			for (const p of plates) {
-				const plate = new THREE.Mesh(new THREE.BoxGeometry(p.w, p.h, PANEL.depth), walnut(p.w / 0.5, p.h / 0.5));
+				// **the plates wear the frames' wood** (Uli, 2026-09-19): the same
+				// material as the bars, so the wood switch dresses the console too
+				const plate = new THREE.Mesh(new THREE.BoxGeometry(p.w, p.h, PANEL.depth), materials.frame);
 				plate.name = 'plate';
 				p.x0 = x1; p.y0 = plateH / 2;          // the plate's top left corner, in the panel
 				plate.position.set(x1 - p.w / 2, plateH / 2 - p.h / 2, PANEL.depth / 2);
@@ -757,10 +644,14 @@ export const elevator = {
 		const c = this.plateTex.image, g = c.getContext('2d');
 		g.fillStyle = '#b9bab8'; g.fillRect(0, 0, c.width, c.height);
 		for (let y = 0; y < c.height; y += 2) { g.fillStyle = `rgba(${Math.random() < 0.5 ? 255 : 0},${Math.random() < 0.5 ? 255 : 0},${Math.random() < 0.5 ? 255 : 0},${0.03 + Math.random() * 0.07})`; g.fillRect(0, y, c.width, 1); }
-		g.textAlign = 'center'; g.textBaseline = 'middle';
+		// centred by the glyphs' own box, not the font's line (Uli: centred
+		// both ways), and cut thick: the light face stroked to a bold
+		g.textAlign = 'center'; g.textBaseline = 'alphabetic';
 		g.font = `300 ${FLOOR_PLATE.font}px Jost, "Helvetica Neue", Arial, sans-serif`;
-		g.fillStyle = 'rgba(255,255,255,0.45)'; g.fillText(text, c.width / 2 + 2, c.height / 2 + 2);   // the cut's lit edge
-		g.fillStyle = '#0e0e0e'; g.fillText(text, c.width / 2, c.height / 2);
+		const m = g.measureText(text), y = c.height / 2 + (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2;
+		g.lineJoin = 'round'; g.lineWidth = FLOOR_PLATE.font * 0.06;
+		g.strokeStyle = g.fillStyle = 'rgba(255,255,255,0.45)'; g.strokeText(text, c.width / 2 + 2, y + 2); g.fillText(text, c.width / 2 + 2, y + 2);   // the cut's lit edge
+		g.strokeStyle = g.fillStyle = '#0e0e0e'; g.strokeText(text, c.width / 2, y); g.fillText(text, c.width / 2, y);
 		this.plateTex.needsUpdate = true;
 		return this.plateTex;
 	},
@@ -1017,6 +908,7 @@ export const elevator = {
 			// the doors shut all the while; the body and the world are set
 			// once it stands.
 			if (!r.hanging) {
+				paper.hide();                      // the options sheet stays on the floor that is left
 				dropAllNear();                     // the floor is left: its 2000s go back before the next floor's are read
 				lift.run(r.travel);
 				// the new room's cabin may stand elsewhere: the body keeps its
@@ -1081,11 +973,11 @@ export function pressAt(ndcX, ndcY) {
 	return pressAlong(raycaster, 2.2);
 }
 export function pressAlong(rc, reach) {
-	const hit = rc.intersectObjects([...elevator.buttons, ...elevator.callButtons, ...elevator.switches, ...settingsMap.switches], false)[0];
+	if (paper.press(rc)) return true;             // the options sheet takes a press on it first
+	const hit = rc.intersectObjects([...elevator.buttons, ...elevator.callButtons], false)[0];
 	if (hit && hit.distance <= reach) {
 		const u = hit.object.userData;
-		if (u.action) { SWITCHES.find(sw => sw.key === u.action).press(); refreshSwitches(); }
-		else if (u.call) elevator.call();
+		if (u.call) elevator.call();
 		// a dead favourites button takes the press and does nothing with it:
 		// no dip, no bell, the lift stays where it is (Uli, 2026-09-13)
 		else if (u.key === FAV_KEY && !favCount()) return true;
@@ -1166,7 +1058,14 @@ export function setSetting(k, v) {
 	s[k] = v;
 	saveSettings();
 	switch (k) {
-		case 'dark':   applyMode(v); break;
+		case 'dark':
+			applyMode(v);
+			// night takes a dark wood with it and day a light one (Uli,
+			// 2026-09-19) — unless the wood already suits; and the wood switch
+			// still goes wherever it is put afterwards
+			if (v && !['walnut', 'black'].includes(s.frame)) setSetting('frame', 'walnut');
+			else if (!v && ['walnut', 'black'].includes(s.frame)) setSetting('frame', 'maple');
+			break;
 		case 'frame':  applyFrameLook(materials.frame, v); break;
 		case 'labels': scene.traverse(o => { if (o.name === 'label' || o.name === 'label-rims') o.visible = v; }); break;
 		case 'fill':   applyFill(); break;    // every print to the way it now rests; nothing re-hung
@@ -1176,11 +1075,13 @@ export function setSetting(k, v) {
 			rehang();                         // 'none' and back change the print's size
 			break;
 		case 'raise':  raiseRoof(); break;    // the shell only; the pictures stay as they hang
+		case 'lang':   break;                 // the sheet redraws itself below
+		case 'talk':   break;                 // the guard reads it as he speaks
 		default: rehang();                    // scale, W, D, H
 	}
-	refreshSwitches();
+	refreshPaper();
 }
 
 addEventListener('keydown', e => {
-	if ((e.code === 'KeyB' || e.code === 'KeyO') && !e.repeat) settingsMap.toggle();   // B like the controller's, or O (Uli)
+	if ((e.code === 'KeyB' || e.code === 'KeyO') && !e.repeat) { const rc = new THREE.Raycaster(); rc.setFromCamera(new THREE.Vector2(0, 0), camera); paper.toggle(rc); }   // B like the controller's, or O (Uli): the sheet where the view's middle points
 });

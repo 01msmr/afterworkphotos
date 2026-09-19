@@ -1,5 +1,6 @@
 import * as THREE from '../vendor/three.module.js';
-import { BUTTON, elevator, pressAlong, settingsMap } from 'gallery/elevator';
+import { BUTTON, elevator, pressAlong } from 'gallery/elevator';
+import { paper } from 'gallery/paper';
 import { cornerFree, outlineOf, planOf, rotShape } from 'gallery/plan';
 import { tabletHit } from 'gallery/tablet';
 import { ELEVATOR, clearRooms, hangRoom, rooms } from 'gallery/hang';
@@ -120,7 +121,7 @@ function stepHands() {
 		if (!j || !j.visible) { h.userData.touching = null; continue; }
 		j.getWorldPosition(tip);
 		let hit = null;
-		for (const b of [...elevator.buttons, ...elevator.callButtons, ...elevator.switches, ...settingsMap.switches]) {
+		for (const b of [...elevator.buttons, ...elevator.callButtons]) {
 			if (b.getWorldPosition(new THREE.Vector3()).distanceTo(tip) < TOUCH + BUTTON.r) { hit = b; break; }
 		}
 		if (!hit && pieces) pieces.traverse(o => {
@@ -141,17 +142,22 @@ function stepHands() {
 
 // In VR you walk by feet (Uli); nothing moves the body but the elevator.
 // The controllers' B (right) and Y (left) — buttons[5] of the xr-standard
-// gamepad — summon and put away the settings map, on the press's edge.
+// gamepad — stick the options sheet where that hand points, and take it
+// away again, on the press's edge (paper.js).
 const bDown = new WeakMap();
 function stepGamepads() {
 	const session = renderer.xr.getSession();
 	if (!session) return;
-	for (const src of session.inputSources) {
+	[...session.inputSources].forEach((src, i) => {
 		const b = src.gamepad && src.gamepad.buttons[5];
-		if (!b) continue;
-		if (b.pressed && !bDown.get(src)) settingsMap.toggle();
+		if (!b) return;
+		if (b.pressed && !bDown.get(src)) {
+			const c = renderer.xr.getController(i), rc = new THREE.Raycaster();
+			rc.set(c.getWorldPosition(new THREE.Vector3()), new THREE.Vector3(0, 0, -1).applyQuaternion(c.getWorldQuaternion(new THREE.Quaternion())));
+			paper.toggle(rc);
+		}
 		bDown.set(src, b.pressed);
-	}
+	});
 }
 export function stepXR(dt) { stepHands(); stepGamepads(); }
 
@@ -304,6 +310,7 @@ export function fitRoom(floorPts, walls, ceilings, floorY, source) {
 	state.real = { W: shape.W, D: shape.D, H: Math.round(H * 20) / 20, yaw: best.yaw, centre, walls: walls.length, source, shape };
 	console.info(`real room ${shape.W.toFixed(2)} × ${shape.D.toFixed(2)} × ${state.real.H} from ${source}, ${walls.length} walls, ${shape.rects.length} part${shape.rects.length > 1 ? 's' : ''}, ${shape.outline.length} corners, turned ${(best.yaw * 180 / Math.PI).toFixed(0)}°`);
 
+	paper.hide();                                     // the sheet was stuck to walls that move now
 	world.position.set(centre.x, floorY, centre.z);
 	world.rotation.y = best.yaw;
 	state.settings.H = state.real.H;                    // for this session: the lines, the cabin

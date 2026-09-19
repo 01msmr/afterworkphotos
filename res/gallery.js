@@ -6,6 +6,7 @@ import { stepCards } from 'gallery/bake';   // after elevator.js: bake → frame
 import { materials, stepUploads } from 'gallery/frames';
 import { ELEVATOR, hangRoom, packRun, piecesOf, replan, firstRoom, rooms, spread, upright } from 'gallery/hang';
 import { stepSticker } from 'gallery/sticker';
+import { stepPaper } from 'gallery/paper';
 import { jump, stepJump } from 'gallery/jump';
 import { stepTablet, tabletHit, toggleTablet } from 'gallery/tablet';
 import { nextLine, placeGuard, stepGuard } from 'gallery/guard';
@@ -28,6 +29,7 @@ import { applyLook, placeBody, stepWalk, walk } from 'gallery/walk';
 Promise.all([
 	fetch('/photos.json', { cache: 'no-cache' }).then(r => r.json()),   // root-absolute: the page lives at /gallery/
 	document.fonts.load('300 56px Jost').catch(() => {}),
+	document.fonts.load('bold 54px Kalam').catch(() => {}),   // the options sheet's pen
 ]).then(([d]) => { state.photos = d.photos; init(); });
 
 function init() {
@@ -82,6 +84,7 @@ renderer.setAnimationLoop((now, frame) => {
 	step('tablet', () => stepTablet());
 	step('sticker', () => stepSticker());
 	step('zoom', () => stepZoom(now));
+	step('paper', () => stepPaper(now));
 	step('uploads', () => stepUploads());
 	step('cards', () => stepCards());
 	step('music', () => stepMusic(now));

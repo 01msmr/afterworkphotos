@@ -5,7 +5,7 @@
 // centre at 1.5 m. Light mode is the white cube; dark mode is the same room
 // at night, ambient almost off, the spots alone.
 
-const DEFAULTS = { W: 6, D: 4, H: 3, dark: false, frame: 'maple', mat: 'white', scale: 1, labels: true, plan: 'grid', raise: 0, fill: false, talk: 'light' };   // plan: what a scanned room is made of (Uli, 2026-09-10) — see PLANS
+const DEFAULTS = { W: 6, D: 4, H: 3, dark: false, frame: 'maple', mat: 'white', scale: 1, labels: true, plan: 'grid', raise: 0, fill: false, talk: 'light', lang: 'en' };   // lang: the options sheet's language, en or de (2026-09-19)   // plan: what a scanned room is made of (Uli, 2026-09-10) — see PLANS
 
 // Settings come from the defaults, then what the switchboard saved last
 // time (localStorage 'galleryS'), then the URL — /gallery/?frame=black
@@ -37,6 +37,7 @@ export function loadSettings() {
 	if (!(s.frame in FRAME_COLOURS_KEYS)) s.frame = DEFAULTS.frame;
 	if (!['white', 'warm', 'none'].includes(s.mat)) s.mat = DEFAULTS.mat;
 	if (!PLANS.includes(s.plan)) s.plan = DEFAULTS.plan;
+	if (!['en', 'de'].includes(s.lang)) s.lang = DEFAULTS.lang;
 	s.raise = RAISES.includes(Number(s.raise)) ? Number(s.raise) : DEFAULTS.raise;
 	s.fill = s.fill === true || s.fill === '1' || s.fill === 'true';   // which way round a print rests (Uli, 2026-09-11)
 	if (!['light', 'heavy'].includes(s.talk)) s.talk = DEFAULTS.talk;   // how much the guard says (Uli, 2026-09-12)

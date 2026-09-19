@@ -97,3 +97,12 @@ body.xr #hint, body.xr #floors { display: none; }
 	font-weight: 300;
 	src: url('/res/fonts/Jost-Light.woff2') format('woff2');
 }
+/* The options sheet's pen (gallery/paper.js): Permanent Marker, res/fonts. */
+@font-face {
+	font-family: 'Permanent Marker';
+	font-style: normal;
+	font-weight: 400;
+	src: url('/res/fonts/PermanentMarker-Regular.ttf') format('truetype');
+}
+@font-face { font-family: 'Kalam'; font-style: normal; font-weight: 700; src: url('/res/fonts/Kalam-Bold.ttf') format('truetype'); }
+@font-face { font-family: 'Gloria Hallelujah'; font-style: normal; font-weight: 400; src: url('/res/fonts/GloriaHallelujah.ttf') format('truetype'); }

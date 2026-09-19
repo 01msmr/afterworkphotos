@@ -1,4 +1,5 @@
-import { elevator, refreshSwitches } from 'gallery/elevator';
+import { elevator } from 'gallery/elevator';
+import { refreshPaper } from 'gallery/paper';
 import { renderer, scene } from 'gallery/scene';
 
 // P: wireframes (Uli). ?stats=1: frame time on the cabin's display and in
@@ -8,7 +9,7 @@ export function setWire(on) {
 	wire = on;
 	scene.traverse(o => { if (o.isMesh) for (const m of [].concat(o.material)) m.wireframe = wire; });
 }
-addEventListener('keydown', e => { if (e.code === 'KeyP' && !e.repeat) { setWire(!wire); refreshSwitches(); } });
+addEventListener('keydown', e => { if (e.code === 'KeyP' && !e.repeat) { setWire(!wire); refreshPaper(); } });
 export const stats = new URLSearchParams(location.search).get('stats') === '1';
 let frames = 0, statsT = performance.now(), fpsText = '';
 export function stepStats(now) {
