@@ -1,5 +1,6 @@
 import * as THREE from '../vendor/three.module.js';
-import { elevator, lift } from 'gallery/elevator';   // its audio, and where the cabin stands
+import { elevator } from 'gallery/elevator';
+import { lift } from 'gallery/sound';   // its audio, and where the cabin stands
 import { ELEVATOR } from 'gallery/hang';
 import { pannerAt } from 'gallery/music';
 import { inPoly } from 'gallery/plan';

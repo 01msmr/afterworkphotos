@@ -1,4 +1,5 @@
-import { elevator, lift } from 'gallery/elevator';
+import { elevator } from 'gallery/elevator';
+import { lift } from 'gallery/sound';
 import * as THREE from '../vendor/three.module.js';
 import { camera, head, world } from 'gallery/scene';
 

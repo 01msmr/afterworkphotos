@@ -1,10 +1,10 @@
 import * as THREE from '../vendor/three.module.js';
-import { materials, tex, textureCache } from 'gallery/frames';
-import { ELEVATOR, FAV_KEY, clearRooms, hangRoom, hangRoomSteps, roomByKey, rooms } from 'gallery/hang';
+import { materials, metal, textureCache } from 'gallery/frames';
+import { BUTTON, FAV_LIT, FAV_RED, GREEN, MILK, PANEL, buildConsole, sideMetal } from 'gallery/console';
+import { lift } from 'gallery/sound';
+import { ELEVATOR, hangRoom, hangRoomSteps, roomByKey, rooms } from 'gallery/hang';
 import { WALL_STYLES, dadoTop, dressWall, edgeLines, wallColours } from 'gallery/room';
 import { camera, head, renderer, scene, world } from 'gallery/scene';
-import { zoomLabel, zoomPrint } from 'gallery/zoom';
-import { stickAt } from 'gallery/sticker';
 import { dropAllNear } from 'gallery/video';   // the floor's 2000s, handed back when it is left
 import { favCount, state } from 'gallery/state';
 import { placeBody, walk } from 'gallery/walk';
@@ -26,295 +26,14 @@ const CABIN_WALL = 0.08;
 const DISPLAY = { w: 0.44, h: 0.11 };                      // the floor display above the door
 const DOOR_T = 1800;                                       // ms for the doors to open or close — the length of their sound
 const BELL_GAP = 800;                                      // ms between the bell and the doors
-export const BUTTON = { w: 0.06, h: 0.03, rise: 0.006, pitchX: 0.07, pitchY: 0.04, gap: 0.002, r: 0.02 };   // the floor buttons: a rectangular cap, its rise off the steel, the grid, the black gap round it; r: the round call and switch buttons
-const PANEL = { low: 1.2, high: 1.8, depth: 0.03, cols: 10, margin: 0.03 };
 const FLOOR_PLATE = { w: 0.30, h: 0.10, d: 0.006, font: 150 };   // the engraved floor plate outside (Uli, 2026-09-19): 30 × 10 cm of steel, the label 6 cm high   // its centre at 1.5 m (Uli: 20 cm up), vertical on the wall (Uli), ten across; depth: the walnut block it is the face of
 
-// Brushed steel, matte (Uli): the roughness map is left out so nothing on
-// the sheet turns glossy, the environment only just shows in it.
-export const metal = new THREE.MeshStandardMaterial({
-	map: tex('metal-color.jpg', true, 1), metalnessMap: tex('metal-metalness.jpg', false, 1),
-	normalMap: tex('metal-normal.jpg', false, 1), normalScale: new THREE.Vector2(0.5, 0.5),
-	metalness: 1, roughness: 0.85, envMapIntensity: 0.45,
-});
 const cabinInner = new THREE.MeshLambertMaterial({ color: 0xcfccc5 });
 const displayBack = new THREE.MeshStandardMaterial({ color: 0x0c0c0c, roughness: 0.4, metalness: 0.2 });
 const cabinFloor = new THREE.MeshLambertMaterial({ color: 0x5a5854 });
 const panelPlate = new THREE.MeshStandardMaterial({ color: 0x2b2b2d, metalness: 0.5, roughness: 0.45 });   // anthracite: the switchplate outside
-const GREEN = 0x46ff7a, MILK = 0xe4e2dc;   // the lit floor; a cap's milky white — a touch greyer than 0xefece4 (Uli, 2026-09-19: slightly more greyish)                                                                                    // the lit floor
-const pocketMat = new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.9, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -2 });   // the black gap round a button: a millimetre proud of the plate, two depth steps before it (frames.js, STEPS)
-const steelMat = metal.clone(); Object.assign(steelMat, { polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -4 });   // the button's floor, two more
 export const lightPanel = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xfff6e8, emissiveIntensity: 1.6, roughness: 1 });
 export const CABIN_LAMP = { light: 5, dark: 0.5 }, CABIN_PANEL = { light: 1.6, dark: 0.2 };   // the cabin at night: dim (Uli, 2026-09-19: darker than the 0.9 / 0.35 it had)
-
-// The print on a button: the year, left-aligned, in Jost Light (loaded
-// before the first room, see the start); a split year's floors are
-// "2018.1", "2018.2", the suffix smaller on the same baseline (Uli).
-// Drawn on a clear canvas: the cap under it shows through.
-// The favourites button carries **the sticker**, not a year — it is the one
-// floor without one, and the dot says both what the floor is and what fills
-// it (Uli, 2026-09-13). The cap behind it does the empty/normal work, so
-// this face never changes.
-// **It says 'favourites'** (Uli, 2026-09-13, after a day as the dot): the
-// word in the years' own face, on a cap two buttons and their margin
-// wide, lit in the sticker's red rather than the floors' green.
-const FAV_RED = 0xc8322b, FAV_LIT = 0x5a2a2a;
-const FAV_W = BUTTON.w + BUTTON.pitchX;        // two caps and the gap between
-// The year on a button cap: a canvas apiece in Jost, on the clear plane
-// that takes the press. (A day on the shared distance-field atlas,
-// 2026-09-13, and back: its contours crawled in stereo.) **512 x 256 and
-// filtered anisotropically** (Uli, 2026-09-13: fuzzy, read sideways): the
-// plate stands beside the door and is only ever seen at an angle, and a
-// 256 canvas was just the panel's own count at 40 cm — the 512 is drawn
-// in the old 256 space, so the numbers mean what they did. 512 KB each,
-// thirty-odd of them.
-const FACE_PX = 512;
-// `wide`: the cap's width in caps — the favourites' word gets a wider one,
-// the same face and the same left margin
-// **The years are drawn once, into one atlas, and worn by the caps
-// themselves** (2026-09-19, the frame rate in the cabin): every button
-// used to carry a clear print 1.2 mm before its cap, a transparent draw
-// call each and a layer to flicker against — 23 of them at the plate.
-// Now the cap's front face samples its cell of a 4096 px atlas (a cell a
-// face, the favourites two across), the sides and back a blank cell, and
-// the same atlas is the emissive map, so the lit cap's glow leaves the
-// letters dark as the print over it did. The letters are drawn as they
-// were: a 256-space scaled to FACE_PX, Jost 300, the part after the year
-// smaller.
-const ATLAS_COLS = 8;
-function faceAtlas(entries) {
-	const cells = [], rows = [];                    // cells: {cx, cy, wide} per entry; a cell is FACE_PX × FACE_PX / 2
-	let cx = 1, cy = 0;                             // cell 0 of row 0 stays blank paper, for the sides and the back
-	for (const e of entries) {
-		if (cx + e.wide > ATLAS_COLS) { cx = 0; cy++; }
-		cells.push({ cx, cy, wide: e.wide }); cx += e.wide;
-	}
-	const nRows = cy + 1;
-	const c = document.createElement('canvas'); c.width = ATLAS_COLS * FACE_PX; c.height = nRows * FACE_PX / 2;
-	const g = c.getContext('2d');
-	g.fillStyle = '#ffffff'; g.fillRect(0, 0, c.width, c.height);
-	const font = px => `300 ${px}px Jost, "Helvetica Neue", Arial, sans-serif`;
-	entries.forEach((e, i) => {
-		const { cx, cy } = cells[i];
-		g.save();
-		g.translate(cx * FACE_PX, cy * FACE_PX / 2);
-		g.scale(FACE_PX / 256, FACE_PX / 256);
-		g.fillStyle = e.room.favs ? '#c8322b' : '#1d1c1a';
-		g.textAlign = 'left'; g.textBaseline = 'middle';
-		g.font = font(56);
-		g.fillText(e.year, 36, 66);
-		if (e.room.of > 1) { const w = g.measureText(e.year).width; g.font = font(45); g.fillText(`.${e.room.part}`, 36 + w + 2, 66); }
-		g.restore();
-	});
-	const t = new THREE.CanvasTexture(c);
-	t.colorSpace = THREE.SRGBColorSpace;
-	t.anisotropy = renderer.capabilities.getMaxAnisotropy();
-	return { tex: t, cells, rows: nRows };
-}
-// A cap's UVs pointed at its cell: the front face (normal -z, the one the
-// cabin sees) spread over the cell — mirrored in u, since a face looked
-// at from -z has its +x on the viewer's left — every other face at the
-// blank cell's corner.
-function faceUVs(geo, bw, h, cell, rows) {
-	geo = geo.clone();
-	const P = geo.attributes.position, N = geo.attributes.normal, uv = geo.attributes.uv;
-	for (let i = 0; i < P.count; i++) {
-		if (N.getZ(i) < -0.5) {
-			const u = 0.5 - P.getX(i) / bw, v = P.getY(i) / h + 0.5;
-			uv.setXY(i, (cell.cx + u * cell.wide) / ATLAS_COLS, 1 - (cell.cy + 1 - v) / rows);
-		} else uv.setXY(i, 0.02 / ATLAS_COLS, 1 - 0.02 / rows);
-	}
-	uv.needsUpdate = true;
-	return geo;
-}
-
-// **A button's plan has 1.5 mm corners, and its depth faces are 12 %
-// darker than its front** (Uli, 2026-09-18). A rounded rectangle pushed
-// out along z and centred on it, like the box it replaces. The darker
-// sides are vertex colours — 0.88 where the normal lies in the plane — so
-// a cap is still one material and one draw call, and light() goes on
-// setting one colour; the lit cap's glow is emissive and stays whole.
-const CORNER = 0.0015, SIDE_DARK = 0.88;
-function roundedBox(w, h, d, r = CORNER) {
-	const x = w / 2, y = h / 2, sh = new THREE.Shape();
-	sh.moveTo(-x + r, -y); sh.lineTo(x - r, -y); sh.absarc(x - r, -y + r, r, -Math.PI / 2, 0);
-	sh.lineTo(x, y - r); sh.absarc(x - r, y - r, r, 0, Math.PI / 2);
-	sh.lineTo(-x + r, y); sh.absarc(-x + r, y - r, r, Math.PI / 2, Math.PI);
-	sh.lineTo(-x, -y + r); sh.absarc(-x + r, -y + r, r, Math.PI, Math.PI * 1.5);
-	const geo = new THREE.ExtrudeGeometry(sh, { depth: d, bevelEnabled: false, curveSegments: 4 });
-	geo.translate(0, 0, -d / 2);
-	const n = geo.attributes.normal, col = new Float32Array(n.count * 3);
-	for (let i = 0; i < n.count; i++) col.fill(Math.abs(n.getZ(i)) > 0.5 ? 1 : SIDE_DARK, i * 3, i * 3 + 3);
-	geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
-	return geo;
-}
-// the round buttons' bodies are all side: the steel, 12 % darker
-const sideMetal = metal.clone(); sideMetal.color.multiplyScalar(SIDE_DARK);
-
-// Boxes already set in place, welded into one geometry.
-function merged(geos) {
-	const pos = [], nor = [], uv = [], idx = [];
-	let base = 0;
-	for (const g of geos) {
-		const P = g.attributes.position, N = g.attributes.normal, U = g.attributes.uv, I = g.index;
-		pos.push(...P.array); nor.push(...N.array); uv.push(...U.array);
-		if (I) for (let i = 0; i < I.count; i++) idx.push(I.getX(i) + base);
-		else for (let i = 0; i < P.count; i++) idx.push(i + base);       // an extrusion has no index
-		base += P.count;
-		g.dispose();
-	}
-	const out = new THREE.BufferGeometry();
-	out.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-	out.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
-	out.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
-	out.setIndex(idx);
-	return out;
-}
-
-// The floor display: the room you are on; during a ride, each floor
-// passed, with the direction. Drawn on a canvas, shown inside and out.
-function drawDisplay(ctx, text, arrow, note = '') {
-	const c = ctx.canvas;
-	ctx.fillStyle = '#0a0a0a'; ctx.fillRect(0, 0, c.width, c.height);
-	// a small line in the corner, for what the headset gives (gallery.js, the probe)
-	if (note) { ctx.fillStyle = '#7a5a2a'; ctx.font = '400 24px "Helvetica Neue", Arial, sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic'; ctx.fillText(note, c.width - 10, c.height - 10); }
-	ctx.fillStyle = '#ffb347';
-	ctx.textBaseline = 'middle';
-	ctx.font = '600 84px "Helvetica Neue", Arial, sans-serif';
-	ctx.textAlign = 'center';
-	ctx.fillText(text, c.width / 2 + (arrow ? 24 : 0), c.height / 2 + 4);
-	if (arrow) {
-		ctx.font = '600 60px "Helvetica Neue", Arial, sans-serif';
-		ctx.textAlign = 'left';
-		ctx.fillText(arrow, 28, c.height / 2 + 4);
-	}
-}
-export function roomLabel(room) {
-	if (room.favs) return room.span;                // 'favourites', never its sorting year 9999 (Uli, 2026-09-13)
-	if (room.years.length > 1) return room.span;
-	return room.of > 1 ? `${room.year}.${room.part}` : room.year;
-}
-
-// The sound of the lift: Uli's recordings in res/sound/. ride.mp3 has a
-// start and run (0.6–8.4 s), the stop (8.4–11.7 s) and the doors opening
-// (13.3–15.3 s); a ride plays the start and as much run as it needs, then
-// the stop; every door movement plays the door segment. bell.mp3, when
-// there is one, rings on arrival; until then the arrival in call.mp3
-// (15.4–18.6 s) stands in. The audio context has to be born of a press,
-// so it is made on the first ride; the files are fetched at load and
-// decoded then.
-export const SOUND = {
-	ride:  { file: '/res/sound/ride.mp3', run: [0.6, 8.4], stop: [8.4, 11.7], door: [13.3, 15.3] },
-	bell:  { file: '/res/sound/bell.mp3' },
-	call:  { file: '/res/sound/call.mp3', hum: [1.0, 6.0] },        // the lift coming, heard from outside
-};
-const STOP_LEN = SOUND.ride.stop[1] - SOUND.ride.stop[0];
-
-export const lift = {
-	ctx: null, master: null, raw: {}, buf: {},
-	// Fetch and decode at load: a context made before any press starts
-	// suspended but decodes fine, so the first ride has its sound ready.
-	fetchAll() {
-		this.open();
-		for (const [k, v] of Object.entries(SOUND)) {
-			fetch(v.file).then(r => r.ok ? r.arrayBuffer() : null).then(b => { if (b) { this.raw[k] = b; this.decode(); } }).catch(() => {});
-		}
-	},
-	open() {
-		if (this.ctx) return true;
-		try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return false; }
-		this.master = this.ctx.createGain(); this.master.gain.value = 0.9; this.master.connect(this.ctx.destination);
-		return true;
-	},
-	ready() {
-		if (!this.open()) return false;
-		if (this.ctx.state === 'suspended') this.ctx.resume();
-		this.decode();
-		return true;
-	},
-	decode() {
-		if (!this.ctx) return;
-		for (const k of Object.keys(this.raw)) {
-			if (this.buf[k] || this.buf[k] === false) continue;
-			this.buf[k] = false;                              // decoding
-			this.ctx.decodeAudioData(this.raw[k].slice(0)).then(b => { this.buf[k] = b; }).catch(() => { delete this.buf[k]; });
-		}
-	},
-	// play buffer `k` from `from` for `dur` seconds at time `at`, faded in and out
-	// `muffle`: a low-pass at that many Hz, for a sound heard through a door
-	play(k, from, dur, at = null, gain = 1, fadeIn = 0.05, fadeOut = 0.12, muffle = 0) {
-		const b = this.buf[k];
-		if (!b) return null;
-		const ctx = this.ctx, t = at ?? ctx.currentTime;
-		const src = ctx.createBufferSource(); src.buffer = b;
-		const g = ctx.createGain();
-		g.gain.setValueAtTime(0.0001, t);
-		g.gain.exponentialRampToValueAtTime(gain, t + fadeIn);
-		g.gain.setValueAtTime(gain, t + dur - fadeOut);
-		g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-		src.connect(g);
-		if (muffle) { const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = muffle; g.connect(f); f.connect(this.master); }
-		else g.connect(this.master);
-		src.start(t, from, dur + 0.02);
-		return src;
-	},
-	// a ride of `seconds`: the start and the run for what is left after
-	// the stop — the recording's run played over again, overlapping a
-	// little, when the ride outlasts it — then the stop
-	run(seconds) {
-		if (!this.ready() || !this.buf.ride) return;
-		const R = SOUND.ride, ctx = this.ctx, t = ctx.currentTime;
-		const runLen = Math.max(0.4, seconds - STOP_LEN);
-		// one source: the recording from its start, its steady middle looped
-		// for as long as the ride runs (Uli: a ride must not start over)
-		const src = ctx.createBufferSource(); src.buffer = this.buf.ride;
-		src.loop = true; src.loopStart = R.run[0] + 2.0; src.loopEnd = R.run[1] - 0.2;
-		const g = ctx.createGain();
-		g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(1, t + 0.03);
-		g.gain.setValueAtTime(1, t + runLen - 0.15); g.gain.exponentialRampToValueAtTime(0.0001, t + runLen);
-		src.connect(g); g.connect(this.master);
-		src.start(t, R.run[0]); src.stop(t + runLen + 0.02);
-		this.play('ride', R.stop[0], STOP_LEN, t + runLen - 0.1, 1, 0.1, 0.2);
-	},
-	// The doors: a lift has two, the cabin's and the shaft's, moving as
-	// one — the near door is heard plain, the far one through it: a beat
-	// behind, at a third, muffled (Uli). Both fall away with the distance
-	// from the doors: full within a metre, a quarter at 2.5 m.
-	slide() {
-		if (!this.ready()) return;
-		const R = SOUND.ride, t = this.ctx.currentTime;
-		const d = elevator.doorsWorld ? head().distanceTo(elevator.doorsWorld()) : 1;
-		const gain = 0.9 * Math.min(1, Math.pow(1 / Math.max(d, 1), 1.5));
-		this.play('ride', R.door[0], R.door[1] - R.door[0], t, gain, 0.03, 0.15);
-		this.play('ride', R.door[0], R.door[1] - R.door[0], t + 0.07, gain * 0.33, 0.03, 0.15, 900);
-	},
-	// a button's click: a short burst of band-passed noise with a tick on
-	// top, made here, no file
-	click() {
-		if (!this.ready()) return;
-		const ctx = this.ctx, t = ctx.currentTime, n = Math.floor(ctx.sampleRate * 0.03);
-		const b = ctx.createBuffer(1, n, ctx.sampleRate), d = b.getChannelData(0);
-		for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n) ** 2;
-		const src = ctx.createBufferSource(); src.buffer = b;
-		const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 2600; f.Q.value = 1.2;
-		const g = ctx.createGain(); g.gain.value = 0.44;
-		src.connect(f); f.connect(g); g.connect(this.master); src.start(t);
-		const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(1900, t); o.frequency.exponentialRampToValueAtTime(900, t + 0.025);
-		const og = ctx.createGain(); og.gain.setValueAtTime(0.15, t); og.gain.exponentialRampToValueAtTime(0.0001, t + 0.04);
-		o.connect(og); og.connect(this.master); o.start(t); o.stop(t + 0.05);
-	},
-	bell() {
-		if (!this.ready() || !this.buf.bell) return;
-		this.play('bell', 0, this.buf.bell.duration, null, 1, 0.01, 0.1);
-	},
-	// the hum of the lift coming, for `seconds`, while you wait outside
-	hum(seconds) {
-		if (!this.ready()) return;
-		const C = SOUND.call;
-		this.play('call', C.hum[0], Math.min(seconds, C.hum[1] - C.hum[0]), null, 0.8, 0.3, 0.6);
-	},
-};
-lift.fetchAll();
 
 // (The switchplate, its map on B and the recentre went on 2026-09-19:
 // the settings are the paper sheet now, gallery/paper.js.)
@@ -341,6 +60,30 @@ function shaftTexture() {
 	t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping;
 	t.repeat.set(1, DOOR.h / SLOT.storey);                                // the seam is a door high; a storey of shaft is three metres
 	return t;
+}
+
+// The floor display: the room you are on; during a ride, each floor
+// passed, with the direction. Drawn on a canvas, shown inside and out.
+function drawDisplay(ctx, text, arrow, note = '') {
+	const c = ctx.canvas;
+	ctx.fillStyle = '#0a0a0a'; ctx.fillRect(0, 0, c.width, c.height);
+	// a small line in the corner, for what the headset gives (gallery.js, the probe)
+	if (note) { ctx.fillStyle = '#7a5a2a'; ctx.font = '400 24px "Helvetica Neue", Arial, sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic'; ctx.fillText(note, c.width - 10, c.height - 10); }
+	ctx.fillStyle = '#ffb347';
+	ctx.textBaseline = 'middle';
+	ctx.font = '600 84px "Helvetica Neue", Arial, sans-serif';
+	ctx.textAlign = 'center';
+	ctx.fillText(text, c.width / 2 + (arrow ? 24 : 0), c.height / 2 + 4);
+	if (arrow) {
+		ctx.font = '600 60px "Helvetica Neue", Arial, sans-serif';
+		ctx.textAlign = 'left';
+		ctx.fillText(arrow, 28, c.height / 2 + 4);
+	}
+}
+export function roomLabel(room) {
+	if (room.favs) return room.span;                // 'favourites', never its sorting year 9999 (Uli, 2026-09-13)
+	if (room.years.length > 1) return room.span;
+	return room.of > 1 ? `${room.year}.${room.part}` : room.year;
 }
 
 export const elevator = {
@@ -508,123 +251,8 @@ export const elevator = {
 		lamp.position.set(this.origin.x, H - 0.15, this.origin.z);
 		g.add(lamp);
 
-		// The console on the south wall's inner face, beside the door, between
-		// hand and eye height: walnut blocks standing on the wall, vertical
-		// (Uli), their faces the plates — nothing of them in the wall. **The
-		// years run down the plate, newest at the top, in two columns, a
-		// plate per column** (Uli, 2026-09-19, from a 2D demo; it was a line
-		// per decade, ten across, before): a year's second and third rooms
-		// sit to the right of its first, so a column's plate is as wide as
-		// its widest year; the favourites floor is a double-width button
-		// over the topmost year. The thin years merged into one room each
-		// keep a button of their own to it.
-		const list = rooms();
-		const favRoom = list.find(r => r.favs);
-		const byYear = new Map();                      // year -> its rooms, first part first
-		for (const r of list) if (!r.favs) for (const y of r.years) byYear.set(y, [...(byYear.get(y) || []), r]);
-		const years = [...byYear.keys()].sort((p, q) => Number(q) - Number(p));
-		const rowsOf = years.map(y => ({ year: y, rooms: byYear.get(y).sort((p, q) => (p.part || 0) - (q.part || 0)) }));
-		const half = Math.ceil(rowsOf.length / 2);
-		const columns = [rowsOf.slice(0, half), rowsOf.slice(half)].filter(c => c.length);
-		const margin = PANEL.margin, between = 0.02;   // and the gap between two plates
-		const plates = columns.map((col, i) => {
-			const wide = Math.max(i === 0 && favRoom ? 2 : 1, ...col.map(r => r.rooms.length));
-			const rows = col.length + (i === 0 && favRoom ? 1 : 0);
-			return { col, wide, rows, w: wide * BUTTON.pitchX + 2 * margin, h: rows * BUTTON.pitchY + 2 * margin };
-		});
-		for (const p of plates) p.h = Math.max(...plates.map(q => q.h));   // both plates the same height (Uli, 2026-09-19): the shorter column leaves walnut under its last year
-		const plateW = plates.reduce((sum, p) => sum + p.w, 0) + between * (plates.length - 1);
-		// the block: its face at the panel's z = 0, its back on the skin; the buttons stand proud at -z
-		// **The console is built once** (Uli, 2026-09-13: the plate glitched
-		// as the doors shut). The cabin is made afresh with every room, at the
-		// moment the doors have shut on a ride — and thirty-odd canvases drawn
-		// and sent up again in front of the visitor was a hitch on the plate
-		// every ride. The panel is the same object from cabin to cabin, only
-		// set at the new cabin's wall.
-		if (!this.panel) {
-			const panel = new THREE.Group();
-			panel.name = 'panel';
-			// facing the south wall the viewer's left is +x: the first plate
-			// stands at +x, the next to its right at smaller x, all hung from
-			// one top edge
-			const plateH = Math.max(...plates.map(p => p.h));
-			let x1 = plateW / 2;                       // the running plate's left edge
-			for (const p of plates) {
-				// **the plates wear the frames' wood** (Uli, 2026-09-19): the same
-				// material as the bars, so the wood switch dresses the console too
-				const plate = new THREE.Mesh(new THREE.BoxGeometry(p.w, p.h, PANEL.depth), materials.frame);
-				plate.name = 'plate';
-				p.x0 = x1; p.y0 = plateH / 2;          // the plate's top left corner, in the panel
-				plate.position.set(x1 - p.w / 2, plateH / 2 - p.h / 2, PANEL.depth / 2);
-				panel.add(plate);
-				x1 -= p.w + between;
-			}
-
-			// A button: a black pocket in the plate, brushed steel at its bottom,
-			// a **milky white cap** standing proud of it, the year printed on the
-			// cap. Lit, the cap glows green (light()). The cap was clear — white
-			// at 0.28 over the steel — until 2026-09-13 (Uli: milky, and plain
-			// colours for its states, not translucency): thirty-odd translucent
-			// caps were thirty-odd things in the transparent queue, sorted and
-			// blended every frame, for a look the plate did not need.
-			this.buttons = [];
-			const { w, h, rise, gap } = BUTTON;
-			// **The pockets are one mesh, the steels another** (2026-09-13):
-			// neither moves — a press dips the cap alone — and forty-six draw
-			// calls for them were a quarter of the cabin's.
-			const pockets = [], steels = [];
-			const sink = (geo, x, y, z, list) => list.push(geo.clone().translate(x, y, z));
-			// The face stands 1.2 mm off its cap, not 0.3, and is pushed forward
-			// again in the depth buffer (Uli, 2026-09-13: the button plate
-			// glitched). Three tenths of a millimetre is finer than a 16-bit
-			// depth buffer tells apart at arm's length (vr.js: 'layers'), and
-			// the two surfaces flickered against each other, the more so in
-			// stereo. **The push is a constant, not a slope**: a slope-scaled
-			// offset grows with the viewing angle, and at the grazing angle the
-			// plate is passed at on the way in it would pull a year forward
-			// through the caps beside it.
-			// the faces first, all of them into the atlas, then the buttons
-			const entries = [];
-			if (favRoom) entries.push({ year: 'favourites', room: favRoom, wide: 2 });
-			for (const p of plates) for (const { year, rooms: rs } of p.col) for (const room of rs) entries.push({ year, room, wide: 1 });
-			const atlas = faceAtlas(entries);
-			let n = 0;
-			// one button, `wide` caps across (the favourites: two), at a cell:
-			// its pocket, its steel, and its cap wearing its year
-			const geos = new Map();
-			const button = (room, x, y, wide = 1) => {
-				const bw = w + (wide - 1) * BUTTON.pitchX;
-				if (!geos.has(wide)) geos.set(wide, { pocket: roundedBox(bw + 2 * gap, h + 2 * gap, 0.001, CORNER + gap), steel: roundedBox(bw, h, 0.002), cap: roundedBox(bw, h, rise) });
-				const G = geos.get(wide);
-				sink(G.pocket, x, y, -0.0005, pockets);
-				sink(G.steel, x, y, -0.002, steels);
-				const cap = new THREE.Mesh(faceUVs(G.cap, bw, h, atlas.cells[n++], atlas.rows), new THREE.MeshStandardMaterial({ color: MILK, map: atlas.tex, vertexColors: true, roughness: 0.45, metalness: 0, emissive: room.favs ? FAV_RED : GREEN, emissiveMap: atlas.tex, emissiveIntensity: 0, envMapIntensity: 0.5, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -6 }));
-				cap.name = `cap-${room.key}`;
-				cap.userData.key = room.key;
-				cap.userData.z0 = -0.003 - rise / 2;   // where it rests: a press dips it in and back
-				cap.userData.cap = true;
-				if (room.favs) cap.userData.fav = true;
-				cap.position.set(x, y, cap.userData.z0);
-				panel.add(cap);
-				this.buttons.push(cap);
-			};
-			// a cell of a plate: column c (0 at the plate's left), row r (0 at its top)
-			const cell = (p, c, r) => ({ x: p.x0 - margin - BUTTON.pitchX * (c + 0.5), y: p.y0 - margin - BUTTON.pitchY * (r + 0.5) });
-			plates.forEach((p, i) => {
-				let row = 0;
-				if (i === 0 && favRoom) {                  // the favourites: two columns wide, over the topmost year
-					const { x, y } = cell(p, 0.5, row++);
-					button(favRoom, x, y, 2);
-				}
-				for (const { rooms: rs } of p.col) {
-					rs.forEach((room, c) => { const { x, y } = cell(p, c, row); button(room, x, y); });
-					row++;
-				}
-			});
-			const pm = new THREE.Mesh(merged(pockets), pocketMat); pm.name = 'pockets'; panel.add(pm);
-			const sm = new THREE.Mesh(merged(steels), steelMat); sm.name = 'steels'; panel.add(sm);
-			this.panel = panel;
-		}
+		// The console (console.js): built once and carried from cabin to cabin
+		const plateW = buildConsole(this, rooms());
 		this.panel.position.set(ix0 + 0.10 + plateW / 2, (PANEL.low + PANEL.high) / 2, iz1 - 0.0105 - PANEL.depth);
 		g.add(this.panel);
 		this.group = g;
@@ -963,79 +591,11 @@ export const elevator = {
 	},
 };
 
-// Picking a button: a ray from the pointer while it is free, from the
-// middle of the view while it is taken.
-const raycaster = new THREE.Raycaster();
-export function pressAt(ndcX, ndcY) {
-	if (!elevator.buttons.length) return false;
-	raycaster.setFromCamera(new THREE.Vector2(ndcX, ndcY), camera);
-	return pressAlong(raycaster, 2.2);
-}
-export function pressAlong(rc, reach) {
-	if (paper.press(rc)) return true;             // the options sheet takes a press on it first
-	const hit = rc.intersectObjects([...elevator.buttons, ...elevator.callButtons], false)[0];
-	if (hit && hit.distance <= reach) {
-		const u = hit.object.userData;
-		if (u.call) elevator.call();
-		// a dead favourites button takes the press and does nothing with it:
-		// no dip, no bell, the lift stays where it is (Uli, 2026-09-13)
-		else if (u.key === FAV_KEY && !favCount()) return true;
-		else if (elevator.inside()) { elevator.press(u.key, hit.object); elevator.go(u.key); }   // a floor is chosen from inside the cabin only (Uli)
-		return true;
-	}
-	// **a red dot first** (Uli, 2026-09-13): where the pointer has come
-	// within reach of the place a sticker goes, the press sticks one on —
-	// or takes off the one already there — and gets no further.
-	// the floor list and the button follow at once: a first dot lights the
-	// favourites button, the last one taken off puts it out again
-	if (stickAt()) { clearRooms(); rooms(); elevator.light(state.roomKey); return true; }
-	// a label card: a press doubles it, the next press puts it back; a
-	// print: a press fills its frame over the mat, the next puts it back
-	// (Uli, 2026-09-11). Both come back by themselves once out of sight —
-	// zoom.js keeps that.
-	const pieces = scene.getObjectByName('pieces');
-	if (pieces) {
-		const labels = [], prints = [];
-		pieces.traverse(o => {
-			if (o.name === 'label' && o.visible) labels.push(o);
-			else if (o.name === 'photo' && o.visible) prints.push(o);
-			// the pane over the frame's opening: never drawn, but pressed
-			else if (o.name === 'photo-area') prints.push(o);
-		});
-		const l = rc.intersectObjects(labels, false)[0];
-		if (l && l.distance <= 4) return zoomLabel(l.object.parent.userData.labels);
-		const ph = rc.intersectObjects(prints, false)[0];
-		if (ph && ph.distance <= 6) return zoomPrint(ph.object.userData.print || ph.object);   // a press on the mat is a press on its picture
-	}
-	return false;
-}
-
-// The bench's overlay: Y lists the floors.
-export const floors = document.getElementById('floors');
-function renderFloors() {
-	floors.innerHTML = rooms().map(r =>
-		`<button data-key="${r.key}"${r.key === state.roomKey ? ' aria-current="true"' : ''}>${r.favs ? r.span : r.years.length > 1 ? `${r.years[0]}<small>\u2013${r.years[r.years.length - 1]}</small>` : r.year}${r.of > 1 ? `<small>.${r.part}</small>` : ''}</button>`).join('');
-}
-floors.addEventListener('click', e => {
-	const b = e.target.closest('button');
-	if (!b) return;
-	floors.hidden = true;
-	elevator.press(b.dataset.key);
-	elevator.go(b.dataset.key);
-});
-addEventListener('keydown', e => {
-	if (e.code === 'KeyF') { floors.hidden = !floors.hidden; if (!floors.hidden) renderFloors(); }   // F lists the floors — Y turns now (Uli)
-	if (e.code === 'Escape') floors.hidden = true;
-});
-
 // ---------------------------------------------------------------------------
-// The bench's keys (the settings themselves are gallery/settings.js and
-// their sheet gallery/paper.js, since 2026-09-19)
-
-addEventListener('keydown', e => {
-	if (e.code === 'KeyF') { floors.hidden = !floors.hidden; if (!floors.hidden) renderFloors(); }   // F lists the floors — Y turns now (Uli)
-	if (e.code === 'Escape') floors.hidden = true;
-});
+// The bench's key for the sheet (the settings are gallery/settings.js, the
+// sheet gallery/paper.js, pressing gallery/press.js, the sounds
+// gallery/sound.js, the console gallery/console.js — all out of here on
+// 2026-09-19)
 
 addEventListener('keydown', e => {
 	if ((e.code === 'KeyB' || e.code === 'KeyO') && !e.repeat) { const rc = new THREE.Raycaster(); rc.setFromCamera(new THREE.Vector2(0, 0), camera); paper.toggle(rc); }   // B like the controller's, or O (Uli): the sheet where the view's middle points

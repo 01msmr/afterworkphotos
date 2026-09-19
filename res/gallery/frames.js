@@ -207,6 +207,13 @@ function fadedWood(file, colour, fade) {
 	return t;
 }
 
+// Brushed steel, matte (Uli): the roughness map is left out so nothing on
+// the sheet turns glossy, the environment only just shows in it.
+export const metal = new THREE.MeshStandardMaterial({
+	map: tex('metal-color.jpg', true, 1), metalnessMap: tex('metal-metalness.jpg', false, 1),
+	normalMap: tex('metal-normal.jpg', false, 1), normalScale: new THREE.Vector2(0.5, 0.5),
+	metalness: 1, roughness: 0.85, envMapIntensity: 0.45,
+});
 export const materials = {
 	// **A thin seidenmatt lacquer on every frame** (Uli, 2026-09-13): not a
 	// gloss, a satin — the wood's own roughness map still does the work,

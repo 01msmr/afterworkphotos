@@ -357,6 +357,11 @@ function checkIcon() {
 	if (!check) {
 		const c = document.createElement('canvas'); c.width = c.height = 128;
 		const g = c.getContext('2d');
+		// a soft white disc under it, 70 % at the middle and blended out to
+		// the edge, so the tick holds against the pen's own lines (Uli)
+		const halo = g.createRadialGradient(64, 64, 8, 64, 64, 62);
+		halo.addColorStop(0, 'rgba(255,255,255,0.7)'); halo.addColorStop(0.6, 'rgba(255,255,255,0.45)'); halo.addColorStop(1, 'rgba(255,255,255,0)');
+		g.fillStyle = halo; g.beginPath(); g.arc(64, 64, 62, 0, Math.PI * 2); g.fill();
 		g.strokeStyle = '#141311'; g.lineWidth = 14; g.lineCap = 'round'; g.lineJoin = 'round';
 		g.beginPath(); g.moveTo(22, 66); g.lineTo(52, 100); g.lineTo(110, 24); g.stroke();
 		const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
