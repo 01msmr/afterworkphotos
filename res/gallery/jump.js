@@ -98,7 +98,9 @@ export function wayRound(from, to) {
 	const turns = [pts[0]];
 	for (let k = 1; k < pts.length - 1; k++) { const a = pts[k - 1], b = pts[k], c = pts[k + 1]; if (Math.abs((b.x - a.x) * (c.z - b.z) - (b.z - a.z) * (c.x - b.x)) > 1e-4) turns.push(b); }
 	turns.push(pts[pts.length - 1]);
-	return turns.filter((t, i) => i === 0 || t.distanceTo(turns[i - 1]) > 0.05);
+	// no short legs: an inner point closer than two radii to its neighbour goes, so every turn gets its round
+	for (let i = 1; i < turns.length; ) { if (turns[i].distanceTo(turns[i - 1]) < 2 * GUIDE.r && turns.length > 2) turns.splice(i === turns.length - 1 ? i - 1 : i, 1); else i++; }
+	return turns;
 }
 // the chalk: legs with square ends, each turn a quarter round, the arrow
 function drawWay(pts, face) {
@@ -129,7 +131,7 @@ function drawWay(pts, face) {
 	if (face) {
 		const sh = new THREE.Shape(); sh.moveTo(0, GUIDE.arrow); sh.lineTo(-GUIDE.arrow * 0.5, 0); sh.lineTo(GUIDE.arrow * 0.5, 0); sh.closePath();
 		const g = new THREE.ShapeGeometry(sh); g.rotateX(-Math.PI / 2);
-		const m = new THREE.Mesh(g, skin()); m.name = 'arrow'; m.position.copy(end).addScaledVector(face, 0.03); m.position.y = y + 0.0005;
+		const m = new THREE.Mesh(g, skin()); m.name = 'arrow'; m.position.copy(end); m.position.y = y + 0.0005;   // its base on the line's end
 		m.rotation.y = Math.atan2(face.x, face.z) + Math.PI; m.renderOrder = 2; guide.add(m);
 	}
 	for (const m of guide.children) m.visible = true;
@@ -175,7 +177,7 @@ export function switchTo(key, n) {
 	lift.run((DARK + HOLD) / 1000 + 0.6);      // a quick engine: start, a moment of running, the stop
 	return true;
 }
-const DARK = 3000, HOLD = 1500, LOADED = 10000;   // 3 s down, 1.5 s black, 3 s up (Uli), and up only once the pictures in view are on the GPU — 10 s at most
+const DARK = 4000, HOLD = 2000, LOADED = 10000;   // 4 s down, 2 s black, 4 s up (Uli), and up only once the pictures in view are on the GPU — 10 s at most
 function stepDark(now) {
 	if (!dark) return;
 	const t = now - dark.t0;

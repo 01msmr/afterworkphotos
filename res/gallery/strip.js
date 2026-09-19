@@ -19,7 +19,7 @@ import { state } from 'gallery/state';
 // and a circle marks the spot; standing in it the room switches in the
 // dark (jump.js, switchTo) and the line leads on to the print.
 
-const STRIP = { w: 0.05, h: 1.2, card: 0.12, gap: 0.05, fineGap: 0.03 };   // h: set to the room's height when pinned; the grey strip left of it: as wide, half as tall, centred
+const STRIP = { w: 0.10, h: 1.2, card: 0.12, gap: 0.05 };   // h: set to the room's height when pinned; the grey strip touching it on the left: as wide, half as tall, centred
 const GREEN = 0x46ff7a;
 let group = null, strip = null, fine = null, card = null, mark = null, ring = null;
 let fineFrom = null;                          // { y, at }: where a fine scrub began
@@ -63,7 +63,7 @@ function build() {
 	strip = new THREE.Mesh(new THREE.PlaneGeometry(STRIP.w, STRIP.h), new THREE.MeshBasicMaterial({ color: 0x141311 }));
 	strip.name = 'strip-rail'; group.add(strip);
 	fine = new THREE.Mesh(new THREE.PlaneGeometry(STRIP.w, STRIP.h / 2), new THREE.MeshBasicMaterial({ color: 0x8a8a88 }));
-	fine.name = 'strip-fine'; fine.position.x = -STRIP.w - STRIP.fineGap; group.add(fine);
+	fine.name = 'strip-fine'; fine.position.x = -STRIP.w; group.add(fine);
 	// the years' lines: one thin white bar where a year begins
 	const list = pile(), lines = [];
 	for (let i = 1; i < list.length; i++) if (list[i].taken.slice(0, 4) !== list[i - 1].taken.slice(0, 4)) lines.push(i);
@@ -111,27 +111,24 @@ export const stripLift = {
 		if (!group || !group.visible) return false;
 		const hit = rc.intersectObjects([strip, fine, card], false)[0];
 		if (!hit || hit.distance > 3) return false;
-		if (hit.object === fine) { fineFrom = { y: hit.uv.y, at }; held = controller || 'view'; return true; }
 		if (hit.object === card) {                       // the print pressed: the way to the lift, or off again
 			ticked = !ticked; drawCard();
 			if (ticked) { leadToPoint(doorSpot(), 0.4); ring.position.copy(world.localToWorld(doorSpot())); ring.position.y = world.position.y + 0.012; ring.visible = true; guardSays('toLift'); }
 			else { leadToPoint(null); ring.visible = false; }
 			return true;
 		}
-		held = controller || 'view'; this.scrub(rc);
+		fineFrom = null; held = controller || 'view'; this.scrub(rc);
 		return true;
 	},
 	release() { held = null; fineFrom = null; },
+	// held, the pointer may cross from one strip to the other: the grey one scrubs finely from where it was entered — its whole (half) height is one year's pictures
 	scrub(rc) {
-		if (fineFrom) {                                  // the grey strip: half its length runs through one year's pictures, from where the press began (Uli)
-			const hit = rc.intersectObject(fine, false)[0]; if (!hit) return;
-			const list = pile(), year = list[fineFrom.at].taken.slice(0, 4), inYear = list.filter(p => p.taken.slice(0, 4) === year).length;
-			show(Math.round(fineFrom.at + (fineFrom.y - hit.uv.y) * inYear));   // its whole (half) height: one year
-			return;
-		}
-		const hit = rc.intersectObject(strip, false)[0];
+		const hit = rc.intersectObjects([strip, fine], false)[0];
 		if (!hit) return;
-		show(Math.round((1 - hit.uv.y) * (pile().length - 1)));
+		if (hit.object === strip) { fineFrom = null; show(Math.round((1 - hit.uv.y) * (pile().length - 1))); return; }
+		if (!fineFrom) fineFrom = { y: hit.uv.y, at };
+		const list = pile(), year = list[fineFrom.at].taken.slice(0, 4), inYear = list.filter(p => p.taken.slice(0, 4) === year).length;
+		show(Math.round(fineFrom.at + (fineFrom.y - hit.uv.y) * inYear));
 	},
 	chosen: () => pile()[at] || null,
 };
