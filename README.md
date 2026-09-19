@@ -65,6 +65,18 @@ On a desktop browser `?touch=1` (and `?tablet=1`) force the deck. The page must 
 - The app's view **launches one status bar short** and iOS extends it only past a taller document: the viewport height is `100lvh` in the CSS, never `100dvh` and never read from JS at load — otherwise a black band stays under the sheets (17e; the 16's first launch).
 - The status bar's colour and blur cannot be controlled from a page; `--top-gap` keeps the blur off the paper.
 
+## How the gallery hangs a room
+
+One floor per year, newest at the top of the lift's console; thin years (five pieces or fewer) share a floor with their neighbours, and a year that does not fit one room is split into `2018.1`, `2018.2` — as few parts as fit.
+
+1. **Pieces.** Each photo is judged `single` or `group` (`photos.json`, `hang`). Singles hang alone at 90 cm. Group photos are pooled by date (a gap of six weeks or more starts a new pool) and each pool is cut, in date order, into grids of 6 and 4, a row of 3 or a pair — a mix, most photos covered, fewest grids; a grid of 9 only where it saves a floor. A grid takes its place in the sequence at its first photo's date; a lone group photo left over hangs single at 60 cm. In a roomy year every fifth group photo hangs loose as a 60 instead.
+2. **Walls first.** The room's walls are walked clockwise from the lift — the cabin's plastered face, then east, south, west, north. Grids go up first, then singles, each in date order (newest from the lift), at 1.2 m spacing that tightens to 0.6 m before the middle is used; corners and the lift's exit stay empty (0.6 m margins, 0.25 m on a short wall). A grid of four or more keeps 40 cm of bare wall beside it; a pair too wide for its stretch turns upright.
+3. **The middle.** What the walls cannot take hangs back to back on slabs in rows across the room, rows and walkways sharing the depth evenly, every walkway at least 1.2 m; nothing in the two rectangles where one steps out of the lift.
+4. **Height.** A piece's centre hangs on the 1.5 m line, or just high enough to clear the room's dado, never above 1.65 m; a dado that would push it higher is lowered instead.
+5. **Labels.** A single's card hangs under its frame at the right; a grid's cards stand beside it in the grid's own pattern, in one column where the pattern does not fit, and under it where the wall has no room.
+
+The layout is planned from the pieces' sizes alone (`hang.js`: `rooms()`, `layout()`), so every floor is known before a single frame exists; `?top=1` on the bench draws the plan.
+
 ## Open
 
 - `secret.php` is tracked and its token is in the history: rotate it, remove the legacy PHP files.
