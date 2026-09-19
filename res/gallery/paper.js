@@ -178,16 +178,17 @@ export function pinTo(group, rc, hh, scale = 1) {
 	if (Math.abs(_n.y) < 0.5) {
 		group.position.addScaledVector(_n, 0.045);
 		group.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), _n.clone().setY(0).normalize());
-		// **Under the dado** (Uli, 2026-09-20): where the wall has one, the
-		// sheet stands in the band under its rail — 5 cm under the rail, its
-		// foot 15 cm off the floor, over a skirting — scaled to fit the band,
-		// never larger than it is elsewhere. The strip's card asks with no
+		// **It may stand under the dado, it need not** (Uli, 2026-09-20: the
+		// pointer's spot rules). Aimed under the rail, the sheet fits the
+		// band there — 5 cm under the rail, its foot 15 cm off the floor,
+		// over a skirting — scaled to it, never larger than elsewhere; aimed
+		// above, it stands as it always did. The strip's card asks with no
 		// scale of its own and keeps the wall's full height.
-		const H = state.room ? state.room.H : 3, dado = scale < 1 ? state.dadoCap || 0 : 0;
-		if (dado > 0) scale = Math.min(scale, (dado - UNDER_RAIL - FOOT) / (2 * hh));
+		const H = state.room ? state.room.H : 3, dado = scale < 1 ? state.dadoCap || 0 : 0, under = dado > 0 && hit.point.y < dado;
+		if (under) scale = Math.min(scale, (dado - UNDER_RAIL - FOOT) / (2 * hh));
 		group.scale.setScalar(scale);
 		const half = hh * scale;
-		let yLow = (dado > 0 ? FOOT : 0.5) + half, yHigh = (dado > 0 ? dado - UNDER_RAIL : H - 0.05) - half;
+		let yLow = (under ? FOOT : 0.5) + half, yHigh = (under ? dado - UNDER_RAIL : H - 0.05) - half;
 		if (yLow > yHigh) yLow = yHigh = H / 2;          // floor to ceiling: only slid along the wall
 		group.position.y = Math.max(yLow, Math.min(yHigh, group.position.y));
 		return freeSpot(group, _n, yLow, yHigh) ? 'wall' : null;
