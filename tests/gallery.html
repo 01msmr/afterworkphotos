@@ -164,6 +164,35 @@ async function run() {
 	const atlasPx = [...atlases()].reduce((s, t) => s + t.image.width * t.image.height, 0);
 	say(atlases().size <= 4 && [...atlases()].every(t => t.format === THREE.RedFormat && t.image.width > 1) && atlasPx <= cards.length * 1280 * B.CARD_PY * 1.2, `labels: ${cards.length} cards on ${atlases().size} one-channel atlases, ${(atlasPx * 1.33 / 1e6).toFixed(0)} MB on the GPU`, [...atlases()].map(t => `${t.image.width}×${t.image.height}`).join(' '));
 
+	// the favourites floor: its word follows the language, and it splits only when a real room cannot hold every dot
+	const Fh = await mod('hang'), Fs = await mod('state'), Fe = await mod('elevator');
+	const favs0 = [...G.state.favs];
+	for (const p of G.state.photos.filter((_, i) => i % 6 === 0).slice(0, 30)) if (!Fs.isFav(p.id)) Fs.toggleFav(p.id);
+	Fh.clearRooms();
+	const favRoom = Fh.rooms().find(r => r.favs);
+	G.setSetting('lang', 'de');
+	say(Fe.roomLabel(favRoom) === 'Favoriten' && Fh.rooms().filter(r => r.favs).length === 1, 'favourites: the floor says its word in German, one floor while the room may grow', `${Fe.roomLabel(favRoom)} · ${Fh.rooms().filter(r => r.favs).length} floor(s)`);
+	// a real room cannot grow: the dots split over as many floors as it takes, and every one is hung
+	const real0 = G.state.real, W0 = G.state.settings.W, D0 = G.state.settings.D;
+	G.state.settings.W = 6; G.state.settings.D = 4; G.state.real = { W: 6, D: 4 };
+	Fh.clearRooms();
+	const parts = Fh.rooms().filter(r => r.favs);
+	const hung = parts.reduce((n, r) => n + Fh.layoutFor(r.key).lay.placed.length, 0);
+	const specs = parts.reduce((n, r) => n + r.specs.length, 0);
+	const mids = parts.reduce((n, r) => n + Fh.layoutFor(r.key).lay.placed.filter(p => p.wall === 'mid').length, 0);
+	say(parts.length > 1 && hung === specs && parts.every(r => r.of === parts.length), `favourites: a 6 × 4 real room splits them over ${parts.length} floors, all ${specs} hung (${mids} in the middle)`, parts.map(r => r.key).join(' '));
+	G.state.settings.W = W0; G.state.settings.D = D0; G.state.real = real0;
+	G.state.favs.clear(); for (const id of favs0) G.state.favs.add(id);
+	G.setSetting('lang', lang0);
+	Fh.clearRooms(); Fh.rooms();
+
+	// the video panel's layers stand on depth steps, not millimetres (STEPS), and its diodes are filtered
+	const Fv = await mod('video');
+	const vp = Fv.makeVideoPanel(G.state.photos.find(p => p.video), 0.9);
+	const vface = vp.getObjectByName('video'), vleds = vp.getObjectByName('leds');
+	say(vface.material.polygonOffset && vface.material.polygonOffsetUnits === -4 && vleds.material.polygonOffsetUnits === -6 && vleds.material.map.anisotropy > 1,
+		'video: the panel on depth steps (picture -4, diodes -6) and the diodes filtered', `${vface.material.polygonOffsetUnits} / ${vleds.material.polygonOffsetUnits} · aniso ${vleds.material.map.anisotropy}`);
+
 	// 8. the instant lift: X pins the strip, the rail scrubs, the print pressed lays the way, the door spot switches in the dark
 	G.walk.pos.set(-G.state.room.W / 2 + 1.4, 1.6, 0.3); G.walk.yaw = Math.PI / 2; G.walk.pitch = 0; G.stepWalk(performance.now()); G.scene.updateMatrixWorld(true); G.camera.updateMatrixWorld(true);
 	if (G.stripLift.shown()) w.dispatchEvent(new w.KeyboardEvent('keydown', { code: 'KeyX' }));

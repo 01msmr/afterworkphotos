@@ -30,7 +30,7 @@ export function pressAlong(rc, reach, hand = null) {
 		if (u.call) elevator.call();
 		// a dead favourites button takes the press and does nothing with it:
 		// no dip, no bell, the lift stays where it is (Uli, 2026-09-13)
-		else if (u.key === FAV_KEY && !favCount()) return true;
+		else if (String(u.key).startsWith(FAV_KEY) && !favCount()) return true;
 		else if (elevator.inside()) { elevator.press(u.key, hit.object); elevator.go(u.key); }   // a floor is chosen from inside the cabin only (Uli)
 		return true;
 	}
