@@ -88,12 +88,12 @@ function drawAtlas() {
 		g.save();
 		g.translate(cx * FACE_PX, cy * FACE_PX / 2);
 		g.scale(FACE_PX / 256, FACE_PX / 256);
-		g.fillStyle = e.room.favs ? '#c8322b' : '#1d1c1a';
+		g.fillStyle = g.strokeStyle = '#111'; g.lineJoin = 'round'; g.lineWidth = 2.2;   // the light face stroked heavier: it read hazy on the caps (Uli)
 		g.textAlign = 'left'; g.textBaseline = 'middle';
 		g.font = font(56);
 		const word = e.room.favs ? t('favourites') : e.year;
-		g.fillText(word, 36, 66);
-		if (e.room.of > 1) { const w = g.measureText(word).width; g.font = font(45); g.fillText(`.${e.room.part}`, 36 + w + 2, 66); }
+		g.strokeText(word, 36, 66); g.fillText(word, 36, 66);
+		if (e.room.of > 1) { const w = g.measureText(word).width; g.font = font(45); g.lineWidth = 1.8; g.strokeText(`.${e.room.part}`, 36 + w + 2, 66); g.fillText(`.${e.room.part}`, 36 + w + 2, 66); }
 		g.restore();
 	});
 }

@@ -4,6 +4,7 @@ import { hangRoom, openRooms, rooms } from 'gallery/hang';
 import { head, renderer, scene, world } from 'gallery/scene';
 import { elevator } from 'gallery/elevator';
 import { setDim } from 'gallery/room';
+import { guardSays } from 'gallery/guard';
 import { walk } from 'gallery/walk';
 import { state } from 'gallery/state';
 
@@ -98,7 +99,7 @@ export function stepJump(now) {
 // where you stand to a step in front of it, at seven tenths so the floor
 // still shows through (Uli, 2026-09-11). It follows you as you walk and
 // goes out when you are there.
-const GUIDE = { w: 0.06, y: 0.012, opacity: 0.7, arrived: 1.1 };
+const GUIDE = { w: 0.06, y: 0.003, opacity: 0.55, arrived: 1.1, spot: 0.1 };   // chalk on the floor (Uli): flat, at half; a 20 cm disc where to stand
 const _a = new THREE.Vector3(), _b = new THREE.Vector3();
 // The way is laid **rectangular** (Uli, 2026-09-12): two strips at a
 // right angle, the long leg first and the turn onto the print after, the
@@ -106,13 +107,12 @@ const _a = new THREE.Vector3(), _b = new THREE.Vector3();
 function buildGuide() {
 	const g = new THREE.PlaneGeometry(GUIDE.w, 1);
 	g.rotateX(-Math.PI / 2); g.translate(0, 0, -0.5);      // a strip running from its origin to -z, one metre
-	const skin = () => new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: GUIDE.opacity, depthWrite: false });
+	const skin = () => new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: GUIDE.opacity, depthWrite: false, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -4 });
 	guide = new THREE.Group(); guide.name = 'jump-guide';
-	for (const name of ['leg-1', 'leg-2', 'leg-3']) {
-		const m = new THREE.Mesh(g, skin());
-		m.name = name; m.renderOrder = 2;
-		guide.add(m);
-	}
+	guide.userData.legGeo = g; guide.userData.skin = skin;
+	for (let i = 0; i < 8; i++) { const m = new THREE.Mesh(g, skin()); m.name = `leg-${i + 1}`; m.renderOrder = 2; guide.add(m); }
+	const disc = new THREE.Mesh(new THREE.CircleGeometry(GUIDE.spot, 32), skin());
+	disc.name = 'spot'; disc.rotation.x = -Math.PI / 2; disc.renderOrder = 2; guide.add(disc);
 	scene.add(guide);
 }
 // The aisle to walk: the middle rows cut the floor into walkways, and
@@ -168,26 +168,58 @@ let dark = null;                             // { to, n, t0, hung }
 export function switchTo(key, n) {
 	if (dark || key === state.roomKey) return false;
 	dark = { to: key, n, t0: performance.now(), hung: false };
+	lift.run((DARK + HOLD) / 1000 + 0.6);      // a quick engine: start, a moment of running, the stop
 	return true;
 }
-const DARK = 1000;
+const DARK = 2000, HOLD = 800;                 // 2 s down, 0.8 s black, 2 s up (Uli: twice as long, with a wait)
 function stepDark(now) {
 	if (!dark) return;
 	const t = now - dark.t0;
-	if (t < DARK) { setDim(t / DARK); return; }
 	if (!dark.hung) {
+		if (t < DARK) { setDim(t / DARK); return; }
 		setDim(1);
+		if (!dark.held) { dark.held = now; return; }
+		if (now - dark.held < HOLD) return;
 		const before = elevator.originWorld().clone();
 		hangRoom(dark.to);
+		setDim(1);                                 // the new room's lights are born full: black again in the same frame
 		const o = elevator.originWorld();
 		if (renderer.xr.isPresenting) world.position.add(before.sub(o));               // the new cabin where the old stood, as a ride does
 		else { const off = new THREE.Vector3().subVectors(head(), before); walk.pos.set(o.x + off.x, walk.pos.y, o.z + off.z); }
 		dark.hung = true; dark.t0 = now;
 		leadTo(dark.n);
+		guardSays('toPrint');
 		return;
 	}
 	setDim(1 - Math.min(1, t / DARK));
 	if (t >= DARK) dark = null;
+}
+// the way round the rows: a breadth-first path on a 10 cm grid of the room,
+// the rows' footprints (state.obstacles) blocked, then the turns only
+const CELL = 0.1;
+function wayRound(from, to) {
+	if (!state.room || !state.obstacles.length) return null;
+	const { W, D } = state.room, nx = Math.ceil(W / CELL), nz = Math.ceil(D / CELL);
+	const cell = p => [Math.max(0, Math.min(nx - 1, Math.floor((p.x + W / 2) / CELL))), Math.max(0, Math.min(nz - 1, Math.floor((p.z + D / 2) / CELL)))];
+	const blocked = (i, j) => { const x = -W / 2 + (i + 0.5) * CELL, z = -D / 2 + (j + 0.5) * CELL; return state.obstacles.some(o => x > o.x0 && x < o.x1 && z > o.z0 && z < o.z1); };
+	const [sx, sz] = cell(from), [tx, tz] = cell(to);
+	const prev = new Int32Array(nx * nz).fill(-1), q = [sx + sz * nx]; prev[q[0]] = q[0];
+	while (q.length) {
+		const c = q.shift(), i = c % nx, j = (c / nx) | 0;
+		if (i === tx && j === tz) break;
+		for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+			const a = i + di, b = j + dj; if (a < 0 || b < 0 || a >= nx || b >= nz) continue;
+			const n = a + b * nx; if (prev[n] >= 0 || blocked(a, b)) continue;
+			prev[n] = c; q.push(n);
+		}
+	}
+	const end = tx + tz * nx; if (prev[end] < 0) return null;
+	const cells = []; for (let c = end; c !== prev[c]; c = prev[c]) cells.push(c); cells.push(sx + sz * nx); cells.reverse();
+	const pts = cells.map(c => new THREE.Vector3(-W / 2 + ((c % nx) + 0.5) * CELL, 0, -D / 2 + (((c / nx) | 0) + 0.5) * CELL));
+	const turns = [from.clone().setY(0)];
+	for (let k = 1; k < pts.length - 1; k++) { const a = pts[k - 1], b = pts[k], c = pts[k + 1]; if ((b.x - a.x) * (c.z - b.z) !== (b.z - a.z) * (c.x - b.x)) turns.push(b); }
+	turns.push(to.clone().setY(0));
+	return turns;
 }
 function stepGuide() {
 	if (!guideTo) { if (guide) guide.visible = false; return; }
@@ -198,6 +230,15 @@ function stepGuide() {
 	if (len < (guideNear || GUIDE.arrived)) { guideTo = null; guideNear = 0; guide.visible = false; return; }
 	guide.visible = true;
 	const y = world.position.y + GUIDE.y;
+	const disc = guide.getObjectByName('spot'); disc.position.set(_a.x, y + 0.0005, _a.z); disc.visible = !guideNear;   // the disc marks a print's place, not the lift's (that has its ring)
+	for (const m of guide.children) if (m.name.startsWith('leg-')) m.visible = false;
+	// round the rows, in the room's frame: a step that ends inside a row's footprint takes the grid way
+	const way = wayRound(world.worldToLocal(_b.clone()), world.worldToLocal(_a.clone()));
+	if (way) {
+		const legs = guide.children.filter(m => m.name.startsWith('leg-'));
+		for (let k = 0; k < way.length - 1 && k < legs.length; k++) { const p = world.localToWorld(way[k].clone()), q = world.localToWorld(way[k + 1].clone()); layLeg(legs[k], p.x, p.z, q.x, q.z, y); }
+		return;
+	}
 	// **Down the middle of a walkway** (Uli, 2026-09-12), not across the
 	// room: step out to the centre line of the aisle that runs toward the
 	// print, walk it, and turn in at the end. Where a room has no middle

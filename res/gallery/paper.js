@@ -178,7 +178,8 @@ export function pinTo(group, rc, hh, scale = 1) {
 		group.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), _n.clone().setY(0).normalize());
 		group.scale.setScalar(scale);
 		const H = state.room ? state.room.H : 3, half = hh * scale;
-		const yLow = 0.5 + half, yHigh = H - 0.05 - half;
+		let yLow = 0.5 + half, yHigh = H - 0.05 - half;
+		if (yLow > yHigh) yLow = yHigh = H / 2;          // floor to ceiling: only slid along the wall
 		group.position.y = Math.max(yLow, Math.min(yHigh, group.position.y));
 		return freeSpot(group, _n, yLow, yHigh) ? 'wall' : null;
 	}
