@@ -266,7 +266,7 @@ export const elevator = {
 	engraving(text = this.engraved || '') {
 		if (!this.plateTex) {
 			const c = document.createElement('canvas'); c.width = 768; c.height = 256;
-			this.plateTex = new THREE.CanvasTexture(c); this.plateTex.colorSpace = THREE.SRGBColorSpace; this.plateTex.anisotropy = 8;
+			this.plateTex = new THREE.CanvasTexture(c); this.plateTex.colorSpace = THREE.SRGBColorSpace; this.plateTex.anisotropy = 8; this.plateTex.userData.shared = true;   // carried from cabin to cabin
 		}
 		const c = this.plateTex.image, g = c.getContext('2d');
 		g.fillStyle = '#b9bab8'; g.fillRect(0, 0, c.width, c.height);

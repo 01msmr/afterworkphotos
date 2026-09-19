@@ -79,6 +79,14 @@ async function run() {
 	say(worst < 45, 'ride: no frame over 45 ms on the bench', `worst ${worst.toFixed(0)} ms`);
 	let photos = 0, withImg = 0; G.scene.getObjectByName('pieces').traverse(o => { if (o.name === 'photo') { photos++; if (o.material.map.image) withImg++; } });
 	say(photos && photos === withImg, 'ride: every picture on the GPU when the doors open', `${withImg}/${photos}`);
+	// a ride back: what the left room owned is gone again
+	const m0 = { ...G.renderer.info.memory };
+	G.elevator.placeInCabin(); G.stepWalk(performance.now()); G.elevator.go(from);
+	const t1 = performance.now(); while (G.elevator.ride && performance.now() - t1 < 30000) await sleep(200);
+	G.elevator.placeInCabin(); G.stepWalk(performance.now()); G.elevator.go(to);
+	const t2 = performance.now(); while (G.elevator.ride && performance.now() - t2 < 30000) await sleep(200);
+	const m1 = G.renderer.info.memory;
+	say(m1.textures <= m0.textures + 2 && m1.geometries <= m0.geometries + 2, 'rides free what they leave (textures, geometries)', `${m0.textures}/${m0.geometries} → ${m1.textures}/${m1.geometries}`);
 
 	// 5. the pointer: the aiming hand wins over the hanging one
 	const S = await mod('sticker');
@@ -107,6 +115,7 @@ async function run() {
 	const P = await mod('paper');
 	G.walk.pos.set(c.x + n.x * 1.3, 1.5, c.z + n.z * 1.3); G.walk.yaw = Math.atan2(n.x, n.z); G.walk.pitch = 0; G.stepWalk(performance.now());
 	G.scene.updateMatrixWorld(true); G.camera.updateMatrixWorld(true);
+	if (P.paper.shown()) w.dispatchEvent(new w.KeyboardEvent('keydown', { code: 'KeyB' }));   // the one from the start, at your feet
 	w.dispatchEvent(new w.KeyboardEvent('keydown', { code: 'KeyB' })); await sleep(150);
 	const g = G.scene.getObjectByName('paper'); g.updateMatrixWorld(true);
 	const sb = new THREE.Box3().setFromObject(g);
@@ -123,6 +132,15 @@ async function run() {
 	const tape = g.children.find(o => o.name === 'tape'), tp = tape.getWorldPosition(V3()), o = G.camera.getWorldPosition(V3());
 	rc.set(o, tp.sub(o).normalize()); P.paper.press(rc);
 	say(!P.paper.shown(), 'sheet: a press on the tape takes it down');
+	say(Math.abs(g.scale.x - 0.8) < 1e-6, 'sheet: 0.8× on a wall', g.scale.x);
+
+	// 6b. the languages: the German guard is served, the words switch
+	const de = await fetch('/res/sound/guard/de/lines.json').then(r => r.ok ? r.json() : null);
+	const mp3 = await fetch('/res/sound/guard/de/greet-0.mp3', { method: 'HEAD' }).then(r => r.ok);
+	say(de && Object.keys(de).length === 15 && mp3, 'guard: German lines and recordings served', de ? Object.keys(de).length + ' kinds' : 'no lines.json');
+	const Lg = await mod('lang'), lang0 = G.state.settings.lang;
+	G.setSetting('lang', 'de'); const deWord = Lg.t('favourites'); G.setSetting('lang', lang0);
+	say(deWord === 'Favoriten' && Lg.t('favourites') === (lang0 === 'de' ? 'Favoriten' : 'favourites'), 'lang: t() follows the setting', deWord);
 
 	// 7. a doubled label takes its shadow along
 	let card = null; G.scene.getObjectByName('pieces').traverse(x => { if (!card && x.name === 'label' && x.parent.userData.labels) card = x; });

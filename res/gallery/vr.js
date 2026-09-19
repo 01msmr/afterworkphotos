@@ -104,6 +104,7 @@ async function offerVR() {
 			const x = walk.pos.x, z = walk.pos.z, yaw = walk.yaw;
 			walk.pos.set(0, 0, 0); walk.pitch = 0; camera.rotation.set(0, 0, 0);
 			placeBody(x, z, yaw);
+			setTimeout(() => paper.showOnFloor(), 1500);   // the options at your feet once the head is tracked
 		} catch (e) { console.warn('VR session refused', e); }
 	});
 }

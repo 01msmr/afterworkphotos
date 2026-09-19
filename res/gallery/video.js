@@ -277,6 +277,7 @@ function barGeometry(length, face, depth, horizontal) {
 	g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
 	g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
 	if (!horizontal) g.rotateZ(Math.PI / 2);
+	g.userData.shared = true;
 	barCache.set(key, g);
 	return g;
 }

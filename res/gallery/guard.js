@@ -141,6 +141,11 @@ const LINES = {
 		'The lift takes its time, the pictures do not move, and I am told the light in here never changes, which is the sort of thing people say when they have been in the room for about a minute.',
 	],
 };
+// the lines in German (res/sound/guard/de/lines.json, recorded by scripts/guard-voice-de.sh), fetched at load
+let LINES_DE = null;
+fetch('/res/sound/guard/de/lines.json').then(r => r.json()).then(j => { LINES_DE = j; }).catch(() => {});
+const lang = () => (state.settings.lang === 'de' && LINES_DE) ? 'de' : 'en';
+const lines = () => lang() === 'de' ? LINES_DE : LINES;
 // light: it warns you and leaves you alone. heavy: it talks.
 export const TALK = ['light', 'heavy'];
 const MOOD = {
@@ -171,7 +176,7 @@ const mood = () => MOOD[state.settings.talk] || MOOD.light;
 // so that the last of one bag is the first of the next.
 const bags = new Map();
 function pick(kind) {
-	const all = LINES[kind];
+	const all = lines()[kind];
 	let bag = bags.get(kind);
 	if (!bag || !bag.left.length) {
 		const order = all.map((_, i) => i);
@@ -315,11 +320,11 @@ function out() {
 	return vGain;
 }
 async function line(kind, i) {
-	const key = `${kind}-${i}`;
+	const key = `${lang()}/${kind}-${i}`;
 	if (voices.has(key)) return voices.get(key);
 	voices.set(key, null);
 	try {
-		const r = await fetch(`/res/sound/guard/${key}.mp3`);
+		const r = await fetch(`/res/sound/guard/${lang() === 'de' ? 'de/' : ''}${kind}-${i}.mp3`);
 		const b = await lift.ctx.decodeAudioData(await r.arrayBuffer());
 		voices.set(key, b);
 		return b;

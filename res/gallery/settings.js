@@ -1,4 +1,5 @@
 import { setWire, wire } from 'gallery/bench';
+import { relabelConsole } from 'gallery/console';
 import { elevator } from 'gallery/elevator';
 import { MAT_COLOURS, applyFrameLook, materials } from 'gallery/frames';
 import { clearRooms, firstRoom, hangRoom, raiseRoof, rooms } from 'gallery/hang';
@@ -45,7 +46,7 @@ export const OPTIONS = [
 	{ key: 'talk', sheet: { kind: 'check', on: 'heavy', off: 'light' } },                              // the guard reads it as he speaks
 	{ key: 'raise', sheet: { kind: 'check', on: 1, off: 0 }, apply: () => raiseRoof() },               // the shell only; the pictures stay as they hang
 	{ key: 'wire', sheet: { kind: 'check' }, get: () => wire, set: v => setWire(v) },                   // the bench's wireframes; not saved
-	{ key: 'lang', sheet: { kind: 'group', values: LANGS, rows: [2] } },                               // the sheet redraws itself in it
+	{ key: 'lang', sheet: { kind: 'group', values: LANGS, rows: [2] }, apply: () => relabelConsole() },   // the sheet redraws itself; the console's words too
 	{ key: 'plan', apply: () => planAgain() },                                                          // the scan planned again
 	{ key: 'mat', apply: v => { materials.mat.color.setHex(MAT_COLOURS[v]); rehang(); } },             // 'none' and back change the print's size
 	// scale, W, D, H: the bench's sizes, a re-hang each (no entry: the default below)

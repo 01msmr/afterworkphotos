@@ -1,5 +1,5 @@
 import * as THREE from '../vendor/three.module.js';
-import { clearCards, bakeRoom, placeLabels } from 'gallery/bake';
+import { PAPER_PX, clearCards, bakeRoom, placeLabels } from 'gallery/bake';
 import { addDots, findSpots } from 'gallery/sticker';
 import { placeGuard } from 'gallery/guard';
 import { clearZoom } from 'gallery/zoom';
@@ -580,12 +580,25 @@ function* makePieces(plan) {
 
 	return pieces;
 }
+// everything a left room owned: its geometries, the cards' canvases and
+// materials, the slabs' and the near sheets' materials; shared materials
+// and the photo textures (freeTexturesExcept) are not its to free
+function disposeRoom(group) {
+	group.traverse(o => {
+		if (!o.isMesh) return;
+		if (!o.geometry.userData.shared) o.geometry.dispose();   // the cards', bars' and dots' geometries are shared caches
+		if (o.userData.ranges) for (const r of o.userData.ranges.values()) r.geo.dispose();   // the welded shadows' sources, kept for followCard
+		if (o.name === 'label') { if (o.material.map !== PAPER_PX) o.material.map.dispose(); o.material.dispose(); }
+		else if (o.name === 'slab' || o.name === 'photo-near' || o.name === 'panel-body' || o.name === 'leds') { if (o.name === 'leds') o.material.map.dispose(); o.material.dispose(); }
+		else if (o.name === 'photo') o.material.dispose();   // its maps live in the cache
+	});
+}
 // old pieces out, new in and baked, old textures freed, state and lift told
 function settleRoom(plan, pieces, t0) {
 	const { key, room, shape, lay } = plan;
 	for (const name of ['pieces', 'baked']) {
 		const old = scene.getObjectByName(name);
-		if (old) { old.traverse(o => { if (o.isMesh && o.parent === old) o.geometry.dispose(); }); old.parent.remove(old); }
+		if (old) { disposeRoom(old); old.parent.remove(old); }
 	}
 	world.add(pieces);
 	world.updateMatrixWorld(true);
@@ -620,9 +633,16 @@ export function* hangRoomSteps(key) {
 // corner. Built when a room needs another, and again on its own for the
 // height switch.
 function buildShell(W, D, H, floor, dadoCap, shape) {
+	if (elevator.panel) elevator.panel.removeFromParent();   // carried to the next cabin, not disposed with the old
 	for (const name of ['room', 'elevator']) {
 		const old = scene.getObjectByName(name);
 		if (!old) continue;
+		old.traverse(o => {
+			if (!o.isMesh) return;
+			if (!o.geometry.userData.shared) o.geometry.dispose();
+			const m = o.material;                     // a canvas drawn for this shell (displays, the call face, a wainscot) goes with it
+			if (m.map && m.map.isCanvasTexture && !m.map.userData.shared) { m.map.dispose(); m.dispose(); }
+		});
 		old.parent.remove(old);
 		// the floor's textures go with the room
 		const f = old.getObjectByName('floor');
