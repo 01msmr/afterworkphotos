@@ -231,7 +231,7 @@ function surfaceHit(rc) {
 	// on a button) — the cabin is its own group beside the room, so a ray
 	// aimed at the button plate went straight through it to a print on the
 	// wall behind, and the lift's cursors could never come up at all.
-	for (const n of ['room', 'pieces', 'elevator']) { const g = scene.getObjectByName(n); if (g) targets.push(g); }
+	for (const n of ['room', 'pieces', 'elevator', 'paper']) { const g = scene.getObjectByName(n); if (g && g.visible) targets.push(g); }   // 'paper': the options sheet, while it is up
 	return targets.length ? rc.intersectObjects(targets, true)[0] : null;
 }
 
@@ -375,6 +375,7 @@ function overKind(hit) {
 		if (o.name.startsWith('cap-') || o.name.startsWith('print-') ||
 		    o.name.startsWith('steel-') || o.name.startsWith('pocket-')) return 'button';
 		if (o.name === 'plate') return 'plate';
+		if (o.name === 'paper') return 'button';       // the options sheet: a press sets a line, so the filled circle
 	}
 	return null;
 }

@@ -1,5 +1,4 @@
 import * as THREE from '../vendor/three.module.js';
-import { walnut } from 'gallery/elevator';
 import { renderer, scene } from 'gallery/scene';
 import { state } from 'gallery/state';
 
