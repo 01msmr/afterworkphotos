@@ -1,5 +1,5 @@
 import * as THREE from '../vendor/three.module.js';
-import { PAPER_PX, clearCards, bakeRoom, placeLabels } from 'gallery/bake';
+import { clearCards, bakeRoom, placeLabels } from 'gallery/bake';
 import { addDots, findSpots } from 'gallery/sticker';
 import { placeGuard } from 'gallery/guard';
 import { clearZoom } from 'gallery/zoom';
@@ -598,14 +598,16 @@ function* makePieces(plan) {
 // materials, the slabs' and the near sheets' materials; shared materials
 // and the photo textures (freeTexturesExcept) are not its to free
 function disposeRoom(group) {
+	const labels = new Set();                                    // the cards' materials, one a looking direction, each with its atlas
 	group.traverse(o => {
 		if (!o.isMesh) return;
-		if (!o.geometry.userData.shared) o.geometry.dispose();   // the cards', bars' and dots' geometries are shared caches
+		if (!o.geometry.userData.shared) o.geometry.dispose();   // the bars' and dots' geometries are shared caches; a card's cell is its own
 		if (o.userData.ranges) for (const r of o.userData.ranges.values()) r.geo.dispose();   // the welded shadows' sources, kept for followCard
-		if (o.name === 'label') { if (o.material.map !== PAPER_PX) o.material.map.dispose(); o.material.dispose(); }
+		if (o.name === 'label') labels.add(o.material);
 		else if (o.name === 'slab' || o.name === 'photo-near' || o.name === 'panel-body' || o.name === 'leds') { if (o.name === 'leds') o.material.map.dispose(); o.material.dispose(); }
 		else if (o.name === 'photo') o.material.dispose();   // its maps live in the cache
 	});
+	for (const m of labels) { const t = m.userData.atlas; if (t) { t.dispose(); t.userData.freed = true; } m.dispose(); }   // freed: an atlas still queued for upload is dropped in its turn (frames.js)
 }
 // old pieces out, new in and baked, old textures freed, state and lift told
 function settleRoom(plan, pieces, t0) {

@@ -316,14 +316,18 @@ export function stepUploads() {
 	stepDecodes();
 	gpu.px = 0;
 	while (uploads.length) {
-		const [t, bmp] = uploads[0], px = bmp.width * bmp.height;
+		const [t, bmp, then] = uploads[0], px = bmp.width * bmp.height;
 		if (gpu.px && gpu.px + px > GPU_PX) break;               // the first of a frame always goes, whatever its size
 		uploads.shift();
-		if (t.userData.freed) { bmp.close(); continue; }         // let go while it waited
+		if (t.userData.freed) { if (bmp.close) bmp.close(); continue; }   // let go while it waited
 		t.image = bmp; t.needsUpdate = true; renderer.initTexture(t);
 		gpu.px += px;
+		if (then) then();                                        // the cards' atlas: on their material once it is up
 	}
 }
+// A texture that already holds its data — a labels' atlas (bake.js) —
+// goes up in its turn like a bitmap, and `then` runs once it is there.
+export const queueUpload = (t, then) => uploads.push([t, t.image, then]);
 export const gpuRoom = px => !gpu.px || gpu.px + px <= GPU_PX;
 function emptyTexture() {
 	const t = new THREE.Texture();

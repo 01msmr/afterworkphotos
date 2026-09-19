@@ -31,6 +31,7 @@ import { state } from 'gallery/state';
 
 const SHEET = { w: 0.63, h: 0.891, px: 1536 };   // three times A4: A4 and A2 were too small to read in the headset
 const WALL_SCALE = 0.8;                          // on a wall it is a little smaller
+const UNDER_RAIL = 0.05, FOOT = 0.15;            // the band under a dado: from over the skirting to under the rail (pinTo)
 const AWAY = 3.5, LOOK = Math.cos(50 * Math.PI / 180), IGNORED = 15000, IGNORED_START = 5000;   // it goes when walked away from, or not looked at: 15 s, the start's sheet 5 s
 let seen = 0, ignored = IGNORED;
 const PX = SHEET.px, PY = Math.round(PX * SHEET.h / SHEET.w);
@@ -163,7 +164,8 @@ function hold(h) {
 	group.lookAt(h);
 }
 // a group stuck where the ray lands: upright on a wall (`scale`, foot not under
-// 50 cm, 5 cm off the plaster, clear of frames and labels — freeSpot) or flat
+// 50 cm — or in the band under the dado, see below — 5 cm off the plaster,
+// clear of frames and labels — freeSpot) or flat
 // on the floor turned to the visitor. Returns 'wall', 'floor', or null.
 export function pinTo(group, rc, hh, scale = 1) {
 	const targets = ['room', 'pieces', 'elevator'].map(n => scene.getObjectByName(n)).filter(Boolean);
@@ -176,9 +178,16 @@ export function pinTo(group, rc, hh, scale = 1) {
 	if (Math.abs(_n.y) < 0.5) {
 		group.position.addScaledVector(_n, 0.045);
 		group.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), _n.clone().setY(0).normalize());
+		// **Under the dado** (Uli, 2026-09-20): where the wall has one, the
+		// sheet stands in the band under its rail — 5 cm under the rail, its
+		// foot 15 cm off the floor, over a skirting — scaled to fit the band,
+		// never larger than it is elsewhere. The strip's card asks with no
+		// scale of its own and keeps the wall's full height.
+		const H = state.room ? state.room.H : 3, dado = scale < 1 ? state.dadoCap || 0 : 0;
+		if (dado > 0) scale = Math.min(scale, (dado - UNDER_RAIL - FOOT) / (2 * hh));
 		group.scale.setScalar(scale);
-		const H = state.room ? state.room.H : 3, half = hh * scale;
-		let yLow = 0.5 + half, yHigh = H - 0.05 - half;
+		const half = hh * scale;
+		let yLow = (dado > 0 ? FOOT : 0.5) + half, yHigh = (dado > 0 ? dado - UNDER_RAIL : H - 0.05) - half;
 		if (yLow > yHigh) yLow = yHigh = H / 2;          // floor to ceiling: only slid along the wall
 		group.position.y = Math.max(yLow, Math.min(yHigh, group.position.y));
 		return freeSpot(group, _n, yLow, yHigh) ? 'wall' : null;

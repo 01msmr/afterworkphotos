@@ -133,7 +133,8 @@ async function run() {
 	const tape = g.children.find(o => o.name === 'tape'), tp = tape.getWorldPosition(V3()), o = G.camera.getWorldPosition(V3());
 	rc.set(o, tp.sub(o).normalize()); P.paper.press(rc);
 	say(!P.paper.shown(), 'sheet: a press on the tape takes it down');
-	say(Math.abs(g.scale.x - 0.8) < 1e-6, 'sheet: 0.8× on a wall', g.scale.x);
+	const dado = G.state.dadoCap || 0, band = dado > 0 ? Math.min(0.8, (dado - 0.05 - 0.15) / 0.891) : 0.8, topY = g.position.y + 0.891 / 2 * g.scale.x;
+	say(Math.abs(g.scale.x - band) < 1e-6 && (dado <= 0 || topY <= dado - 0.05 + 1e-3), dado > 0 ? 'sheet: under the dado rail, scaled to the band' : 'sheet: 0.8× on a wall without a dado', `${g.scale.x.toFixed(2)}× · top ${topY.toFixed(2)} m · dado ${dado.toFixed(2)} m`);
 
 	// 6b. the languages: the German guard is served, the words switch
 	const de = await fetch('/res/sound/guard/de/lines.json').then(r => r.ok ? r.json() : null);
@@ -151,6 +152,12 @@ async function run() {
 	const after = V3(Pa.getX(r.start), Pa.getY(r.start), Pa.getZ(r.start));
 	say(before.distanceTo(after) > 0.02, 'label: the doubled card moves its shadow', `${before.distanceTo(after).toFixed(3)} m`);
 	G.zoomLabel(card.parent.userData.labels);
+	// the room's cards share one one-channel atlas per looking direction, sized to its cards
+	const B = await mod('bake'), cards = []; G.scene.getObjectByName('pieces').traverse(x => { if (x.name === 'label') cards.push(x); });
+	const atlases = () => new Set(cards.map(c => c.material.map));
+	const t7 = performance.now(); while ([...atlases()].some(t => t.image.width === 1) && performance.now() - t7 < 8000) await sleep(100);
+	const atlasPx = [...atlases()].reduce((s, t) => s + t.image.width * t.image.height, 0);
+	say(atlases().size <= 4 && [...atlases()].every(t => t.format === THREE.RedFormat && t.image.width > 1) && atlasPx <= cards.length * 1280 * B.CARD_PY * 1.2, `labels: ${cards.length} cards on ${atlases().size} one-channel atlases, ${(atlasPx * 1.33 / 1e6).toFixed(0)} MB on the GPU`, [...atlases()].map(t => `${t.image.width}×${t.image.height}`).join(' '));
 
 	// 8. the instant lift: X pins the strip, the rail scrubs, the print pressed lays the way, the door spot switches in the dark
 	G.walk.pos.set(-G.state.room.W / 2 + 1.4, 1.6, 0.3); G.walk.yaw = Math.PI / 2; G.walk.pitch = 0; G.stepWalk(performance.now()); G.scene.updateMatrixWorld(true); G.camera.updateMatrixWorld(true);
