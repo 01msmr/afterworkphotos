@@ -594,6 +594,7 @@ export const elevator = {
 			const rows = col.length + (i === 0 && favRoom ? 1 : 0);
 			return { col, wide, rows, w: wide * BUTTON.pitchX + 2 * margin, h: rows * BUTTON.pitchY + 2 * margin };
 		});
+		for (const p of plates) p.h = Math.max(...plates.map(q => q.h));   // both plates the same height (Uli, 2026-09-19): the shorter column leaves walnut under its last year
 		const plateW = plates.reduce((sum, p) => sum + p.w, 0) + between * (plates.length - 1);
 		// the block: its face at the panel's z = 0, its back on the skin; the buttons stand proud at -z
 		// **The console is built once** (Uli, 2026-09-13: the plate glitched
