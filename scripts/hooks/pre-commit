@@ -1,0 +1,11 @@
+#!/bin/sh
+# The gallery's version stamp (2026-09-19): whenever a gallery file is in
+# the commit, V in gallery/index.html becomes the commit's date and minute —
+# 2026-09-19.1432 — so a module's URL is new with every change and nobody
+# types a version. Installed with: git config core.hooksPath scripts/hooks
+if git diff --cached --name-only | grep -qE '^(gallery/index\.html|res/gallery\.js|res/gallery/.*\.js)$'; then
+	V=$(date +%Y-%m-%d.%H%M)
+	sed -i '' "s/const V = '[^']*';/const V = '$V';/" gallery/index.html
+	git add gallery/index.html
+	echo "gallery: V = $V"
+fi
