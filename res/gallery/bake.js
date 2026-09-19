@@ -1,5 +1,5 @@
 import * as THREE from '../vendor/three.module.js';
-import { gpu, gpuRoom, materials, poolMaterial } from 'gallery/frames';
+import { materials, poolMaterial, queueUpload } from 'gallery/frames';
 import { renderer, scene, world } from 'gallery/scene';
 import { state } from 'gallery/state';
 
@@ -89,6 +89,7 @@ export function bakeRoom(pieces) {
 	const lr = baked.getObjectByName('label-rims'); if (lr) lr.visible = state.settings.labels;   // and go with the labels switch
 	add(groups.bars, materials.frame, 'frames', true);
 	add(groups.lines, materials.line, 'lines', false);
+	atlasLabels(pieces);                              // the cards' atlases, one a looking direction
 	return baked;
 }
 
@@ -120,12 +121,13 @@ const CARD_LINES = 3;
 // a doubled 24 cm card read at 0.7 m spans 38 degrees, 946 panel pixels
 // and about 1130 as the browser renders it; 1024 is under that and 1280
 // the first size above it. 3.1 MB apiece with its mipmaps, one per
-// photograph: 229 MB in the 74-frame room, 147 MB at 1024 — the biggest
-// thing in a room's memory, and known to be (Uli: there is the RAM for
-// it). The layout below is written in the old 1536 space and scaled, so
+// photograph, 229 MB in the 74-frame room, until the one-channel atlases
+// (below, 2026-09-20): a quarter of that, four textures a room. The
+// layout below is written in the old 1536 space and scaled, so
 // every number the cards were tuned with still means what it did.
 const CARD_PX = 1280, CARD_DRAWN = 1536;
 const CARD_H = 2 * (80 + 64 * CARD_LINES);       // the paper, in that space
+export const CARD_PY = Math.round(CARD_H * CARD_PX / CARD_DRAWN);   // 453: a card's rows in the atlas
 // **A card is 4 mm of board standing off the wall** (Uli, 2026-09-13), not
 // a sheet lying on it. Lambert rather than unlit, so its four edges shade
 // against its face and the thickness is actually seen — with enough
@@ -149,12 +151,33 @@ const CARD_GLOW = 0.5;
 export const CARD_REST_Z = CARD_D / 2, CARD_READ_Z = 0.05;   // doubled: before the frames' 4 cm as well as the wall's dressing (Uli, 2026-09-19: never behind anything)
 const PAPER = '#fdfcfa', INK = ['#141311', '#3d3a36'];   // near-black, a weight up: what the headset's pixels can still resolve is contrast (Uli)
 const SIZE = [110, 100];         // 84/76 until 2026-09-13 (Uli: too small). A third bigger buys about a third more distance — a body line is readable at 2 m now rather than 1.5
-function cardCanvas(lines) {
-	const c = document.createElement('canvas');
-	const k = CARD_PX / CARD_DRAWN;
-	c.width = CARD_PX; c.height = Math.round(CARD_H * k);
-	const g = c.getContext('2d');
-	g.scale(k, k);
+// **One canvas for every card of a looking direction, one byte a pixel**
+// (Uli, 2026-09-20). Seventy-four canvases at 1280 × 453 were 229 MB on
+// the GPU and as much again in RAM, the canvases kept under their
+// textures — the biggest thing in a room, and known (2026-09-13). An
+// atlas alone saves nothing (assessed 2026-09-19: the same pixels, plus
+// padding); what saves is the format. The ink is grey on paper — the
+// warm tint is 2/255, which no panel shows — so a card is one channel
+// (RedFormat) and the material reads that channel as grey (greyMaterial).
+// A quarter of the bytes; and a room's cards are four textures and four
+// uploads, one per direction a piece can face (atlasLabels), not
+// seventy-four.
+// A card is still drawn one at a time, on the one scratch canvas, two a
+// frame after the hang (stepCards; the doors are shut for two or three
+// seconds anyway): its red channel is read back, taken from sRGB to
+// linear on the way — a one-channel texture has no sRGB decode on the
+// GPU — and copied, rows turned over (a canvas runs top-down, a texture
+// bottom-up), into its direction's byte array at its cell. When the
+// direction's last card is in, the array goes up as one texture through
+// the same queue as the photographs (frames.js, stepUploads), and the
+// cards' material takes it: map for map, the program built once at the
+// bake and never again.
+const scratch = document.createElement('canvas');
+scratch.width = CARD_PX; scratch.height = CARD_PY;
+const sg = scratch.getContext('2d', { willReadFrequently: true });
+function drawCard(lines) {
+	const g = sg, k = CARD_PX / CARD_DRAWN;
+	g.setTransform(k, 0, 0, k, 0, 0);
 	g.fillStyle = PAPER; g.fillRect(0, 0, CARD_DRAWN, CARD_H);
 	g.textBaseline = 'middle';
 	lines.slice(0, CARD_LINES).forEach((line, i) => {
@@ -169,18 +192,47 @@ function cardCanvas(lines) {
 		else g.fillText(line, 80, 2 * (40 + 32 + 64 * i));
 		g.restore();
 	});
-	const t = new THREE.CanvasTexture(c);
-	t.colorSpace = THREE.SRGBColorSpace;
+	g.setTransform(1, 0, 0, 1, 0, 0);
+	return g.getImageData(0, 0, CARD_PX, CARD_PY).data;
+}
+// sRGB to linear, eight bits to eight: the paper keeps 251 of its 253, the ink's 20 becomes 1
+const LINEAR = new Uint8Array(256);
+for (let i = 0; i < 256; i++) { const c = i / 255; LINEAR[i] = Math.round(255 * (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)); }
+const PAPER_LIN = LINEAR[0xfd];
+function greyTexture(data, w, h) {
+	const t = new THREE.DataTexture(data, w, h, THREE.RedFormat, THREE.UnsignedByteType);
+	t.generateMipmaps = true; t.minFilter = THREE.LinearMipmapLinearFilter; t.magFilter = THREE.LinearFilter;
 	t.anisotropy = renderer.capabilities.getMaxAnisotropy();
 	return t;
 }
+const PAPER_R8 = greyTexture(new Uint8Array([PAPER_LIN]), 1, 1);   // one paper pixel: what a card wears until its atlas is up
+PAPER_R8.needsUpdate = true;
+// A card's material (see CARD_D: the atlas is the board's front face, its
+// map and its emissive map both): the one channel read as grey by two
+// lines patched into the program — one key, so every direction's
+// material is the one program.
+function greyMaterial() {
+	const m = new THREE.MeshLambertMaterial({ map: PAPER_R8, emissive: PAPER, emissiveMap: PAPER_R8, emissiveIntensity: CARD_GLOW });
+	// the shader here still holds its #include lines (they are expanded
+	// after this hook), so the two chunks are put in by hand, swizzled
+	const grey = chunk => THREE.ShaderChunk[chunk].replace(/texture2D\( (map|emissiveMap), (vMapUv|vEmissiveMapUv) \)/g, 'texture2D( $1, $2 ).rrra');
+	m.onBeforeCompile = s => {
+		s.fragmentShader = s.fragmentShader
+			.replace('#include <map_fragment>', grey('map_fragment'))
+			.replace('#include <emissivemap_fragment>', grey('emissivemap_fragment'));
+	};
+	m.customProgramCacheKey = () => 'grey';
+	return m;
+}
+const paperMaterial = greyMaterial();   // from a card's making to the bake
 // **One draw call a card** (2026-09-13). A box with six materials is six
 // draw calls, and the 74-frame room spent 444 of them on its labels —
 // the biggest single cost of a frame in the headset (66 fps in the
 // cabin). One geometry per card size, its five other faces' UVs pointed
-// at a spot of bare paper in the canvas's top-left margin, so one
-// material with the canvas on it draws the whole board: paper edges, a
-// paper back, the card on the front.
+// at a spot of bare paper in the card's top-left margin, so one material
+// draws the whole board: paper edges, a paper back, the card on the
+// front. The bake gives each card its own copy with the UVs moved into
+// its cell of the atlas (cellGeometry).
 const cardGeometries = new Map();
 function cardGeometry(cw, ch) {
 	const key = `${cw}|${ch}`;
@@ -195,37 +247,68 @@ function cardGeometry(cw, ch) {
 	}
 	return cardGeometries.get(key);
 }
-// **The canvas is drawn after the hang, a few cards a frame** (Uli,
-// 2026-09-13: the view stuck in the cabin as the doors shut). Seventy
-// canvases drawn and 170 MB sent up in the frame the room was hung held
-// the headset for a good part of a second; the doors are shut for two
-// or three seconds anyway. A card starts with one paper pixel for its
-// map — a map, so its program never has to be built twice — and its own
-// canvas is swapped in when its turn comes (stepCards).
-export const PAPER_PX = new THREE.DataTexture(new Uint8Array([0xfd, 0xfc, 0xfa, 255]), 1, 1);
-PAPER_PX.colorSpace = THREE.SRGBColorSpace; PAPER_PX.needsUpdate = true;
-const CARDS_A_FRAME = 2, CARD_AREA = CARD_PX * Math.round(CARD_H * CARD_PX / CARD_DRAWN);
+function cellGeometry(cw, ch, u0, v0, du, dv) {
+	const geo = cardGeometry(cw, ch).clone();
+	geo.userData = {};                                           // its own, not shared: it goes with the room
+	const uv = geo.attributes.uv;
+	for (let i = 0; i < uv.count; i++) uv.setXY(i, u0 + uv.getX(i) * du, v0 + uv.getY(i) * dv);
+	uv.needsUpdate = true;
+	return geo;
+}
+// The atlases of a room: every card grouped by the way its piece faces —
+// eighth turns, so the four walls, the middle rows' two faces and a
+// chamfer's own — each direction's cards in columns of a card's width, as
+// square as their number allows, never wider than the GPU's largest
+// texture. Called at the bake, when every piece has its yaw.
+const CARDS_A_FRAME = 1;                        // a draw and its blit are 1.5 ms on the bench (2026-09-20): one a frame, so the headset keeps its frame
 let pending = [];
+export function atlasLabels(pieces) {
+	const dirs = new Map();
+	pieces.traverse(o => {
+		if (o.name !== 'label') return;
+		const key = Math.round(o.parent.rotation.y * 4 / Math.PI) & 7;
+		if (!dirs.has(key)) dirs.set(key, { cards: [] });
+		dirs.get(key).cards.push(o);
+	});
+	const maxTex = renderer.capabilities.maxTextureSize;
+	for (const dir of dirs.values()) {
+		const n = dir.cards.length;
+		const cols = Math.min(Math.max(1, Math.ceil(Math.sqrt(n * CARD_PY / CARD_PX))), Math.floor(maxTex / CARD_PX));
+		const W = cols * CARD_PX, H = Math.ceil(n / cols) * CARD_PY;
+		Object.assign(dir, { W, H, done: 0, data: new Uint8Array(W * H).fill(PAPER_LIN), material: greyMaterial() });
+		dir.tex = greyTexture(dir.data, W, H);
+		dir.material.userData.atlas = dir.tex;                   // freed with the room (hang.js, disposeRoom)
+		dir.cards.forEach((card, i) => {
+			const col = i % cols, row = Math.floor(i / cols);
+			card.geometry = cellGeometry(card.userData.cw, card.userData.ch, col * CARD_PX / W, row * CARD_PY / H, CARD_PX / W, CARD_PY / H);
+			card.material = dir.material;
+			pending.push({ card, dir, col, row });
+		});
+	}
+}
+function blit(px, dir, col, row) {
+	const x0 = col * CARD_PX, top = (row + 1) * CARD_PY - 1;   // the atlas runs bottom-up, the card top-down
+	for (let r = 0; r < CARD_PY; r++) {
+		const a = (top - r) * dir.W + x0, s = r * CARD_PX * 4;
+		for (let x = 0; x < CARD_PX; x++) dir.data[a + x] = LINEAR[px[s + x * 4]];
+	}
+}
 export function stepCards() {
 	for (let n = 0; n < CARDS_A_FRAME && pending.length; n++) {
-		if (!gpuRoom(CARD_AREA)) return;                           // the frame's pixels are spent (frames.js, stepUploads): photographs first, cards in the frames between
-		const { card, lines } = pending.shift();
+		const { card, dir, col, row } = pending.shift();
 		if (!card.parent) continue;                              // the room it belonged to has gone
-		const t = cardCanvas(lines);
-		renderer.initTexture(t);
-		gpu.px += t.image.width * t.image.height;
-		card.material.map = t; card.material.emissiveMap = t;    // no needsUpdate: a map for a map, the defines have not moved
+		blit(drawCard(card.userData.lines), dir, col, row);
+		if (++dir.done < dir.cards.length) continue;
+		queueUpload(dir.tex, () => { dir.material.map = dir.tex; dir.material.emissiveMap = dir.tex; });   // up in its turn, then on the cards: a map for a map, the defines have not moved
 	}
 }
 export function clearCards() { pending = []; }
 function makeCard(lines, cw) {
 	const ch = cw * CARD_H / CARD_DRAWN;
-	const face = new THREE.MeshLambertMaterial({ map: PAPER_PX, emissive: PAPER, emissiveMap: PAPER_PX, emissiveIntensity: CARD_GLOW });
-	const card = new THREE.Mesh(cardGeometry(cw, ch), face);
-	pending.push({ card, lines });
+	const card = new THREE.Mesh(cardGeometry(cw, ch), paperMaterial);   // bare paper, until the bake gives it its direction's atlas and its cell (atlasLabels)
 	card.name = 'label';
 	card.visible = state.settings.labels;
-	card.userData.ch = ch;
+	Object.assign(card.userData, { cw, ch, lines });
 	// The shadow those 4 mm throw. **Painted, not cast**: real shadows have
 	// been off since 2026-09-05 (Uli — the hard cut-outs looked wrong), and
 	// a print fakes its own the same way, a faint plane a hair larger nudged
