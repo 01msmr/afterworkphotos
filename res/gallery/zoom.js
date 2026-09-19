@@ -33,13 +33,28 @@ function groupOf(print) {
 	(g.name || '').startsWith('piece-') ? g.traverse(o => { if (o.name === 'photo') out.push(o); }) : out.push(print);
 	return out;
 }
+// a print's scale moves over SCALE_T, not at once
+const SCALE_T = 300;
+const tweens = new Map();           // print -> { from, to, t0 }
+const target = p => (tweens.get(p) || { to: p.scale.x }).to;
+function scaleTo(p, to, now) {
+	if (Math.abs(target(p) - to) < 0.001) return;
+	tweens.set(p, { from: p.scale.x, to, t0: now });
+}
+function stepScales(now) {
+	for (const [p, t] of tweens) {
+		const f = Math.min(1, (now - t.t0) / SCALE_T), k = f * f * (3 - 2 * f);
+		p.scale.setScalar(t.from + (t.to - t.from) * k);
+		if (f >= 1) tweens.delete(p);
+	}
+}
 export function zoomPrint(print, now = performance.now()) {
 	const full = print.userData.full;
 	if (!full) return false;
-	const out = print.scale.x < full - 0.001;                 // pressed while sitting in its mat
+	const out = target(print) < full - 0.001;                 // pressed while sitting in its mat
 	const prints = groupOf(print);
-	for (const p of prints) p.scale.setScalar(out ? p.userData.full : 1);
-	const away = prints.filter(p => Math.abs(p.scale.x - rest(p)) > 0.001);
+	for (const p of prints) scaleTo(p, out ? p.userData.full : 1, now);
+	const away = prints.filter(p => Math.abs(target(p) - rest(p)) > 0.001);
 	for (const p of prints) big.delete(p);
 	for (const p of away) big.set(p, now);                    // only what is not the way it rests comes back by itself
 	return true;
@@ -49,8 +64,8 @@ export function zoomPrint(print, now = performance.now()) {
 // re-hung the whole floor, like the height switch had). Each print goes
 // to the way it now rests — full over its mat, or in it — and forgets
 // that it was pressed; the labels keep whatever they were doing.
-export function applyFill() {
-	scene.traverse(o => { if (o.name === 'photo' && o.userData.full) o.scale.setScalar(rest(o)); });
+export function applyFill(now = performance.now()) {
+	scene.traverse(o => { if (o.name === 'photo' && o.userData.full) scaleTo(o, rest(o), now); });
 	for (const thing of [...big.keys()]) if (thing.isObject3D) big.delete(thing);
 }
 
@@ -83,6 +98,7 @@ function where(thing) {
 }
 
 export function stepZoom(now) {
+	stepScales(now);
 	if (!big.size) return;
 	camera.getWorldDirection(_v);
 	const eye = camera.getWorldPosition(_d.set(0, 0, 0)).clone();
@@ -92,11 +108,11 @@ export function stepZoom(now) {
 		const to = p.sub(eye), len = to.length();
 		if (len < SEEN.range && to.normalize().dot(_v) > SEEN.angle) { big.set(thing, now); continue; }
 		if (now - seen < HOLD) continue;
-		if (thing.isObject3D) { thing.scale.setScalar(rest(thing)); big.delete(thing); }   // back to the way it rests
+		if (thing.isObject3D) { scaleTo(thing, rest(thing), now); big.delete(thing); }   // back to the way it rests
 		else zoomLabel(thing, now);
 	}
 }
 
 // A room hung afresh takes everything with it; nothing left large can
 // belong to the room that has gone.
-export function clearZoom() { big.clear(); }
+export function clearZoom() { big.clear(); tweens.clear(); }
