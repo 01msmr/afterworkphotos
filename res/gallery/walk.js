@@ -1,5 +1,6 @@
 import * as THREE from '../vendor/three.module.js';
-import { DOOR, elevator, floors, pressAt } from 'gallery/elevator';
+import { DOOR, elevator } from 'gallery/elevator';
+import { floors, pressAt } from 'gallery/press';
 import { inPoly } from 'gallery/plan';
 import { tabletHit } from 'gallery/tablet';
 import { rectRoom } from 'gallery/room';

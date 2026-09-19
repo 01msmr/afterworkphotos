@@ -1,5 +1,5 @@
 import * as THREE from '../vendor/three.module.js';
-import { SOUND, lift } from 'gallery/elevator';
+import { SOUND, lift } from 'gallery/sound';
 import { hangRoom, openRooms, rooms } from 'gallery/hang';
 import { head, scene, world } from 'gallery/scene';
 import { state } from 'gallery/state';

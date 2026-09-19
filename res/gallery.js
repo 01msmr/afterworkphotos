@@ -1,7 +1,9 @@
 // three.js 0.180.0, vendored (MIT) — res/vendor/three.module.js, which in
 // turn imports res/vendor/three.core.js; both are pinned together.
 import { stats, stepStats, wire } from 'gallery/bench';
-import { elevator, lift, pressAt } from 'gallery/elevator';
+import { elevator } from 'gallery/elevator';
+import { pressAt } from 'gallery/press';
+import { lift } from 'gallery/sound';
 import { setSetting } from 'gallery/settings';
 import { stepCards } from 'gallery/bake';   // after elevator.js: bake → frames → room → elevator is a cycle, and the lift's steel asks frames for a texture as it loads
 import { materials, stepUploads } from 'gallery/frames';

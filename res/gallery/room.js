@@ -1,5 +1,6 @@
 import * as THREE from '../vendor/three.module.js';
-import { CABIN_LAMP, CABIN_PANEL, lightPanel, metal } from 'gallery/elevator';   // CABIN_PANEL was never imported after the split (2026-09-10): the first night threw and the fade step was skipped for good
+import { CABIN_LAMP, CABIN_PANEL, lightPanel } from 'gallery/elevator';
+import { metal } from 'gallery/frames';   // CABIN_PANEL was never imported after the split (2026-09-10): the first night threw and the fade step was skipped for good
 import { ENV_INTENSITY, PRINT_GLOW, poolMaterial, tex } from 'gallery/frames';
 import { camera, renderer, scene } from 'gallery/scene';
 import { state } from 'gallery/state';

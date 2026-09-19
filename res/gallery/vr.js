@@ -1,5 +1,7 @@
 import * as THREE from '../vendor/three.module.js';
-import { BUTTON, elevator, pressAlong } from 'gallery/elevator';
+import { elevator } from 'gallery/elevator';
+import { BUTTON } from 'gallery/console';
+import { pressAlong } from 'gallery/press';
 import { paper } from 'gallery/paper';
 import { cornerFree, outlineOf, planOf, rotShape } from 'gallery/plan';
 import { tabletHit } from 'gallery/tablet';
