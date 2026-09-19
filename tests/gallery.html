@@ -133,8 +133,13 @@ async function run() {
 	const tape = g.children.find(o => o.name === 'tape'), tp = tape.getWorldPosition(V3()), o = G.camera.getWorldPosition(V3());
 	rc.set(o, tp.sub(o).normalize()); P.paper.press(rc);
 	say(!P.paper.shown(), 'sheet: a press on the tape takes it down');
-	const dado = G.state.dadoCap || 0, band = dado > 0 ? Math.min(0.8, (dado - 0.05 - 0.15) / 0.891) : 0.8, topY = g.position.y + 0.891 / 2 * g.scale.x;
-	say(Math.abs(g.scale.x - band) < 1e-6 && (dado <= 0 || topY <= dado - 0.05 + 1e-3), dado > 0 ? 'sheet: under the dado rail, scaled to the band' : 'sheet: 0.8× on a wall without a dado', `${g.scale.x.toFixed(2)}× · top ${topY.toFixed(2)} m · dado ${dado.toFixed(2)} m`);
+	say(Math.abs(g.scale.x - 0.8) < 1e-6, 'sheet: 0.8× on a wall, aimed above the dado', g.scale.x);
+	// aimed under the dado rail, it fits the band there, scaled (Uli: it may stand under the dado, it need not)
+	G.walk.pitch = -0.6; G.stepWalk(performance.now()); G.scene.updateMatrixWorld(true); G.camera.updateMatrixWorld(true);
+	w.dispatchEvent(new w.KeyboardEvent('keydown', { code: 'KeyB' })); await sleep(150);
+	const dado = G.state.dadoCap || 0, band = Math.min(0.8, (dado - 0.05 - 0.15) / 0.891), topY = g.position.y + 0.891 / 2 * g.scale.x, footY = g.position.y - 0.891 / 2 * g.scale.x;
+	say(dado > 0 && P.paper.shown() && Math.abs(g.scale.x - band) < 1e-6 && topY <= dado - 0.05 + 1e-3 && footY >= 0.15 - 1e-3, 'sheet: aimed under the dado rail, it fits the band there, scaled', `${g.scale.x.toFixed(2)}× · top ${topY.toFixed(2)} m · dado ${dado.toFixed(2)} m`);
+	w.dispatchEvent(new w.KeyboardEvent('keydown', { code: 'KeyB' })); await sleep(50);
 
 	// 6b. the languages: the German guard is served, the words switch
 	const de = await fetch('/res/sound/guard/de/lines.json').then(r => r.ok ? r.json() : null);
