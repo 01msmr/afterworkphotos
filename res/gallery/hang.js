@@ -498,47 +498,41 @@ export function hangRoom(key) {
 	do s = it.next(); while (!s.done);
 	return s.value;
 }
-export function* hangRoomSteps(key) {
-	const t0 = performance.now();
+// the room, its shape, the layout on it, floor and dado cap; nothing in the scene changes
+function planRoom(key) {
 	clearZoom();                                   // nothing left large belongs to the room that goes
 	clearCards();                                  // nor do its cards still waiting to be drawn
 	const room = roomByKey(key);
 	const H = state.settings.H + state.settings.raise;   // the height switch: a metre more, over every floor (Uli)
-	for (const name of ['pieces', 'baked']) {
-		const old = scene.getObjectByName(name);
-		if (old) { old.traverse(o => { if (o.isMesh && o.parent === old) o.geometry.dispose(); }); old.parent.remove(old); }
-	}
-	const pieces = new THREE.Group(); pieces.name = 'pieces';
-
-	// newest first from the elevator
-	const items = [...room.specs].reverse();
-
-	// The settings' room is the room. Should half a year still not fit it
-	// (it does not happen with this collection), the room grows in steps
-	// of the same proportion rather than dropping a print — and says so.
-	let shape = room.shape;
+	const items = [...room.specs].reverse();          // newest first from the elevator
+	let shape = room.shape;                            // grows on the bench until the year fits
 	let lay = layout(items, shape);
 	while (lay.rest.length && shape.W < 40 && !state.real) {      // real walls do not grow
 		shape = rectRoom(shape.W + 1.5, shape.D + 1);
 		lay = layout(items, shape);
 	}
-	const { W, D } = shape;
-	if (W !== room.shape.W) console.warn(`${key}: room grown to ${W} × ${D} to hang everything`);
+	if (shape.W !== room.shape.W) console.warn(`${key}: room grown to ${shape.W} × ${shape.D} to hang everything`);
 	if (lay.rest.length) console.warn(`${key}: ${lay.rest.length} pieces do not fit the real room`);
 	const floor = floorOf(room.year);
-	// The pieces stay above the dado line (Uli): each hangs on the line or
-	// just high enough to clear the dado (pieceY), never with its centre
-	// above HANG_MAX — so the dado in a room drops to what its tallest
-	// piece leaves under that.
+	// the dado drops to what the tallest piece leaves under HANG_MAX
 	const tallest = Math.max(0, ...room.specs.map(specHeight));
 	const style = WALL_STYLES[floor] || WALL_STYLES.lacquer;
 	const dadoCap = Math.max(0, Math.min(dadoTop(style), HANG_MAX - 0.15 - tallest / 2));
+	return { key, room, H, shape, lay, floor, dadoCap };
+}
+// the shell, if the standing one is not the plan's; returns whether it was rebuilt
+function shellFor(plan) {
+	const { shape: { W, D }, H, floor, dadoCap, shape } = plan;
 	state.dadoCap = dadoCap;
-	if (!state.room || state.room.W !== W || state.room.D !== D || state.room.H !== H || state.room.floor !== floor || state.room.dadoCap !== dadoCap) {
-		buildShell(W, D, H, floor, dadoCap, shape);
-		yield;
-	}
-
+	const r = state.room;
+	if (r && r.W === W && r.D === D && r.H === H && r.floor === floor && r.dadoCap === dadoCap) return false;
+	buildShell(W, D, H, floor, dadoCap, shape);
+	return true;
+}
+// the pieces and their slabs from the layout, a yield every eighth; the group is not yet in the world
+function* makePieces(plan) {
+	const { lay, floor } = plan;
+	const pieces = new THREE.Group(); pieces.name = 'pieces';
 	state.gap = lay.gap;                           // the labels need it before the pieces exist
 	state.placed = lay.placed;
 	state.obstacles = [];
@@ -584,12 +578,19 @@ export function* hangRoomSteps(key) {
 		pieces.add(m);
 	}
 
-	yield;
+	return pieces;
+}
+// old pieces out, new in and baked, old textures freed, state and lift told
+function settleRoom(plan, pieces, t0) {
+	const { key, room, shape, lay } = plan;
+	for (const name of ['pieces', 'baked']) {
+		const old = scene.getObjectByName(name);
+		if (old) { old.traverse(o => { if (o.isMesh && o.parent === old) o.geometry.dispose(); }); old.parent.remove(old); }
+	}
 	world.add(pieces);
 	world.updateMatrixWorld(true);
 	findSpots();                               // where a red dot may go, in this room, in world coordinates
 	world.add(bakeRoom(pieces));
-	yield;
 	if (wire) setWire(true);
 	const keep = new Set(); pieces.traverse(o => { if (o.name === 'photo') for (const [k, t] of textureCache) if (t === o.material.map) keep.add(k); });
 	freeTexturesExcept(keep);
@@ -605,6 +606,14 @@ export function* hangRoomSteps(key) {
 	if (TOP) drawTop(shape, lay.placed);
 	state.hangMs = Math.round(performance.now() - t0);   // for the readout on the outside display
 	return pieces;
+}
+export function* hangRoomSteps(key) {
+	const t0 = performance.now();
+	const plan = planRoom(key);
+	if (shellFor(plan)) yield;
+	const pieces = yield* makePieces(plan);
+	yield;
+	return settleRoom(plan, pieces, t0);
 }
 
 // The shell: the room's walls, floor and ceiling, and the cabin in its
