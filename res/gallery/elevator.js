@@ -1,15 +1,15 @@
 import * as THREE from '../vendor/three.module.js';
-import { setWire, wire } from './bench.js?v=20260918j';
-import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260918j';
-import { ELEVATOR, FAV_KEY, clearRooms, firstRoom, hangRoom, hangRoomSteps, raiseRoof, roomByKey, rooms } from './hang.js?v=20260918j';
-import { WALL_STYLES, applyMode, dadoTop, dressWall, edgeLines, wallColours } from './room.js?v=20260918j';
-import { camera, head, renderer, scene, world } from './scene.js?v=20260918j';
-import { applyFill, zoomLabel, zoomPrint } from './zoom.js?v=20260918j';
-import { stickAt } from './sticker.js?v=20260918j';
-import { dropAllNear } from './video.js?v=20260918j';   // the floor's 2000s, handed back when it is left
-import { PLANS, RAISES, favCount, state } from './state.js?v=20260918j';
-import { fitRoom, planAgain } from './vr.js?v=20260918j';
-import { placeBody, walk } from './walk.js?v=20260918j';
+import { setWire, wire } from './bench.js?v=20260919a';
+import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from './frames.js?v=20260919a';
+import { ELEVATOR, FAV_KEY, clearRooms, firstRoom, hangRoom, hangRoomSteps, raiseRoof, roomByKey, rooms } from './hang.js?v=20260919a';
+import { WALL_STYLES, applyMode, dadoTop, dressWall, edgeLines, wallColours } from './room.js?v=20260919a';
+import { camera, head, renderer, scene, world } from './scene.js?v=20260919a';
+import { applyFill, zoomLabel, zoomPrint } from './zoom.js?v=20260919a';
+import { stickAt } from './sticker.js?v=20260919a';
+import { dropAllNear } from './video.js?v=20260919a';   // the floor's 2000s, handed back when it is left
+import { PLANS, RAISES, favCount, state } from './state.js?v=20260919a';
+import { fitRoom, planAgain } from './vr.js?v=20260919a';
+import { placeBody, walk } from './walk.js?v=20260919a';
 
 // ---------------------------------------------------------------------------
 // The elevator
@@ -41,7 +41,7 @@ const cabinInner = new THREE.MeshLambertMaterial({ color: 0xcfccc5 });
 const displayBack = new THREE.MeshStandardMaterial({ color: 0x0c0c0c, roughness: 0.4, metalness: 0.2 });
 const cabinFloor = new THREE.MeshLambertMaterial({ color: 0x5a5854 });
 const panelPlate = new THREE.MeshStandardMaterial({ color: 0x2b2b2d, metalness: 0.5, roughness: 0.45 });   // anthracite: the switchplate outside
-const GREEN = 0x46ff7a, MILK = 0xefece4;   // the lit floor; a cap's milky white                                                                                    // the lit floor
+const GREEN = 0x46ff7a, MILK = 0xe4e2dc;   // the lit floor; a cap's milky white — a touch greyer than 0xefece4 (Uli, 2026-09-19: slightly more greyish)                                                                                    // the lit floor
 // The console's walnut (Uli): the dark wood set, tiled every half metre —
 // `rx`, `ry` are the tiles across the face it is put on.
 export const walnut = (rx, ry) => new THREE.MeshStandardMaterial({
@@ -758,7 +758,7 @@ export const elevator = {
 			}
 			const seen = !on && state.seen[b.userData.key];
 			m.emissiveIntensity = on ? 1.3 : 0;
-			m.color.set(on ? 0x2a5a38 : seen ? 0x45474a : MILK);   // lit, the cap fills with green light; seen, it goes grey — a darker grey than the first try (Uli, 2026-09-12)
+			m.color.set(on ? 0x2a5a38 : seen ? 0x4e5053 : MILK);   // lit, the cap fills with green light; seen, it goes grey — a darker grey than the first try (Uli, 2026-09-12), a shade lighter than 0x45474a (Uli, 2026-09-19: just a little)
 			if (on && !lit) lit = b;
 		}
 		// the floor's lamp stands 2 cm off the (first) lit button
@@ -902,7 +902,7 @@ export const elevator = {
 		if (to < from) path.reverse();
 		// the doors close from where they stand: back-date t0 by what is already shut
 		this.ride = { key, t0: performance.now() - (1 - fromOpen) * DOOR_T, hung: false, floors, up: to < from, path,
-		              travel: Math.min(30, 4 + 1.6 * floors) };   // near real time (Uli): a floor and a half a second per floor, 4 s to start and stop, half a minute at most
+		              travel: Math.min(22.5, 3 + 1.2 * floors) };   // near real time (Uli): 1.2 s a floor, 3 s to start and stop, 22.5 s at most — a quarter faster than the first timing (Uli, 2026-09-19)
 		if (!this.inside()) this.placeInCabin();                 // pressed from the room (the bench's Y list): into the cabin; a body in the cabin stays as it stands (Uli)
 	},
 

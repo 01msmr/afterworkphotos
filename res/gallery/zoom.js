@@ -1,7 +1,7 @@
 import * as THREE from '../vendor/three.module.js';
-import { camera, scene } from './scene.js?v=20260918j';
-import { state } from './state.js?v=20260918j';
-import { CARD_READ_Z, CARD_REST_Z } from './bake.js?v=20260918j';
+import { camera, scene } from './scene.js?v=20260919a';
+import { state } from './state.js?v=20260919a';
+import { CARD_READ_Z, CARD_REST_Z } from './bake.js?v=20260919a';
 
 // ---------------------------------------------------------------------------
 // What a press makes bigger
