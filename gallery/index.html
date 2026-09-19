@@ -23,7 +23,7 @@
 	     through this map, written here from V before the first module is fetched — a
 	     change bumps V alone. A new module goes into the list. -->
 	<script>
-		const V = '1.0.4';
+		const V = '1.0.5';
 		const modules = ['bake', 'bench', 'elevator', 'frames', 'guard', 'hang', 'jump', 'music', 'paper', 'plan', 'room', 'scene', 'state', 'sticker', 'tablet', 'video', 'vr', 'walk', 'zoom'];
 		const imports = { gallery: `/res/gallery.js?v=${V}` };
 		for (const m of modules) imports[`gallery/${m}`] = `/res/gallery/${m}.js?v=${V}`;
