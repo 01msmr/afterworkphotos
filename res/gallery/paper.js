@@ -43,7 +43,7 @@ const INK = '#111111', FAINT = '#a6a6a6';
 // **A stroke round the letters** (Uli, 2026-09-20: too thin, hazy): the pen's
 // hairlines go grey once the 1536 px are folded to the panel's few hundred;
 // 3 px of stroke keeps them black at 2 m (compared on tests/text-demo.html)
-const STROKE = 5;                                 // 3 px was little on the pen's bold hand (black pixels at 2 m +17 %); 5 px is +42 %
+const STROKE = 2.5;                               // halfway between none and the demo's 5 px (Uli, 2026-09-20: the values in between)
 const word = (g, text, x, y) => { g.fillText(text, x, y); g.strokeStyle = g.fillStyle; g.lineWidth = STROKE; g.lineJoin = 'round'; g.strokeText(text, x, y); };
 const font = (px, italic = false) => (italic ? 'italic ' : '') + PENS[pen].replace('1em', px + 'px') + ', "Marker Felt", sans-serif';
 // what is on the sheet, from the options' registry (settings.js): a

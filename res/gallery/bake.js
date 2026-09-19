@@ -155,8 +155,9 @@ export const CARD_REST_Z = CARD_D / 2, CARD_READ_Z = 0.05;   // doubled: before 
 // the 1280 are folded three times, and a stroke that thin goes grey in
 // the folding. Compared on tests/text-demo.html at 1.2, 2 and 3 m: 600/500
 // in #141311/#3d3a36 (until today) against 700/600 in black with a 3 px
-// stroke — the body lines stay black at 3 m where they were grey.
-const PAPER = '#fdfcfa', INK = ['#000000', '#222222'], WEIGHT = [700, 600], STROKE = 3;
+// stroke — the body lines stay black at 3 m where they were grey. Uli
+// took the values halfway between the two.
+const PAPER = '#fdfcfa', INK = ['#0a0a09', '#302e2c'], WEIGHT = [650, 550], STROKE = 1.5;   // halfway between the old and the demo's C (Uli, 2026-09-20: the values in between)
 const SIZE = [110, 100];         // 84/76 until 2026-09-13 (Uli: too small). A third bigger buys about a third more distance — a body line is readable at 2 m now rather than 1.5
 // **One canvas for every card of a looking direction, one byte a pixel**
 // (Uli, 2026-09-20). Seventy-four canvases at 1280 × 453 were 229 MB on
