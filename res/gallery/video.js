@@ -1,7 +1,7 @@
 import * as THREE from '../vendor/three.module.js';
 import { addLabel } from 'gallery/bake';
 import { FRAME, GRID_GAP, MAT_Z, PRINT_GLOW, PRINT_SCALE, matWidth, materials, photoTexture, poolMaterial, sc, textureCache, dropNear, freeTexture, nearTexture } from 'gallery/frames';
-import { camera, scene } from 'gallery/scene';
+import { camera, renderer, scene } from 'gallery/scene';
 import { RAISES, pieceY, state } from 'gallery/state';
 
 // ---------------------------------------------------------------------------
@@ -75,6 +75,7 @@ function ledGrid() {
 	ledTex = new THREE.CanvasTexture(c);
 	ledTex.wrapS = ledTex.wrapT = THREE.RepeatWrapping;
 	ledTex.colorSpace = THREE.SRGBColorSpace;
+	ledTex.anisotropy = renderer.capabilities.getMaxAnisotropy();   // a hundred and fifty diodes across a metre, seen at an angle: without this the grid crawls (Uli, 2026-09-20; the same lesson as the label cards)
 	return ledTex;
 }
 
@@ -167,8 +168,15 @@ export function makeVideoPanel(p, size) {
 	// the panel's body is as deep as a frame is; the picture lies on its
 	// front face, the diodes a hair in front of that
 	const depth = FRAME.depth * k * 0.6;
+	// **The panel has its ladder too** (Uli, 2026-09-20: the pictures jitter
+	// around a playing video). Its three layers stood half a millimetre
+	// apart on millimetres alone — the one stack in the gallery that never
+	// got the treatment every other one has (frames.js, STEPS). At three
+	// metres a 16-bit depth buffer resolves 2.7 mm, so the picture and its
+	// diodes fought over every pixel and the panel crawled, playing or not.
+	// Steps, not millimetres:  panel body 0 · picture -4 · diodes -6.
 	const face = new THREE.Mesh(new THREE.PlaneGeometry(outer, outer),
-		new THREE.MeshBasicMaterial({ map: v.texture }));
+		new THREE.MeshBasicMaterial({ map: v.texture, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -4 }));
 	face.name = 'video';
 	face.position.z = depth + 0.0005;
 	face.userData = { n: p.n };
@@ -181,7 +189,7 @@ export function makeVideoPanel(p, size) {
 	grid.wrapS = grid.wrapT = THREE.RepeatWrapping;
 	grid.repeat.set(cells, cells);
 	const mask = new THREE.Mesh(new THREE.PlaneGeometry(outer, outer),
-		new THREE.MeshBasicMaterial({ map: grid, transparent: true }));
+		new THREE.MeshBasicMaterial({ map: grid, transparent: true, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -6 }));
 	mask.name = 'leds';
 	mask.position.z = depth + 0.001;
 	g.add(mask);

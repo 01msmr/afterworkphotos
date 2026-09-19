@@ -1,6 +1,7 @@
 import * as THREE from '../vendor/three.module.js';
 import { materials, metal, textureCache } from 'gallery/frames';
 import { BUTTON, FAV_LIT, FAV_RED, GREEN, MILK, PANEL, buildConsole, sideMetal } from 'gallery/console';
+import { t } from 'gallery/lang';   // the favourites floor says its word in the language chosen (roomLabel)
 const LIT_GREEN = 0x2a5a38, SEEN_GREY = 0x5a5c5f, _lit = new THREE.Color();   // a lit cap's colour under its glow; a seen floor's grey (Uli, 2026-09-19: a bit lighter)
 import { lift } from 'gallery/sound';
 import { ELEVATOR, hangRoom, hangRoomSteps, roomByKey, rooms } from 'gallery/hang';
@@ -88,7 +89,11 @@ function drawDisplay(ctx, text, arrow, note = '') {
 	}
 }
 export function roomLabel(room) {
-	if (room.favs) return room.span;                // 'favourites', never its sorting year 9999 (Uli, 2026-09-13)
+	// 'favourites' in the language chosen, never its sorting year 9999 (Uli,
+	// 2026-09-13; translated 2026-09-20 — the plate and the displays still
+	// said the English word on a German floor). A split favourites floor
+	// carries its part like a year's does.
+	if (room.favs) return room.of > 1 ? `${t('favourites')}.${room.part}` : t('favourites');
 	if (room.years.length > 1) return room.span;
 	return room.of > 1 ? `${room.year}.${room.part}` : room.year;
 }

@@ -457,8 +457,35 @@ export function rooms() {
 	// never shown as visited at all). `year` sorts it above every real one.
 	const favs = state.photos.filter(p => state.favs.has(p.id));
 	const fspecs = favs.length ? piecesOf(favs, false, 0).map(sp => ({ ...sp, w: specWidth(sp) })) : [];
-	roomList.unshift({ key: FAV_KEY, year: '9999', span: 'favourites', years: [], part: 0, of: 1,
-		specs: fspecs, shape: shapeOf(FAV_KEY), favs: true, empty: !favs.length });
+	// **And it splits when it must, like a year** (Uli, 2026-09-20: not all
+	// favourites were on the floor, nothing in the middle — only if needed).
+	// A synthetic room grows until everything fits, so one floor it stays;
+	// a real room cannot grow, and thirty-five dots on a 6 x 4 m scan hung
+	// eight and dropped the rest without a word. The split is the years'
+	// own: as many floors as it takes, the newest part on top.
+	const favKey = (part, of) => of > 1 ? `${FAV_KEY}-${part}` : FAV_KEY;
+	const favParts = () => {
+		let parts = 1;
+		for (; parts <= 8; parts++) {
+			const per = Math.ceil(fspecs.length / parts);
+			const fits = Array.from({ length: parts }, (_, i) => fspecs.slice(i * per, (i + 1) * per))
+				.every((slice, i) => !layout([...slice].reverse(), shapeOf(favKey(i + 1, parts))).rest.length);
+			if (fits || !state.real) break;
+		}
+		return Math.min(parts, 8);
+	};
+	const fav = (key, part, of, specs, empty = false) => ({ key, year: '9999', span: 'favourites', years: [], part, of,
+		specs, shape: shapeOf(key), favs: true, empty });
+	if (!fspecs.length) roomList.unshift(fav(FAV_KEY, 0, 1, [], true));
+	else {
+		const of = favParts(), per = Math.ceil(fspecs.length / of), floors = [];
+		for (let i = 0; i < of; i++) {
+			const slice = fspecs.slice(i * per, (i + 1) * per);
+			if (slice.length) floors.push(fav(favKey(i + 1, of), of > 1 ? i + 1 : 0, of, slice));
+		}
+		floors.sort((a, b) => b.part - a.part);         // the newest part on top, as a year's parts are
+		roomList.unshift(...floors);
+	}
 	return roomList;
 }
 // the favourites floor's key, known to the lift and the label stickers
@@ -476,7 +503,8 @@ export function openRooms() { return rooms().filter(r => !r.empty); }
 // opened) — falls back to its year's first room
 export function roomByKey(key) {
 	const list = rooms();
-	const r = list.find(r => r.key === key) || list.find(r => r.years.includes(String(key).split(/[-_]/)[0]) && !r.favs);
+	const r = list.find(r => r.key === key) || (String(key).startsWith(FAV_KEY) ? list.find(r => r.favs) : null)   // a favourites key of a list since re-split
+		|| list.find(r => r.years.includes(String(key).split(/[-_]/)[0]) && !r.favs);
 	if (!r) throw new Error(`no room ${key}`);
 	return r;
 }

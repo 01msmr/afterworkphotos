@@ -91,7 +91,7 @@ function drawAtlas() {
 		g.fillStyle = g.strokeStyle = '#000'; g.lineJoin = 'round'; g.lineWidth = 2.2;
 		g.textAlign = 'left'; g.textBaseline = 'middle';
 		g.font = font(56);
-		const word = e.room.favs ? t('favourites') : e.year;
+		const word = e.room.favs ? t('favourites') : e.year;   // in the language chosen; relabelConsole draws it again on a change
 		g.strokeText(word, 36, 66); g.fillText(word, 36, 66);
 		if (e.room.of > 1) { const w = g.measureText(word).width; g.font = font(45); g.lineWidth = 1.8; g.strokeText(`.${e.room.part}`, 36 + w + 2, 66); g.fillText(`.${e.room.part}`, 36 + w + 2, 66); }
 		g.restore();
@@ -173,7 +173,7 @@ export function buildConsole(elevator, roomList) {
 	// over the topmost year. The thin years merged into one room each
 	// keep a button of their own to it.
 	const list = roomList;
-	const favRoom = list.find(r => r.favs);
+	const favRooms = list.filter(r => r.favs);   // one floor, or its parts when the dots outgrew a real room (hang.js) — a line each
 	const byYear = new Map();                      // year -> its rooms, first part first
 	for (const r of list) if (!r.favs) for (const y of r.years) byYear.set(y, [...(byYear.get(y) || []), r]);
 	const years = [...byYear.keys()].sort((p, q) => Number(q) - Number(p));
@@ -182,8 +182,8 @@ export function buildConsole(elevator, roomList) {
 	const columns = [rowsOf.slice(0, half), rowsOf.slice(half)].filter(c => c.length);
 	const margin = PANEL.margin, between = 0.02;   // and the gap between two plates
 	const plates = columns.map((col, i) => {
-		const wide = Math.max(i === 0 && favRoom ? 2 : 1, ...col.map(r => r.rooms.length));
-		const rows = col.length + (favRoom ? 1 : 0);   // the favourites' line on every plate: the years start on one line across them (Uli, 2026-09-19)
+		const wide = Math.max(i === 0 && favRooms.length ? 2 : 1, ...col.map(r => r.rooms.length));
+		const rows = col.length + favRooms.length;     // the favourites' line on every plate: the years start on one line across them (Uli, 2026-09-19)
 		return { col, wide, rows, w: wide * BUTTON.pitchX + 2 * margin, h: rows * BUTTON.pitchY + 2 * margin };
 	});
 	for (const p of plates) p.h = Math.max(...plates.map(q => q.h));   // both plates the same height (Uli, 2026-09-19): the shorter column leaves walnut under its last year
@@ -239,7 +239,7 @@ export function buildConsole(elevator, roomList) {
 		// through the caps beside it.
 		// the faces first, all of them into the atlas, then the buttons
 		const entries = [];
-		if (favRoom) entries.push({ year: 'favourites', room: favRoom, wide: 2 });
+		for (const room of favRooms) entries.push({ year: 'favourites', room, wide: 2 });
 		for (const p of plates) for (const { year, rooms: rs } of p.col) for (const room of rs) entries.push({ year, room, wide: 1 });
 		const atlas = faceAtlas(entries);
 		let n = 0;
@@ -265,11 +265,11 @@ export function buildConsole(elevator, roomList) {
 		// a cell of a plate: column c (0 at the plate's left), row r (0 at its top)
 		const cell = (p, c, r) => ({ x: p.x0 - margin - BUTTON.pitchX * (c + 0.5), y: p.y0 - margin - BUTTON.pitchY * (r + 0.5) });
 		plates.forEach((p, i) => {
-			let row = favRoom ? 1 : 0;                 // the top line is the favourites' — filled on the first plate, left empty on the others
-			if (i === 0 && favRoom) {                  // the favourites: two columns wide, over the topmost year
-				const { x, y } = cell(p, 0.5, 0);
-				button(favRoom, x, y, 2);
-			}
+			let row = favRooms.length;                 // the top lines are the favourites' — filled on the first plate, left empty on the others
+			if (i === 0) favRooms.forEach((room, k) => {   // the favourites: two columns wide, over the topmost year, a line per part
+				const { x, y } = cell(p, 0.5, k);
+				button(room, x, y, 2);
+			});
 			for (const { rooms: rs } of p.col) {
 				rs.forEach((room, c) => { const { x, y } = cell(p, c, row); button(room, x, y); });
 				row++;
