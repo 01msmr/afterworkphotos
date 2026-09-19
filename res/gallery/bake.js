@@ -1,6 +1,6 @@
 import * as THREE from '../vendor/three.module.js';
 import { gpu, gpuRoom, materials, poolMaterial } from 'gallery/frames';
-import { renderer, world } from 'gallery/scene';
+import { renderer, scene, world } from 'gallery/scene';
 import { state } from 'gallery/state';
 
 // ---------------------------------------------------------------------------
@@ -12,11 +12,12 @@ import { state } from 'gallery/state';
 // own mesh: each print (its own texture) and each label (pressable).
 
 const _nm = new THREE.Matrix3();
-function weld(meshes, material, name) {
+function weld(meshes, material, name, ranges = null) {
 	const pos = [], nor = [], uv = [];
 	for (const m of meshes) {
 		m.updateWorldMatrix(true, false);
 		const g = m.geometry.index ? m.geometry.toNonIndexed() : m.geometry;
+		if (ranges) ranges.set(m, { start: pos.length / 3, count: g.attributes.position.count, geo: g });
 		const P = g.attributes.position, N = g.attributes.normal, U = g.attributes.uv;
 		// into world's own frame, not the scene's: the welded mesh is a child of world
 		const rel = new THREE.Matrix4().copy(world.matrixWorld).invert().multiply(m.matrixWorld);
@@ -32,7 +33,7 @@ function weld(meshes, material, name) {
 				if (U) uv.push(U.getX(i), U.getY(i));
 			}
 		}
-		if (m.geometry.index) g.dispose();
+		if (m.geometry.index && !ranges) g.dispose();   // kept where a range refers to it
 	}
 	const g = new THREE.BufferGeometry();
 	g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
@@ -41,6 +42,22 @@ function weld(meshes, material, name) {
 	const mesh = new THREE.Mesh(g, material);
 	mesh.name = name;
 	return mesh;
+}
+// **A doubled card takes its shadow with it** (Uli, 2026-09-19: the shadow
+// stayed on the wall). The cards' shadows are one welded mesh; the weld
+// keeps each source's run of vertices (`ranges`), and followCard writes
+// the card's own six again from where the card now stands. The source
+// mesh is gone from the scene but keeps its local matrix under the card.
+const _rel = new THREE.Matrix4(), _v = new THREE.Vector3();
+export function followCard(card) {
+	const welded = scene.getObjectByName('label-rims'), rim = card.userData.rim;
+	const r = welded && welded.userData.ranges && welded.userData.ranges.get(rim);
+	if (!r) return;
+	card.updateWorldMatrix(true, false);
+	_rel.copy(world.matrixWorld).invert().multiply(card.matrixWorld).multiply(rim.matrix);
+	const P = welded.geometry.attributes.position, S = r.geo.attributes.position;
+	for (let i = 0; i < r.count; i++) { _v.fromBufferAttribute(S, i).applyMatrix4(_rel); P.setXYZ(r.start + i, _v.x, _v.y, _v.z); }
+	P.needsUpdate = true;
 }
 
 export function bakeRoom(pieces) {
@@ -56,9 +73,10 @@ export function bakeRoom(pieces) {
 		else if (o.name === 'line') groups.lines.push(o);
 		else if (o.name === 'pool') groups.pools.push(o);
 	});
-	const add = (list, material, name, shadow) => {
+	const add = (list, material, name, shadow, ranges = null) => {
 		if (!list.length) return;
-		const m = weld(list, material, name);
+		const m = weld(list, material, name, ranges);
+		if (ranges) m.userData.ranges = ranges;
 		m.castShadow = shadow; m.receiveShadow = shadow;
 		baked.add(m);
 		for (const o of list) o.parent.remove(o);
@@ -67,7 +85,7 @@ export function bakeRoom(pieces) {
 	add(groups.mats, materials.mat, 'mats', false);
 	add(groups.backs, materials.back, 'backs', false);
 	add(groups.rims, materials.rim, 'rims', false);
-	add(groups.labelRims, materials.rim, 'label-rims', false);
+	add(groups.labelRims, materials.rim, 'label-rims', false, new Map());   // with its ranges, for followCard
 	const lr = baked.getObjectByName('label-rims'); if (lr) lr.visible = state.settings.labels;   // and go with the labels switch
 	add(groups.bars, materials.frame, 'frames', true);
 	add(groups.lines, materials.line, 'lines', false);
@@ -128,7 +146,7 @@ const CARD_GLOW = 0.5;
 // It does not have to be moved out of the way: it comes **forward** of the
 // lot, 26 mm out, which clears the deepest of them by 5 mm and reads as a
 // card lifted toward you to be read — which is what it is.
-export const CARD_REST_Z = CARD_D / 2, CARD_READ_Z = 0.026;
+export const CARD_REST_Z = CARD_D / 2, CARD_READ_Z = 0.05;   // doubled: before the frames' 4 cm as well as the wall's dressing (Uli, 2026-09-19: never behind anything)
 const PAPER = '#fdfcfa', INK = ['#141311', '#3d3a36'];   // near-black, a weight up: what the headset's pixels can still resolve is contrast (Uli)
 const SIZE = [110, 100];         // 84/76 until 2026-09-13 (Uli: too small). A third bigger buys about a third more distance — a body line is readable at 2 m now rather than 1.5
 function cardCanvas(lines) {
@@ -216,6 +234,7 @@ function makeCard(lines, cw) {
 	rim.name = 'label-shadow';
 	rim.position.set(0.0012, -0.0012, -CARD_D / 2 + 0.0003);   // a hair *in front of* the wall (it sat 0.4 mm inside it and flickered through), under the board's face
 	card.add(rim);
+	card.userData.rim = rim;                                    // welded away at the bake; found again by followCard
 	return card;
 }
 // A piece's labels: a single's one card, a grid's one card per print laid
@@ -237,7 +256,7 @@ export function addLabel(piece, spec, w, h) {
 	const cards = spec.photos.map(p => { const c = makeCard(labelLines([p]), cw); c.userData.photo = p; return c; });   // the card knows its photograph: the red dot under it is that photograph's (sticker.js)
 	const ch = Math.max(...cards.map(c => c.userData.ch));
 	const rows = Math.ceil(cards.length / cols);
-	piece.userData.labels = { cards, cols, cw, ch, bw: cols * cw + (cols - 1) * LABEL_GAP, bh: rows * ch + (rows - 1) * LABEL_GAP, grid };
+	piece.userData.labels = { cards, cols, cols0: cols, cw, ch, bw: cols * cw + (cols - 1) * LABEL_GAP, bh: rows * ch + (rows - 1) * LABEL_GAP, grid };   // cols0: the grid's own pattern; cols: as placed
 	for (const c of cards) piece.add(c);
 	placeLabels(piece, w, h, Infinity);
 }
@@ -245,7 +264,16 @@ export function addLabel(piece, spec, w, h) {
 export function placeLabels(piece, w, h, roomRight, forceBelow = false) {
 	const L = piece.userData.labels;
 	if (!L) return;
-	const below = !L.grid || forceBelow || state.gap < L.bw + 2 * LABEL_OFF || roomRight < L.bw + LABEL_OFF + 0.03;
+	// **Where the grid's own pattern does not fit beside the piece, one
+	// column does** (Uli, 2026-09-19): the cards stacked down the right
+	// side, before they go under the piece at all — a small wall with a
+	// six or a four on it kept sending them under
+	const fits = cols => state.gap >= cols * L.cw + (cols - 1) * LABEL_GAP + 2 * LABEL_OFF && roomRight >= cols * L.cw + (cols - 1) * LABEL_GAP + LABEL_OFF + 0.03;
+	const cols = !L.grid || forceBelow ? L.cols0 : fits(L.cols0) ? L.cols0 : fits(1) ? 1 : L.cols0;
+	const below = !L.grid || forceBelow || !fits(cols);
+	L.cols = cols;
+	const rows = Math.ceil(L.cards.length / cols);
+	L.bw = cols * L.cw + (cols - 1) * LABEL_GAP; L.bh = rows * L.ch + (rows - 1) * LABEL_GAP;
 	// the block's top-left corner: beside with its bottom on the piece's
 	// bottom, or under it with its right on the piece's right
 	const x0 = below ? w / 2 - L.bw : w / 2 + LABEL_OFF, y0 = below ? -h / 2 - 0.03 : -h / 2 + L.bh;

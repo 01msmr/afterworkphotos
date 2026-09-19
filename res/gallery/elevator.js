@@ -77,26 +77,61 @@ const FAV_W = BUTTON.w + BUTTON.pitchX;        // two caps and the gap between
 const FACE_PX = 512;
 // `wide`: the cap's width in caps — the favourites' word gets a wider one,
 // the same face and the same left margin
-function buttonFace(year, room, wide = 1) {
-	const c = document.createElement('canvas');
-	c.width = Math.round(FACE_PX * wide); c.height = FACE_PX / 2;
-	const g = c.getContext('2d');
-	g.scale(FACE_PX / 256, FACE_PX / 256);
-	g.fillStyle = '#1d1c1a';
-	g.textAlign = 'left';
-	g.textBaseline = 'middle';
-	const font = px => `300 ${px}px Jost, "Helvetica Neue", Arial, sans-serif`;
-	g.font = font(56);
-	g.fillText(year, 36, 66);
-	if (room.of > 1) {
-		const w = g.measureText(year).width;
-		g.font = font(45);
-		g.fillText(`.${room.part}`, 36 + w + 2, 66);
+// **The years are drawn once, into one atlas, and worn by the caps
+// themselves** (2026-09-19, the frame rate in the cabin): every button
+// used to carry a clear print 1.2 mm before its cap, a transparent draw
+// call each and a layer to flicker against — 23 of them at the plate.
+// Now the cap's front face samples its cell of a 4096 px atlas (a cell a
+// face, the favourites two across), the sides and back a blank cell, and
+// the same atlas is the emissive map, so the lit cap's glow leaves the
+// letters dark as the print over it did. The letters are drawn as they
+// were: a 256-space scaled to FACE_PX, Jost 300, the part after the year
+// smaller.
+const ATLAS_COLS = 8;
+function faceAtlas(entries) {
+	const cells = [], rows = [];                    // cells: {cx, cy, wide} per entry; a cell is FACE_PX × FACE_PX / 2
+	let cx = 1, cy = 0;                             // cell 0 of row 0 stays blank paper, for the sides and the back
+	for (const e of entries) {
+		if (cx + e.wide > ATLAS_COLS) { cx = 0; cy++; }
+		cells.push({ cx, cy, wide: e.wide }); cx += e.wide;
 	}
+	const nRows = cy + 1;
+	const c = document.createElement('canvas'); c.width = ATLAS_COLS * FACE_PX; c.height = nRows * FACE_PX / 2;
+	const g = c.getContext('2d');
+	g.fillStyle = '#ffffff'; g.fillRect(0, 0, c.width, c.height);
+	const font = px => `300 ${px}px Jost, "Helvetica Neue", Arial, sans-serif`;
+	entries.forEach((e, i) => {
+		const { cx, cy } = cells[i];
+		g.save();
+		g.translate(cx * FACE_PX, cy * FACE_PX / 2);
+		g.scale(FACE_PX / 256, FACE_PX / 256);
+		g.fillStyle = e.room.favs ? '#c8322b' : '#1d1c1a';
+		g.textAlign = 'left'; g.textBaseline = 'middle';
+		g.font = font(56);
+		g.fillText(e.year, 36, 66);
+		if (e.room.of > 1) { const w = g.measureText(e.year).width; g.font = font(45); g.fillText(`.${e.room.part}`, 36 + w + 2, 66); }
+		g.restore();
+	});
 	const t = new THREE.CanvasTexture(c);
 	t.colorSpace = THREE.SRGBColorSpace;
 	t.anisotropy = renderer.capabilities.getMaxAnisotropy();
-	return t;
+	return { tex: t, cells, rows: nRows };
+}
+// A cap's UVs pointed at its cell: the front face (normal -z, the one the
+// cabin sees) spread over the cell — mirrored in u, since a face looked
+// at from -z has its +x on the viewer's left — every other face at the
+// blank cell's corner.
+function faceUVs(geo, bw, h, cell, rows) {
+	geo = geo.clone();
+	const P = geo.attributes.position, N = geo.attributes.normal, uv = geo.attributes.uv;
+	for (let i = 0; i < P.count; i++) {
+		if (N.getZ(i) < -0.5) {
+			const u = 0.5 - P.getX(i) / bw, v = P.getY(i) / h + 0.5;
+			uv.setXY(i, (cell.cx + u * cell.wide) / ATLAS_COLS, 1 - (cell.cy + 1 - v) / rows);
+		} else uv.setXY(i, 0.02 / ATLAS_COLS, 1 - 0.02 / rows);
+	}
+	uv.needsUpdate = true;
+	return geo;
 }
 
 // **A button's plan has 1.5 mm corners, and its depth faces are 12 %
@@ -465,10 +500,16 @@ export const elevator = {
 		// room's walls (Uli), dressed like them and hung like them (the 'cabin' run)
 		{
 			const style = WALL_STYLES[floor] || WALL_STYLES.lacquer, mode = state.settings.dark ? 'dark' : 'light', paint = wallColours(style.paint);
-			const face = new THREE.Mesh(new THREE.PlaneGeometry(e, H - 0.004), new THREE.MeshLambertMaterial({ color: paint[mode] }));
-			face.name = 'cabin-face'; face.userData.colours = paint; face.position.set(W / 2 - e / 2, H / 2, z1 + 0.011); g.add(face);
+			// **flush with the steel, and a centimetre into floor and ceiling**
+			// (Uli, 2026-09-19: it floated 11 mm before the steel, a gap seen
+			// from the side, and its edges 2 mm short of floor and ceiling were
+			// a wiggling slit). Half a millimetre before the steel with two
+			// depth steps; its top and bottom edges inside the slabs, where
+			// nothing is coplanar with them.
+			const face = new THREE.Mesh(new THREE.PlaneGeometry(e, H + 0.02), new THREE.MeshLambertMaterial({ color: paint[mode], polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -2 }));
+			face.name = 'cabin-face'; face.userData.colours = paint; face.position.set(W / 2 - e / 2, H / 2, z1 + 0.0005); g.add(face);
 			dressWall(face, style, H, Math.min(dadoCap, dadoTop(style)), mode);
-			g.add(edgeLines([[W / 2 - e, z1 + 0.011, W / 2, z1 + 0.011]], H - 0.004));   // a wall like the room's, with their edge lines (room.js)
+			g.add(edgeLines([[W / 2 - e, z1 + 0.0005, W / 2, z1 + 0.0005]], H));   // a wall like the room's, with their edge lines (room.js)
 		}
 		// 5 mm off the room's north and east walls: a face flush with a wall
 		// shimmered along the cabin's edges too (Uli)
@@ -619,11 +660,6 @@ export const elevator = {
 				panel.add(plate);
 				x1 -= p.w + between;
 			}
-			// the lit floor's lamp: a little green light in front of the lit button, spilling onto the plate
-			this.floorLamp = new THREE.PointLight(GREEN, 0.004, 0.08, 2);
-			this.floorLamp.name = 'floor-lamp';
-			this.floorLamp.visible = false;
-			panel.add(this.floorLamp);
 
 			// A button: a black pocket in the plate, brushed steel at its bottom,
 			// a **milky white cap** standing proud of it, the year printed on the
@@ -648,34 +684,30 @@ export const elevator = {
 			// offset grows with the viewing angle, and at the grazing angle the
 			// plate is passed at on the way in it would pull a year forward
 			// through the caps beside it.
+			// the faces first, all of them into the atlas, then the buttons
+			const entries = [];
+			if (favRoom) entries.push({ year: 'favourites', room: favRoom, wide: 2 });
+			for (const p of plates) for (const { year, rooms: rs } of p.col) for (const room of rs) entries.push({ year, room, wide: 1 });
+			const atlas = faceAtlas(entries);
+			let n = 0;
 			// one button, `wide` caps across (the favourites: two), at a cell:
-			// its pocket, its steel, its cap and the print 1.2 mm before it
+			// its pocket, its steel, and its cap wearing its year
 			const geos = new Map();
-			const button = (room, face, x, y, wide = 1) => {
+			const button = (room, x, y, wide = 1) => {
 				const bw = w + (wide - 1) * BUTTON.pitchX;
-				if (!geos.has(wide)) geos.set(wide, { pocket: roundedBox(bw + 2 * gap, h + 2 * gap, 0.001, CORNER + gap), steel: roundedBox(bw, h, 0.002), cap: roundedBox(bw, h, rise), print: new THREE.PlaneGeometry(bw, h) });
+				if (!geos.has(wide)) geos.set(wide, { pocket: roundedBox(bw + 2 * gap, h + 2 * gap, 0.001, CORNER + gap), steel: roundedBox(bw, h, 0.002), cap: roundedBox(bw, h, rise) });
 				const G = geos.get(wide);
-				const put = (name, geo, material, z) => {
-					const m = new THREE.Mesh(geo, material);
-					m.name = `${name}-${room.key}`;
-					m.userData.key = room.key;
-					m.userData.z0 = z;                     // where it rests: a press dips it in and back
-					m.position.set(x, y, z);
-					panel.add(m);
-					return m;
-				};
 				sink(G.pocket, x, y, -0.0005, pockets);
 				sink(G.steel, x, y, -0.002, steels);
-				const cap = put('cap', G.cap, new THREE.MeshStandardMaterial({ color: MILK, vertexColors: true, roughness: 0.45, metalness: 0, emissive: room.favs ? FAV_RED : GREEN, emissiveIntensity: 0, envMapIntensity: 0.5, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -6 }), -0.003 - rise / 2);
+				const cap = new THREE.Mesh(faceUVs(G.cap, bw, h, atlas.cells[n++], atlas.rows), new THREE.MeshStandardMaterial({ color: MILK, map: atlas.tex, vertexColors: true, roughness: 0.45, metalness: 0, emissive: room.favs ? FAV_RED : GREEN, emissiveMap: atlas.tex, emissiveIntensity: 0, envMapIntensity: 0.5, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -6 }));
+				cap.name = `cap-${room.key}`;
+				cap.userData.key = room.key;
+				cap.userData.z0 = -0.003 - rise / 2;   // where it rests: a press dips it in and back
 				cap.userData.cap = true;
 				if (room.favs) cap.userData.fav = true;
-				// the print: a clear plane 1.2 mm before the cap, turned to face
-				// into the cabin (-z) so the year reads the right way round —
-				// the same mount as the favourites dot's; at 0.3 mm it z-fought
-				const print = put('print', G.print, new THREE.MeshBasicMaterial({ map: face, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -8 }), -0.003 - rise - 0.0012);
-				print.rotation.y = Math.PI;
-				print.renderOrder = 2;
-				this.buttons.push(cap, print);              // both press
+				cap.position.set(x, y, cap.userData.z0);
+				panel.add(cap);
+				this.buttons.push(cap);
 			};
 			// a cell of a plate: column c (0 at the plate's left), row r (0 at its top)
 			const cell = (p, c, r) => ({ x: p.x0 - margin - BUTTON.pitchX * (c + 0.5), y: p.y0 - margin - BUTTON.pitchY * (r + 0.5) });
@@ -683,10 +715,10 @@ export const elevator = {
 				let row = 0;
 				if (i === 0 && favRoom) {                  // the favourites: two columns wide, over the topmost year
 					const { x, y } = cell(p, 0.5, row++);
-					button(favRoom, buttonFace('favourites', favRoom, FAV_W / w), x, y, 2);
+					button(favRoom, x, y, 2);
 				}
-				for (const { year, rooms: rs } of p.col) {
-					rs.forEach((room, c) => { const { x, y } = cell(p, c, row); button(room, buttonFace(year, room), x, y); });
+				for (const { rooms: rs } of p.col) {
+					rs.forEach((room, c) => { const { x, y } = cell(p, c, row); button(room, x, y); });
 					row++;
 				}
 			});
@@ -751,9 +783,24 @@ export const elevator = {
 			m.color.set(on ? 0x2a5a38 : seen ? 0x4e5053 : MILK);   // lit, the cap fills with green light; seen, it goes grey — a darker grey than the first try (Uli, 2026-09-12), a shade lighter than 0x45474a (Uli, 2026-09-19: just a little)
 			if (on && !lit) lit = b;
 		}
-		// the floor's lamp stands 2 cm off the (first) lit button
-		this.floorLamp.visible = !!lit;
-		if (lit) { this.floorLamp.position.copy(lit.position); this.floorLamp.position.z -= 0.02; this.floorLamp.color.setHex(lit.userData.fav ? FAV_RED : GREEN); }
+		// (the little green lamp that spilled from the lit cap went on 2026-09-19:
+		// a point light is paid for by every lit fragment in the room, and at
+		// 0.004 over 8 cm it was hardly seen)
+	},
+
+	// The floor being passed on a ride lights faintly on the console as
+	// the display counts it (Uli, 2026-09-19) — a paler cap with a little
+	// of the green in it; the floor pressed keeps its full light.
+	passing(key) {
+		if (key === this.passed) return;
+		this.passed = key;
+		this.light(this.ride ? this.ride.key : state.roomKey);
+		if (!this.ride || key === this.ride.key) return;
+		for (const b of this.buttons) {
+			if (!b.userData.cap || b.userData.key !== key || b.userData.fav) continue;
+			b.material.emissiveIntensity = 0.35;
+			b.material.color.set(0xf4f3ee);
+		}
 	},
 
 	// A press, before anything else happens (Uli): the button lights at
@@ -962,6 +1009,7 @@ export const elevator = {
 			// the floor passed: the path's index by the fraction of the travel
 			const i = Math.min(r.path.length - 1, Math.floor(tt / r.travel * r.path.length));
 			this.show(roomLabel(r.path[i]), r.up ? '▲' : '▼');
+			this.passing(r.path[i].key);
 			// the shaft passes in the seam: one storey per floor, eased in and
 			// out — and for the last storey the seam clears and the room the
 			// lift arrives at shows through the gap (Uli)
@@ -986,6 +1034,7 @@ export const elevator = {
 		this.setDoors(1);
 		this.leftAt = null;
 		this.ride = null;
+		this.passed = null;
 	},
 };
 

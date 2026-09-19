@@ -1,7 +1,7 @@
 import * as THREE from '../vendor/three.module.js';
 import { camera, scene } from 'gallery/scene';
 import { state } from 'gallery/state';
-import { CARD_READ_Z, CARD_REST_Z } from 'gallery/bake';
+import { CARD_READ_Z, CARD_REST_Z, followCard } from 'gallery/bake';
 
 // ---------------------------------------------------------------------------
 // What a press makes bigger
@@ -71,6 +71,7 @@ export function zoomLabel(L, now = performance.now()) {
 		// doubled, it stands clear of the dado, the rail, the skirting and
 		// the wainscot's cap; at rest, back on the wall (bake.js)
 		c.position.z = k > 1 ? CARD_READ_Z : CARD_REST_Z;
+		followCard(c);                            // its shadow with it (bake.js)
 	}
 	if (k > 1) big.set(L, now); else big.delete(L);
 	return true;

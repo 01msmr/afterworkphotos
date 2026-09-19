@@ -25,7 +25,7 @@ import { CARD_D } from 'gallery/bake';
 // stickers actually looks like on a wall.
 //
 // The dots are what the `favorites` floor is hung from (state.favs).
-export const DOT_R = 0.008;      // 1.6 cm across (Uli, 2026-09-13)
+export const DOT_R = 0.0096;     // 1.9 cm across — 1.6 until 2026-09-19 (Uli: 1.2×, the circles and the cross with it)
 const LEFT = [-0.01, 0.06];      // how far left of the label's right corner — a centimetre further left than the first try (Uli, 2026-09-13)
 const UNDER = [0.005, 0.015];    // and how far under its bottom edge (Uli: 0.5 to 1.5 cm)
 const AIM_DROP = 0.10;           // **what you point at sits 10 cm under the sticker** (Uli): the
@@ -68,8 +68,12 @@ export function addDots(piece) {
 		// roll each hang, and in the card's own frame that corner is
 		// (+cw/2, -ch/2).
 		const half = card.userData.ch / 2;
+		// **9 mm off the plaster** (Uli, 2026-09-19: the circles were hidden):
+		// before a dado (2 mm) and a wainscot with its frames (6.5 mm), which
+		// had covered a sticker at 0.6 mm; a rail is deeper still, but the
+		// labels hang above the dado line
 		dot.position.set(L.cw / 2 - between(LEFT), -half - between(UNDER),
-			mid ? CARD_D / 2 + 0.001 : -CARD_D / 2 + 0.0006);   // on the paper, or a hair off the plaster behind it
+			mid ? CARD_D / 2 + 0.001 : -CARD_D / 2 + 0.009);   // on the paper, or before whatever dresses the plaster behind it
 		dot.visible = isFav(p.id);
 		card.add(dot);
 	});
@@ -146,6 +150,20 @@ function heldCross() {
 	}
 	return cross;
 }
+// **The offer is an unfilled circle** (Uli, 2026-09-19): only a sticker
+// that is stuck is a filled disc, so what is there and what could be are
+// told apart at a glance.
+let offer = null;
+function offerRing() {
+	if (!offer) {
+		offer = new THREE.Mesh(new THREE.RingGeometry(DOT_R - 0.0022, DOT_R, 32), heldMat);
+		offer.name = 'held-ring';
+		offer.renderOrder = 3;
+		offer.visible = false;
+		scene.add(offer);
+	}
+	return offer;
+}
 function heldDot() {
 	if (!held) {
 		held = new THREE.Mesh(dotGeo, heldMat);
@@ -182,7 +200,11 @@ function aimed() {
 		// over something a press would act on goes before one over bare
 		// surface; only between equals does the nearer win.
 		if (!hit) continue;
-		const keen = overKind(hit) || nearSpot(rc, hit) ? 1 : 0;
+		// and a hit on the floor under a hit on anything else (Uli,
+		// 2026-09-19: the dot was lost for a moment on a fast move): bare
+		// wall and bare floor were equals, so the nearer won — the hanging
+		// hand's floor, a metre off, over the wall the other hand swept
+		const keen = overKind(hit) || nearSpot(rc, hit) ? 2 : hit.object.name === 'floor' || hit.object.name === 'cabin-floor' ? 0 : 1;
 		if (!best || keen > best.keen || (keen === best.keen && hit.distance < best.d)) best = { rc, d: hit.distance, keen };
 	}
 	return best && best.rc;
@@ -319,6 +341,10 @@ function loupeIcon() {
 		// its middle sits half a handle out along the diagonal from the rim
 		const reach = R_OUT + HANDLE / 2 - 0.002;
 		loupe.add(bar(HANDLE, THICK, cx + reach * diag, cy - reach * diag, -Math.PI / 4, inkCursorMat));
+		// in the glass a − always, and the upright stroke of a + when a press would double the card
+		const L = R_IN * 1.2, T = 0.0022;
+		loupe.add(bar(L, T, cx, cy, 0, inkCursorMat));
+		loupe.userData.plus = bar(T, L, cx, cy, 0, inkCursorMat); loupe.add(loupe.userData.plus);
 		loupe.renderOrder = 3; loupe.visible = false; scene.add(loupe);
 	}
 	return loupe;
@@ -380,7 +406,7 @@ export function stepSticker() {
 	freshen();
 	const rc = aimed();
 	const hit = rc && surfaceHit(rc);
-	if (!hit) { putBack(); settled = null; d.visible = x.visible = false; for (const c of [expand, loupe, ring, disc]) if (c) c.visible = false; over = null; return; }
+	if (!hit) { putBack(); settled = null; d.visible = x.visible = false; for (const c of [offer, expand, loupe, ring, disc]) if (c) c.visible = false; over = null; return; }
 	// **how near the pointer comes to the place**, not how near the surface
 	// it happens to strike: the sticker is drawn to the ray itself (Uli,
 	// "adheres to the pointer in 12 cm range"). A place further along the
@@ -400,10 +426,12 @@ export function stepSticker() {
 	const kind = overKind(hit);
 	const showing = settled ? null
 		: inLift ? ({ button: discIcon(), plate: ringIcon() }[kind] || null)
-		: over ? (stuck ? x : d)
+		: over ? (stuck ? x : offerRing())
 		: ({ print: expandIcon(), label: loupeIcon(), button: discIcon(), plate: ringIcon() }[kind] || d);
-	d.material = over ? heldMat : aimMat;
-	for (const c of [d, x, expand, loupe, ring, disc]) if (c && c !== showing) c.visible = false;
+	d.material = aimMat;
+	// the loupe says which way a press takes the card: + to double it, − to put it back (Uli, 2026-09-19)
+	if (showing === loupe) loupe.userData.plus.visible = !(hit.object.scale.x > 1.5);
+	for (const c of [d, x, offer, expand, loupe, ring, disc]) if (c && c !== showing) c.visible = false;
 	if (!showing) return;                             // just pressed here, and still here: say nothing
 	if (over) {
 		// **Both snap to the place** (Uli, 2026-09-13). The dot sits where
