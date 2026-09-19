@@ -80,13 +80,14 @@ async function run() {
 	let photos = 0, withImg = 0; G.scene.getObjectByName('pieces').traverse(o => { if (o.name === 'photo') { photos++; if (o.material.map.image) withImg++; } });
 	say(photos && photos === withImg, 'ride: every picture on the GPU when the doors open', `${withImg}/${photos}`);
 	// a ride back: what the left room owned is gone again
-	const m0 = { ...G.renderer.info.memory };
+	const live = () => { const set = new Set(); G.scene.traverse(o => { if (o.isMesh) set.add(o.geometry); }); return set.size; };   // the renderer's own geometry count follows the view
+	const m0 = { ...G.renderer.info.memory, live: live() };
 	G.elevator.placeInCabin(); G.stepWalk(performance.now()); G.elevator.go(from);
 	const t1 = performance.now(); while (G.elevator.ride && performance.now() - t1 < 30000) await sleep(200);
 	G.elevator.placeInCabin(); G.stepWalk(performance.now()); G.elevator.go(to);
 	const t2 = performance.now(); while (G.elevator.ride && performance.now() - t2 < 30000) await sleep(200);
-	const m1 = G.renderer.info.memory;
-	say(m1.textures <= m0.textures + 2 && m1.geometries <= m0.geometries + 2, 'rides free what they leave (textures, geometries)', `${m0.textures}/${m0.geometries} → ${m1.textures}/${m1.geometries}`);
+	const m1 = { ...G.renderer.info.memory, live: live() };
+	say(m1.textures <= m0.textures + 2 && m1.live === m0.live, 'rides free what they leave (textures on the GPU, geometries in the scene)', `${m0.textures}/${m0.live} → ${m1.textures}/${m1.live}`);
 
 	// 5. the pointer: the aiming hand wins over the hanging one
 	const S = await mod('sticker');
@@ -150,6 +151,27 @@ async function run() {
 	const after = V3(Pa.getX(r.start), Pa.getY(r.start), Pa.getZ(r.start));
 	say(before.distanceTo(after) > 0.02, 'label: the doubled card moves its shadow', `${before.distanceTo(after).toFixed(3)} m`);
 	G.zoomLabel(card.parent.userData.labels);
+
+	// 8. the instant lift: X pins the strip, the rail scrubs, the print pressed lays the way, the door spot switches in the dark
+	G.walk.pos.set(-G.state.room.W / 2 + 1.4, 1.6, 0.3); G.walk.yaw = Math.PI / 2; G.walk.pitch = 0; G.stepWalk(performance.now()); G.scene.updateMatrixWorld(true); G.camera.updateMatrixWorld(true);
+	if (G.stripLift.shown()) w.dispatchEvent(new w.KeyboardEvent('keydown', { code: 'KeyX' }));
+	w.dispatchEvent(new w.KeyboardEvent('keydown', { code: 'KeyX' })); await sleep(150);
+	const st = G.scene.getObjectByName('strip');
+	say(G.stripLift.shown() && st && Math.abs(st.position.x - (-G.state.room.W / 2)) < 0.2, 'strip: X pins it on the wall aimed at');
+	st.updateWorldMatrix(true, true);
+	const aimAt = (obj, local) => { const p = obj.localToWorld(local.clone()); const o = G.camera.getWorldPosition(V3()); return new THREE.Raycaster(o, p.sub(o).normalize()); };
+	const rail = st.getObjectByName('strip-rail'), pr = await mod('press');
+	pr.pressAlong(aimAt(rail, V3(0, 0.45, 0)), 3); const nTop = G.stripLift.chosen().n;
+	G.stripLift.scrub(aimAt(rail, V3(0, -0.55, 0))); const nBottom = G.stripLift.chosen().n; G.stripLift.release();
+	say(nTop > nBottom, 'strip: the rail scrubs, newest at the top', `${nTop} above ${nBottom}`);
+	pr.pressAlong(aimAt(st.getObjectByName('strip-card'), V3(0, 0, 0)), 3); await sleep(120);   // the guide is laid on the next frame
+	const jg = G.scene.getObjectByName('jump-guide');
+	say(G.scene.getObjectByName('strip-ring').visible && !!(jg && jg.visible), 'strip: the print pressed lays the way to the lift and its circle');
+	const spot = G.world.localToWorld(V3(G.elevator.origin.x - 0.75 - 0.6, 0, G.elevator.origin.z)), room0 = G.state.roomKey;
+	G.walk.pos.set(spot.x, 1.6, spot.z); G.stepWalk(performance.now());
+	const t3 = performance.now(); while (G.state.roomKey === room0 && performance.now() - t3 < 6000) await sleep(100);
+	await sleep(1500);
+	say(G.state.roomKey !== room0 && G.scene.getObjectByName('ambient').intensity > 0.5 && !G.stripLift.shown(), 'strip: standing at the door switches the room in the dark and lights it again', `${room0} → ${G.state.roomKey}`);
 
 	say(!errors.length, 'still no errors on the console', errors.slice(0, 3).join(' | '));
 	lines.push(fails ? `<span class="fail">${fails} failed</span>` : '<span class="ok">all ok</span>');

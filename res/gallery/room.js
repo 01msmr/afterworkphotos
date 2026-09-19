@@ -83,10 +83,10 @@ export function floorOf(year) { return FLOOR_OF_YEAR[year] || SPARE_FLOORS[Numbe
 // mode the texture is dimmed through the material's colour (applyMode).
 function floorMaterial(slug, W, D, perMetre = false) {
 	const f = FLOORS[slug];
-	if (!f.metres) return { material: new THREE.MeshStandardMaterial({ color: f.colour.light, roughness: f.roughness, metalness: 0, envMapIntensity: 0.6 }), colours: f.colour };
+	if (!f.metres) return { material: new THREE.MeshStandardMaterial({ color: f.colour.light, roughness: f.roughness, metalness: 0, envMapIntensity: 0.6, emissive: f.colour.light, emissiveIntensity: 0 }), colours: f.colour };   // emissive: lit on its own while the room is dark (setDim)
 	const t = kind => tex(`floor-${slug}-${kind}.jpg`, kind === 'color', (perMetre ? 1 : D) / f.metres, (perMetre ? 1 : W) / f.metres);
 	const material = new THREE.MeshStandardMaterial({
-		map: t('color'), roughnessMap: t('rough'), normalMap: t('normal'), polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -2, normalScale: new THREE.Vector2(0.7, 0.7),
+		map: t('color'), roughnessMap: t('rough'), normalMap: t('normal'), emissive: 0xffffff, emissiveMap: t('color'), emissiveIntensity: 0, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -2, normalScale: new THREE.Vector2(0.7, 0.7),
 		metalnessMap: f.metal ? t('metalness') : null, metalness: f.metal ? 1 : 0, roughness: 1, envMapIntensity: f.metal ? 0.5 : 0.35,
 	});
 	// under the day's fills a texture at full colour washed out (Uli): two thirds
@@ -302,8 +302,11 @@ export function applyMode(dark) {
 	modeAt = performance.now();
 }
 const _ca = new THREE.Color(), _cb = new THREE.Color();
+// the room dimmed to black (k = 1) round a switch, the floor lit on its own at half
+let dimK = 0;
+export function setDim(k) { dimK = k; applyModeF(modeF); const fl = scene.getObjectByName('floor'); if (fl) fl.material.emissiveIntensity = 0.5 * k; }
 function applyModeF(f) {
-	const mix = (a, b) => a + (b - a) * f;
+	const mix = (a, b) => (a + (b - a) * f) * (1 - dimK);
 	// 'elevator' too (Uli, 2026-09-13: the outer wall kept the night on it in
 	// day): the cabin's south face is plastered like the room's walls and
 	// carries their colours, but it hangs in the lift's own group, not the

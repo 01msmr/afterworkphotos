@@ -2,6 +2,7 @@ import * as THREE from '../vendor/three.module.js';
 import { elevator } from 'gallery/elevator';
 import { FAV_KEY, clearRooms, rooms } from 'gallery/hang';
 import { paper } from 'gallery/paper';
+import { stripLift } from 'gallery/strip';
 import { camera, scene } from 'gallery/scene';
 import { favCount, state } from 'gallery/state';
 import { stickAt } from 'gallery/sticker';
@@ -20,8 +21,9 @@ export function pressAt(ndcX, ndcY) {
 	raycaster.setFromCamera(new THREE.Vector2(ndcX, ndcY), camera);
 	return pressAlong(raycaster, 2.2);
 }
-export function pressAlong(rc, reach) {
-	if (paper.press(rc)) return true;             // the options sheet takes a press on it first
+export function pressAlong(rc, reach, hand = null) {
+	if (stripLift.press(rc, hand)) return true;    // the instant lift's strip, then the sheet, before anything else
+	if (paper.press(rc)) return true;
 	const hit = rc.intersectObjects([...elevator.buttons, ...elevator.callButtons], false)[0];
 	if (hit && hit.distance <= reach) {
 		const u = hit.object.userData;

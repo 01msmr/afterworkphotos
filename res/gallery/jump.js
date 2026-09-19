@@ -1,7 +1,10 @@
 import * as THREE from '../vendor/three.module.js';
 import { SOUND, lift } from 'gallery/sound';
 import { hangRoom, openRooms, rooms } from 'gallery/hang';
-import { head, scene, world } from 'gallery/scene';
+import { head, renderer, scene, world } from 'gallery/scene';
+import { elevator } from 'gallery/elevator';
+import { setDim } from 'gallery/room';
+import { walk } from 'gallery/walk';
 import { state } from 'gallery/state';
 
 // ---------------------------------------------------------------------------
@@ -63,6 +66,7 @@ export function jump(key) {
 
 export function stepJump(now) {
 	stepGuide();
+	stepDark(now);
 	if (!phase) return;
 	const t = now - at;
 	const top = ceilY(), foot = floorY();
@@ -149,9 +153,41 @@ function layLeg(m, x0, z0, x1, z1, y) {
 	m.rotation.y = Math.atan2(dx, dz) + Math.PI;
 	m.scale.z = len;
 }
-function leadTo(n) {
+export function leadTo(n) {
 	const p = state.placed && state.placed.find(q => q.piece.photos.some(ph => ph.n === n));
 	guideTo = p ? new THREE.Vector3(p.x + Math.sin(p.yaw) * GUIDE.arrived, 0, p.z + Math.cos(p.yaw) * GUIDE.arrived) : null;
+}
+// the way to a point in the room's frame (the lift's door), until within `near`
+export function leadToPoint(v, near = 0) { guideTo = v ? v.clone() : null; guideNear = near; }
+export const guided = () => !!guideTo;
+let guideNear = 0;                         // 0: the print's own distance (GUIDE.arrived)
+// The switch in the dark (Uli, 2026-09-19): standing at the lift's door the
+// room goes black over a second, the floor stays lit at half, the other
+// room is hung and lit again, and the line leads to the print asked for.
+let dark = null;                             // { to, n, t0, hung }
+export function switchTo(key, n) {
+	if (dark || key === state.roomKey) return false;
+	dark = { to: key, n, t0: performance.now(), hung: false };
+	return true;
+}
+const DARK = 1000;
+function stepDark(now) {
+	if (!dark) return;
+	const t = now - dark.t0;
+	if (t < DARK) { setDim(t / DARK); return; }
+	if (!dark.hung) {
+		setDim(1);
+		const before = elevator.originWorld().clone();
+		hangRoom(dark.to);
+		const o = elevator.originWorld();
+		if (renderer.xr.isPresenting) world.position.add(before.sub(o));               // the new cabin where the old stood, as a ride does
+		else { const off = new THREE.Vector3().subVectors(head(), before); walk.pos.set(o.x + off.x, walk.pos.y, o.z + off.z); }
+		dark.hung = true; dark.t0 = now;
+		leadTo(dark.n);
+		return;
+	}
+	setDim(1 - Math.min(1, t / DARK));
+	if (t >= DARK) dark = null;
 }
 function stepGuide() {
 	if (!guideTo) { if (guide) guide.visible = false; return; }
@@ -159,7 +195,7 @@ function stepGuide() {
 	_a.copy(guideTo).applyMatrix4(world.matrixWorld);      // the print stands in the room's frame, you in the session's
 	_b.copy(head());
 	const dx = _a.x - _b.x, dz = _a.z - _b.z, len = Math.hypot(dx, dz);
-	if (len < GUIDE.arrived) { guideTo = null; guide.visible = false; return; }
+	if (len < (guideNear || GUIDE.arrived)) { guideTo = null; guideNear = 0; guide.visible = false; return; }
 	guide.visible = true;
 	const y = world.position.y + GUIDE.y;
 	// **Down the middle of a walkway** (Uli, 2026-09-12), not across the

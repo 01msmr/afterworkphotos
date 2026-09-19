@@ -162,6 +162,31 @@ function hold(h) {
 	group.position.copy(h).addScaledVector(fwd, 0.7); group.position.y -= 0.1;
 	group.lookAt(h);
 }
+// a group stuck where the ray lands: upright on a wall (`scale`, foot not under
+// 50 cm, 5 cm off the plaster, clear of frames and labels — freeSpot) or flat
+// on the floor turned to the visitor. Returns 'wall', 'floor', or null.
+export function pinTo(group, rc, hh, scale = 1) {
+	const targets = ['room', 'pieces', 'elevator'].map(n => scene.getObjectByName(n)).filter(Boolean);
+	const hit = rc && rc.intersectObjects(targets, true).find(h => h.distance < 6);
+	if (!hit) return null;
+	const h = head();
+	_n.copy(hit.face.normal).transformDirection(hit.object.matrixWorld);
+	if (_n.dot(_d.subVectors(h, hit.point)) < 0) _n.negate();
+	group.position.copy(hit.point).addScaledVector(_n, 0.002);
+	if (Math.abs(_n.y) < 0.5) {
+		group.position.addScaledVector(_n, 0.045);
+		group.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), _n.clone().setY(0).normalize());
+		group.scale.setScalar(scale);
+		const H = state.room ? state.room.H : 3, half = hh * scale;
+		const yLow = 0.5 + half, yHigh = H - 0.05 - half;
+		group.position.y = Math.max(yLow, Math.min(yHigh, group.position.y));
+		return freeSpot(group, _n, yLow, yHigh) ? 'wall' : null;
+	}
+	group.scale.setScalar(1);
+	_d.subVectors(hit.point, h); _d.y = 0; _d.normalize();
+	group.rotation.set(_n.y > 0 ? -Math.PI / 2 : Math.PI / 2, Math.atan2(-_d.x, -_d.z), 0, 'YXZ');
+	return 'floor';
+}
 // the sheet slid along the wall (right axis `r`) and up until its box meets
 // no piece's — a piece's box holds its frame and its labels. Returns
 // whether a spot was found; the group stands at it.
@@ -204,36 +229,7 @@ export const paper = {
 	toggle(rc) {
 		if (!group) build();
 		if (group.visible) { group.visible = false; return; }
-		const targets = ['room', 'pieces', 'elevator'].map(n => scene.getObjectByName(n)).filter(Boolean);
-		const hit = rc && rc.intersectObjects(targets, true).find(h => h.distance < 6);
-		const h = head();
-		if (!hit) hold(h);
-		else {
-			_n.copy(hit.face.normal).transformDirection(hit.object.matrixWorld);
-			if (_n.dot(_d.subVectors(h, hit.point)) < 0) _n.negate();
-			group.position.copy(hit.point).addScaledVector(_n, 0.002);
-			if (Math.abs(_n.y) < 0.5) {
-				// upright on a wall: its front along the wall's normal, its foot
-				// not under 50 cm — and 5 cm off the plaster, before the frames'
-				// 4 cm. **Never over a frame or a label** (Uli, 2026-09-19): it
-				// slides along the wall, nearest free spot first, up to 2 m
-				// either way and up to the ceiling; where nothing is free (a
-				// slab, a wall hung full) it is held up in front of you instead.
-				group.position.addScaledVector(_n, 0.045);
-				group.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), _n.clone().setY(0).normalize());
-				group.scale.setScalar(WALL_SCALE);              // a little smaller on a wall than on the floor
-				const H = state.room ? state.room.H : 3, hh = SHEET.h * WALL_SCALE / 2;
-				const yLow = 0.5 + hh, yHigh = H - 0.05 - hh;
-				group.position.y = Math.max(yLow, Math.min(yHigh, group.position.y));
-				const free = freeSpot(group, _n, yLow, yHigh);
-				if (!free) { hold(h); }
-			} else {
-				// flat on the floor (or the ceiling), its top away from the one who stuck it there
-				group.scale.setScalar(1);
-				_d.subVectors(hit.point, h); _d.y = 0; _d.normalize();
-				group.rotation.set(_n.y > 0 ? -Math.PI / 2 : Math.PI / 2, Math.atan2(-_d.x, -_d.z), 0, 'YXZ');
-			}
-		}
+		if (!pinTo(group, rc, SHEET.h / 2, WALL_SCALE)) hold(head());
 		draw();
 		group.visible = true; seen = performance.now();
 	},

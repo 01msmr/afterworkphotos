@@ -1,3 +1,4 @@
+import * as THREE from './vendor/three.module.js';
 // three.js 0.180.0, vendored (MIT) — res/vendor/three.module.js, which in
 // turn imports res/vendor/three.core.js; both are pinned together.
 import { stats, stepStats, wire } from 'gallery/bench';
@@ -10,6 +11,7 @@ import { materials, stepUploads } from 'gallery/frames';
 import { ELEVATOR, hangRoom, packRun, piecesOf, replan, firstRoom, rooms, spread, upright } from 'gallery/hang';
 import { stepSticker } from 'gallery/sticker';
 import { paper, stepPaper } from 'gallery/paper';
+import { stepStrip, stripLift } from 'gallery/strip';
 import { jump, stepJump } from 'gallery/jump';
 import { stepTablet, tabletHit, toggleTablet } from 'gallery/tablet';
 import { nextLine, placeGuard, stepGuard } from 'gallery/guard';
@@ -89,6 +91,7 @@ renderer.setAnimationLoop((now, frame) => {
 	step('sticker', () => stepSticker());
 	step('zoom', () => stepZoom(now));
 	step('paper', () => stepPaper(now));
+	step('strip', () => stepStrip());
 	step('uploads', () => stepUploads());
 	step('cards', () => stepCards());
 	step('music', () => stepMusic(now));
@@ -122,4 +125,10 @@ function stepProbe(now) {
 
 // Test-harness handle only: the plan's browser checks read the scene graph
 // and camera through this. Nothing on the page uses it.
-window.G = { frameCost, scene, camera, renderer, state, buildRoom, applyMode, makePiece, rooms, hangRoom, walk, stepWalk, elevator, pressAt, setSetting, materials, rig, world, placeBody, lift, stepPlanes, stepVideos, videoCache, makeVideoPanel, stepDetail, replan, packRun, piecesOf, spread, upright, fitRoom, planOf, jump, toggleTablet, tabletHit, stepZoom, zoomLabel, zoomPrint, playing, musicLevel, stepMusic, placeGuard, stepGuard, nextLine };   // replan, packRun, piecesOf, spread, upright, fitRoom, planOf: for the bench's checks only
+window.G = { stripLift, frameCost, scene, camera, renderer, state, buildRoom, applyMode, makePiece, rooms, hangRoom, walk, stepWalk, elevator, pressAt, setSetting, materials, rig, world, placeBody, lift, stepPlanes, stepVideos, videoCache, makeVideoPanel, stepDetail, replan, packRun, piecesOf, spread, upright, fitRoom, planOf, jump, toggleTablet, tabletHit, stepZoom, zoomLabel, zoomPrint, playing, musicLevel, stepMusic, placeGuard, stepGuard, nextLine };   // replan, packRun, piecesOf, spread, upright, fitRoom, planOf: for the bench's checks only
+
+// the bench: X pins the instant lift's strip where the view's middle points (A on the right controller in the headset)
+addEventListener('keydown', e => {
+	if (e.code !== 'KeyX' || e.repeat) return;
+	const rc = new THREE.Raycaster(); rc.setFromCamera(new THREE.Vector2(0, 0), camera); stripLift.toggle(rc);
+});
