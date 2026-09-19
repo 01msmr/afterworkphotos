@@ -1,6 +1,7 @@
 import * as THREE from '../vendor/three.module.js';
 import { materials, metal, textureCache } from 'gallery/frames';
 import { BUTTON, FAV_LIT, FAV_RED, GREEN, MILK, PANEL, buildConsole, sideMetal } from 'gallery/console';
+const LIT_GREEN = 0x2a5a38, SEEN_GREY = 0x5a5c5f, _lit = new THREE.Color();   // a lit cap's colour under its glow; a seen floor's grey (Uli, 2026-09-19: a bit lighter)
 import { lift } from 'gallery/sound';
 import { ELEVATOR, hangRoom, hangRoomSteps, roomByKey, rooms } from 'gallery/hang';
 import { WALL_STYLES, dadoTop, dressWall, edgeLines, wallColours } from 'gallery/room';
@@ -333,7 +334,7 @@ export const elevator = {
 			}
 			const seen = !on && state.seen[b.userData.key];
 			m.emissiveIntensity = on ? 1.3 : 0;
-			m.color.set(on ? 0x2a5a38 : seen ? 0x4e5053 : MILK);   // lit, the cap fills with green light; seen, it goes grey — a darker grey than the first try (Uli, 2026-09-12), a shade lighter than 0x45474a (Uli, 2026-09-19: just a little)
+			m.color.set(on ? LIT_GREEN : seen ? SEEN_GREY : MILK);   // lit, the cap fills with green light; seen, it goes grey
 			if (on && !lit) lit = b;
 		}
 		// (the little green lamp that spilled from the lit cap went on 2026-09-19:
@@ -341,9 +342,9 @@ export const elevator = {
 		// 0.004 over 8 cm it was hardly seen)
 	},
 
-	// The floor being passed on a ride lights faintly on the console as
-	// the display counts it (Uli, 2026-09-19) — a paler cap with a little
-	// of the green in it; the floor pressed keeps its full light.
+	// The floor being passed on a ride lights on the console as the
+	// display counts it: the lit cap's green at 30 % (Uli); the floor
+	// pressed keeps its full light.
 	passing(key) {
 		if (key === this.passed) return;
 		this.passed = key;
@@ -351,8 +352,8 @@ export const elevator = {
 		if (!this.ride || key === this.ride.key) return;
 		for (const b of this.buttons) {
 			if (!b.userData.cap || b.userData.key !== key || b.userData.fav) continue;
-			b.material.emissiveIntensity = 0.35;
-			b.material.color.set(0xf4f3ee);
+			b.material.emissiveIntensity = 1.3 * 0.3;
+			b.material.color.set(MILK).lerp(_lit.set(LIT_GREEN), 0.3);
 		}
 	},
 

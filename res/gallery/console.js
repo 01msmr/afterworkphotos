@@ -82,13 +82,13 @@ function drawAtlas() {
 	const { canvas: c, cells, entries } = atlas;
 	const g = c.getContext('2d');
 	g.fillStyle = '#ffffff'; g.fillRect(0, 0, c.width, c.height);
-	const font = px => `300 ${px}px Jost, "Helvetica Neue", Arial, sans-serif`;
+	const font = px => `400 ${px}px Jost, "Helvetica Neue", Arial, sans-serif`;   // regular, black: readable on every cap (Uli)
 	entries.forEach((e, i) => {
 		const { cx, cy } = cells[i];
 		g.save();
 		g.translate(cx * FACE_PX, cy * FACE_PX / 2);
 		g.scale(FACE_PX / 256, FACE_PX / 256);
-		g.fillStyle = g.strokeStyle = '#111'; g.lineJoin = 'round'; g.lineWidth = 2.2;   // the light face stroked heavier: it read hazy on the caps (Uli)
+		g.fillStyle = g.strokeStyle = '#000'; g.lineJoin = 'round'; g.lineWidth = 2.2;
 		g.textAlign = 'left'; g.textBaseline = 'middle';
 		g.font = font(56);
 		const word = e.room.favs ? t('favourites') : e.year;

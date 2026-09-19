@@ -1,7 +1,7 @@
 import * as THREE from '../vendor/three.module.js';
 import { ELEVATOR, rooms } from 'gallery/hang';
 import { elevator } from 'gallery/elevator';
-import { leadToPoint, switchTo } from 'gallery/jump';
+import { leadToPoint, switchSpot, switchTo } from 'gallery/jump';
 import { guardSays } from 'gallery/guard';
 import { pinTo } from 'gallery/paper';
 import { camera, head, scene, world } from 'gallery/scene';
@@ -15,15 +15,16 @@ import { state } from 'gallery/state';
 // pointer's height — the print beside it, laid out as the phone's scrub
 // card (the year above at 50 %, the number on the print), newest at the
 // top, white lines where a year begins. Released, the print stays. The
-// print pressed (a white tick on it): the way to the lift's door is laid on the floor
-// and a circle marks the spot; standing in it the room switches in the
-// dark (jump.js, switchTo) and the line leads on to the print.
+// print pressed (a white tick on it): the way is laid on the floor to a
+// spot with room to stand in this room and the print's, a circle marks
+// it; standing in it the room switches in the dark round you (jump.js,
+// switchTo) and the line leads on to the print.
 
 const STRIP = { w: 0.10, h: 1.2, card: 0.12, gap: 0.05 };   // h: set to the room's height when pinned; the grey strip touching it on the left: as wide, half as tall, centred
 const GREEN = 0x46ff7a;
 let group = null, strip = null, fine = null, card = null, mark = null, ring = null;
 let fineFrom = null;                          // { y, at }: where a fine scrub began
-let at = -1, held = null, ticked = false;   // the print shown; the controller scrubbing; the print pressed for the way
+let at = -1, held = null, ticked = false, spot = null;   // the print shown; the controller scrubbing; the print pressed for the way; where to stand for the switch
 const thumbs = new Map();
 const pile = () => state.photos.slice().reverse();   // newest first
 
@@ -86,8 +87,9 @@ function show(i) {
 	card.position.y = mark.position.y;
 	drawCard();
 }
-// the spot a step outside the lift's doors, in the room's frame
+// where to stand for the switch: a free circle in this room and the print's, else a step outside the lift's doors (in the room's frame)
 const doorSpot = () => new THREE.Vector3(elevator.origin.x - ELEVATOR.size / 2 - 0.6, 0, elevator.origin.z);
+const spotFor = p => { const key = p && roomOf(p); return (key && switchSpot(key)) || doorSpot(); };
 const _rc = new THREE.Raycaster(), _o = new THREE.Vector3(), _d = new THREE.Vector3(), _q = new THREE.Quaternion();
 
 export const stripLift = {
@@ -113,7 +115,7 @@ export const stripLift = {
 		if (!hit || hit.distance > 3) return false;
 		if (hit.object === card) {                       // the print pressed: the way to the lift, or off again
 			ticked = !ticked; drawCard();
-			if (ticked) { leadToPoint(doorSpot(), 0.4); ring.position.copy(world.localToWorld(doorSpot())); ring.position.y = world.position.y + 0.012; ring.visible = true; guardSays('toLift'); }
+			if (ticked) { spot = spotFor(pile()[at]); leadToPoint(spot, 0.4); ring.position.copy(world.localToWorld(spot.clone())); ring.position.y = world.position.y + 0.012; ring.visible = true; guardSays('toSpot'); }
 			else { leadToPoint(null); ring.visible = false; }
 			return true;
 		}
@@ -140,11 +142,11 @@ export function stepStrip() {
 		stripLift.scrub(_rc);
 	}
 	if (ticked) {
-		const spot = world.localToWorld(doorSpot()), h = head();
-		if (Math.hypot(h.x - spot.x, h.z - spot.z) < 0.4) {
+		const s = world.localToWorld(spot.clone()), h = head();
+		if (Math.hypot(h.x - s.x, h.z - s.z) < 0.4) {
 			const p = pile()[at], key = state.photos && p ? (roomOf(p) || null) : null;
 			stripLift.hide();
-			if (key && switchTo(key, p.n)) return;
+			if (key && switchTo(key, p.n, true)) return;
 		}
 	}
 }
