@@ -232,7 +232,7 @@ function surfaceHit(rc) {
 	// on a button) — the cabin is its own group beside the room, so a ray
 	// aimed at the button plate went straight through it to a print on the
 	// wall behind, and the lift's cursors could never come up at all.
-	for (const n of ['room', 'pieces', 'elevator', 'paper']) { const g = scene.getObjectByName(n); if (g && g.visible) targets.push(g); }   // 'paper': the options sheet, while it is up
+	for (const n of ['room', 'pieces', 'elevator', 'paper', 'strip']) { const g = scene.getObjectByName(n); if (g && g.visible) targets.push(g); }   // the sheet and the strip, while they are up
 	return targets.length ? rc.intersectObjects(targets, true)[0] : null;
 }
 
@@ -371,6 +371,21 @@ function checkIcon() {
 	}
 	return check;
 }
+// over the instant lift's print: the same tick in white
+let checkWhite = null;
+function checkWhiteIcon() {
+	if (!checkWhite) {
+		const c = document.createElement('canvas'); c.width = c.height = 128;
+		const g = c.getContext('2d');
+		g.strokeStyle = '#ffffff'; g.lineWidth = 14; g.lineCap = 'round'; g.lineJoin = 'round';
+		g.shadowColor = 'rgba(0,0,0,0.6)'; g.shadowBlur = 6;
+		g.beginPath(); g.moveTo(22, 66); g.lineTo(52, 100); g.lineTo(110, 24); g.stroke();
+		const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+		checkWhite = new THREE.Mesh(new THREE.PlaneGeometry(0.054, 0.054), new THREE.MeshBasicMaterial({ map: t, transparent: true, depthTest: false, side: THREE.DoubleSide }));
+		checkWhite.name = 'cursor-check-white'; checkWhite.renderOrder = 3; checkWhite.visible = false; scene.add(checkWhite);
+	}
+	return checkWhite;
+}
 // over a tape strip: a white × on a red square — a press takes the sheet down
 let close = null;
 function closeIcon() {
@@ -413,6 +428,8 @@ function overKind(hit) {
 		    o.name.startsWith('steel-') || o.name.startsWith('pocket-')) return 'button';
 		if (o.name === 'plate') return 'plate';
 		if (o.name === 'tape') return 'tape';          // the sheet's tape: a press takes it down
+		if (o.name === 'strip-card') return 'strip-card';   // the strip's print: a white tick
+		if (o.name === 'strip-rail') return 'button';
 		if (o.name === 'paper') return 'paper';        // the options sheet: a press ticks a line
 	}
 	return null;
@@ -445,7 +462,7 @@ export function stepSticker() {
 	freshen();
 	const rc = aimed();
 	const hit = rc && surfaceHit(rc);
-	if (!hit) { putBack(); settled = null; d.visible = x.visible = false; for (const c of [offer, expand, loupe, ring, disc, check, close]) if (c) c.visible = false; over = null; return; }
+	if (!hit) { putBack(); settled = null; d.visible = x.visible = false; for (const c of [offer, expand, loupe, ring, disc, check, checkWhite, close]) if (c) c.visible = false; over = null; return; }
 	// **how near the pointer comes to the place**, not how near the surface
 	// it happens to strike: the sticker is drawn to the ray itself (Uli,
 	// "adheres to the pointer in 12 cm range"). A place further along the
@@ -466,11 +483,11 @@ export function stepSticker() {
 	const showing = settled ? null
 		: inLift ? ({ button: discIcon(), plate: ringIcon() }[kind] || null)
 		: over ? (stuck ? x : offerRing())
-		: ({ print: expandIcon(), label: loupeIcon(), button: discIcon(), plate: ringIcon(), paper: checkIcon(), tape: closeIcon() }[kind] || d);
+		: ({ print: expandIcon(), label: loupeIcon(), button: discIcon(), plate: ringIcon(), paper: checkIcon(), tape: closeIcon(), 'strip-card': checkWhiteIcon() }[kind] || d);
 	d.material = aimMat;
 	// the loupe says which way a press takes the card: + to double it, − to put it back (Uli, 2026-09-19)
 	if (showing === loupe) loupe.userData.plus.visible = !(hit.object.scale.x > 1.5);
-	for (const c of [d, x, offer, expand, loupe, ring, disc, check, close]) if (c && c !== showing) c.visible = false;
+	for (const c of [d, x, offer, expand, loupe, ring, disc, check, checkWhite, close]) if (c && c !== showing) c.visible = false;
 	if (!showing) return;                             // just pressed here, and still here: say nothing
 	if (over) {
 		// **Both snap to the place** (Uli, 2026-09-13). The dot sits where

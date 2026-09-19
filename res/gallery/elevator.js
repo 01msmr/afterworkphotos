@@ -9,6 +9,7 @@ import { dropAllNear } from 'gallery/video';   // the floor's 2000s, handed back
 import { favCount, state } from 'gallery/state';
 import { placeBody, walk } from 'gallery/walk';
 import { paper } from 'gallery/paper';
+import { stripLift } from 'gallery/strip';
 
 // ---------------------------------------------------------------------------
 // The elevator
@@ -535,7 +536,7 @@ export const elevator = {
 			// the doors shut all the while; the body and the world are set
 			// once it stands.
 			if (!r.hanging) {
-				paper.hide();                      // the options sheet stays on the floor that is left
+				paper.hide(); stripLift.hide();    // the sheet and the strip stay on the floor that is left
 				dropAllNear();                     // the floor is left: its 2000s go back before the next floor's are read
 				lift.run(r.travel);
 				// the new room's cabin may stand elsewhere: the body keeps its

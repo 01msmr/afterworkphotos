@@ -2,6 +2,7 @@ import * as THREE from '../vendor/three.module.js';
 import { elevator } from 'gallery/elevator';
 import { BUTTON } from 'gallery/console';
 import { pressAlong } from 'gallery/press';
+import { stripLift } from 'gallery/strip';
 import { paper } from 'gallery/paper';
 import { cornerFree, outlineOf, planOf, rotShape } from 'gallery/plan';
 import { tabletHit } from 'gallery/tablet';
@@ -28,9 +29,10 @@ const controllers = [0, 1].map(i => {
 		const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(c.getWorldQuaternion(new THREE.Quaternion()));
 		rc.set(origin, dir);
 		if (tabletHit(rc)) return;   // the tablet on the open hand takes the ray first (Uli, 2026-09-11)
-		pressAlong(rc, 3);   // the trigger presses what it points at, nothing else (Uli, 2026-09-10:
+		pressAlong(rc, 3, c);   // the trigger presses what it points at, nothing else (Uli, 2026-09-10:
 		                     // pointing at a wall must not turn the room — a switch for that first)
 	});
+	c.addEventListener('selectend', () => stripLift.release());   // a scrub ends with the trigger
 	// a thin ray so you see what you point at
 	const ray = new THREE.Line(
 		new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -1)]),
@@ -152,14 +154,13 @@ function stepGamepads() {
 	const session = renderer.xr.getSession();
 	if (!session) return;
 	[...session.inputSources].forEach((src, i) => {
-		const b = src.gamepad && src.gamepad.buttons[5];
-		if (!b) return;
-		if (b.pressed && !bDown.get(src)) {
-			const c = renderer.xr.getController(i), rc = new THREE.Raycaster();
-			rc.set(c.getWorldPosition(new THREE.Vector3()), new THREE.Vector3(0, 0, -1).applyQuaternion(c.getWorldQuaternion(new THREE.Quaternion())));
-			paper.toggle(rc);
-		}
-		bDown.set(src, b.pressed);
+		const g = src.gamepad; if (!g) return;
+		const b = g.buttons[5], a = g.buttons[4];   // B/Y: the sheet; A on the right: the instant lift's strip
+		const ray = () => { const c = renderer.xr.getController(i), rc = new THREE.Raycaster(); rc.set(c.getWorldPosition(new THREE.Vector3()), new THREE.Vector3(0, 0, -1).applyQuaternion(c.getWorldQuaternion(new THREE.Quaternion()))); return rc; };
+		const was = bDown.get(src) || {};
+		if (b && b.pressed && !was.b) paper.toggle(ray());
+		if (a && a.pressed && !was.a && src.handedness === 'right') stripLift.toggle(ray());
+		bDown.set(src, { b: !!(b && b.pressed), a: !!(a && a.pressed) });
 	});
 }
 export function stepXR(dt) { stepHands(); stepGamepads(); }
