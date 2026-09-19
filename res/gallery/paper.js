@@ -1,6 +1,7 @@
 import * as THREE from '../vendor/three.module.js';
 import { setWire, wire } from 'gallery/bench';
 import { setSetting } from 'gallery/elevator';
+import { PRINT_GLOW } from 'gallery/frames';
 import { camera, head, scene } from 'gallery/scene';
 import { state } from 'gallery/state';
 
@@ -138,7 +139,10 @@ let group = null, sheet = null;
 const tapeMat = new THREE.MeshBasicMaterial({ color: 0xfff6dc, transparent: true, opacity: 0.55, depthWrite: false, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -6 });
 function build() {
 	group = new THREE.Group(); group.name = 'paper'; group.visible = false;
-	sheet = new THREE.Mesh(new THREE.PlaneGeometry(SHEET.w, SHEET.h), new THREE.MeshLambertMaterial({ map: tex, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -4 }));
+	// lit like paper by day; at night it keeps a little of itself, as the
+	// prints do (PRINT_GLOW), so it stays readable in a room lit by the
+	// pools alone (Uli, 2026-09-19)
+	sheet = new THREE.Mesh(new THREE.PlaneGeometry(SHEET.w, SHEET.h), new THREE.MeshLambertMaterial({ map: tex, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: PRINT_GLOW[state.settings.dark ? 'dark' : 'light'], polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -4 }));
 	sheet.name = 'sheet';
 	group.add(sheet);
 	const tape = (x, y, turn) => {
@@ -214,4 +218,5 @@ export function refreshPaper() { if (group && group.visible) draw(); }
 // the big tick settles: one redraw once its moment is over
 export function stepPaper(now) {
 	if (flash && now >= flash.until) { flash = null; if (group && group.visible) draw(); }
+	if (sheet && sheet.visible) sheet.material.emissiveIntensity = PRINT_GLOW[state.settings.dark ? 'dark' : 'light'];
 }
