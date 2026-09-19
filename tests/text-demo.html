@@ -35,6 +35,17 @@ const V = {
 	'C — B plus a 3 px stroke round the letters': { weight: [700, 600], size: [110, 100], ink: ['#000000', '#222222'], stroke: 3 },
 	'D — C with 6 px stroke': { weight: [700, 600], size: [110, 100], ink: ['#000000', '#222222'], stroke: 6 },
 };
+// before and after, side by side, at each distance
+function pair(title, a, b, sizes, labels = ['before', 'after']) {
+	const h = document.createElement('h2'); h.textContent = title; out.appendChild(h);
+	for (const [d, w] of Object.entries(sizes)) {
+		const row = document.createElement('div'); row.className = 'row';
+		[a, b].forEach((src, i) => { const c = shrink(src, w); const box = document.createElement('div'); box.appendChild(c); const l = document.createElement('div'); l.textContent = `${labels[i]} · ${d}`; box.appendChild(l); row.appendChild(box); });
+		out.appendChild(row);
+	}
+}
+const vals = Object.values(V);
+pair('Label card — before (600/500, near-black, no stroke) and after (700/600, black, 3 px stroke)', card(vals[0]), card(vals[2]), { '1.2 m': 230, '2 m': 137, '3 m': 92, 'doubled at 0.7 m': 480 });
 for (const [t, v] of Object.entries(V)) show(t, card(v));
 // the sheet: a title and two lines as paper.js draws them (Kalam bold), 1536 px wide, 0.5 m on the wall: at 1 m ≈ 580 px, 1.5 m ≈ 390 px, 2 m ≈ 290 px
 const SHEET = { px: 1536, lines: ['Nachtmodus', 'Bilderrahmen: Ahorn  Eiche  Nussbaum'] };
@@ -60,6 +71,8 @@ document.fonts.load('bold 78px Kalam').then(() => {
 		'Sheet B — a 3 px stroke round the letters': { title: 'bold 150px', line: 'bold 78px', ink: '#111111', stroke: 3 },
 		'Sheet C — a 5 px stroke, ink #000': { title: 'bold 150px', line: 'bold 78px', ink: '#000000', stroke: 5 },
 	};
+	const ws = Object.values(W);
+	pair('Options sheet — before (no stroke) and after (5 px stroke)', sheet(ws[0]), sheet(ws[2]), { '1 m': 580, '1.5 m': 390, '2 m': 290 });
 	for (const [t, v] of Object.entries(W)) showSheet(t, sheet(v));
 });
 </script></body></html>
