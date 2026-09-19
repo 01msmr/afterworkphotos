@@ -1,6 +1,5 @@
 import * as THREE from '../vendor/three.module.js';
-import { setWire, wire } from 'gallery/bench';
-import { setSetting } from 'gallery/elevator';
+import { LANGS, OPTIONS, getSetting, setSetting } from 'gallery/settings';
 import { PRINT_GLOW } from 'gallery/frames';
 import { camera, head, scene, world } from 'gallery/scene';
 import { state } from 'gallery/state';
@@ -37,24 +36,23 @@ export const PENS = { kalam: 'bold 1em Kalam', gloria: '1em "Gloria Hallelujah"'
 let pen = 'kalam';                              // the face in use; the bench may try another (paper.pen)
 const INK = '#111111', FAINT = '#a6a6a6';
 const font = (px, italic = false) => (italic ? 'italic ' : '') + PENS[pen].replace('1em', px + 'px') + ', "Marker Felt", sans-serif';
-const WOODS = ['maple', 'oak', 'walnut', 'black', 'white'];
 const T = {
 	en: { title: 'options', dark: 'night mode', frame: 'frames', maple: 'maple', oak: 'oak', walnut: 'walnut', black: 'black', white: 'white', labels: 'labels', mat: 'with passepartouts', talk: 'guard talks more', raise: 'high ceiling', wire: 'wireframe', lang: 'language', en: 'English', de: 'German' },
 	de: { title: 'Einstellungen', dark: 'Nachtmodus', frame: 'Bilderrahmen', maple: 'Ahorn', oak: 'Eiche', walnut: 'Nussbaum', black: 'schwarz', white: 'weiß', labels: 'Beschriftung', mat: 'mit Passepartouts', talk: 'Wärter redet mehr', raise: 'hohe Decke', wire: 'Drahtgitter', lang: 'Sprache', en: 'Englisch', de: 'Deutsch' },
 };
-export const LANGS = Object.keys(T);
-// what is on the sheet, in order: a `check` is one box, a `group` a box
-// per value under a heading, `rows` how the values are split into lines
-const LINES = [
-	{ kind: 'check', key: 'dark',   get: () => state.settings.dark,             set: v => setSetting('dark', v) },
-	{ kind: 'group', key: 'frame',  values: WOODS, rows: [3, 2],                get: () => state.settings.frame,           set: v => setSetting('frame', v) },
-	{ kind: 'check', key: 'labels', get: () => state.settings.labels,           set: v => setSetting('labels', v) },
-	{ kind: 'check', key: 'mat',    get: () => !state.settings.fill,            set: v => setSetting('fill', !v) },   // inverted: the box says the mat is there
-	{ kind: 'check', key: 'talk',   get: () => state.settings.talk === 'heavy', set: v => setSetting('talk', v ? 'heavy' : 'light') },
-	{ kind: 'check', key: 'raise',  get: () => state.settings.raise === 1,      set: v => setSetting('raise', v ? 1 : 0) },
-	{ kind: 'check', key: 'wire',   get: () => wire,                            set: v => setWire(v) },
-	{ kind: 'group', key: 'lang',   values: LANGS, rows: [2],                   get: () => state.settings.lang,            set: v => setSetting('lang', v) },
-];
+// what is on the sheet, from the options' registry (settings.js): a
+// `check` is one box, a `group` a box per value under a heading, `rows`
+// how the values are split into lines; `word` the line's word where it is
+// not the key's, `inverted` a box that means the opposite of the value,
+// on/off the values a two-valued word stands for
+const LINES = OPTIONS.filter(o => o.sheet).map(o => {
+	const sh = o.sheet, val = v => sh.inverted ? !v : v;
+	return {
+		key: sh.word || o.key, kind: sh.kind, values: sh.values, rows: sh.rows,
+		get: () => sh.kind === 'group' ? getSetting(o.key) : sh.on !== undefined ? getSetting(o.key) === sh.on : val(getSetting(o.key)),
+		set: v => setSetting(o.key, sh.kind === 'group' ? v : sh.on !== undefined ? (v ? sh.on : sh.off) : val(v)),
+	};
+});
 
 const canvas = document.createElement('canvas'); canvas.width = PX; canvas.height = PY;
 const tex = new THREE.CanvasTexture(canvas);
