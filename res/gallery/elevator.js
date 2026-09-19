@@ -1,15 +1,14 @@
 import * as THREE from '../vendor/three.module.js';
-import { MAT_COLOURS, applyFrameLook, materials, tex, textureCache } from 'gallery/frames';
-import { ELEVATOR, FAV_KEY, clearRooms, firstRoom, hangRoom, hangRoomSteps, raiseRoof, roomByKey, rooms } from 'gallery/hang';
-import { WALL_STYLES, applyMode, dadoTop, dressWall, edgeLines, wallColours } from 'gallery/room';
+import { materials, tex, textureCache } from 'gallery/frames';
+import { ELEVATOR, FAV_KEY, clearRooms, hangRoom, hangRoomSteps, roomByKey, rooms } from 'gallery/hang';
+import { WALL_STYLES, dadoTop, dressWall, edgeLines, wallColours } from 'gallery/room';
 import { camera, head, renderer, scene, world } from 'gallery/scene';
-import { applyFill, zoomLabel, zoomPrint } from 'gallery/zoom';
+import { zoomLabel, zoomPrint } from 'gallery/zoom';
 import { stickAt } from 'gallery/sticker';
 import { dropAllNear } from 'gallery/video';   // the floor's 2000s, handed back when it is left
-import { PLANS, RAISES, favCount, state } from 'gallery/state';
-import { planAgain } from 'gallery/vr';
+import { favCount, state } from 'gallery/state';
 import { placeBody, walk } from 'gallery/walk';
-import { paper, refreshPaper } from 'gallery/paper';
+import { paper } from 'gallery/paper';
 
 // ---------------------------------------------------------------------------
 // The elevator
@@ -1030,57 +1029,13 @@ addEventListener('keydown', e => {
 });
 
 // ---------------------------------------------------------------------------
-// The switchboard
-//
-// The settings, and what each one does when it changes. Light and frame
-// and mat colour touch shared materials and are instant; mat 'none', the
-// scale and the room's size change what hangs and rehang. They are set
-// on the switchplate by the lift and on the settings map (B); the ones
-// not on it (mat, scale, the room's size) by the URL (?mat=none&scale=0.8
-// &W=7) — the DOM board that had them went (Uli, 2026-09-05).
+// The bench's keys (the settings themselves are gallery/settings.js and
+// their sheet gallery/paper.js, since 2026-09-19)
 
-function saveSettings() {
-	try { localStorage.setItem('galleryS', JSON.stringify(state.settings)); } catch (e) {}
-}
-
-function rehang() {
-	clearRooms();                         // sizes may have changed which years split
-	const wanted = state.roomKey;
-	const key = rooms().some(r => r.key === wanted) ? wanted : rooms().find(r => r.year === state.year)?.key || firstRoom().key;
-	state.room = null;                       // force the room and the cabin to rebuild
-	hangRoom(key);
-	elevator.setDoors(1);
-}
-
-export function setSetting(k, v) {
-	const s = state.settings;
-	if (s[k] === v) return;
-	s[k] = v;
-	saveSettings();
-	switch (k) {
-		case 'dark':
-			applyMode(v);
-			// night takes a dark wood with it and day a light one (Uli,
-			// 2026-09-19) — unless the wood already suits; and the wood switch
-			// still goes wherever it is put afterwards
-			if (v && !['walnut', 'black'].includes(s.frame)) setSetting('frame', 'walnut');
-			else if (!v && ['walnut', 'black'].includes(s.frame)) setSetting('frame', 'maple');
-			break;
-		case 'frame':  applyFrameLook(materials.frame, v); break;
-		case 'labels': scene.traverse(o => { if (o.name === 'label' || o.name === 'label-rims') o.visible = v; }); break;
-		case 'fill':   applyFill(); break;    // every print to the way it now rests; nothing re-hung
-		case 'plan':   planAgain(); break;    // the scan planned again; with no scan the switch only shows its state
-		case 'mat':
-			materials.mat.color.setHex(MAT_COLOURS[v]);
-			rehang();                         // 'none' and back change the print's size
-			break;
-		case 'raise':  raiseRoof(); break;    // the shell only; the pictures stay as they hang
-		case 'lang':   break;                 // the sheet redraws itself below
-		case 'talk':   break;                 // the guard reads it as he speaks
-		default: rehang();                    // scale, W, D, H
-	}
-	refreshPaper();
-}
+addEventListener('keydown', e => {
+	if (e.code === 'KeyF') { floors.hidden = !floors.hidden; if (!floors.hidden) renderFloors(); }   // F lists the floors — Y turns now (Uli)
+	if (e.code === 'Escape') floors.hidden = true;
+});
 
 addEventListener('keydown', e => {
 	if ((e.code === 'KeyB' || e.code === 'KeyO') && !e.repeat) { const rc = new THREE.Raycaster(); rc.setFromCamera(new THREE.Vector2(0, 0), camera); paper.toggle(rc); }   // B like the controller's, or O (Uli): the sheet where the view's middle points
