@@ -19,7 +19,7 @@ import { state } from 'gallery/state';
 // and a circle marks the spot; standing in it the room switches in the
 // dark (jump.js, switchTo) and the line leads on to the print.
 
-const STRIP = { w: 0.05, h: 1.2, card: 0.12, gap: 0.05, fine: 0.03, fineGap: 0.015, slow: 0.25 };   // h: set to the room's height when pinned; fine: the grey strip left of it, a quarter of the pace
+const STRIP = { w: 0.05, h: 1.2, card: 0.12, gap: 0.05, fine: 0.03, fineGap: 0.015 };   // h: set to the room's height when pinned; fine: the grey strip left of it, half of it a year
 const GREEN = 0x46ff7a;
 let group = null, strip = null, fine = null, card = null, mark = null, ring = null;
 let fineFrom = null;                          // { y, at }: where a fine scrub began
@@ -123,9 +123,10 @@ export const stripLift = {
 	},
 	release() { held = null; fineFrom = null; },
 	scrub(rc) {
-		if (fineFrom) {                                  // the grey strip: a quarter of the black's pace, from where the press began
+		if (fineFrom) {                                  // the grey strip: half its length runs through one year's pictures, from where the press began (Uli)
 			const hit = rc.intersectObject(fine, false)[0]; if (!hit) return;
-			show(Math.round(fineFrom.at + (fineFrom.y - hit.uv.y) * (pile().length - 1) * STRIP.slow));
+			const list = pile(), year = list[fineFrom.at].taken.slice(0, 4), inYear = list.filter(p => p.taken.slice(0, 4) === year).length;
+			show(Math.round(fineFrom.at + (fineFrom.y - hit.uv.y) / 0.5 * inYear));
 			return;
 		}
 		const hit = rc.intersectObject(strip, false)[0];
