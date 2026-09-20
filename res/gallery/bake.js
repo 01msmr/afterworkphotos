@@ -359,10 +359,10 @@ function makeCard(lines, cw) {
 // column, and there the cards of the first row of pictures and the first
 // card of the second ran on at the same 3.5 cm. Cards keep their 3.5 cm;
 // where the column crosses from one row of pictures to the next, a
-// further LABEL_ROW_BREAK opens — 5.5 cm in all (Uli) — so each row's
+// further LABEL_ROW_BREAK opens — 7 cm in all (Uli; 5.5 first) — so each row's
 // cards read as a group.
 // (A day earlier every row had been set 6 cm apart — not what was meant.)
-const LABEL_GAP = 0.02, LABEL_VGAP = 0.035, LABEL_ROW_BREAK = 0.02, SINGLE_CARD = 0.264, LABEL_OFF = 0.05, CORNER_KEEP = 0.35;   // the card 24 cm until 2026-09-20, a tenth larger since
+const LABEL_GAP = 0.02, LABEL_VGAP = 0.035, LABEL_ROW_BREAK = 0.035, SINGLE_CARD = 0.264, LABEL_OFF = 0.05, CORNER_KEEP = 0.35;   // the card 24 cm until 2026-09-20, a tenth larger since
 export function addLabel(piece, spec, w, h) {
 	// a row of three or a pair stacks its cards in a column (Uli); a grid keeps its pattern
 	// one size of card for everything, a grid's as well as a single's

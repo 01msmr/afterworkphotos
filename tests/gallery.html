@@ -200,7 +200,7 @@ async function run() {
 	if (!findFold()) for (const r of (await mod('hang')).rooms().filter(r => !r.favs && r.specs.some(sp => sp.rows > 1))) { G.hangRoom(r.key); await sleep(500); if (findFold()) break; }
 	const gapAt = (L, i) => +(L.cards[i].position.y - L.cards[i + 1].position.y - L.ch).toFixed(3);
 	const within = folded && gapAt(folded, 0), across = folded && gapAt(folded, folded.cols0 - 1);
-	say(!!folded && Math.abs(within - 0.035) < 1e-3 && Math.abs(across - 0.055) < 1e-3, `labels: a folded grid's cards ${within} m apart, ${across} m where a row of pictures ends`, folded ? `${folded.cards.length} cards, ${folded.cols0} a row` : 'no folded grid found');
+	say(!!folded && Math.abs(within - 0.035) < 1e-3 && Math.abs(across - 0.07) < 1e-3, `labels: a folded grid's cards ${within} m apart, ${across} m where a row of pictures ends`, folded ? `${folded.cards.length} cards, ${folded.cols0} a row` : 'no folded grid found');
 	// the labels switch takes the paper off and leaves the card, so a sticker stays where it is and can still be stuck
 	const withDot = []; G.scene.getObjectByName('pieces').traverse(o => { if (o.name === 'dot') withDot.push(o); });
 	const dot0 = withDot[0], card0 = dot0 && dot0.parent;
