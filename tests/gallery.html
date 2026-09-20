@@ -200,7 +200,14 @@ async function run() {
 	// the gap between two neighbouring rows: distinct card heights, the nearest pair
 	const gapOf = L => { const ys = [...new Set(L.cards.map(c => +c.position.y.toFixed(4)))].sort((a, b) => b - a); return ys.length < 2 ? null : +(ys[0] - ys[1] - L.ch).toFixed(3); };
 	const gs = stack && gapOf(stack), gg = grid && gapOf(grid);
-	say(gs !== null && gs > 0.05 && (gg === null || gs > gg), `labels: a column of cards stands ${gs} m apart, a grid's rows ${gg}`, `${stack ? stack.cards.length : 0} in the column`);
+	say(gs !== null && gs > 0.05 && (gg === null || gg > 0.05), `labels: a column of cards stands ${gs} m apart, a grid's rows ${gg}`, `${stack ? stack.cards.length : 0} in the column`);
+	// the labels switch takes the paper off and leaves the card, so a sticker stays where it is and can still be stuck
+	const withDot = []; G.scene.getObjectByName('pieces').traverse(o => { if (o.name === 'dot') withDot.push(o); });
+	const dot0 = withDot[0], card0 = dot0 && dot0.parent;
+	G.setSetting('labels', false); await sleep(50);
+	const off = { paper: card0 && card0.material.visible, card: card0 && card0.visible, dotDrawn: dot0 && dot0.visible !== undefined && card0.visible && card0.parent.visible };
+	G.setSetting('labels', true); await sleep(50);
+	say(!!card0 && off.paper === false && off.card === true && card0.material.visible === true, 'labels off: the paper goes, the card and its sticker stay', `paper ${off.paper} · card ${off.card}`);
 
 	// the loupe over a card: in the card's own plane, and its glass a white pane
 	const St = await mod('sticker');

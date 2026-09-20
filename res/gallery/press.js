@@ -48,7 +48,7 @@ export function pressAlong(rc, reach, hand = null) {
 	if (pieces) {
 		const labels = [], prints = [];
 		pieces.traverse(o => {
-			if (o.name === 'label' && o.visible) labels.push(o);
+			if (o.name === 'label' && o.material.visible) labels.push(o);   // a card with its paper off is not there to press
 			else if (o.name === 'photo' && o.visible) prints.push(o);
 			// the pane over the frame's opening: never drawn, but pressed
 			else if (o.name === 'photo-area') prints.push(o);
