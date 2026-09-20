@@ -114,6 +114,7 @@ scene.onAfterRender = () => { if (!probe.bits && renderer.xr.isPresenting) probe
 function stepProbe(now) {
 	probe.frames++;
 	if (now - probe.at < 1000) return;
+	if (elevator.faultText) { frameCost.worst = { ms: 0, step: '', stepMs: 0 }; probe.frames = 0; probe.at = now; return; }   // a fault holds the line: the probe does not write over it
 	if (renderer.xr.isPresenting && probe.at && wire) {
 		const rs = renderer.xr.getSession().renderState, kind = rs.layers && rs.layers.length ? 'proj' : 'base';
 		const w = frameCost.worst;

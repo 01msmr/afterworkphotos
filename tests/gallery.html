@@ -70,13 +70,17 @@ async function run() {
 	G.elevator.placeInCabin(); G.stepWalk(performance.now());
 	const from = G.state.roomKey, to = G.rooms().filter(r => !r.favs && r.key !== from)[1].key;
 	const dts = []; let last = performance.now(), alive = true;
-	(function loop() { if (!alive) return; const t = performance.now(); dts.push(t - last); last = t; w.requestAnimationFrame(loop); })();
+	// and which step of the loop was the longest while the ride ran, so a
+	// slow frame says what ate it instead of only how long it was
+	const worstStep = {};
+	(function loop() { if (!alive) return; const t = performance.now(); dts.push(t - last); last = t; for (const [k, v] of Object.entries(G.frameCost.steps)) if (v > (worstStep[k] || 0)) worstStep[k] = v; w.requestAnimationFrame(loop); })();
 	G.elevator.go(to);
 	const t0 = performance.now(); while (G.elevator.ride && performance.now() - t0 < 30000) await sleep(200);
 	alive = false;
 	const worst = Math.max(...dts.slice(5));
 	say(!G.elevator.ride && G.state.roomKey === to && G.elevator.open === 1, `ride ${from} → ${to} completes, doors open`, `${Math.round(performance.now() - t0)} ms`);
-	say(worst < 45, 'ride: no frame over 45 ms on the bench', `worst ${worst.toFixed(0)} ms`);
+	const slowest = Object.entries(worstStep).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k, v]) => `${k} ${v.toFixed(0)}`).join(' · ');
+	say(worst < 45, 'ride: no frame over 45 ms on the bench', `worst ${worst.toFixed(0)} ms · slowest steps: ${slowest}`);
 	let photos = 0, withImg = 0; G.scene.getObjectByName('pieces').traverse(o => { if (o.name === 'photo') { photos++; if (o.material.map.image) withImg++; } });
 	say(photos && photos === withImg, 'ride: every picture on the GPU when the doors open', `${withImg}/${photos}`);
 	// a ride back: what the left room owned is gone again
@@ -188,6 +192,40 @@ async function run() {
 	G.state.settings.W = W0; G.state.settings.D = D0; G.state.real = real0; Fh.clearRooms(); Fh.rooms(); G.elevator.relistFloors();
 	const one = favCaps();
 	say(split.length === parts.length && one.length === 1 && G.elevator.panel.parent, `console: ${split.length} favourites caps while split, one again when they fit`, `${split.join(' ')} → ${one.join(' ')}`);
+	// a stack of cards gets more air between them than a grid's own rows
+	const stackRoom = (await mod('hang')).rooms().find(r => !r.favs && r.specs.some(sp => sp.photos.length > 1 && sp.rows === 1));
+	G.hangRoom(stackRoom ? stackRoom.key : '2024-2'); await sleep(600);
+	let stack = null, grid = null;
+	G.scene.getObjectByName('pieces').traverse(o => { const L = o.userData.labels; if (!L || L.cards.length < 2) return; if (L.cols === 1 && !stack) stack = L; if (L.cols > 1 && L.cards.length > L.cols && !grid) grid = L; });
+	// the gap between two neighbouring rows: distinct card heights, the nearest pair
+	const gapOf = L => { const ys = [...new Set(L.cards.map(c => +c.position.y.toFixed(4)))].sort((a, b) => b - a); return ys.length < 2 ? null : +(ys[0] - ys[1] - L.ch).toFixed(3); };
+	const gs = stack && gapOf(stack), gg = grid && gapOf(grid);
+	say(gs !== null && gs > 0.05 && (gg === null || gs > gg), `labels: a column of cards stands ${gs} m apart, a grid's rows ${gg}`, `${stack ? stack.cards.length : 0} in the column`);
+
+	// the loupe over a card: in the card's own plane, and its glass a white pane
+	const St = await mod('sticker');
+	let anyCard = null; G.scene.getObjectByName('pieces').traverse(o => { if (!anyCard && o.name === 'label' && o.visible && !o.parent.userData.slab) anyCard = o; });
+	if (anyCard) {
+		const cw = anyCard.getWorldPosition(V3()), cq = anyCard.getWorldQuaternion(new THREE.Quaternion());
+		const face = V3(0, 0, 1).applyQuaternion(cq), D = 1.0;
+		G.walk.pos.set(cw.x + face.x * D, 1.6, cw.z + face.z * D);
+		const look = () => { G.stepWalk(performance.now()); G.scene.updateMatrixWorld(true); G.camera.updateMatrixWorld(true); };
+		// aim the eye at the card, whichever way round the yaw is counted
+		G.walk.yaw = 0; G.walk.pitch = 0; look();
+		const eye = G.camera.getWorldPosition(V3()), to = cw.clone().sub(eye);
+		G.walk.yaw = Math.atan2(to.x, to.z); G.walk.pitch = 0; look();
+		if (G.camera.getWorldDirection(V3()).dot(to.clone().normalize()) < 0.9) { G.walk.yaw += Math.PI; look(); }
+		G.walk.pitch = Math.asin(to.clone().normalize().y); look();
+		if (G.camera.getWorldDirection(V3()).dot(to.clone().normalize()) < 0.99) { G.walk.pitch = -G.walk.pitch; look(); }
+		St.stepSticker();
+	}
+	const lp = G.scene.getObjectByName('cursor-loupe');
+	const glass = lp && lp.children.find(o => o.geometry.type === 'CircleGeometry');
+	const lq = lp && lp.getWorldQuaternion(new THREE.Quaternion());
+	const cardq = anyCard && anyCard.getWorldQuaternion(new THREE.Quaternion());
+	const planar = lq && cardq && Math.abs(V3(0, 0, 1).applyQuaternion(lq).dot(V3(0, 0, 1).applyQuaternion(cardq))) > 0.999;
+	say(!!lp && lp.visible && planar && !!glass && glass.material.opacity === 0.3 && glass.material.color.getHex() === 0xffffff,
+		'loupe: over a card it lies in the card\'s plane, its glass white at 30 %', `${lp && lp.visible ? 'shown' : 'not shown'} · planar ${planar} · glass ${glass ? glass.material.opacity : '—'}`);
 	G.state.favs.clear(); for (const id of favs0) G.state.favs.add(id);
 	G.setSetting('lang', lang0);
 	Fh.clearRooms(); Fh.rooms(); G.elevator.relistFloors();
