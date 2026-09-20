@@ -175,7 +175,7 @@ export function buildConsole(elevator, roomList) {
 	// over the topmost year. The thin years merged into one room each
 	// keep a button of their own to it.
 	const list = roomList;
-	const favRooms = list.filter(r => r.favs);   // one floor, or its parts when the dots outgrew a real room (hang.js) — a line each
+	const favRooms = list.filter(r => r.favs).sort((a, b) => (a.part || 0) - (b.part || 0));   // one floor, or its parts when the dots outgrew a real room (hang.js); a line reads 1 2, as a year's parts do
 	// **Built once, but not for ever** (Uli, 2026-09-20: the favourites were
 	// split and the console still carried the one button). The panel is
 	// carried from cabin to cabin so a ride costs no canvases — and the
@@ -183,18 +183,16 @@ export function buildConsole(elevator, roomList) {
 	// favourites into parts, a room size re-splits the years. Whenever the
 	// list's keys differ from the ones the caps wear, the panel is dropped
 	// and made again; while they are the same, nothing is rebuilt.
-	// **Two side by side once there are three** (Uli, 2026-09-20): one
-	// favourites floor, or two, keeps a line each over the topmost year —
-	// a double-wide button, the word reads at a glance. From three on they
-	// would be a tower, so they pair up, two to a line, and the plate is
-	// as wide as the pair.
-	const favPerLine = favRooms.length >= 3 ? 2 : 1;
-	const favLines = Math.ceil(favRooms.length / favPerLine);
-	const favWide = 2 * favPerLine;
 	const keys = list.map(r => r.key).join(' ');
 	if (elevator.panel && elevator.panel.userData.keys !== keys) {
 		elevator.panel.removeFromParent();
-		elevator.panel.traverse(o => { if (o.isMesh) { o.geometry.dispose(); const m = o.material; if (m !== materials.frame) { if (m.map && m.map !== atlasTex()) m.map.dispose(); m.dispose(); } } });
+		// only what the panel owns: its geometries and the caps' own
+		// materials. The plates wear the frames' wood, the pockets and the
+		// steels their module-level materials — and a steel's map is the
+		// gallery's one metal texture, shared with every metal surface in
+		// the room (frames.js, `metal`). Disposing those would take the
+		// lift's own skin with them.
+		elevator.panel.traverse(o => { if (!o.isMesh) return; o.geometry.dispose(); if (o.userData.cap) o.material.dispose(); });
 		if (atlas) { atlas.tex.dispose(); atlas = null; }
 		elevator.panel = null;
 		elevator.buttons = [];
@@ -205,9 +203,22 @@ export function buildConsole(elevator, roomList) {
 	const rowsOf = years.map(y => ({ year: y, rooms: byYear.get(y).sort((p, q) => (p.part || 0) - (q.part || 0)) }));
 	const half = Math.ceil(rowsOf.length / 2);
 	const columns = [rowsOf.slice(0, half), rowsOf.slice(half)].filter(c => c.length);
+	// **Two side by side once there are three, across the width the years
+	// already ask for** (Uli, 2026-09-20). One favourites floor, or two,
+	// keeps a line each over the topmost year — a double-wide button, the
+	// word reads at a glance. From three on they would be a tower, so they
+	// pair up, two to a line — and the plate is not widened for them: they
+	// share the width of the widest year's row of buttons, two across the
+	// three a split year has. The plate only ever grows to hold a year.
+	const yearWide = columns.length ? Math.max(1, ...columns[0].map(r => r.rooms.length)) : 1;
+	const favPerLine = favRooms.length >= 3 && yearWide >= 3 ? 2 : 1;
+	const favLines = Math.ceil(favRooms.length / favPerLine);
+	const favWide = favPerLine > 1 ? yearWide : Math.max(2, yearWide);   // a pair shares the year's own width; a lone button is two caps wide
 	const margin = PANEL.margin, between = 0.02;   // and the gap between two plates
+	let p_wide = 2;                                // the first plate's width in caps, for the favourites' share of it
 	const plates = columns.map((col, i) => {
 		const wide = Math.max(i === 0 && favRooms.length ? favWide : 1, ...col.map(r => r.rooms.length));
+		p_wide = i === 0 ? wide : p_wide;
 		const rows = col.length + favLines;            // the favourites' lines on every plate: the years start on one line across them (Uli, 2026-09-19)
 		return { col, wide, rows, w: wide * BUTTON.pitchX + 2 * margin, h: rows * BUTTON.pitchY + 2 * margin };
 	});
@@ -264,7 +275,8 @@ export function buildConsole(elevator, roomList) {
 		// through the caps beside it.
 		// the faces first, all of them into the atlas, then the buttons
 		const entries = [];
-		for (const room of favRooms) entries.push({ year: 'favourites', room, wide: 2 });
+		const favCapWide = p_wide / favPerLine;    // two across the plate, or the whole of it
+		for (const room of favRooms) entries.push({ year: 'favourites', room, wide: favCapWide });
 		for (const p of plates) for (const { year, rooms: rs } of p.col) for (const room of rs) entries.push({ year, room, wide: 1 });
 		const atlas = faceAtlas(entries);
 		let n = 0;
@@ -291,9 +303,9 @@ export function buildConsole(elevator, roomList) {
 		const cell = (p, c, r) => ({ x: p.x0 - margin - BUTTON.pitchX * (c + 0.5), y: p.y0 - margin - BUTTON.pitchY * (r + 0.5) });
 		plates.forEach((p, i) => {
 			let row = favLines;                        // the top lines are the favourites' — filled on the first plate, left empty on the others
-			if (i === 0) favRooms.forEach((room, k) => {   // the favourites: two columns wide each, over the topmost year
-				const { x, y } = cell(p, 0.5 + 2 * (k % favPerLine), Math.floor(k / favPerLine));
-				button(room, x, y, 2);
+			if (i === 0) favRooms.forEach((room, k) => {   // the favourites over the topmost year, sharing the plate's width
+				const { x, y } = cell(p, (k % favPerLine + 0.5) * favCapWide - 0.5, Math.floor(k / favPerLine));
+				button(room, x, y, favCapWide);
 			});
 			for (const { rooms: rs } of p.col) {
 				rs.forEach((room, c) => { const { x, y } = cell(p, c, row); button(room, x, y); });

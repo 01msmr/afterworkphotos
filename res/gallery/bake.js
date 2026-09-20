@@ -282,8 +282,11 @@ export function atlasLabels(pieces) {
 	const maxTex = renderer.capabilities.maxTextureSize;
 	for (const dir of dirs.values()) {
 		const n = dir.cards.length;
-		const cols = Math.min(Math.max(1, Math.ceil(Math.sqrt(n * CARD_PY / CARD_PX))), Math.floor(maxTex / CARD_PX));
-		const W = cols * CARD_PX, H = Math.ceil(n / cols) * CARD_PY;
+		// as square as the count allows, and inside the GPU's largest
+		// texture **both ways**: enough columns that the rows fit too
+		const fit = Math.floor(maxTex / CARD_PX), rowsFit = Math.floor(maxTex / CARD_PY);
+		const cols = Math.min(fit, Math.max(1, Math.ceil(n / rowsFit), Math.ceil(Math.sqrt(n * CARD_PY / CARD_PX))));
+		const W = cols * CARD_PX, H = Math.min(rowsFit, Math.ceil(n / cols)) * CARD_PY;
 		Object.assign(dir, { W, H, done: 0, data: new Uint8Array(W * H).fill(PAPER_LIN), material: greyMaterial() });
 		dir.tex = greyTexture(dir.data, W, H);
 		dir.material.userData.atlas = dir.tex;                   // freed with the room (hang.js, disposeRoom)
@@ -305,8 +308,10 @@ function blit(px, dir, col, row) {
 export function stepCards() {
 	for (let n = 0; n < CARDS_A_FRAME && pending.length; n++) {
 		const { card, dir, col, row } = pending.shift();
-		if (!card.parent) continue;                              // the room it belonged to has gone
-		blit(drawCard(card.userData.lines), dir, col, row);
+		// a card whose room has gone is not drawn — but it is still counted,
+		// or its direction never completes and every card on that wall keeps
+		// its one paper pixel for the life of the room
+		if (card.parent) blit(drawCard(card.userData.lines), dir, col, row);
 		if (++dir.done < dir.cards.length) continue;
 		queueUpload(dir.tex, () => { dir.material.map = dir.tex; dir.material.emissiveMap = dir.tex; });   // up in its turn, then on the cards: a map for a map, the defines have not moved
 	}
@@ -340,7 +345,12 @@ function makeCard(lines, cw) {
 // of the room, where the slab reaches down to hold it. Built with the
 // spacing known; a grid is placed for good in hangRoom, when the room to
 // its right is.
-const LABEL_GAP = 0.02, LABEL_VGAP = 0.035, GRID_CARD = 0.16, SINGLE_CARD = 0.24, LABEL_OFF = 0.05, CORNER_KEEP = 0.35;   // between the cards' columns, and between their rows (Uli: a small gap)
+// between the cards' columns, and between their rows (Uli: a small gap).
+// **A stack gets more air** (Uli, 2026-09-20): cards under one another —
+// a row of three, a pair, a grid whose pattern did not fit beside the
+// piece — read as one block at 3.5 cm, which is the gap between the rows
+// *inside* a grid's pattern. A column of them wants the wider one.
+const LABEL_GAP = 0.02, LABEL_VGAP = 0.035, LABEL_STACK_VGAP = 0.06, GRID_CARD = 0.16, SINGLE_CARD = 0.24, LABEL_OFF = 0.05, CORNER_KEEP = 0.35;
 export function addLabel(piece, spec, w, h) {
 	// a row of three or a pair stacks its cards in a column (Uli); a grid keeps its pattern
 	// one size of card for everything, a grid's as well as a single's
@@ -349,7 +359,7 @@ export function addLabel(piece, spec, w, h) {
 	const cards = spec.photos.map(p => { const c = makeCard(labelLines([p]), cw); c.userData.photo = p; return c; });   // the card knows its photograph: the red dot under it is that photograph's (sticker.js)
 	const ch = Math.max(...cards.map(c => c.userData.ch));
 	const rows = Math.ceil(cards.length / cols);
-	piece.userData.labels = { cards, cols, cols0: cols, cw, ch, bw: cols * cw + (cols - 1) * LABEL_GAP, bh: rows * ch + (rows - 1) * LABEL_GAP, grid };   // cols0: the grid's own pattern; cols: as placed
+	piece.userData.labels = { cards, cols, cols0: cols, cw, ch, bw: cols * cw + (cols - 1) * LABEL_GAP, bh: rows * ch + (rows - 1) * LABEL_VGAP, grid };   // (the rows' gap, not the columns'; placeLabels sets it again for the place it finds)   // cols0: the grid's own pattern; cols: as placed
 	for (const c of cards) piece.add(c);
 	placeLabels(piece, w, h, Infinity);
 }
@@ -369,13 +379,14 @@ export function placeLabels(piece, w, h, roomRight, forceBelow = false) {
 	const below = !L.grid || forceBelow || !fits(cols);
 	L.cols = cols;
 	const rows = Math.ceil(L.cards.length / cols);
-	L.bw = cols * L.cw + (cols - 1) * LABEL_GAP; L.bh = rows * L.ch + (rows - 1) * LABEL_VGAP;
+	const vgap = cols === 1 && rows > 1 ? LABEL_STACK_VGAP : LABEL_VGAP;   // a column of cards, or the rows of a grid's own pattern
+	L.bw = cols * L.cw + (cols - 1) * LABEL_GAP; L.bh = rows * L.ch + (rows - 1) * vgap;
 	// the block's top-left corner: beside with its bottom on the piece's
 	// bottom, or under it with its right on the piece's right
 	const x0 = below ? w / 2 - L.bw : w / 2 + LABEL_OFF, y0 = below ? -h / 2 - 0.03 : -h / 2 + L.bh;
 	L.cards.forEach((card, i) => {
 		const col = i % L.cols, row = Math.floor(i / L.cols);
-		card.position.set(x0 + col * (L.cw + LABEL_GAP) + L.cw / 2, y0 - row * (L.ch + LABEL_VGAP) - card.userData.ch / 2, CARD_REST_Z);   // its back on the wall, its face 4 mm out
+		card.position.set(x0 + col * (L.cw + LABEL_GAP) + L.cw / 2, y0 - row * (L.ch + vgap) - card.userData.ch / 2, CARD_REST_Z);   // its back on the wall, its face 4 mm out
 		Object.assign(card.userData, { x0: card.position.x, y0: card.position.y, below });
 	});
 	piece.userData.labelDrop = below ? 0.03 + L.bh : 0;   // what hangs under the frame, for the slab
