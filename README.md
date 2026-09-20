@@ -105,4 +105,5 @@ A on the right controller pins a strip on the wall: the black strip scrubs the w
 - `secret.php` is tracked and its token is in the history: rotate it, remove the legacy PHP files.
 - iPad on the device: rotation with a move in flight, the corner-radius fallback, trackpad Safari counting as touch.
 - Next: the contact sheet (pinch to spread the pile into a grid).
+- Snap next: uploading photographs taken on other devices, not only the one shot in the app — the same endpoint and the same `inbox/`, so nothing here changes but the volume (planned 2026-09-20).
 - Gallery next: memory and the big pictures — a 2000 px texture pool, compressed textures (KTX2/Basis), the 1200s dropped behind you in a large room, progressive JPEGs with a bitmap LRU. The label atlases, the fourth of the five, are done. The plan is `docs/superpowers/specs/2026-09-20-gallery-memory-design.md`, the list `docs/details.md`, *Known issues*.
