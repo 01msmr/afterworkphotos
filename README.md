@@ -1,6 +1,6 @@
 # afterworkphotos
 
-[afterworkphotos.com](https://afterworkphotos.com) — square photos, taken after work. Two static pages, the site and a VR gallery: no build step, no framework. Photos arrive through `inbox/`; a GitHub workflow does the rest. How everything works, in depth: [docs/details.md](docs/details.md).
+[afterworkphotos.com](https://afterworkphotos.com) — square photos, taken after work. Two static pages, the site and a VR gallery: no build step, no framework. Photos arrive in `inbox/` — from the phone through the **afterworksnap** app (repo [`afterworkphotos-snap`](https://github.com/01msmr/afterworkphotos-snap), posting to `snap.afterworkphotos.com`) — and a GitHub workflow does the rest. How everything works, in depth: [docs/details.md](docs/details.md).
 
 ## Files
 
