@@ -130,12 +130,9 @@ const LINES = {
 		'The lift takes its time. It always has.',
 		'There is another floor above this one.',
 	],
-	// the instant lift: the way to its door, then to the print
-	toSpot: [
-		'This way, please. Follow the line and stand in the circle.',
-		'The line takes you to the circle. Stand in it.',
-		'Along the line, if you would, and into the circle.',
-	],
+	// the instant lift: a word when the other floor is there. (The hint to
+	// walk to the circle went on 2026-09-20 — Uli: not relevant any more.
+	// The chalk says it, and the circle is where one already stands.)
 	toPrint: [
 		'Here we are. The line leads to your picture.',
 		'This is the floor. Follow the line to the print.',
@@ -319,7 +316,7 @@ const SAY_FAR = 9;                         // metres: past this he is not heard
 // how loud each kind is said
 const TEMPER = {
 	greet: 0.6, tell: 0.6, chat: 0.55, ramble: 0.52, joke: 0.6, humble: 0.62,   // he mutters the long ones
-	warn: 0.72, row: 0.7, rush: 0.9, call: 1, harsh: 1.15, stop: 1.25, last: 1.3, closed: 1.05, open: 0.75, toSpot: 0.7, toPrint: 0.7,
+	warn: 0.72, row: 0.7, rush: 0.9, call: 1, harsh: 1.15, stop: 1.25, last: 1.3, closed: 1.05, open: 0.75, toPrint: 0.7,
 };
 const RAGE = 3, RAGE_IN = 30000, SHUT_FOR = 45000;   // three in half a minute and the room is shut
 let voices = new Map(), vGain = null;

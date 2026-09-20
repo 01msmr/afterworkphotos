@@ -302,6 +302,19 @@ export function applyMode(dark) {
 	modeAt = performance.now();
 }
 const _ca = new THREE.Color(), _cb = new THREE.Color();
+// **The floor handed over before the shell goes** (Uli, 2026-09-20: in the
+// wait between the dim and the relight, animate the floor changing). Taken
+// out of the room group, buildShell neither disposes it nor drops its maps,
+// so the old floor can lie over the new one and fade away while the room is
+// black — the one thing still lit at that moment, changing from the year
+// left to the year arrived. Whoever takes it owns it (jump.js).
+export function takeFloor() {
+	const room = scene.getObjectByName('room');
+	const f = room && room.getObjectByName('floor');
+	if (!f) return null;
+	f.removeFromParent(); f.name = 'floor-old';
+	return f;
+}
 // the room dimmed to black (k = 1) round a switch, the floor lit on its own at half
 let dimK = 0;
 export function setDim(k) {

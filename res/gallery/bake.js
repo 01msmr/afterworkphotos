@@ -125,7 +125,10 @@ const CARD_LINES = 3;
 // (below, 2026-09-20): a quarter of that, four textures a room. The
 // layout below is written in the old 1536 space and scaled, so
 // every number the cards were tuned with still means what it did.
-const CARD_PX = 1280, CARD_DRAWN = 1536;
+// **The card a tenth larger** (Uli, 2026-09-20): the letters grew heavier
+// and the paper round them wanted to grow with them. 1408 px rather than
+// 1280 keeps the pixels per centimetre the doubled card was tuned for.
+const CARD_PX = 1408, CARD_DRAWN = 1536;
 const CARD_H = 2 * (80 + 64 * CARD_LINES);       // the paper, in that space
 export const CARD_PY = Math.round(CARD_H * CARD_PX / CARD_DRAWN);   // 453: a card's rows in the atlas
 // **A card is 4 mm of board standing off the wall** (Uli, 2026-09-13), not
@@ -350,7 +353,7 @@ function makeCard(lines, cw) {
 // a row of three, a pair, a grid whose pattern did not fit beside the
 // piece — read as one block at 3.5 cm, which is the gap between the rows
 // *inside* a grid's pattern. A column of them wants the wider one.
-const LABEL_GAP = 0.02, LABEL_VGAP = 0.035, LABEL_STACK_VGAP = 0.06, GRID_CARD = 0.16, SINGLE_CARD = 0.24, LABEL_OFF = 0.05, CORNER_KEEP = 0.35;
+const LABEL_GAP = 0.02, LABEL_VGAP = 0.035, LABEL_STACK_VGAP = 0.06, SINGLE_CARD = 0.264, LABEL_OFF = 0.05, CORNER_KEEP = 0.35;   // the card 24 cm until 2026-09-20, a tenth larger since
 export function addLabel(piece, spec, w, h) {
 	// a row of three or a pair stacks its cards in a column (Uli); a grid keeps its pattern
 	// one size of card for everything, a grid's as well as a single's
