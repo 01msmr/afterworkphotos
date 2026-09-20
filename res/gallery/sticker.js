@@ -216,6 +216,7 @@ function aimed() {
 function nearSpot(rc, hit) {
 	let near = null;
 	for (const s of spots) {
+		if (s.dot.parent && !s.dot.parent.visible) continue;   // no place on offer with the labels off (Uli, 2026-09-20): a sticker goes on a card, and the cards are away
 		const gap = rc.ray.distanceToPoint(s.aim);
 		if (gap >= SNAP || rc.ray.origin.distanceTo(s.aim) > hit.distance + 0.3) continue;
 		if (!near || gap < near.gap) near = { s, gap };
@@ -234,8 +235,8 @@ function surfaceHit(rc) {
 	// wall behind, and the lift's cursors could never come up at all.
 	for (const n of ['room', 'pieces', 'elevator', 'paper', 'strip']) { const g = scene.getObjectByName(n); if (g && g.visible) targets.push(g); }   // the sheet and the strip, while they are up
 	if (!targets.length) return null;
-	// a card whose paper is off (the labels switch) is not a surface: the ray goes on to the wall behind it, and its sticker stays on offer
-	return rc.intersectObjects(targets, true).find(h => !(h.object.name === 'label' && !h.object.material.visible)) || null;
+	// a card the labels switch has hidden is not a surface (three's raycaster does not test `visible`): the ray goes on to the wall behind it
+	return rc.intersectObjects(targets, true).find(h => !(h.object.name === 'label' && !h.object.visible)) || null;
 }
 
 // **What a press would do, drawn on the pointer.** The dot and the cross

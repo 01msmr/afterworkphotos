@@ -1,7 +1,10 @@
 #!/bin/sh
 # The guard's lines, mono 24 kHz 48 kbps:
 #   scripts/guard-voice.sh de          all German lines from res/sound/guard/de/lines.json — Microsoft's neural "Conrad" through edge-tts
-#   scripts/guard-voice.sh en KIND...  English lines of the kinds given from guard.js — macOS `say -v Alex -r 150`
+#   scripts/guard-voice.sh en KIND...  English lines of the kinds given from guard.js — Microsoft's neural "Ryan" (en-GB) through edge-tts
+# (English was macOS `say -v Alex` until 2026-09-20; Alex is not installed on every Mac, and where it is missing `say`
+#  falls back to the system voice without a word — the six newest English lines came out in German Anna's voice that way.
+#  One neural family for both languages now; a KIND given records that kind only, so a changed line costs one run.)
 # edge-tts: `python3 -m venv ~/.venvs/tts && ~/.venvs/tts/bin/pip install edge-tts`, or set EDGE_TTS to its path.
 set -e
 cd "$(dirname "$0")/.."
@@ -22,9 +25,9 @@ else:
 for kind, arr in lines.items():
     if kinds and kind not in kinds: continue
     for i, text in enumerate(arr):
-        key = f'{kind}-{i}'; raw = f'{out}/{key}.raw.' + ('mp3' if lang == 'de' else 'aiff')
+        key = f'{kind}-{i}'; raw = f'{out}/{key}.raw.mp3'
         if lang == 'de': subprocess.run([edge, '-v', 'de-DE-ConradNeural', '--rate=-8%', '-t', text, '--write-media', raw], check=True)
-        else: subprocess.run(['say', '-v', 'Alex', '-r', '150', '-o', raw, text], check=True)
+        else: subprocess.run([edge, '-v', 'en-GB-RyanNeural', '--rate=-8%', '-t', text, '--write-media', raw], check=True)
         subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', raw, '-ac', '1', '-ar', '24000', '-b:a', '48k', f'{out}/{key}.mp3'], check=True)
         os.remove(raw); print(key)
 PY
