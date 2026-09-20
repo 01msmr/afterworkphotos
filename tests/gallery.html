@@ -198,6 +198,11 @@ async function run() {
 	const vface = vp.getObjectByName('video'), vleds = vp.getObjectByName('leds');
 	say(vface.material.polygonOffset && vface.material.polygonOffsetUnits === -4 && vleds.material.polygonOffsetUnits === -6 && vleds.material.map.anisotropy > 1,
 		'video: the panel on depth steps (picture -4, diodes -6) and the diodes filtered', `${vface.material.polygonOffsetUnits} / ${vleds.material.polygonOffsetUnits} · aniso ${vleds.material.map.anisotropy}`);
+	// the diodes only where they can be seen for what they are: on within 1.4 m, gone by 1.6
+	let vroom = null; for (const k of ['2018-1', '2018-2', '2020', '2023-2', '2023-1']) { G.hangRoom(k); await sleep(400); let f = null; G.scene.getObjectByName('pieces').traverse(o => { if (!f && o.name === 'leds') f = o; }); if (f) { vroom = { key: k, leds: f }; break; } }
+	const ledAt = d => { const w = vroom.leds.getWorldPosition(V3()), yaw = vroom.leds.parent.parent.rotation.y; G.walk.pos.set(w.x + Math.sin(yaw) * d, 1.6, w.z + Math.cos(yaw) * d); G.walk.yaw = yaw + Math.PI; G.walk.pitch = 0; G.stepWalk(performance.now()); G.scene.updateMatrixWorld(true); G.camera.updateMatrixWorld(true); G.stepVideos(performance.now()); return +vroom.leds.material.opacity.toFixed(2); };
+	const near = ledAt(1.0), far = ledAt(2.0), mid = ledAt(1.5);
+	say(!!vroom && near === 1 && far === 0 && mid > 0 && mid < 1, `video: the diodes full at 1 m, gone at 2 m (${vroom ? vroom.key : '—'})`, `1 m ${near} · 1.5 m ${mid} · 2 m ${far}`);
 
 	// 8. the instant lift: X pins the strip, the rail scrubs, the print pressed lays the way, the door spot switches in the dark
 	G.walk.pos.set(-G.state.room.W / 2 + 1.4, 1.6, 0.3); G.walk.yaw = Math.PI / 2; G.walk.pitch = 0; G.stepWalk(performance.now()); G.scene.updateMatrixWorld(true); G.camera.updateMatrixWorld(true);
