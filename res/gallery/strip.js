@@ -2,7 +2,6 @@ import * as THREE from '../vendor/three.module.js';
 import { ELEVATOR, rooms } from 'gallery/hang';
 import { elevator } from 'gallery/elevator';
 import { leadToPoint, switchSpot, switchTo } from 'gallery/jump';
-import { guardSays } from 'gallery/guard';
 import { pinTo } from 'gallery/paper';
 import { camera, head, scene, world } from 'gallery/scene';
 import { state } from 'gallery/state';
@@ -115,7 +114,7 @@ export const stripLift = {
 		if (!hit || hit.distance > 3) return false;
 		if (hit.object === card) {                       // the print pressed: the way to the lift, or off again
 			ticked = !ticked; drawCard();
-			if (ticked) { spot = spotFor(pile()[at]); leadToPoint(spot, 0.4); ring.position.copy(world.localToWorld(spot.clone())); ring.position.y = world.position.y + 0.012; ring.visible = true; guardSays('toSpot'); }
+			if (ticked) { spot = spotFor(pile()[at]); leadToPoint(spot, 0.4); ring.position.copy(world.localToWorld(spot.clone())); ring.position.y = world.position.y + 0.012; ring.visible = true; }
 			else { leadToPoint(null); ring.visible = false; }
 			return true;
 		}
