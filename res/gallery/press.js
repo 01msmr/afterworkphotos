@@ -39,7 +39,7 @@ export function pressAlong(rc, reach, hand = null) {
 	// or takes off the one already there — and gets no further.
 	// the floor list and the button follow at once: a first dot lights the
 	// favourites button, the last one taken off puts it out again
-	if (stickAt()) { clearRooms(); rooms(); elevator.light(state.roomKey); return true; }
+	if (stickAt()) { clearRooms(); rooms(); elevator.relistFloors(); return true; }   // the dot may have split the favourites into floors, or merged them back (hang.js)
 	// a label card: a press doubles it, the next press puts it back; a
 	// print: a press fills its frame over the mat, the next puts it back
 	// (Uli, 2026-09-11). Both come back by themselves once out of sight —
