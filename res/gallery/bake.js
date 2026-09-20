@@ -291,12 +291,7 @@ export function atlasLabels(pieces) {
 		const cols = Math.min(fit, Math.max(1, Math.ceil(n / rowsFit), Math.ceil(Math.sqrt(n * CARD_PY / CARD_PX))));
 		const W = cols * CARD_PX, H = Math.min(rowsFit, Math.ceil(n / cols)) * CARD_PY;
 		Object.assign(dir, { W, H, done: 0, data: new Uint8Array(W * H).fill(PAPER_LIN), material: greyMaterial() });
-		// **The labels switch hides the paper, not the card** (Uli, 2026-09-20:
-		// the stickers could not be shown with the labels off). A sticker is
-		// its card's child, so a card made invisible took its dot with it;
-		// the material made invisible leaves the card in the scene, its dot
-		// drawn, and only the paper gone (settings.js, press.js, sticker.js).
-		dir.material.visible = state.settings.labels;
+
 		dir.tex = greyTexture(dir.data, W, H);
 		dir.material.userData.atlas = dir.tex;                   // freed with the room (hang.js, disposeRoom)
 		dir.cards.forEach((card, i) => {
@@ -330,6 +325,7 @@ function makeCard(lines, cw) {
 	const ch = cw * CARD_H / CARD_DRAWN;
 	const card = new THREE.Mesh(cardGeometry(cw, ch), paperMaterial);   // bare paper, until the bake gives it its direction's atlas and its cell (atlasLabels)
 	card.name = 'label';
+	card.visible = state.settings.labels;    // and its sticker with it, being its child (Uli, 2026-09-20: no dots with the labels off)
 	Object.assign(card.userData, { cw, ch, lines });
 	// The shadow those 4 mm throw. **Painted, not cast**: real shadows have
 	// been off since 2026-09-05 (Uli — the hard cut-outs looked wrong), and

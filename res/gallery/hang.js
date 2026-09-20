@@ -94,8 +94,15 @@ const WALL_MARGIN = 0.6;    // from a wall's end or the elevator: the corners st
 const GAP = 1.2;            // gallery spacing between pieces
 const GAP_MIN = 0.6;        // how tight the walls go before the middle fills — never crammed side by side (Uli)
 const WALL_FULL = 0.9;      // and how tight they go before the middle is used at all (Uli: no long wall left empty)
-const SHORT_RUN = 2.2;      // a wall this short would hold nothing at 60 cm margins
-const SHORT_MARGIN = 0.25;  // what it keeps at its ends instead (Uli: use the small walls too)
+// **A wall is short when a row of three cannot stand on it at 60 cm
+// margins** (Uli, 2026-09-20: a 2.5 m wall stood empty while a nine hung
+// on a slab's back — the wall kept 60 cm at both ends and had 1.3 m
+// left, and a row of three is 1.81). Short, it keeps 25 cm at its ends
+// instead (Uli: use the small walls too), and the row of three fits with
+// its labels under it. Until then a wall was short under 2.2 m, which
+// held nothing at all at 60 cm. The width follows the settings' scale.
+const shortRun = () => 3 * framedSize(0.4) + 2 * GRID_GAP * sc() + 2 * WALL_MARGIN;
+const SHORT_MARGIN = 0.25;  // what a short wall keeps at its ends
 const SHORT_LOOKAHEAD = 12; // and how far down the queue it looks for something that fits
 const OFF_WALL = 0.001;     // a hair off the plaster, so the frame's back does not z-fight
 
@@ -178,7 +185,7 @@ function layWalls(pieces, shape, gap, limit = Infinity) {
 	// a short wall keeps a smaller margin at its ends, or nothing at all
 	// would stand on it (Uli, 2026-09-10: a small wall edge takes two small
 	// frames, one over the other)
-	const marginOf = r => r.margin ?? (r.len < SHORT_RUN ? SHORT_MARGIN : WALL_MARGIN);
+	const marginOf = r => r.margin ?? (r.len < shortRun() ? SHORT_MARGIN : WALL_MARGIN);
 	const usable = r => Math.max(0, r.len - 2 * marginOf(r));
 	const wantOf = q => q.reduce((s, p) => s + runWidth(p), 0) + gap * Math.max(0, q.length - 1);
 	const runs = wallRuns(shape);
@@ -190,7 +197,7 @@ function layWalls(pieces, shape, gap, limit = Infinity) {
 		const later = runs.slice(i + 1).reduce((s, r) => s + usable(r), 0);
 		const want = wantOf(queue), mine = usable(run);
 		const budget = mine + later > 0 ? Math.max(want * mine / (mine + later), want - later) : 0;
-		const short = run.len < SHORT_RUN;
+		const short = run.len < shortRun();
 		const margin = marginOf(run);
 		// a short wall looks further down the queue for something that fits
 		const { taken, at, up } = spread(queue.slice(0, Math.max(0, limit - placed.length)), run.len, gap, margin, short ? SHORT_LOOKAHEAD : LOOKAHEAD, budget);

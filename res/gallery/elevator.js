@@ -24,9 +24,10 @@ import { stripLift } from 'gallery/strip';
 // printed on each. The lit button is the room you stand in. A press
 // closes the doors, hangs the other room, and opens them again.
 
-export const DOOR = { w: 0.7, h: 2.1, thick: 0.03 };            // 0.7 in a 1.5 m front: an open panel stays behind its jamb (Uli)
+const DOOR_W = 0.7;
+export const DOOR = { w: DOOR_W, h: 2.1, thick: 0.03 };         // 0.7 in a 1.5 m front: an open panel stays behind its jamb (Uli)
 const CABIN_WALL = 0.08;
-const DISPLAY = { w: 0.44, h: 0.11 };                      // the floor display above the door
+const DISPLAY = { w: DOOR_W, h: 0.11 };                    // the floor display above the door: as wide as the opening (Uli, 2026-09-20; 44 cm before)
 const DOOR_T = 1800;                                       // ms for the doors to open or close — the length of their sound
 const BELL_GAP = 800;                                      // ms between the bell and the doors
 const FLOOR_PLATE = { w: 0.30, h: 0.10, d: 0.006, font: 150 };   // the engraved floor plate outside (Uli, 2026-09-19): 30 × 10 cm of steel, the label 6 cm high   // its centre at 1.5 m (Uli: 20 cm up), vertical on the wall (Uli), ten across; depth: the walnut block it is the face of
@@ -258,7 +259,7 @@ export const elevator = {
 		// Floor displays above the door, one facing into the cabin, one out.
 		this.displays = []; this.said = null;   // new canvases: whatever was said is said again
 		const display = (name, x, ry) => {
-			const c = document.createElement('canvas'); c.width = 512; c.height = 128;
+			const c = document.createElement('canvas'); c.width = Math.round(128 * DISPLAY.w / DISPLAY.h / 8) * 8; c.height = 128;   // the display's own proportion at 128 px high, so the faces stay as they were and the note line has the room
 			const ctx = c.getContext('2d');
 			const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
 			const back = box(name + '-back', 0.02, DISPLAY.h + 0.03, DISPLAY.w + 0.03, x, DOOR.h + 0.16, zc, displayBack);

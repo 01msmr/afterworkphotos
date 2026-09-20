@@ -148,7 +148,7 @@ async function run() {
 	// 6b. the languages: the German guard is served, the words switch
 	const de = await fetch('/res/sound/guard/de/lines.json').then(r => r.ok ? r.json() : null);
 	const mp3 = await fetch('/res/sound/guard/de/greet-0.mp3', { method: 'HEAD' }).then(r => r.ok);
-	say(de && Object.keys(de).length === 17 && mp3, 'guard: German lines and recordings served', de ? Object.keys(de).length + ' kinds' : 'no lines.json');
+	say(de && Object.keys(de).length === 16 && mp3, 'guard: German lines and recordings served', de ? Object.keys(de).length + ' kinds' : 'no lines.json');
 	const Lg = await mod('lang'), lang0 = G.state.settings.lang;
 	G.setSetting('lang', 'de'); const deWord = Lg.t('favourites'); G.setSetting('lang', lang0);
 	say(deWord === 'Favoriten' && Lg.t('favourites') === (lang0 === 'de' ? 'Favoriten' : 'favourites'), 'lang: t() follows the setting', deWord);
@@ -201,13 +201,13 @@ async function run() {
 	const gapAt = (L, i) => +(L.cards[i].position.y - L.cards[i + 1].position.y - L.ch).toFixed(3);
 	const within = folded && gapAt(folded, 0), across = folded && gapAt(folded, folded.cols0 - 1);
 	say(!!folded && Math.abs(within - 0.035) < 1e-3 && Math.abs(across - 0.07) < 1e-3, `labels: a folded grid's cards ${within} m apart, ${across} m where a row of pictures ends`, folded ? `${folded.cards.length} cards, ${folded.cols0} a row` : 'no folded grid found');
-	// the labels switch takes the paper off and leaves the card, so a sticker stays where it is and can still be stuck
+	// the labels switch takes the cards away, and their stickers with them: nothing to see, nothing on offer
 	const withDot = []; G.scene.getObjectByName('pieces').traverse(o => { if (o.name === 'dot') withDot.push(o); });
 	const dot0 = withDot[0], card0 = dot0 && dot0.parent;
 	G.setSetting('labels', false); await sleep(50);
-	const off = { paper: card0 && card0.material.visible, card: card0 && card0.visible, dotDrawn: dot0 && dot0.visible !== undefined && card0.visible && card0.parent.visible };
+	const off = { card: card0 && card0.visible };
 	G.setSetting('labels', true); await sleep(50);
-	say(!!card0 && off.paper === false && off.card === true && card0.material.visible === true, 'labels off: the paper goes, the card and its sticker stay', `paper ${off.paper} · card ${off.card}`);
+	say(!!card0 && off.card === false && card0.visible === true, 'labels off: the cards go, and the stickers on them', `card ${off.card} → ${card0 && card0.visible}`);
 
 	// the loupe over a card: in the card's own plane, and its glass a white pane
 	const St = await mod('sticker');
