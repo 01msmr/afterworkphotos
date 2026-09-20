@@ -1,6 +1,6 @@
 # afterworkphotos
 
-[afterworkphotos.com](https://afterworkphotos.com) — square photos, taken after work. Two static pages, the site and a VR gallery for the Meta Quest: no build step, no framework, three.js vendored for the gallery. Photos arrive through `inbox/`; a GitHub workflow does the rest. How everything works, in depth: [docs/details.md](docs/details.md).
+[afterworkphotos.com](https://afterworkphotos.com) — square photos, taken after work. Two static pages, the site and a VR gallery: no build step, no framework. Photos arrive through `inbox/`; a GitHub workflow does the rest. How everything works, in depth: [docs/details.md](docs/details.md).
 
 ## Files
 
