@@ -635,7 +635,7 @@ function disposeRoom(group) {
 		else if (o.name === 'slab' || o.name === 'photo-near' || o.name === 'panel-body' || o.name === 'leds') { if (o.name === 'leds') o.material.map.dispose(); o.material.dispose(); }
 		else if (o.name === 'photo') o.material.dispose();   // its maps live in the cache
 	});
-	for (const m of labels) { const t = m.userData.atlas; if (t) { t.dispose(); t.userData.freed = true; } m.dispose(); }   // freed: an atlas still queued for upload is dropped in its turn (frames.js)
+	for (const m of labels) { const t = m.userData.atlas; if (!t) continue; t.dispose(); t.userData.freed = true; m.dispose(); }   // no atlas: the shared bare-paper material a card wears until the bake (bake.js), never this room's to free   // freed: an atlas still queued for upload is dropped in its turn (frames.js)
 }
 // old pieces out, new in and baked, old textures freed, state and lift told
 function settleRoom(plan, pieces, t0) {

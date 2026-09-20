@@ -67,6 +67,13 @@ function shaftTexture() {
 
 // The floor display: the room you are on; during a ride, each floor
 // passed, with the direction. Drawn on a canvas, shown inside and out.
+// A floor's name as the plate and the displays set it: the year or the
+// word, and its part in a smaller face behind it — `2024.2`, `Favoriten 2`
+// — the way the console's caps have always drawn one (Uli, 2026-09-20:
+// the same smaller split numbering on the floor labels). The part is
+// whatever trails the name after a dot or a space, digits only, so a span
+// (`2009–2014`) keeps its whole self.
+const splitName = text => { const m = /^(.*?)([. ]\d+)$/.exec(String(text)); return m ? [m[1], m[2]] : [String(text), '']; };
 function drawDisplay(ctx, text, arrow, note = '') {
 	const c = ctx.canvas;
 	ctx.fillStyle = '#0a0a0a'; ctx.fillRect(0, 0, c.width, c.height);
@@ -80,8 +87,16 @@ function drawDisplay(ctx, text, arrow, note = '') {
 	ctx.fillStyle = '#ffb347';
 	ctx.textBaseline = 'middle';
 	ctx.font = '600 84px "Helvetica Neue", Arial, sans-serif';
+	const [base, part] = splitName(text);
+	ctx.textAlign = 'left';
+	const wb = ctx.measureText(base).width;
+	ctx.font = '600 56px "Helvetica Neue", Arial, sans-serif';
+	const wp = part ? ctx.measureText(part).width : 0;
+	const x0 = (c.width - wb - wp) / 2 + (arrow ? 24 : 0), y = c.height / 2 + 4;
+	ctx.font = '600 84px "Helvetica Neue", Arial, sans-serif';
+	ctx.fillText(base, x0, y);
+	if (part) { ctx.font = '600 56px "Helvetica Neue", Arial, sans-serif'; ctx.fillText(part, x0 + wb, y); }
 	ctx.textAlign = 'center';
-	ctx.fillText(text, c.width / 2 + (arrow ? 24 : 0), c.height / 2 + 4);
 	if (arrow) {
 		ctx.font = '600 60px "Helvetica Neue", Arial, sans-serif';
 		ctx.textAlign = 'left';
@@ -285,11 +300,23 @@ export const elevator = {
 		// centred by the glyphs' own box, not the font's line (Uli: centred
 		// both ways), and cut thick: the light face stroked to a bold
 		g.textAlign = 'center'; g.textBaseline = 'alphabetic';
-		g.font = `300 ${FLOOR_PLATE.font}px Jost, "Helvetica Neue", Arial, sans-serif`;
-		const m = g.measureText(text), y = c.height / 2 + (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2;
-		g.lineJoin = 'round'; g.lineWidth = FLOOR_PLATE.font * 0.06;
-		g.strokeStyle = g.fillStyle = 'rgba(255,255,255,0.45)'; g.strokeText(text, c.width / 2 + 2, y + 2); g.fillText(text, c.width / 2 + 2, y + 2);   // the cut's lit edge
-		g.strokeStyle = g.fillStyle = '#0e0e0e'; g.strokeText(text, c.width / 2, y); g.fillText(text, c.width / 2, y);
+		const [base, part] = splitName(text), small = Math.round(FLOOR_PLATE.font * 0.66);
+		const face = px => `300 ${px}px Jost, "Helvetica Neue", Arial, sans-serif`;
+		g.font = face(FLOOR_PLATE.font);
+		const m = g.measureText(base), y = c.height / 2 + (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2;
+		const wb = m.width;
+		g.font = face(small); const wp = part ? g.measureText(part).width : 0;
+		g.textAlign = 'left';
+		g.lineJoin = 'round';
+		// the cut's lit edge first, the black cut over it — the part in the smaller face
+		for (const [dx, colour] of [[2, 'rgba(255,255,255,0.45)'], [0, '#0e0e0e']]) {
+			const x0 = (c.width - wb - wp) / 2 + dx, yy = y + (dx ? 2 : 0);
+			g.strokeStyle = g.fillStyle = colour;
+			g.font = face(FLOOR_PLATE.font); g.lineWidth = FLOOR_PLATE.font * 0.06;
+			g.strokeText(base, x0, yy); g.fillText(base, x0, yy);
+			if (part) { g.font = face(small); g.lineWidth = small * 0.06; g.strokeText(part, x0 + wb, yy); g.fillText(part, x0 + wb, yy); }
+		}
+		g.textAlign = 'center';
 		this.plateTex.needsUpdate = true;
 		return this.plateTex;
 	},

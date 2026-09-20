@@ -247,6 +247,7 @@ function surfaceHit(rc) {
 // white one whole.
 const cursorMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, depthTest: false, side: THREE.DoubleSide });
 const inkCursorMat = new THREE.MeshBasicMaterial({ color: 0x141311, transparent: true, opacity: 0.85, depthTest: false, side: THREE.DoubleSide });
+const glassMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.3, depthTest: false, side: THREE.DoubleSide });   // inside the loupe's ring (Uli, 2026-09-20)
 const bar = (w, h, x, y, turn = 0, mat = cursorMat) => {
 	const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
 	m.position.set(x, y, 0); m.rotation.z = turn; return m;
@@ -336,6 +337,12 @@ function loupeIcon() {
 		// own length again clear of the glass.
 		const R_IN = 0.0095, R_OUT = 0.0125, HANDLE = 0.018, THICK = 0.004;
 		const cx = -0.003, cy = 0.003, diag = Math.SQRT1_2;
+		// **the glass itself, white at 30 %** (Uli, 2026-09-20): a pane behind
+		// the ink, so the strokes in the loupe read against the card's own
+		// letters instead of lying among them
+		const glass = new THREE.Mesh(new THREE.CircleGeometry(R_IN, 32), glassMat);
+		glass.position.set(cx, cy, -0.0001);
+		loupe.add(glass);
 		const ring = new THREE.Mesh(new THREE.RingGeometry(R_IN, R_OUT, 32), inkCursorMat);
 		ring.position.set(cx, cy, 0);
 		loupe.add(ring);
@@ -442,6 +449,7 @@ function overKind(hit) {
 // view, not painted on the wall — so it simply wears the camera's own
 // rotation and can never be seen from behind or mirrored.
 const _fn = new THREE.Vector3(), _to = new THREE.Vector3(), _cq = new THREE.Quaternion();
+const _ax = new THREE.Vector3(), _half = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
 function onSurface(obj, hit, from, flat) {
 	_fn.copy(hit.face.normal).transformDirection(hit.object.matrixWorld);
 	if (from && _fn.dot(_to.subVectors(from, hit.point)) < 0) _fn.negate();
@@ -452,8 +460,19 @@ function onSurface(obj, hit, from, flat) {
 	// corners turned into each other are the same icon mirrored, so being
 	// seen from the wrong side costs nothing. Everything else wears the
 	// camera's rotation and cannot flip.
-	if (flat) hit.object.getWorldQuaternion(obj.quaternion);
-	else obj.quaternion.copy(camera.getWorldQuaternion(_cq));
+	if (flat) {
+		hit.object.getWorldQuaternion(obj.quaternion);
+		// **The loupe lies in the card's own plane too** (Uli, 2026-09-20),
+		// which it could not while a surface's rotation was taken whole: a
+		// card seen from its other side handed back a mirrored loupe with
+		// the grip on the wrong flank (2026-09-13, and the reason it wore
+		// the camera's rotation instead). The cure is not the surface's
+		// rotation but its **plane**: the card's own turn, and where its
+		// face points away from the eye, a half turn about its upright — so
+		// the icon is always read the right way round and never mirrored.
+		_ax.set(0, 0, 1).applyQuaternion(obj.quaternion);
+		if (from && _ax.dot(_to.subVectors(from, hit.point)) < 0) obj.quaternion.multiply(_half);
+	} else obj.quaternion.copy(camera.getWorldQuaternion(_cq));
 }
 // Each frame: the dot rides the wall under the pointer, and adheres to a
 // place when the pointer comes near one.
@@ -502,7 +521,7 @@ export function stepSticker() {
 	} else {
 		// not at a sticker's place: say what a press *here* would do instead
 		showing.scale.setScalar(1);
-		onSurface(showing, hit, rc.ray.origin, showing === expand);
+		onSurface(showing, hit, rc.ray.origin, showing === expand || showing === loupe);   // the brackets in the picture's plane, the loupe in the card's
 		showing.visible = true;
 	}
 }
