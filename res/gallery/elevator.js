@@ -93,7 +93,7 @@ export function roomLabel(room) {
 	// 2026-09-13; translated 2026-09-20 — the plate and the displays still
 	// said the English word on a German floor). A split favourites floor
 	// carries its part like a year's does.
-	if (room.favs) return room.of > 1 ? `${t('favourites')}.${room.part}` : t('favourites');
+	if (room.favs) return room.of > 1 ? `${t('favourites')} ${room.part}` : t('favourites');   // a space, not a year's dot (Uli, 2026-09-20)
 	if (room.years.length > 1) return room.span;
 	return room.of > 1 ? `${room.year}.${room.part}` : room.year;
 }

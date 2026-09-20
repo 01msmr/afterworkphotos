@@ -94,7 +94,8 @@ function drawAtlas() {
 		g.font = font(56);
 		const word = e.room.favs ? t('favourites') : e.year;   // in the language chosen; relabelConsole draws it again on a change
 		g.strokeText(word, 36, 66); g.fillText(word, 36, 66);
-		if (e.room.of > 1) { const w = g.measureText(word).width; g.font = font(45); g.lineWidth = 1.8; g.strokeText(`.${e.room.part}`, 36 + w + 2, 66); g.fillText(`.${e.room.part}`, 36 + w + 2, 66); }
+		// a year's parts are written 2024.2, the favourites' with a space: Favoriten 2 (Uli, 2026-09-20)
+		if (e.room.of > 1) { const w = g.measureText(word).width; const part = e.room.favs ? ` ${e.room.part}` : `.${e.room.part}`; g.font = font(45); g.lineWidth = 1.8; g.strokeText(part, 36 + w + 2, 66); g.fillText(part, 36 + w + 2, 66); }
 		g.restore();
 	});
 }
@@ -182,6 +183,14 @@ export function buildConsole(elevator, roomList) {
 	// favourites into parts, a room size re-splits the years. Whenever the
 	// list's keys differ from the ones the caps wear, the panel is dropped
 	// and made again; while they are the same, nothing is rebuilt.
+	// **Two side by side once there are three** (Uli, 2026-09-20): one
+	// favourites floor, or two, keeps a line each over the topmost year —
+	// a double-wide button, the word reads at a glance. From three on they
+	// would be a tower, so they pair up, two to a line, and the plate is
+	// as wide as the pair.
+	const favPerLine = favRooms.length >= 3 ? 2 : 1;
+	const favLines = Math.ceil(favRooms.length / favPerLine);
+	const favWide = 2 * favPerLine;
 	const keys = list.map(r => r.key).join(' ');
 	if (elevator.panel && elevator.panel.userData.keys !== keys) {
 		elevator.panel.removeFromParent();
@@ -198,8 +207,8 @@ export function buildConsole(elevator, roomList) {
 	const columns = [rowsOf.slice(0, half), rowsOf.slice(half)].filter(c => c.length);
 	const margin = PANEL.margin, between = 0.02;   // and the gap between two plates
 	const plates = columns.map((col, i) => {
-		const wide = Math.max(i === 0 && favRooms.length ? 2 : 1, ...col.map(r => r.rooms.length));
-		const rows = col.length + favRooms.length;     // the favourites' line on every plate: the years start on one line across them (Uli, 2026-09-19)
+		const wide = Math.max(i === 0 && favRooms.length ? favWide : 1, ...col.map(r => r.rooms.length));
+		const rows = col.length + favLines;            // the favourites' lines on every plate: the years start on one line across them (Uli, 2026-09-19)
 		return { col, wide, rows, w: wide * BUTTON.pitchX + 2 * margin, h: rows * BUTTON.pitchY + 2 * margin };
 	});
 	for (const p of plates) p.h = Math.max(...plates.map(q => q.h));   // both plates the same height (Uli, 2026-09-19): the shorter column leaves walnut under its last year
@@ -281,9 +290,9 @@ export function buildConsole(elevator, roomList) {
 		// a cell of a plate: column c (0 at the plate's left), row r (0 at its top)
 		const cell = (p, c, r) => ({ x: p.x0 - margin - BUTTON.pitchX * (c + 0.5), y: p.y0 - margin - BUTTON.pitchY * (r + 0.5) });
 		plates.forEach((p, i) => {
-			let row = favRooms.length;                 // the top lines are the favourites' — filled on the first plate, left empty on the others
-			if (i === 0) favRooms.forEach((room, k) => {   // the favourites: two columns wide, over the topmost year, a line per part
-				const { x, y } = cell(p, 0.5, k);
+			let row = favLines;                        // the top lines are the favourites' — filled on the first plate, left empty on the others
+			if (i === 0) favRooms.forEach((room, k) => {   // the favourites: two columns wide each, over the topmost year
+				const { x, y } = cell(p, 0.5 + 2 * (k % favPerLine), Math.floor(k / favPerLine));
 				button(room, x, y, 2);
 			});
 			for (const { rooms: rs } of p.col) {

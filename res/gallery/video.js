@@ -61,7 +61,18 @@ export function freeVideosExcept(keep) {
 // the panel. LED_PITCH is a diode's size on the wall, so a 90 cm panel
 // shows 90/0.9 = 100 of them across — large enough to read as diodes,
 // fine enough to keep the picture.
-const LED_PITCH = 0.006;          // metres per diode — 0.66 of the first try (Uli: finer)
+const LED_PITCH = 0.004;          // metres per diode — finer again (Uli, 2026-09-20; 0.006 before, 0.009 at the first try)
+// **The diodes are taken down past 1.6 m** (Uli, 2026-09-20: the picture
+// inside a passepartout jitters on a floor with a playing video). A diode
+// every 4 mm is 285 of them across a panel, and their canvas 4500 texels
+// — five times finer than the headset can show at two metres, which is
+// the recipe for moiré: the screen samples a regular pattern below its
+// own resolution and the interference crawls with every turn of the head,
+// differently in each eye. Mipmaps and anisotropy soften it, they do not
+// end it. So the grid is only there where it can be seen for what it is:
+// full within 1.4 m, faded out by 1.6, the picture alone beyond. Nothing
+// of the look is lost — diodes are something you read up close.
+const MASK = { on: 1.4, off: 1.6 };
 let ledTex = null;
 function ledGrid() {
 	if (ledTex) return ledTex;
@@ -487,7 +498,26 @@ function follow(v) {
 	else requestAnimationFrame(() => { v.texture.needsUpdate = true; follow(v); });   // the older way: once a frame while it plays
 }
 
+// the diode masks of the room standing, found once per room
+let masks = { group: null, list: [] };
+function ledMasks() {
+	const g = scene.getObjectByName('pieces');
+	if (!g) return [];
+	if (masks.group !== g) { const list = []; g.traverse(o => { if (o.name === 'leds') list.push(o); }); masks = { group: g, list }; }
+	return masks.list;
+}
 export function stepVideos(now) {
+	// the diodes come on as one walks up to a panel and go again behind
+	const list = ledMasks();
+	if (list.length) {
+		camera.getWorldPosition(_eye);
+		for (const leds of list) {
+			const d = leds.getWorldPosition(_pn).distanceTo(_eye);
+			const k = Math.min(1, Math.max(0, (MASK.off - d) / (MASK.off - MASK.on)));
+			leds.material.opacity = k;
+			leds.visible = k > 0.01;
+		}
+	}
 	if (!videoCache.size) return;
 	if (now - lastLook < LOOK_EVERY) return;
 	lastLook = now;
