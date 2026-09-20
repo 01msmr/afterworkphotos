@@ -233,7 +233,9 @@ function surfaceHit(rc) {
 	// aimed at the button plate went straight through it to a print on the
 	// wall behind, and the lift's cursors could never come up at all.
 	for (const n of ['room', 'pieces', 'elevator', 'paper', 'strip']) { const g = scene.getObjectByName(n); if (g && g.visible) targets.push(g); }   // the sheet and the strip, while they are up
-	return targets.length ? rc.intersectObjects(targets, true)[0] : null;
+	if (!targets.length) return null;
+	// a card whose paper is off (the labels switch) is not a surface: the ray goes on to the wall behind it, and its sticker stays on offer
+	return rc.intersectObjects(targets, true).find(h => !(h.object.name === 'label' && !h.object.material.visible)) || null;
 }
 
 // **What a press would do, drawn on the pointer.** The dot and the cross
