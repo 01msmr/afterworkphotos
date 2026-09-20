@@ -193,14 +193,14 @@ async function run() {
 	const one = favCaps();
 	say(split.length === parts.length && one.length === 1 && G.elevator.panel.parent, `console: ${split.length} favourites caps while split, one again when they fit`, `${split.join(' ')} → ${one.join(' ')}`);
 	// a stack of cards gets more air between them than a grid's own rows
-	const stackRoom = (await mod('hang')).rooms().find(r => !r.favs && r.specs.some(sp => sp.photos.length > 1 && sp.rows === 1));
-	G.hangRoom(stackRoom ? stackRoom.key : '2024-2'); await sleep(600);
-	let stack = null, grid = null;
-	G.scene.getObjectByName('pieces').traverse(o => { const L = o.userData.labels; if (!L || L.cards.length < 2) return; if (L.cols === 1 && !stack) stack = L; if (L.cols > 1 && L.cards.length > L.cols && !grid) grid = L; });
-	// the gap between two neighbouring rows: distinct card heights, the nearest pair
-	const gapOf = L => { const ys = [...new Set(L.cards.map(c => +c.position.y.toFixed(4)))].sort((a, b) => b - a); return ys.length < 2 ? null : +(ys[0] - ys[1] - L.ch).toFixed(3); };
-	const gs = stack && gapOf(stack), gg = grid && gapOf(grid);
-	say(gs !== null && gs > 0.05 && (gg === null || gg > 0.05), `labels: a column of cards stands ${gs} m apart, a grid's rows ${gg}`, `${stack ? stack.cards.length : 0} in the column`);
+	// a grid's cards folded into one column: 3.5 cm between cards, and a break where a row of pictures ends
+	const Bk = await mod('bake');
+	let folded = null;
+	const findFold = () => { folded = null; G.scene.getObjectByName('pieces').traverse(o => { const L = o.userData.labels; if (!folded && L && L.cols === 1 && L.cols0 > 1 && L.cards.length > L.cols0) folded = L; }); return folded; };
+	if (!findFold()) for (const r of (await mod('hang')).rooms().filter(r => !r.favs && r.specs.some(sp => sp.rows > 1))) { G.hangRoom(r.key); await sleep(500); if (findFold()) break; }
+	const gapAt = (L, i) => +(L.cards[i].position.y - L.cards[i + 1].position.y - L.ch).toFixed(3);
+	const within = folded && gapAt(folded, 0), across = folded && gapAt(folded, folded.cols0 - 1);
+	say(!!folded && Math.abs(within - 0.035) < 1e-3 && Math.abs(across - 0.055) < 1e-3, `labels: a folded grid's cards ${within} m apart, ${across} m where a row of pictures ends`, folded ? `${folded.cards.length} cards, ${folded.cols0} a row` : 'no folded grid found');
 	// the labels switch takes the paper off and leaves the card, so a sticker stays where it is and can still be stuck
 	const withDot = []; G.scene.getObjectByName('pieces').traverse(o => { if (o.name === 'dot') withDot.push(o); });
 	const dot0 = withDot[0], card0 = dot0 && dot0.parent;
