@@ -354,10 +354,15 @@ function makeCard(lines, cw) {
 // spacing known; a grid is placed for good in hangRoom, when the room to
 // its right is.
 // between the cards' columns, and between their rows (Uli: a small gap).
-// **Rows of cards stand 6 cm apart** (Uli, 2026-09-20, twice): a column of
-// them first, then the rows of a grid's own pattern too — the cards of
-// one row of pictures read as a group, and the next row's a hand apart.
-const LABEL_GAP = 0.02, LABEL_VGAP = 0.06, SINGLE_CARD = 0.264, LABEL_OFF = 0.05, CORNER_KEEP = 0.35;   // the card 24 cm until 2026-09-20, a tenth larger since; the rows 3.5 cm apart until then, 6 since (Uli: the labels of different rows further apart)
+// **A break where a row of pictures ends** (Uli, 2026-09-20, from a
+// screenshot): a grid's cards that did not fit beside it fall into one
+// column, and there the cards of the first row of pictures and the first
+// card of the second ran on at the same 3.5 cm. Cards keep their 3.5 cm;
+// where the column crosses from one row of pictures to the next, a
+// further LABEL_ROW_BREAK opens — 5.5 cm in all (Uli) — so each row's
+// cards read as a group.
+// (A day earlier every row had been set 6 cm apart — not what was meant.)
+const LABEL_GAP = 0.02, LABEL_VGAP = 0.035, LABEL_ROW_BREAK = 0.02, SINGLE_CARD = 0.264, LABEL_OFF = 0.05, CORNER_KEEP = 0.35;   // the card 24 cm until 2026-09-20, a tenth larger since
 export function addLabel(piece, spec, w, h) {
 	// a row of three or a pair stacks its cards in a column (Uli); a grid keeps its pattern
 	// one size of card for everything, a grid's as well as a single's
@@ -386,13 +391,15 @@ export function placeLabels(piece, w, h, roomRight, forceBelow = false) {
 	const below = !L.grid || forceBelow || !fits(cols);
 	L.cols = cols;
 	const rows = Math.ceil(L.cards.length / cols);
-	L.bw = cols * L.cw + (cols - 1) * LABEL_GAP; L.bh = rows * L.ch + (rows - 1) * LABEL_VGAP;
+	// folded into one column, a grid's cards cross from one row of pictures to the next every cols0 cards: a break there
+	const fold = cols === 1 && L.cols0 > 1, breakOf = i => fold ? Math.floor(i / L.cols0) * LABEL_ROW_BREAK : 0;
+	L.bw = cols * L.cw + (cols - 1) * LABEL_GAP; L.bh = rows * L.ch + (rows - 1) * LABEL_VGAP + breakOf(L.cards.length - 1);
 	// the block's top-left corner: beside with its bottom on the piece's
 	// bottom, or under it with its right on the piece's right
 	const x0 = below ? w / 2 - L.bw : w / 2 + LABEL_OFF, y0 = below ? -h / 2 - 0.03 : -h / 2 + L.bh;
 	L.cards.forEach((card, i) => {
 		const col = i % L.cols, row = Math.floor(i / L.cols);
-		card.position.set(x0 + col * (L.cw + LABEL_GAP) + L.cw / 2, y0 - row * (L.ch + LABEL_VGAP) - card.userData.ch / 2, CARD_REST_Z);   // its back on the wall, its face 4 mm out
+		card.position.set(x0 + col * (L.cw + LABEL_GAP) + L.cw / 2, y0 - row * (L.ch + LABEL_VGAP) - breakOf(i) - card.userData.ch / 2, CARD_REST_Z);   // its back on the wall, its face 4 mm out
 		Object.assign(card.userData, { x0: card.position.x, y0: card.position.y, below });
 	});
 	piece.userData.labelDrop = below ? 0.03 + L.bh : 0;   // what hangs under the frame, for the slab
