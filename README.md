@@ -1,6 +1,6 @@
 # afterworkphotos
 
-[afterworkphotos.com](https://afterworkphotos.com) — one square photo a day, taken after work. A single static page: no build step, no framework. Photos arrive through `inbox/`; a GitHub workflow does the rest. How everything works, in depth: [docs/details.md](docs/details.md).
+[afterworkphotos.com](https://afterworkphotos.com) — square photos, taken after work. A single static page: no build step, no framework. Photos arrive through `inbox/`; a GitHub workflow does the rest. How everything works, in depth: [docs/details.md](docs/details.md).
 
 ## Files
 
