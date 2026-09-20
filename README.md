@@ -39,8 +39,15 @@ handed back at once the moment the lift's doors shut on a ride — before the ne
 hold their big files at the same time. The picture underneath never changes, so nothing flickers when the sheet comes
 and goes.
 
-The worst room in the gallery holds about **290 MB** of 1200s (mipmaps counted), some 60 MB of sheets at peak, and its label cards — 1280 px canvases, 3.1 MB each, one per photograph, 229 MB in the 74-frame room — near **580 MB** altogether. Years
-split into parts when they will not fit a floor, so a room cannot grow without bound and neither can that figure.
+The **label cards** are drawn at 1280 px so a card doubled and read at arm's length is sharp, which used to mean one
+canvas per photograph and 229 MB in the 74-frame room — the largest thing in a room. Their ink is grey on paper, so a
+card needs one byte a pixel rather than four: every card whose piece faces the same way, on a wall or a middle row,
+is drawn on **one canvas per looking direction**, at most four in a room. The same pixels, a quarter of the memory,
+and four uploads instead of seventy-four.
+
+The worst room in the gallery holds about **290 MB** of 1200s (mipmaps counted), some 60 MB of sheets at peak and
+about 60 MB of label atlases — near **410 MB** altogether. Years split into parts when they will not fit a floor,
+so a room cannot grow without bound and neither can that figure.
 
 ## Adding photos
 
@@ -69,11 +76,11 @@ On a desktop browser `?touch=1` (and `?tablet=1`) force the deck. The page must 
 
 The VR gallery (`gallery/`, for a Meta Quest) is a house of floors joined by a lift, and every floor is a year of photographs.
 
-- **A floor is a year.** The lift's console lists them newest at the top. A thin year (five pieces or fewer) shares a floor with its neighbours (`2009 · 2010 · 2012 · 2014`), and a year with more than one room's worth is split into `2018.1`, `2018.2`, as few parts as fit. One more floor, above the newest year, holds the visitor's favourites: the prints marked with a red dot.
+- **A floor is a year.** The lift's console lists them newest at the top. A thin year (five pieces or fewer) shares a floor with its neighbours (`2009 · 2010 · 2012 · 2014`), and a year with more than one room's worth is split into `2018.1`, `2018.2`, as few parts as fit. One more floor, above the newest year, holds the visitor's favourites: the prints marked with a red dot — and it splits the same way when it has to, into `favourites 1`, `favourites 2`, which happens in a scanned room too small to hold every dot on one floor. The lift's console gets a button for each, and they appear and merge again as dots are stuck and taken off.
 - **A room's size and shape** start from the settings (6 × 4 × 3 m by default) and vary by floor: a hash of the floor's name picks one of a few proportions, wider or deeper, rounded to the half metre. On the bench the room grows in steps until the whole year hangs. In the headset, a scanned room is the room for every floor: an L, a U or a chamfered corner is hung along its real walls, and what does not fit is left out.
 - **The floor is the year's.** Each year stands on its own material, so a year is remembered by what one walks on: grey lacquer, herringbone parquet, polished concrete, worn planks, terrazzo, checker plate, marble, shop tiles. The walls follow the floor: each floor has its paint and, under it, a dado, a skirting or wood panelling in a matching tone.
 - **The lift** stands in the north-east corner of every room, doors to the west. Its console lays the years out like a calendar, ten across, the same year always in the same place; a press lights the year, closes the doors, and the shaft passes in the door seam while the next room is hung. A steel plate outside names the floor.
-- **The guard** stands in a corner and speaks, in English or German, when one comes too close to a print, and small talk when nothing happens. A sheet of paper on the floor at the start, or on a wall on a press of B, carries the options.
+- **The guard** stands in a corner and speaks, in English or German, when one comes too close to a print, and small talk when nothing happens. A sheet of paper on the floor at the start, or on a wall on a press of B, carries the options; it stands where you point, and where you point under a dado rail it fits the band beneath it.
 
 ## How the gallery hangs a room
 
@@ -84,7 +91,8 @@ Within a floor, the pieces are hung by these rules:
 3. **The middle.** What the walls cannot take hangs back to back on slabs in rows across the room, rows and walkways sharing the depth evenly, every walkway at least 1.2 m, and a row ends 1.2 m short of the wall so one gets round it; nothing in the two rectangles where one steps out of the lift.
 4. **Every frame can be reached.** The floor is a 10 cm grid with the rows, the wall pieces and the cabin blocked round the body; a piece whose standing spot cannot be walked to from the lift's exit is not hung (on the bench the room grows until everything hangs; a real room leaves it out).
 5. **Height.** A piece's centre hangs on the 1.5 m line, or just high enough to clear the room's dado, never above 1.65 m; a dado that would push it higher is lowered instead.
-6. **Labels.** A single's card hangs under its frame at the right; a grid's cards stand beside it in the grid's own pattern (2 cm between columns, 3.5 cm between rows), in one column where the pattern does not fit, and under it where the wall has no room.
+6. **Videos.** A video hangs as an LED panel the size of a framed print, in the rhythm of its wall. It plays while you look at it and stops when you look away, and its diodes are only drawn within about a metre and a half — further off a grid that fine is finer than the headset can resolve, and the pattern crawls instead of reading as diodes.
+7. **Labels.** A single's card hangs under its frame at the right; a grid's cards stand beside it in the grid's own pattern (2 cm between columns, 3.5 cm between rows), in one column where the pattern does not fit, and under it where the wall has no room.
 
 The layout is planned from the pieces' sizes alone (`hang.js`: `rooms()`, `layout()`, `layoutFor(key)`), so every floor is known before a single frame exists; `?top=1` on the bench draws the plan.
 
@@ -97,4 +105,4 @@ A on the right controller pins a strip on the wall: the black strip scrubs the w
 - `secret.php` is tracked and its token is in the history: rotate it, remove the legacy PHP files.
 - iPad on the device: rotation with a move in flight, the corner-radius fallback, trackpad Safari counting as touch.
 - Next: the contact sheet (pinch to spread the pile into a grid).
-- Gallery next: memory and the big pictures — a 2000 px texture pool, compressed textures, 1200s dropped behind you, one label canvas per wall (per looking direction in the middle), progressive JPEGs with a bitmap LRU; the list is in `docs/details.md`, *Known issues*.
+- Gallery next: memory and the big pictures — a 2000 px texture pool, compressed textures (KTX2/Basis), the 1200s dropped behind you in a large room, progressive JPEGs with a bitmap LRU. The label atlases, the fourth of the five, are done. The plan is `docs/superpowers/specs/2026-09-20-gallery-memory-design.md`, the list `docs/details.md`, *Known issues*.
