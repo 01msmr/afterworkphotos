@@ -181,10 +181,16 @@ async function run() {
 	const specs = parts.reduce((n, r) => n + r.specs.length, 0);
 	const mids = parts.reduce((n, r) => n + Fh.layoutFor(r.key).lay.placed.filter(p => p.wall === 'mid').length, 0);
 	say(parts.length > 1 && hung === specs && parts.every(r => r.of === parts.length), `favourites: a 6 × 4 real room splits them over ${parts.length} floors, all ${specs} hung (${mids} in the middle)`, parts.map(r => r.key).join(' '));
-	G.state.settings.W = W0; G.state.settings.D = D0; G.state.real = real0;
+	// and the console follows: the panel is carried from cabin to cabin, but not when the floors it was built for have changed
+	G.elevator.relistFloors();
+	const favCaps = () => G.elevator.buttons.filter(b => b.userData.cap && String(b.userData.key).startsWith('favorites')).map(b => b.userData.key);
+	const split = favCaps();
+	G.state.settings.W = W0; G.state.settings.D = D0; G.state.real = real0; Fh.clearRooms(); Fh.rooms(); G.elevator.relistFloors();
+	const one = favCaps();
+	say(split.length === parts.length && one.length === 1 && G.elevator.panel.parent, `console: ${split.length} favourites caps while split, one again when they fit`, `${split.join(' ')} → ${one.join(' ')}`);
 	G.state.favs.clear(); for (const id of favs0) G.state.favs.add(id);
 	G.setSetting('lang', lang0);
-	Fh.clearRooms(); Fh.rooms();
+	Fh.clearRooms(); Fh.rooms(); G.elevator.relistFloors();
 
 	// the video panel's layers stand on depth steps, not millimetres (STEPS), and its diodes are filtered
 	const Fv = await mod('video');

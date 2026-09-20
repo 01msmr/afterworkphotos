@@ -264,9 +264,8 @@ export const elevator = {
 		g.add(lamp);
 
 		// The console (console.js): built once and carried from cabin to cabin
-		const plateW = buildConsole(this, rooms());
-		this.panel.position.set(ix0 + 0.10 + plateW / 2, (PANEL.low + PANEL.high) / 2, iz1 - 0.0105 - PANEL.depth);
-		g.add(this.panel);
+		this.cabin = g; this.panelPlace = { ix0, iz1 };   // where the console hangs in this cabin, for relistFloors
+		this.placeConsole();
 		this.group = g;
 		return g;
 	},
@@ -400,6 +399,25 @@ export const elevator = {
 		const k = f < 0.4 ? ease(f / 0.4) : ease(1 - (f - 0.4) / 0.6);
 		for (const m of a.meshes) m.position.z = m.userData.z0 + k * BUTTON.rise * 0.7;
 		if (f >= 1) { for (const m of a.meshes) m.position.z = m.userData.z0; this.pressAnim = null; }
+	},
+
+	// the console built (or built again, where the floors have changed) and
+	// hung on this cabin's wall
+	placeConsole() {
+		const plateW = buildConsole(this, rooms());
+		const { ix0, iz1 } = this.panelPlace;
+		this.panel.position.set(ix0 + 0.10 + plateW / 2, (PANEL.low + PANEL.high) / 2, iz1 - 0.0105 - PANEL.depth);
+		this.cabin.add(this.panel);
+	},
+	// **The floors have changed under the console** (Uli, 2026-09-20: the
+	// favourites were split and the panel still carried the one button).
+	// A dot stuck splits or merges the favourites floors there and then,
+	// with no ride and no new cabin — buildConsole makes the caps again
+	// where the keys differ, and nothing happens where they do not.
+	relistFloors() {
+		if (!this.cabin || !this.panel) return;
+		this.placeConsole();
+		this.light(state.roomKey);
 	},
 
 	placeInCabin() {

@@ -59,6 +59,7 @@ const FACE_PX = 512;
 // smaller.
 const ATLAS_COLS = 8;
 let atlas = null;                               // { tex, cells, rows, entries }: the one the caps wear
+const atlasTex = () => atlas && atlas.tex;
 function faceAtlas(entries) {
 	const cells = [], rows = [];                    // cells: {cx, cy, wide} per entry; a cell is FACE_PX × FACE_PX / 2
 	let cx = 1, cy = 0;                             // cell 0 of row 0 stays blank paper, for the sides and the back
@@ -174,6 +175,21 @@ export function buildConsole(elevator, roomList) {
 	// keep a button of their own to it.
 	const list = roomList;
 	const favRooms = list.filter(r => r.favs);   // one floor, or its parts when the dots outgrew a real room (hang.js) — a line each
+	// **Built once, but not for ever** (Uli, 2026-09-20: the favourites were
+	// split and the console still carried the one button). The panel is
+	// carried from cabin to cabin so a ride costs no canvases — and the
+	// floors it was built for can change under it: a dot stuck splits the
+	// favourites into parts, a room size re-splits the years. Whenever the
+	// list's keys differ from the ones the caps wear, the panel is dropped
+	// and made again; while they are the same, nothing is rebuilt.
+	const keys = list.map(r => r.key).join(' ');
+	if (elevator.panel && elevator.panel.userData.keys !== keys) {
+		elevator.panel.removeFromParent();
+		elevator.panel.traverse(o => { if (o.isMesh) { o.geometry.dispose(); const m = o.material; if (m !== materials.frame) { if (m.map && m.map !== atlasTex()) m.map.dispose(); m.dispose(); } } });
+		if (atlas) { atlas.tex.dispose(); atlas = null; }
+		elevator.panel = null;
+		elevator.buttons = [];
+	}
 	const byYear = new Map();                      // year -> its rooms, first part first
 	for (const r of list) if (!r.favs) for (const y of r.years) byYear.set(y, [...(byYear.get(y) || []), r]);
 	const years = [...byYear.keys()].sort((p, q) => Number(q) - Number(p));
@@ -277,6 +293,7 @@ export function buildConsole(elevator, roomList) {
 		});
 		const pm = new THREE.Mesh(merged(pockets), pocketMat); pm.name = 'pockets'; panel.add(pm);
 		const sm = new THREE.Mesh(merged(steels), steelMat); sm.name = 'steels'; panel.add(sm);
+		panel.userData.keys = keys;   // the floors these caps were made for
 		elevator.panel = panel;
 	}
 	return plateW;
