@@ -291,6 +291,12 @@ export function atlasLabels(pieces) {
 		const cols = Math.min(fit, Math.max(1, Math.ceil(n / rowsFit), Math.ceil(Math.sqrt(n * CARD_PY / CARD_PX))));
 		const W = cols * CARD_PX, H = Math.min(rowsFit, Math.ceil(n / cols)) * CARD_PY;
 		Object.assign(dir, { W, H, done: 0, data: new Uint8Array(W * H).fill(PAPER_LIN), material: greyMaterial() });
+		// **The labels switch hides the paper, not the card** (Uli, 2026-09-20:
+		// the stickers could not be shown with the labels off). A sticker is
+		// its card's child, so a card made invisible took its dot with it;
+		// the material made invisible leaves the card in the scene, its dot
+		// drawn, and only the paper gone (settings.js, press.js, sticker.js).
+		dir.material.visible = state.settings.labels;
 		dir.tex = greyTexture(dir.data, W, H);
 		dir.material.userData.atlas = dir.tex;                   // freed with the room (hang.js, disposeRoom)
 		dir.cards.forEach((card, i) => {
@@ -324,7 +330,6 @@ function makeCard(lines, cw) {
 	const ch = cw * CARD_H / CARD_DRAWN;
 	const card = new THREE.Mesh(cardGeometry(cw, ch), paperMaterial);   // bare paper, until the bake gives it its direction's atlas and its cell (atlasLabels)
 	card.name = 'label';
-	card.visible = state.settings.labels;
 	Object.assign(card.userData, { cw, ch, lines });
 	// The shadow those 4 mm throw. **Painted, not cast**: real shadows have
 	// been off since 2026-09-05 (Uli — the hard cut-outs looked wrong), and
@@ -349,11 +354,10 @@ function makeCard(lines, cw) {
 // spacing known; a grid is placed for good in hangRoom, when the room to
 // its right is.
 // between the cards' columns, and between their rows (Uli: a small gap).
-// **A stack gets more air** (Uli, 2026-09-20): cards under one another —
-// a row of three, a pair, a grid whose pattern did not fit beside the
-// piece — read as one block at 3.5 cm, which is the gap between the rows
-// *inside* a grid's pattern. A column of them wants the wider one.
-const LABEL_GAP = 0.02, LABEL_VGAP = 0.035, LABEL_STACK_VGAP = 0.06, SINGLE_CARD = 0.264, LABEL_OFF = 0.05, CORNER_KEEP = 0.35;   // the card 24 cm until 2026-09-20, a tenth larger since
+// **Rows of cards stand 6 cm apart** (Uli, 2026-09-20, twice): a column of
+// them first, then the rows of a grid's own pattern too — the cards of
+// one row of pictures read as a group, and the next row's a hand apart.
+const LABEL_GAP = 0.02, LABEL_VGAP = 0.06, SINGLE_CARD = 0.264, LABEL_OFF = 0.05, CORNER_KEEP = 0.35;   // the card 24 cm until 2026-09-20, a tenth larger since; the rows 3.5 cm apart until then, 6 since (Uli: the labels of different rows further apart)
 export function addLabel(piece, spec, w, h) {
 	// a row of three or a pair stacks its cards in a column (Uli); a grid keeps its pattern
 	// one size of card for everything, a grid's as well as a single's
@@ -382,14 +386,13 @@ export function placeLabels(piece, w, h, roomRight, forceBelow = false) {
 	const below = !L.grid || forceBelow || !fits(cols);
 	L.cols = cols;
 	const rows = Math.ceil(L.cards.length / cols);
-	const vgap = cols === 1 && rows > 1 ? LABEL_STACK_VGAP : LABEL_VGAP;   // a column of cards, or the rows of a grid's own pattern
-	L.bw = cols * L.cw + (cols - 1) * LABEL_GAP; L.bh = rows * L.ch + (rows - 1) * vgap;
+	L.bw = cols * L.cw + (cols - 1) * LABEL_GAP; L.bh = rows * L.ch + (rows - 1) * LABEL_VGAP;
 	// the block's top-left corner: beside with its bottom on the piece's
 	// bottom, or under it with its right on the piece's right
 	const x0 = below ? w / 2 - L.bw : w / 2 + LABEL_OFF, y0 = below ? -h / 2 - 0.03 : -h / 2 + L.bh;
 	L.cards.forEach((card, i) => {
 		const col = i % L.cols, row = Math.floor(i / L.cols);
-		card.position.set(x0 + col * (L.cw + LABEL_GAP) + L.cw / 2, y0 - row * (L.ch + vgap) - card.userData.ch / 2, CARD_REST_Z);   // its back on the wall, its face 4 mm out
+		card.position.set(x0 + col * (L.cw + LABEL_GAP) + L.cw / 2, y0 - row * (L.ch + LABEL_VGAP) - card.userData.ch / 2, CARD_REST_Z);   // its back on the wall, its face 4 mm out
 		Object.assign(card.userData, { x0: card.position.x, y0: card.position.y, below });
 	});
 	piece.userData.labelDrop = below ? 0.03 + L.bh : 0;   // what hangs under the frame, for the slab

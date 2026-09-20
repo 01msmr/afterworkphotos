@@ -41,7 +41,7 @@ export const OPTIONS = [
 		else if (!v && dark) setSetting('frame', 'maple');
 	} },
 	{ key: 'frame', sheet: { kind: 'group', values: WOODS, rows: [3, 2] }, apply: v => applyFrameLook(materials.frame, v) },
-	{ key: 'labels', sheet: { kind: 'check' }, apply: v => scene.traverse(o => { if (o.name === 'label' || o.name === 'label-rims') o.visible = v; }) },
+	{ key: 'labels', sheet: { kind: 'check' }, apply: v => scene.traverse(o => { if (o.name === 'label') o.material.visible = v; else if (o.name === 'label-rims') o.visible = v; }) },   // the paper goes, the card stays for its sticker (bake.js)
 	{ key: 'fill', sheet: { kind: 'check', word: 'mat', inverted: true }, apply: () => applyFill() },   // every print to the way it now rests
 	{ key: 'talk', sheet: { kind: 'check', on: 'heavy', off: 'light' } },                              // the guard reads it as he speaks
 	{ key: 'raise', sheet: { kind: 'check', on: 1, off: 0 }, apply: () => raiseRoof() },               // the shell only; the pictures stay as they hang

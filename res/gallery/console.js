@@ -90,12 +90,16 @@ function drawAtlas() {
 		g.translate(cx * FACE_PX, cy * FACE_PX / 2);
 		g.scale(FACE_PX / 256, FACE_PX / 256);
 		g.fillStyle = g.strokeStyle = '#000'; g.lineJoin = 'round'; g.lineWidth = 2.2;
-		g.textAlign = 'left'; g.textBaseline = 'middle';
+		// **the part on the word's baseline** (Uli, 2026-09-20: it sat high):
+		// 'middle' centred the smaller face on the larger one's middle; both
+		// are set alphabetic now, on one baseline found from the word's box
+		g.textAlign = 'left'; g.textBaseline = 'alphabetic';
 		g.font = font(56);
 		const word = e.room.favs ? t('favourites') : e.year;   // in the language chosen; relabelConsole draws it again on a change
-		g.strokeText(word, 36, 66); g.fillText(word, 36, 66);
+		const mw = g.measureText(word), y = 66 + (mw.actualBoundingBoxAscent - mw.actualBoundingBoxDescent) / 2;
+		g.strokeText(word, 36, y); g.fillText(word, 36, y);
 		// a year's parts are written 2024.2, the favourites' with a space: Favoriten 2 (Uli, 2026-09-20)
-		if (e.room.of > 1) { const w = g.measureText(word).width; const part = e.room.favs ? ` ${e.room.part}` : `.${e.room.part}`; g.font = font(45); g.lineWidth = 1.8; g.strokeText(part, 36 + w + 2, 66); g.fillText(part, 36 + w + 2, 66); }
+		if (e.room.of > 1) { const part = e.room.favs ? ` ${e.room.part}` : `.${e.room.part}`; g.font = font(45); g.lineWidth = 1.8; g.strokeText(part, 36 + mw.width + 2, y); g.fillText(part, 36 + mw.width + 2, y); }
 		g.restore();
 	});
 }

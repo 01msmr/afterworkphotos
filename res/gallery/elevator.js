@@ -85,17 +85,22 @@ function drawDisplay(ctx, text, arrow, note = '') {
 		else { ctx.font = '400 24px "Helvetica Neue", Arial, sans-serif'; ctx.fillText(note, c.width - 10, c.height - 10); }
 	}
 	ctx.fillStyle = '#ffb347';
-	ctx.textBaseline = 'middle';
+	// the name and its part on one baseline (Uli, 2026-09-20: the part sat
+	// high on 'middle'); the baseline found from the name's own box, so the
+	// pair stands centred where the name alone stood
+	ctx.textBaseline = 'alphabetic';
 	ctx.font = '600 84px "Helvetica Neue", Arial, sans-serif';
 	const [base, part] = splitName(text);
 	ctx.textAlign = 'left';
-	const wb = ctx.measureText(base).width;
+	const mb = ctx.measureText(base), wb = mb.width;
+	const y = c.height / 2 + 4 + (mb.actualBoundingBoxAscent - mb.actualBoundingBoxDescent) / 2;
 	ctx.font = '600 56px "Helvetica Neue", Arial, sans-serif';
 	const wp = part ? ctx.measureText(part).width : 0;
-	const x0 = (c.width - wb - wp) / 2 + (arrow ? 24 : 0), y = c.height / 2 + 4;
+	const x0 = (c.width - wb - wp) / 2 + (arrow ? 24 : 0);
 	ctx.font = '600 84px "Helvetica Neue", Arial, sans-serif';
 	ctx.fillText(base, x0, y);
 	if (part) { ctx.font = '600 56px "Helvetica Neue", Arial, sans-serif'; ctx.fillText(part, x0 + wb, y); }
+	ctx.textBaseline = 'middle';
 	ctx.textAlign = 'center';
 	if (arrow) {
 		ctx.font = '600 60px "Helvetica Neue", Arial, sans-serif';
