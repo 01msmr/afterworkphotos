@@ -334,8 +334,8 @@ if (DECK) {
   }
 
   // Animate the rest of the way — through (commit) or back home (cancel),
-  // in `seconds` (default: the CSS's 1.2 s)
-  const SETTLE = 1.2;
+  // in `seconds` (default: the CSS's 0.84 s)
+  const SETTLE = 0.84;
   function settle(commit, seconds = SETTLE) {
     committed = commit;
     animating = true;
@@ -347,7 +347,7 @@ if (DECK) {
     requestAnimationFrame(trackReveal);
     clearTimeout(finishTimer);
     // transitionend can be skipped when the tab is backgrounded mid-slide;
-    // well past the 1.2s settle so it never cuts a real one short
+    // well past the 0.84 s settle so it never cuts a real one short
     finishTimer = setTimeout(finish, 2500);
   }
 
@@ -380,8 +380,8 @@ if (DECK) {
     settle(true);
   });
 
-  // A tap goes quicker than the paper's own pace: a second flat
-  const TAP_SETTLE = 1;
+  // A tap goes quicker than the paper's own pace
+  const TAP_SETTLE = 0.7;
   function goForward(seconds) { if (!mover) { startMove(1); settle(true, seconds); } }
   function goBackward(seconds) { if (!mover) { startMove(-1); settle(true, seconds); } }
 
@@ -620,7 +620,8 @@ if (DECK) {
 
   scrubs.forEach(el => {
   el.addEventListener('touchstart', (e) => {
-    if (animating || scrubbing) return;
+    if (scrubbing) return;
+    if (animating) finish();                  // a cut still landing: land it, take the touch
     scrub = el; strip = el.querySelector('.scrub-strip'); side = +el.dataset.side;
     lastTouch = e.touches[0];
     armX = lastTouch.clientX; armY = lastTouch.clientY; armT = Date.now();
