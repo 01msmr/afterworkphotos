@@ -177,22 +177,22 @@ async function run() {
 	S('touchend', r.left + 2, r.top + r.height * 0.6);
 	await settled();
 
-	// 8b. the touch area is twice the rail: a hold 50 px from the edge scrubs
+	// 8b. the touch area reaches past the rail: a hold 35 px from the edge scrubs
 	const t0b = top();
-	S('touchstart', w.innerWidth - 50, r.top + r.height * 0.5);
+	S('touchstart', w.innerWidth - 35, r.top + r.height * 0.5);
 	await sleep(260);
-	say(d.body.classList.contains('scrubbing') && scrub.getBoundingClientRect().width === 56, 'a hold 50 px from the edge scrubs (touch area 56 px, rail 28)', `${scrub.getBoundingClientRect().width}px`);
-	S('touchend', w.innerWidth - 50, r.top + r.height * 0.5);
+	say(d.body.classList.contains('scrubbing') && scrub.getBoundingClientRect().width === 39, 'a hold 35 px from the edge scrubs (touch area 39 px, rail 28)', `${scrub.getBoundingClientRect().width}px`);
+	S('touchend', w.innerWidth - 35, r.top + r.height * 0.5);
 	await settled();
 	say(top() !== t0b, 'and cuts', `${t0b} → ${top()}`);
 
 	// 8c. a swipe begun inside the touch area is the deck's
 	const t0c = top();
-	S('touchstart', w.innerWidth - 50, 600);
-	for (let i = 1; i <= 5; i++) { await sleep(16); S('touchmove', w.innerWidth - 50, 600 - i * 40); }
-	S('touchend', w.innerWidth - 50, 400);
+	S('touchstart', w.innerWidth - 35, 600);
+	for (let i = 1; i <= 5; i++) { await sleep(16); S('touchmove', w.innerWidth - 35, 600 - i * 40); }
+	S('touchend', w.innerWidth - 35, 400);
 	await sleep(40);
-	say(!!mover() && !d.body.classList.contains('scrubbing'), 'a swipe begun 50 px from the edge lifts the sheet, not the scrubber');
+	say(!!mover() && !d.body.classList.contains('scrubbing'), 'a swipe begun 35 px from the edge lifts the sheet, not the scrubber');
 	await settled();
 	say(top() !== t0c, 'and lands', `${t0c} → ${top()}`);
 
