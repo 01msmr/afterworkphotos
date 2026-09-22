@@ -1037,7 +1037,8 @@ if (DECK) {
     // The latest input wins: real mouse movement (not over the knobs, not
     // jitter) takes over from the keyboard — the selection light yields to
     // hover, exactly as a keypress takes over from the mouse
-    if (mode === 'kbd' && Math.abs(e.movementX) + Math.abs(e.movementY) > 2
+    const real = Math.abs(e.movementX) + Math.abs(e.movementY) > 2;
+    if (mode === 'kbd' && real
         && !(e.target instanceof Element
              && (e.target.closest('.goto') || e.target.closest('.mapgo') || e.target.closest('.towns')))) {
       if (selected >= 0) boxes[selected].classList.remove('kbd-focus');
@@ -1051,7 +1052,7 @@ if (DECK) {
     cursor.style.left = e.clientX + 'px';
     cursor.style.top = e.clientY + 'px';
     cursor.style.opacity = '0.65';
-    mouseHasMoved = true;
+    if (real) mouseHasMoved = true;     // not Chrome's still move after a scroll
     clearTimeout(idleTimer);
     idleTimer = setTimeout(() => { cursor.style.opacity = '0'; }, 2000);
   });
