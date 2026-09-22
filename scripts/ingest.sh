@@ -372,6 +372,7 @@ while IFS=$'\t' read -r old new; do
   git mv "img/$old.jpg" "img/renum_$old.jpg"
   [[ -f "img/$old.mp4" ]] && git mv "img/$old.mp4" "img/renum_$old.mp4"
   [[ -f "img/thumb/$old.jpg" ]] && git mv "img/thumb/$old.jpg" "img/thumb/renum_$old.jpg"
+  [[ -f "img/2000/$old.jpg" ]] && git mv "img/2000/$old.jpg" "img/2000/renum_$old.jpg"
   o=$(original_of "$old"); [[ -n "$o" ]] && movef "$o" "img originals/renum_$old.${o##*.}"
   for u in "img originals/$old--unc".*; do [[ -f "$u" ]] && movef "$u" "img originals/renum_$old--unc.${u##*.}"; done
 done < "$map"
@@ -381,6 +382,7 @@ while IFS=$'\t' read -r old new; do
   git mv "img/renum_$old.jpg" "img/$new.jpg"
   [[ -f "img/renum_$old.mp4" ]] && git mv "img/renum_$old.mp4" "img/$new.mp4"
   [[ -f "img/thumb/renum_$old.jpg" ]] && git mv "img/thumb/renum_$old.jpg" "img/thumb/$new.jpg"
+  [[ -f "img/2000/renum_$old.jpg" ]] && git mv "img/2000/renum_$old.jpg" "img/2000/$new.jpg"
   for o in "img originals/renum_$old".*; do [[ -f "$o" ]] && movef "$o" "img originals/$new.${o##*.}"; done
   for u in "img originals/renum_$old--unc".*; do [[ -f "$u" ]] && movef "$u" "img originals/$new--unc.${u##*.}"; done
   echo "name: $old -> $new"
