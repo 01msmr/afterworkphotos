@@ -74,8 +74,15 @@ the panel quietly freezes on a stale pool weeks later. The task's timezone is
 Europe/Berlin, the same clock `photo.php` reads, so the directory the task
 writes and the one the picker looks for always agree.
 
-**`trmnl/photo.php`** reads today's pool directory, picks a name, and redirects
-to the real file.
+**`trmnl/photo.php`** reads today's pool directory, picks a name, and sends the
+photograph's bytes.
+
+**It serves the file rather than redirecting to it**, which cost an afternoon to
+learn. A 302 to `img/<name>.jpg` works perfectly in the markup editor, because
+that preview is fetched by your own browser — but the device screen is rendered
+on TRMNL's servers, and their image fetcher does not follow the redirect. The
+panel showed a missing-image placeholder while the preview looked right. So PHP
+reads the file and writes it out; ~600 kB once per refresh costs nothing.
 
 **The pick is a shuffled bag, not a coin toss.** A pool holds four or five
 pictures, so a fair random choice lands on the one already showing about a fifth
@@ -86,14 +93,14 @@ never opens on the picture the previous one ended with. What is left of the
 current pass lives in `img/trmnl/.bag.json`; a changed pool opens a new bag, and
 if the file cannot be written the code falls back to a plain random pick.
 
-Two more consequences worth knowing:
+Two more things worth knowing:
 
-- The webserver never follows a symlink — the 302 points at `img/<name>.jpg`,
-  which is a real file. *Fähigkeit, symbolischen Verknüpfungen zu folgen,
-  einschränken* is on, and does not affect this.
-- PHP streams nothing: it sends a `Location` header and the photograph is
-  served as any other file on the site (*Statische Dateien direkt durch nginx
-  bedienen* is off, so Apache serves it behind the nginx proxy).
+- The webserver never follows a symlink: PHP reads through the link itself and
+  writes the bytes, so *Fähigkeit, symbolischen Verknüpfungen zu folgen,
+  einschränken* being on does not affect this.
+- The response carries `X-Awp-Photo`, so a `HEAD` says which photograph is
+  current without pulling it:
+  `curl -sI https://afterworkphotos.com/trmnl/photo.php | grep -i x-awp`
 
 If no pool exists for today — the task lapsed, or the clock sits either side of
 a day boundary — it falls back to the **nearest** day it can find, not the
