@@ -19,6 +19,12 @@
 //   php trmnl/pool.php --days 7 --date 2026-07-01 --pool /tmp/try
 //   php trmnl/pool.php --selftest
 
+// it lives in the webroot, so make sure the web cannot set it running
+if (PHP_SAPI !== 'cli') {
+    http_response_code(403);
+    exit("cli only\n");
+}
+
 const RECENT_DAYS = 30;   // how far back "lately" reaches
 const WINDOW = 1;         // the same day in any year, give or take this many
 const WANT = 4;           // widen the window until at least this many qualify
