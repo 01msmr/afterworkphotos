@@ -64,10 +64,12 @@ would be a second copy of the same rule, drifting.
 
 **Hosting und DNS → Geplante Aufgaben**, weekly, *Befehl ausführen*:
 
-    php <vhost>/httpdocs/trmnl/pool.php --days 40
+    php /afterworkphotos.com/httpdocs/trmnl/pool.php --days 40
 
-No `cd` is needed — the script finds `photos.json` and `img/` from its own
-location. Set *Benachrichtigen* to **Nur Fehler**: a silent failure here means
+The chroot's root is the subscription, one directory per domain, so the path is
+`/afterworkphotos.com/httpdocs` — **not** the bare `/httpdocs`, which is the
+primary domain's. No `cd` is needed; the script finds `photos.json` and `img/`
+from its own location. Set *Benachrichtigen* to **Nur Fehler**: a silent failure here means
 the panel quietly freezes on a stale pool weeks later. The task's timezone is
 Europe/Berlin, the same clock `photo.php` reads, so the directory the task
 writes and the one the picker looks for always agree.
