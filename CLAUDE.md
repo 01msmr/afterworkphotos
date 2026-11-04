@@ -1,6 +1,6 @@
 # CLAUDE.md — afterworkphotos
 
-A static page, no build step, no framework. The overview is `README.md`; **how everything works is `docs/details.md` — read the relevant section before changing `res/main.js` or `res/main.css`, and update it after any change in behaviour.** The VR gallery (`gallery/`, `res/gallery.*`) has its spec in `docs/superpowers/specs/`.
+A static page, no build step, no framework. The overview is `README.md`; **how everything works is `docs/details.md` — read the relevant section before changing `res/main.js` or `res/main.css`, and update it after any change in behaviour.** The VR gallery (`gallery/`, `res/gallery.*`) has its spec in `docs/superpowers/specs/`. The photo frame — the TRMNL X e-paper panel — is `trmnl/`, and **how it works is `docs/trmnl.md`**.
 
 ## Rules
 
@@ -9,6 +9,7 @@ A static page, no build step, no framework. The overview is `README.md`; **how e
 - **Never measure the viewport height from JS at load.** `--app-height` is `100lvh` in the CSS. iOS launches the home screen app's view one status bar short and extends it only past a taller document; `100dvh` or `innerHeight` freeze the short view and leave a black band under the sheets. Details: `docs/details.md`, *iOS home screen app*.
 - **Sheets stay `position: fixed` on the viewport** — never inside a transformed or clipping container (iOS sizes them wrong there).
 - Layout by CSS, not by measuring: shared tokens (`--side`, `--title-band`, `--top-gap`, `--inset`, `--settle`, `--shade-in`), not `getBoundingClientRect` for alignment.
+- **The photo frame runs on PHP, not Python.** `afterworkphotos.com` is netcup shared hosting with Plesk: no shell, no nginx config, and scheduled tasks run in a chroot with `PATH=/usr/bin:/bin` that holds no Python. The scheduled task's path is `/afterworkphotos.com/httpdocs`, not the bare `/httpdocs`. `trmnl/pool.php --selftest` checks the pool rule over a year.
 - YAGNI (global rules apply): one token, no options, no abstractions on stock.
 - iOS findings that cost time go into `docs/details.md` under *iOS home screen app — what was learned the hard way*.
 

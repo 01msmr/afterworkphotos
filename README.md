@@ -1,6 +1,6 @@
 # afterworkphotos
 
-[afterworkphotos.com](https://afterworkphotos.com) — square photos, taken after work. Two static pages, the site and a VR gallery: no build step, no framework. Photos arrive in `inbox/` — from the phone through the **afterworksnap** app (repo [`afterworkphotos-snap`](https://github.com/01msmr/afterworkphotos-snap), posting to `snap.afterworkphotos.com`) — and a GitHub workflow does the rest. How everything works, in depth: [docs/details.md](docs/details.md).
+[afterworkphotos.com](https://afterworkphotos.com) — square photos, taken after work. Two static pages, the site and a VR gallery: no build step, no framework. A third place the photos hang is a TRMNL X e-paper panel on the wall ([docs/trmnl.md](docs/trmnl.md)). Photos arrive in `inbox/` — from the phone through the **afterworksnap** app (repo [`afterworkphotos-snap`](https://github.com/01msmr/afterworkphotos-snap), posting to `snap.afterworkphotos.com`) — and a GitHub workflow does the rest. How everything works, in depth: [docs/details.md](docs/details.md).
 
 ## Files
 
@@ -13,6 +13,7 @@
 | `scripts/ingest.sh`, `.github/workflows/ingest.yml` | the ingest |
 | `manifest.json` | web app manifest — makes the home screen icon an app |
 | `gallery/`, `res/gallery.*` | the VR gallery (Meta Quest), branch `vr-view` |
+| `trmnl/` | the photo frame — a TRMNL X e-paper panel on the wall: [docs/trmnl.md](docs/trmnl.md) |
 | `docs/` | details, design specs and plans |
 | `tests/deck.html` | the deck's checks, in the browser |
 | `CLAUDE.md` | rules for working on the code |
