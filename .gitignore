@@ -3,4 +3,7 @@ secret.php
 .superpowers/
 # the originals are local: full size, metadata intact (GPS!), never pushed
 img originals/
+# the TRMNL pools: symlinks into img/, laid down on the server by cron
+img/trmnl/
 .claude/
+__pycache__/
