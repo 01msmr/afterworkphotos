@@ -42,8 +42,18 @@ if (!$names) {
 }
 sort($names);
 
-$pick = draw($names, $BAG);
-header('Location: /img/' . rawurlencode($pick), true, 302);
+// Serve the bytes rather than redirecting: TRMNL renders server side, and an
+// image fetcher cannot be relied on to follow a Location header.
+$pick = basename(draw($names, $BAG));
+$file = dirname(__DIR__) . '/img/' . $pick;
+if (!is_file($file)) {
+    http_response_code(503);
+    exit("missing $pick\n");
+}
+header('Content-Type: image/jpeg');
+header('Content-Length: ' . filesize($file));
+header('X-Awp-Photo: ' . $pick);   // which one, without fetching the picture
+readfile($file);
 
 
 // Take the next picture from the bag, refilling it when the pass is done or the
