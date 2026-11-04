@@ -24,7 +24,7 @@ each time.
 
 ## The pool
 
-`scripts/trmnl.py` lays down a directory of symlinks per day:
+`trmnl/pool.php` lays down a directory of symlinks per day:
 
     img/trmnl/2026-11-05/awp-2018-11-04-01.jpg -> ../../awp-2018-11-04-01.jpg
 
@@ -40,9 +40,10 @@ keeping three.
 
 The pool sits in `img/trmnl/`, beside the photographs it links to, so each link
 is just two levels up. `img/trmnl/` is in `.gitignore`, so the Git deployment
-never sees it. The script needs nothing but the Python 3 standard library.
+never sees it.
 
-    python3 scripts/trmnl.py --days 40
+    php trmnl/pool.php --days 40
+    php trmnl/pool.php --selftest
 
 Forty days ahead means a weekly run has five weeks of slack if one is missed. A
 photograph added between runs does not reach the panel until the next one; that
@@ -56,12 +57,20 @@ offers only preset toggles), so nginx's `random_index`, which would have served
 a random file straight out of a directory, is not available. `trmnl/photo.php`
 does that job instead, in a dozen lines.
 
-**Hosting und DNS → Geplante Aufgaben**, weekly:
+**Why PHP and not Python.** Scheduled tasks run in a chroot with
+`PATH=/usr/bin:/bin` and no Python in it at all — `/bin` holds `php`, `ln`,
+`git`, `curl` and little else. So the rule lives in PHP, once. A Python twin
+would be a second copy of the same rule, drifting.
 
-    cd ~/httpdocs && python3 scripts/trmnl.py --days 40
+**Hosting und DNS → Geplante Aufgaben**, weekly, *Befehl ausführen*:
 
-If `python3` is not on the path, take the interpreter from the panel's *Python*
-tile. The task runs as the subscription user, whose home is the vhost directory.
+    php <vhost>/httpdocs/trmnl/pool.php --days 40
+
+No `cd` is needed — the script finds `photos.json` and `img/` from its own
+location. Set *Benachrichtigen* to **Nur Fehler**: a silent failure here means
+the panel quietly freezes on a stale pool weeks later. The task's timezone is
+Europe/Berlin, the same clock `photo.php` reads, so the directory the task
+writes and the one the picker looks for always agree.
 
 **`trmnl/photo.php`** reads today's pool directory, picks a name, and redirects
 to the real file.
