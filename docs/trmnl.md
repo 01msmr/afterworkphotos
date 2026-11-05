@@ -3,13 +3,28 @@
 A 10.3" e-paper panel, 1872×1404, 16 greys, in a light grey frame. It shows one
 photograph: the 1200 px file the site already serves, at native size, centred on
 a surround of grey 153 — the frame's own colour, so the screen edge disappears
-into it. Around the photograph, following its 24 px corner, a **3 px outline**:
-white, or black under `.screen--dark-mode`.
+into it. Around the photograph, following its 24 px corner, a **3 px outline**.
 
-No images are generated for the device: the outline is CSS in the plugin's
-markup, which TRMNL renders, and the photograph is the file the site already
-serves. The plugin asks for one fixed address and gets a different picture back
-each time.
+**It is laid out as a sheet of the card deck** (2026-11-05): the print's name —
+`afterworkphoto 217` — in the band above the photograph, its right edge on the
+photograph's, and under it one line with the description at the left end and the
+place and date taken, quiet and lowercase, at the right. Each band is 102 px tall
+— `(1404 − 1200) / 2` — the name's line 46 and the quiet one 37, so each stands
+in the middle of its band and the photograph keeps the middle of the screen.
+Nothing is measured: both bands are `(100% − print) / 2`, the formula meaning
+the surround beside the print sideways and the band under it downwards.
+
+**The surround stays 153 in both modes; the outline and the lettering invert.**
+Light: white outline, black lettering, 4.7∶1 against the surround. Dark
+(`.screen--dark-mode`): black outline, white lettering, 2.3∶1 — the weaker pair,
+and the price of the surround keeping the frame's own grey. 153, 0 and 255 are
+exact steps of the 16, so neither the surround nor the line ever dithers; the
+quiet type, 55 % of the ink, lands on 69 light and 209 dark, a few points off a
+step.
+
+No images are generated for the device: the outline and the lettering are CSS in
+the plugin's markup, which TRMNL renders, and the photograph is the file the site
+already serves.
 
 ### Why 3 px
 
@@ -97,7 +112,23 @@ Europe/Berlin, the same clock `photo.php` reads, so the directory the task
 writes and the one the picker looks for always agree.
 
 **`trmnl/photo.php`** reads today's pool directory, picks a name, and sends the
-photograph's bytes.
+photograph's bytes. It has three modes, so the rule which picture is current
+lives in one place:
+
+| | |
+|---|---|
+| `photo.php` | draws one out of today's pool and writes it out |
+| `photo.php?pick=1` | draws one and answers in JSON: the name, and the caption the panel prints around it, out of `photos.json` |
+| `photo.php?name=X` | writes X out, drawing nothing |
+
+**The caption forced the split.** The plugin now polls `?pick=1` and points its
+`<img>` at `?name=` that name, so the words and the picture are the same
+photograph; drawing in both places would caption one and show another. A name is
+taken as a bare file name of ours and nothing else — `basename`, then a match
+against `awp-….jpg`, then `is_file` — and every photograph is public anyway, so
+the only question was the path. An unknown name leaves the caption empty rather
+than failing: the photograph still reaches the panel, it simply says nothing
+about itself.
 
 **It serves the file rather than redirecting to it**, which cost an afternoon to
 learn. A 302 to `img/<name>.jpg` works perfectly in the markup editor, because
@@ -132,10 +163,21 @@ The Git deployment puts both files in place; nothing is installed by hand.
 
 ## The plugin
 
-A private plugin, **strategy None** — the markup is self-contained, there is no
-data for TRMNL to fetch or merge. The markup is `docs/trmnl-plugin.html`: one
-`view view--full`, the surround, the outline, and the `<img>` pointed at
-`https://afterworkphotos.com/trmnl/photo.php`.
+A private plugin, **strategy Polling**, the URL being
+
+    https://afterworkphotos.com/trmnl/photo.php?pick=1
+
+whose JSON TRMNL merges into the markup: `{{ photo.name }}` into the `<img>`'s
+address, `{{ photo.caption }}` above the print and `{{ photo.desc }}` and
+`{{ photo.meta }}` below it. The markup is `docs/trmnl-plugin.html`: one
+`view view--full`, the surround, the outline, the two bands of type.
+
+It was strategy **None** until the caption arrived on 2026-11-05 — the markup
+was self-contained and the `<img>` drew the picture itself. Changing the markup
+alone is not enough: the plugin's strategy and its polling URL are set in the
+TRMNL interface, and until they are, the Liquid stays empty and the `<img>`
+asks for `?name=` with nothing after it — which still serves a photograph,
+drawn as before, but an uncaptioned one.
 
 **The markup is in CSS pixels, not panel pixels.** TRMNL X is 1040×780 CSS px
 at a device pixel ratio of 1.8, which is the 1872×1404 panel. So the markup

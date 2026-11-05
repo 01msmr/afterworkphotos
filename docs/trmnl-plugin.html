@@ -1,8 +1,24 @@
-<!-- TRMNL private plugin markup — the full view. Strategy: None.
+<!-- TRMNL private plugin markup — the full view. Strategy: Polling.
 
-     The src is one fixed address. Behind it trmnl/photo.php draws a name out of
-     today's pool and writes the file out, so every refresh fetches the same URL
-     and gets a different photograph. No Liquid, no data, no selection here.
+     Polling URL: https://afterworkphotos.com/trmnl/photo.php?pick=1
+
+     That address draws a name out of today's pool and answers in JSON with the
+     name and the words the card deck prints around the photograph. The <img>
+     then asks for that name, so the picture on the panel is always the one the
+     caption names. (Before the caption, the plugin was strategy None and the
+     <img> drew the picture itself; drawing in both places would caption one
+     photograph and show another.)
+
+     Laid out as a sheet of the deck (Uli, 2026-11-05): the print's name in
+     the band above the print, its right edge on the print's, and the rest —
+     the description, the place, the date — on one line in the band below, the
+     description at the left end and the place and date at the right.
+
+     Each band is 102 px tall ((1404 - 1200) / 2); the name's line is 46 and
+     the quiet one 37, so each stands in the middle of its band with 28 px of
+     air either side of the name and 32 either side of the line below. Both
+     bands are placed in the surround rather than stacked with the print,
+     which keeps the print itself centred on the screen.
 
      TRMNL X is 1040x780 CSS px at pixel ratio 1.8 = 1872x1404 physical, so the
      markup is written in CSS pixels. Every length below is stated in PHYSICAL
@@ -11,7 +27,8 @@
      = 1200.0 device px: still 1:1, nothing resampled.
 
        surround #999999 = 153        print 1200x1200 centred, corners 24px
-       outline 3 px, white; black under .screen--dark-mode
+       outline 3 px white, lettering black — both inverted under
+       .screen--dark-mode, the surround unchanged
 
      Three physical pixels is 0.33 mm, and an arcminute of acuity is about
      0.29 mm at a metre — so 3 px is the thinnest line that still reads as
@@ -33,13 +50,26 @@
     --css: calc(1 / var(--dpr));     /* a multiplier: division by a var is not safe */
     --print: calc(1200px * var(--css));
     --r: calc(24px * var(--css));
-    --line: #ffffff;                 /* light mode */
+    --cap: calc(40px * var(--css));  /* the name: 4.4 mm, reads at a metre */
+    --small: calc(32px * var(--css));
+    /* The surround stays the frame's own 153 in both modes (Uli); the
+       outline and the lettering invert. Light: white outline, black
+       lettering — 4.7:1 against the surround. Dark: black outline, white
+       lettering, which is 2.3:1, the weaker pair, and the price of the
+       surround staying put. The quiet line is 55 % of the ink over it:
+       grey 69 light, 209 dark. */
+    --paper: #999999;                /* 153 — the frame's own grey */
+    --line: #ffffff;
+    --ink: #000000;
     margin: 0; padding: 0;
-    background: #999999;
+    background: var(--paper);
+    position: relative;              /* the caption is placed in the surround */
     display: flex; align-items: center; justify-content: center;
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;   /* the site's own stack */
+    color: var(--ink);
   }
 
-  .screen--dark-mode .awp { --line: #000000; }
+  .screen--dark-mode .awp { --line: #000000; --ink: #ffffff; }
 
   .awp-print {
     width: var(--print); height: var(--print);
@@ -49,10 +79,55 @@
 
   .awp-print img { display: block; width: var(--print); height: var(--print);
                    border-radius: var(--r); }
+
+  /* The two bands of type, placed in the surround rather than stacked with
+     the print, so the print itself keeps the middle of the screen.
+
+     The same formula gives every inset, meaning two different things:
+     sideways it is the surround beside the print (336 px), up and down the
+     band above or below it (102 px). The line stands in the middle of its
+     band — the air left over, halved. Nothing is measured; the screen and the
+     print state it. */
+  .awp-title, .awp-cap {
+    position: absolute;
+    left: calc((100% - var(--print)) / 2);
+    right: calc((100% - var(--print)) / 2);
+    padding: 0 calc(3px * var(--css));   /* the deck's optical inset */
+    line-height: 1.15;
+  }
+
+  /* the name over the print, its right edge on the print's — the sheet's own
+     title band */
+  .awp-title {
+    top: calc(((100% - var(--print)) / 2 - var(--cap) * 1.15) / 2);
+    text-align: right;
+    font-size: var(--cap); font-weight: bold;
+  }
+
+  /* under it, one line with two ends on one baseline */
+  .awp-cap {
+    bottom: calc(((100% - var(--print)) / 2 - var(--small) * 1.15) / 2);
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 1.5em;
+    font-size: var(--small); font-weight: normal;
+  }
+
+  .awp-cap .awp-desc { min-width: 0; white-space: nowrap;
+                       overflow: hidden; text-overflow: ellipsis; }
+
+  /* place and date: quiet, lowercase, and keeping the right end even with no
+     description to hold the left */
+  .awp-cap .awp-meta { flex: none; margin-left: auto;
+                       opacity: 0.55; text-transform: lowercase; }
 </style>
 
 <div class="view view--full awp">
+  <div class="awp-title">{{ photo.caption }}</div>
   <div class="awp-print">
-    <img class="image-dither" src="https://afterworkphotos.com/trmnl/photo.php">
+    <img class="image-dither" src="https://afterworkphotos.com/trmnl/photo.php?name={{ photo.name }}">
+  </div>
+  <div class="awp-cap">
+    {% if photo.desc %}<span class="awp-desc">{{ photo.desc }}</span>{% endif %}
+    {% if photo.meta %}<span class="awp-meta">{{ photo.meta }}</span>{% endif %}
   </div>
 </div>

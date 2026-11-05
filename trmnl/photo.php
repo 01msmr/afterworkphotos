@@ -14,6 +14,15 @@
 // fifth of the time, and a repeat on e-paper reads as a failed refresh. Every
 // picture is shown once before any is shown again, in a fresh order each pass.
 //
+// Three modes, so the rule which picture is current lives in one place:
+//
+//   photo.php            draws one out of today's pool and writes it out
+//   photo.php?pick=1     draws one and answers in JSON: the name and the
+//                        caption the panel prints under the photograph
+//   photo.php?name=X     writes X out, drawing nothing — the address the
+//                        plugin's <img> carries, so the picture on the panel
+//                        is the one the caption names
+//
 // Documented in docs/trmnl.md.
 
 $IMG = dirname(__DIR__) . '/img';
@@ -22,6 +31,15 @@ $BAG = $POOLS . '/.bag.json';         // what is left of the current pass
 
 header('Cache-Control: no-store, no-cache, must-revalidate');
 header('Pragma: no-cache');
+
+// A name asked for by the plugin: served as it stands, the bag untouched.
+// Every photograph is public, so the only question is the path — a bare
+// file name of ours, nothing walked up to.
+$asked = isset($_GET['name']) ? basename((string) $_GET['name']) : '';
+if ($asked !== '' && preg_match('/^[\w-]+\.jpe?g$/', $asked) && is_file($IMG . '/' . $asked)) {
+    sendPhoto($IMG . '/' . $asked, $asked);
+    exit;
+}
 
 $pool = todaysPool($POOLS);
 $names = $pool ? array_values(array_diff(scandir($pool), ['.', '..'])) : [];
@@ -38,10 +56,57 @@ if (!is_file($file)) {
     exit("missing $pick\n");
 }
 
-header('Content-Type: image/jpeg');
-header('Content-Length: ' . filesize($file));
-header('X-Awp-Photo: ' . $pick);   // a HEAD says which one without pulling it
-readfile($file);
+// The plugin polls for the pick and then asks for that name, so the caption
+// and the picture are always the same photograph.
+if (isset($_GET['pick'])) {
+    header('Content-Type: application/json');
+    header('X-Awp-Photo: ' . $pick);
+    echo json_encode(['photo' => info($pick, dirname(__DIR__) . '/photos.json')], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), "\n";
+    exit;
+}
+
+sendPhoto($file, $pick);
+
+
+// The photograph's own bytes. The webserver never follows a symlink, so the
+// pool's link is read through here rather than served as a file.
+function sendPhoto(string $file, string $name): void
+{
+    header('Content-Type: image/jpeg');
+    header('Content-Length: ' . filesize($file));
+    header('X-Awp-Photo: ' . $name);   // a HEAD says which one without pulling it
+    readfile($file);
+}
+
+
+// What the panel prints around the photograph, out of photos.json, as a sheet
+// of the deck carries it: the print's name over it, and under it the
+// description with the place and the date taken. Whichever is missing is left
+// out, as on the site. An unknown name leaves all three empty: the photograph
+// still goes to the panel, it simply says nothing about itself.
+function info(string $name, string $index): array
+{
+    $out = ['name' => $name, 'caption' => '', 'meta' => '', 'desc' => ''];
+    $id = preg_replace('/\.jpe?g$/', '', $name);
+    $data = json_decode((string) @file_get_contents($index), true);
+    foreach ($data['photos'] ?? [] as $p) {
+        if (($p['id'] ?? null) !== $id) {
+            continue;
+        }
+        $out['caption'] = 'afterwork' . ($p['video'] ?? null ? 'video' : 'photo') . ' ' . $p['n'];
+        $parts = [];
+        if ($p['place'] ?? null) {
+            $parts[] = $p['place'];
+        }
+        if ($p['taken'] ?? null) {
+            $parts[] = substr($p['taken'], 0, 10);
+        }
+        $out['meta'] = implode(', ', $parts);
+        $out['desc'] = (string) ($p['desc'] ?? '');
+        break;
+    }
+    return $out;
+}
 
 
 // Today's pool directory. If there is none — the scheduled task lapsed, or the

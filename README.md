@@ -13,7 +13,7 @@
 | `scripts/ingest.sh`, `.github/workflows/ingest.yml` | the ingest |
 | `manifest.json` | web app manifest — makes the home screen icon an app |
 | `gallery/`, `res/gallery.*` | the VR gallery (Meta Quest), branch `vr-view` |
-| `trmnl/` | the photo frame — a TRMNL X e-paper panel on the wall: [docs/trmnl.md](docs/trmnl.md) |
+| `trmnl/`, `docs/trmnl-plugin.html` | the photo frame — a TRMNL X e-paper panel on the wall, one photograph with the deck's caption around it: [docs/trmnl.md](docs/trmnl.md) |
 | `docs/` | details, design specs and plans |
 | `tests/deck.html` | the deck's checks, in the browser |
 | `CLAUDE.md` | rules for working on the code |
@@ -72,6 +72,12 @@ On a desktop browser `?touch=1` (and `?tablet=1`) force the deck. The page must 
 - Keep the sheets `position: fixed` on the viewport; inside a transformed container iOS gets their height wrong.
 - The app's view **launches one status bar short** and iOS extends it only past a taller document: the viewport height is `100lvh` in the CSS, never `100dvh` and never read from JS at load — otherwise a black band stays under the sheets (17e; the 16's first launch).
 - The status bar's colour and blur cannot be controlled from a page; `--top-gap` keeps the blur off the paper.
+
+## The photo frame
+
+A TRMNL X e-paper panel on the wall, showing one photograph at a time out of the pool the day owns — the last 30 days plus the same day in other years, laid down weekly as symlinks by `trmnl/pool.php`. The pick is a shuffled bag, so every picture is shown once before any comes round again: on e-paper a repeat reads as a failed refresh rather than as chance.
+
+It is laid out as a sheet of the deck: the print's name in the band over the photograph, its right edge on the photograph's, and under it one line with the description at the left and the place and date at the right. The plugin polls `trmnl/photo.php?pick=1` for a name and those words and then asks for that name, so the caption and the picture are always the same photograph. The whole of it, the geometry and what the panel taught us: [docs/trmnl.md](docs/trmnl.md); the plugin's markup is [docs/trmnl-plugin.html](docs/trmnl-plugin.html).
 
 ## The gallery: how the rooms come to be
 
