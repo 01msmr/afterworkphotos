@@ -3,24 +3,46 @@
 A 10.3" e-paper panel, 1872×1404, 16 greys, in a light grey frame. It shows one
 photograph: the 1200 px file the site already serves, at native size, centred on
 a surround of grey 153 — the frame's own colour, so the screen edge disappears
-into it. The print is embossed into that sheet, the same press as the card deck
-on iOS (`.awphoto` in `res/main.css`): a 24 px corner, a 12 px shoulder of paper
-rolled down outside the print, and an 8 px fillet inside where the sheet
-flattens onto the floor of the recess.
+into it. Around the photograph, following its 24 px corner, a **3 px outline**:
+white, or black under `.screen--dark-mode`.
 
-The sheet descends without interruption from the surround to the floor, so the
-normal tilts one way through both turns and the shading is **one** band peaking
-at the border — not two of opposite sign. The floor fillet is therefore the
-shoulder rotated 180° about x: the same colours, offsets negated, lengths 8/12.
-Measured on a flat 153 print, the top edge runs 153 → 136 → 119 over 12 px
-outside, 85 at the crest, then back to 153 over 8 px inside; the bottom runs
-153 → 187 inside and out. The lit side is held at 0.44/0.25 so the highlight
-tops out a ramp step below the shadow's depth, which otherwise reads as a glare.
-
-No images are generated for the device: the emboss is CSS in the plugin's
+No images are generated for the device: the outline is CSS in the plugin's
 markup, which TRMNL renders, and the photograph is the file the site already
 serves. The plugin asks for one fixed address and gets a different picture back
 each time.
+
+### Why 3 px
+
+**At 227 PPI the width is not a matter of taste.** One arcminute of acuity is
+about 0.29 mm at a metre, so
+
+| | physical | at 1 m |
+|---|---|---|
+| 1 px | 0.11 mm | under the eye's resolution — a dirty edge, not a line |
+| 2 px | 0.22 mm | on the threshold: reads in some light, not in others |
+| 3 px | 0.33 mm | just resolvable, reads as deliberate |
+| 4 px | 0.45 mm | clearly a frame |
+
+So 1 px is out and 2 px is the worst of the four, being exactly at the limit.
+**3 px** is the thinnest that holds; 4 px if it should read as a frame rather
+than a hairline. Screen instinct is a poor guide here — on a phone 1 px is a
+good hairline, and this panel wants roughly three times that.
+
+Both 255 and 0 sit exactly on the 16 grey ramp, so the line never dithers;
+only the rounded corners soften, and the surround stays flat 153 out to the
+screen edge.
+
+The ring is drawn with a `box-shadow` spread, not `outline`: spread has
+followed `border-radius` in every browser for a decade, `outline` only since
+Chrome 94, and the renderer's version is not ours to choose.
+
+**What came before.** Until 2026-11-05 the photograph was embossed into the
+sheet instead — a 12 px shoulder outside and an 8 px fillet inside, one band of
+shading peaking at the border, matching the card deck on iOS (`.awphoto` in
+`res/main.css`). It worked on the panel; the outline replaced it as a plainer
+statement, a framed print on a mat rather than a card pressed into paper. The
+geometry is in the history if it is ever wanted back
+(`git log -- docs/trmnl-plugin.html`).
 
 ## The pool
 
@@ -112,7 +134,7 @@ The Git deployment puts both files in place; nothing is installed by hand.
 
 A private plugin, **strategy None** — the markup is self-contained, there is no
 data for TRMNL to fetch or merge. The markup is `docs/trmnl-plugin.html`: one
-`view view--full`, the surround, the fillets, and the `<img>` pointed at
+`view view--full`, the surround, the outline, and the `<img>` pointed at
 `https://afterworkphotos.com/trmnl/photo.php`.
 
 **The markup is in CSS pixels, not panel pixels.** TRMNL X is 1040×780 CSS px

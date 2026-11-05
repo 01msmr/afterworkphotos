@@ -11,13 +11,17 @@
      = 1200.0 device px: still 1:1, nothing resampled.
 
        surround #999999 = 153        print 1200x1200 centred, corners 24px
-       shoulder 12 px outside        floor fillet 8 px inside
+       outline 3 px, white; black under .screen--dark-mode
 
-     The sheet descends continuously from the surround to the floor of the
-     recess, so the shading is ONE band peaking at the border: the floor fillet
-     is the shoulder rotated 180 deg about x — same colours, offsets negated,
-     lengths 8/12. Lit side held at 0.44 / 0.25 so the highlight tops out one
-     ramp step below the shadow's depth.
+     Three physical pixels is 0.33 mm, and an arcminute of acuity is about
+     0.29 mm at a metre — so 3 px is the thinnest line that still reads as
+     deliberate from across the room. 1 px is finer than the eye resolves there
+     and 2 px sits exactly on the threshold. Screen instinct is no guide at
+     227 PPI. Both 255 and 0 are exact steps on the 16 grey ramp, so the line
+     never dithers; only the corners soften.
+
+     The ring is a box-shadow spread rather than an outline: spread has followed
+     border-radius in every browser for a decade, outline only since Chrome 94.
 
      The view is given no size of its own: view--full is already the screen.
      Turn off the bleed margin in the plugin settings, or the surround is inset
@@ -29,46 +33,22 @@
     --css: calc(1 / var(--dpr));     /* a multiplier: division by a var is not safe */
     --print: calc(1200px * var(--css));
     --r: calc(24px * var(--css));
+    --line: #ffffff;                 /* light mode */
     margin: 0; padding: 0;
     background: #999999;
     display: flex; align-items: center; justify-content: center;
   }
 
-  /* the shoulder: 12 px of paper rolled down into the recess */
+  .screen--dark-mode .awp { --line: #000000; }
+
   .awp-print {
-    position: relative;
     width: var(--print); height: var(--print);
     border-radius: var(--r);
-    box-shadow:
-      0 calc(-5px * var(--css)) calc(9px * var(--css))  rgba(40,30,20,0.46),
-      calc(-5px * var(--css)) 0 calc(9px * var(--css))  rgba(40,30,20,0.27),
-      0 calc(7px * var(--css)) calc(10px * var(--css))  rgba(255,255,255,0.44),
-      calc(6px * var(--css)) 0 calc(9px * var(--css))   rgba(255,255,255,0.25);
+    box-shadow: 0 0 0 calc(3px * var(--css)) var(--line);
   }
 
   .awp-print img { display: block; width: var(--print); height: var(--print);
                    border-radius: var(--r); }
-
-  .awp-print::before, .awp-print::after {
-    content: ""; position: absolute; inset: 0;
-    border-radius: var(--r); pointer-events: none;
-  }
-
-  /* the floor fillet: 8 px, the sheet flattening onto the recess floor */
-  .awp-print::before {
-    box-shadow:
-      inset 0 calc(3.3px * var(--css)) calc(6px * var(--css))    rgba(40,30,20,0.46),
-      inset calc(3.3px * var(--css)) 0 calc(6px * var(--css))    rgba(40,30,20,0.27),
-      inset 0 calc(-4.7px * var(--css)) calc(6.7px * var(--css)) rgba(255,255,255,0.44),
-      inset calc(-4px * var(--css)) 0 calc(6px * var(--css))     rgba(255,255,255,0.25);
-  }
-
-  /* the crest: the sharp line of the border itself */
-  .awp-print::after {
-    box-shadow:
-      inset 0 calc(1px * var(--css)) 0  rgba(40,30,20,0.42),
-      inset 0 calc(-1px * var(--css)) 0 rgba(255,255,255,0.14);
-  }
 </style>
 
 <div class="view view--full awp">
