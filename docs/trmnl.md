@@ -172,12 +172,18 @@ address, `{{ photo.caption }}` above the print and `{{ photo.desc }}` and
 `{{ photo.meta }}` below it. The markup is `docs/trmnl-plugin.html`: one
 `view view--full`, the surround, the outline, the two bands of type.
 
+**The payload merges at the root**: the response's own `photo` key is what the
+markup reads, `{{ photo.caption }}` and the rest, with nothing wrapped round it
+(tried on the plugin, 2026-11-05).
+
 It was strategy **None** until the caption arrived on 2026-11-05 — the markup
 was self-contained and the `<img>` drew the picture itself. Changing the markup
 alone is not enough: the plugin's strategy and its polling URL are set in the
 TRMNL interface, and until they are, the Liquid stays empty and the `<img>`
 asks for `?name=` with nothing after it — which still serves a photograph,
-drawn as before, but an uncaptioned one.
+drawn as before, but an uncaptioned one. **That is the symptom of a plugin that
+has not polled yet**: the photograph alone, no words, nothing in the markup
+editor's data panel. Save the strategy, force a refresh, and the words arrive.
 
 **The markup is in CSS pixels, not panel pixels.** TRMNL X is 1040×780 CSS px
 at a device pixel ratio of 1.8, which is the 1872×1404 panel. So the markup
