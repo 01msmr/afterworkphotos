@@ -29,7 +29,12 @@ jobs:
   ingest:
     runs-on: ubuntu-latest
     steps:
+      # main, not the triggering commit: a run that waited in the queue would
+      # otherwise start from the sha of its own push and miss the commit the
+      # run before it made (numbers and photos.json would conflict)
       - uses: actions/checkout@v4
+        with:
+          ref: main
 
       - name: ImageMagick and ffmpeg
         run: |
